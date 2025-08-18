@@ -1,31 +1,31 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
-
-	"strings"
 )
 
 func CORS() fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins:     "*",
-		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key",
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-API-Key"},
 		AllowCredentials: false,
-		MaxAge:           86400, // 24 hours
+		MaxAge:           86400, // 24h
 	})
 }
 
 func CORSProduction(allowedOrigins []string) fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins:     strings.Join(allowedOrigins, ","),
-		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-API-Key",
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-API-Key"},
 		AllowCredentials: true,
 		MaxAge:           86400,
 		Next: func(c fiber.Ctx) bool {
-			// Skip CORS for health checks
+			// ข้าม CORS สำหรับ health check
 			return strings.HasPrefix(c.Path(), "/health")
 		},
 	})

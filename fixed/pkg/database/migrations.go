@@ -6,12 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func RunMigrations(db *gorm.DB) error {
+// RunMigrations collects all models and migrates them.
+func RunMigrations(db *gorm.DB, extra ...interface{}) error {
 	models := []interface{}{
 		&user.User{},
-
-		// Add other models here
 	}
-
+	models = append(models, extra...)
 	return AutoMigrate(db, models...)
 }

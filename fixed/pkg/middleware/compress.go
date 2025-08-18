@@ -1,21 +1,21 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
-
-	"strings"
 )
 
 func Compress() fiber.Handler {
 	return compress.New(compress.Config{
-		Level: compress.LevelBestSpeed, // Balance between speed and compression
+		Level: compress.LevelBestSpeed,
 		Next: func(c fiber.Ctx) bool {
-			// Skip compression for certain content types
-			contentType := c.Get("Content-Type")
-			return strings.Contains(contentType, "image/") ||
-				strings.Contains(contentType, "video/") ||
-				strings.Contains(contentType, "audio/")
+			// ข้ามไฟล์ media (ไม่คุ้มที่จะบีบ)
+			ct := c.Get("Content-Type")
+			return strings.HasPrefix(ct, "image/") ||
+				strings.HasPrefix(ct, "video/") ||
+				strings.HasPrefix(ct, "audio/")
 		},
 	})
 }

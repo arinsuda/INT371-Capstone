@@ -1,9 +1,8 @@
 package middleware
 
 import (
-	"time"
 	"strings"
-	"fixed/utils"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
@@ -11,13 +10,16 @@ import (
 
 func RateLimit() fiber.Handler {
 	return limiter.New(limiter.Config{
-		Max:        100, // 100 requests
+		Max:        100,
 		Expiration: 1 * time.Minute,
 		KeyGenerator: func(c fiber.Ctx) string {
 			return c.Get("X-Forwarded-For", c.IP())
 		},
 		LimitReached: func(c fiber.Ctx) error {
-			return utils.ErrorResponse(c, fiber.StatusTooManyRequests, "Rate limit exceeded", nil)
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"success": false,
+				"message": "Rate limit exceeded",
+			})
 		},
 		SkipFailedRequests:     false,
 		SkipSuccessfulRequests: false,
@@ -27,24 +29,23 @@ func RateLimit() fiber.Handler {
 
 func StrictRateLimit() fiber.Handler {
 	return limiter.New(limiter.Config{
-		Max:        30, // 30 requests per minute in production
+		Max:        30,
 		Expiration: 1 * time.Minute,
 		KeyGenerator: func(c fiber.Ctx) string {
-			// Use X-Forwarded-For for load balancer/proxy setups
-			forwarded := c.Get("X-Forwarded-For")
-			if forwarded != "" {
-				// Get the first IP from X-Forwarded-For chain
-				ips := strings.Split(forwarded, ",")
+			if fwd := c.Get("X-Forwarded-For"); fwd != "" {
+				ips := strings.Split(fwd, ",")
 				return strings.TrimSpace(ips[0])
 			}
 			return c.IP()
 		},
 		LimitReached: func(c fiber.Ctx) error {
-			return utils.ErrorResponse(c, fiber.StatusTooManyRequests, "Rate limit exceeded. Please try again later.", fiber.Map{
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"success":     false,
+				"message":     "Rate limit exceeded. Please try again later.",
 				"retry_after": "60 seconds",
 			})
 		},
-		SkipFailedRequests:     true, // Don't count failed requests
+		SkipFailedRequests:     true,
 		SkipSuccessfulRequests: false,
 		LimiterMiddleware:      limiter.SlidingWindow{},
 	})

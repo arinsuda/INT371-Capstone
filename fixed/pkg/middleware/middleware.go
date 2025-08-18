@@ -1,22 +1,26 @@
 package middleware
 
 import (
-	"fixed/configs"
-	"fixed/utils"
 	"strings"
 	"time"
 
+	"fixed/configs"
+
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/timeout"
+	"github.com/google/uuid"
 )
 
-// SetupMiddleware applies all global middlewares
-func SetupMiddleware(app *fiber.App, config *configs.Config) {
-	// Security middleware
+func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
 	app.Use(Helmet())
+	app.Use(SecurityExtras())
 	app.Use(Recover())
 
+	// request id ก่อน logger
+	app.Use(RequestID())
+
 	// CORS
-	if config.App.Environment == "production" {
+	if cfg.App.Environment == "production" {
 		app.Use(CORSProduction([]string{
 			"https://yourdomain.com",
 			"https://www.yourdomain.com",
@@ -25,95 +29,98 @@ func SetupMiddleware(app *fiber.App, config *configs.Config) {
 		app.Use(CORS())
 	}
 
-	// Logging
-	if config.App.Environment == "production" {
+	// logger
+	if cfg.App.Environment == "production" {
 		app.Use(LoggerProduction())
 	} else {
 		app.Use(Logger())
 	}
 
-	// Compression
+	// compression
 	app.Use(Compress())
 
-	// Rate limiting
-	if config.App.Environment == "production" {
+	// rate limit
+	if cfg.App.Environment == "production" {
 		app.Use(StrictRateLimit())
 	} else {
 		app.Use(RateLimit())
 	}
 }
 
-// Additional Utility Middlewares
+// ---- extras ----
+
 func APIKeyAuth(validAPIKeys []string) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		apiKey := c.Get("X-API-Key")
-		if apiKey == "" {
-			return utils.ErrorResponse(c, fiber.StatusUnauthorized, "API Key required", nil)
-		}
-
-		// Check if API key is valid
-		for _, validKey := range validAPIKeys {
-			if apiKey == validKey {
-				c.Locals("api_key", apiKey)
-				return c.Next()
+		if key := c.Get("X-API-Key"); key != "" {
+			for _, k := range validAPIKeys {
+				if key == k {
+					c.Locals("api_key", key)
+					return c.Next()
+				}
 			}
 		}
-
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid API Key", nil)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid or missing API Key",
+		})
 	}
 }
 
 func RequestID() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Generate or get request ID
-		requestID := c.Get("X-Request-ID")
-		if requestID == "" {
-			// Generate new UUID for request ID
-			requestID = utils.GenerateUUID() // สมมติว่ามี function นี้ใน utils
+		id := c.Get("X-Request-ID")
+		if id == "" {
+			id = uuid.NewString()
 		}
-
-		c.Locals("request_id", requestID)
-		c.Set("X-Request-ID", requestID)
-
+		c.Locals("request_id", id)
+		c.Set("X-Request-ID", id)
 		return c.Next()
 	}
 }
 
-func Timeout(duration time.Duration) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		// Set timeout for request
-		c.SetUserContext(utils.WithTimeout(c.UserContext(), duration))
-		return c.Next()
-	}
+// ใช้ timeout ของ Fiber v3
+func Timeout(d time.Duration) fiber.Handler {
+	return timeout.New(
+		func(c fiber.Ctx) error { return c.Next() },
+		timeout.Config{
+			Timeout: d,
+			OnTimeout: func(c fiber.Ctx) error {
+				return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
+					"success": false,
+					"message": "request timed out",
+				})
+			},
+		},
+	)
 }
 
 func ContentTypeJSON() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Ensure request content type is JSON for POST/PUT/PATCH
-		if c.Method() == "POST" || c.Method() == "PUT" || c.Method() == "PATCH" {
-			contentType := c.Get("Content-Type")
-			if !strings.Contains(contentType, "application/json") {
-				return utils.ErrorResponse(c, fiber.StatusUnsupportedMediaType, "Content-Type must be application/json", nil)
+		if m := c.Method(); m == fiber.MethodPost || m == fiber.MethodPut || m == fiber.MethodPatch {
+			ct := strings.ToLower(c.Get("Content-Type"))
+			if ct == "" || !strings.HasPrefix(ct, "application/json") {
+				return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{
+					"success": false,
+					"message": "Content-Type must be application/json",
+				})
 			}
 		}
 		return c.Next()
 	}
 }
 
-func MaintenanceMode(enabled bool, message string) fiber.Handler {
+func MaintenanceMode(enabled bool, msg string) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		if enabled {
-			// Skip maintenance for health checks and admin routes
-			if strings.HasPrefix(c.Path(), "/health") ||
-				strings.HasPrefix(c.Path(), "/api/v1/admin") {
-				return c.Next()
-			}
-
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"status":  "maintenance",
-				"message": message,
-			})
+		if !enabled {
+			return c.Next()
 		}
-		return c.Next()
+		p := c.Path()
+		if p == "/health" || strings.HasPrefix(p, "/api/v1/admin") {
+			return c.Next()
+		}
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"status":  "maintenance",
+			"message": msg,
+		})
 	}
 }

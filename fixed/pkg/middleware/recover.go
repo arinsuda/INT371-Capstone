@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"log"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 )
@@ -9,12 +11,8 @@ func Recover() fiber.Handler {
 	return recover.New(recover.Config{
 		EnableStackTrace: true,
 		StackTraceHandler: func(c fiber.Ctx, e interface{}) {
-			// Log the error with stack trace
-			// ใน production ควรใช้ proper logging system
-			c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Internal server error occurred",
-			})
+			// ใช้สำหรับ log เท่านั้น ให้ Fiber ตอบ 500 เอง
+			log.Printf("[panic] %v | path=%s", e, c.Path())
 		},
 	})
 }

@@ -32,13 +32,13 @@ type DatabaseConfig struct {
 	SSLMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
-	ConnMaxLifetime int // in minutes
+	ConnMaxLifetime int // minutes
 }
 
 type JWTConfig struct {
-	Secret           string
-	AccessTokenTTL   int // in hours
-	RefreshTokenTTL  int // in hours
+	Secret          string
+	AccessTokenTTL  int // hours
+	RefreshTokenTTL int // hours
 }
 
 type RedisConfig struct {
@@ -51,7 +51,7 @@ type RedisConfig struct {
 var GlobalConfig *Config
 
 func LoadConfig() *Config {
-	// Load .env file
+	// Load .env if present; fall back to system env
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
@@ -67,18 +67,18 @@ func LoadConfig() *Config {
 			Driver:          getEnv("DB_DRIVER", "mysql"),
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            getEnv("DB_PORT", "3306"),
-			Username:        getEnv("DB_USERNAME", "root"),
+			Username:        getEnv("DB_USERNAME", "root"), // << สำคัญ: ต้องตรงกับ .env
 			Password:        getEnv("DB_PASSWORD", ""),
-			DatabaseName:    getEnv("DB_NAME", "capstone"),
+			DatabaseName:    getEnv("DB_NAME", "capstone_core"),
 			SSLMode:         getEnv("DB_SSLMODE", "disable"),
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300), // minutes
 		},
 		JWT: JWTConfig{
 			Secret:          getEnv("JWT_SECRET", "your-super-secret-jwt-key"),
 			AccessTokenTTL:  getEnvAsInt("JWT_ACCESS_TOKEN_TTL", 24),
-			RefreshTokenTTL: getEnvAsInt("JWT_REFRESH_TOKEN_TTL", 168), // 7 days
+			RefreshTokenTTL: getEnvAsInt("JWT_REFRESH_TOKEN_TTL", 168),
 		},
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
@@ -88,7 +88,6 @@ func LoadConfig() *Config {
 		},
 	}
 
-	// Set global config
 	GlobalConfig = config
 	return config
 }
