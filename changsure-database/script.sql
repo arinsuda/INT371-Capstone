@@ -27,7 +27,6 @@ CREATE TABLE users (
   role          ENUM('customer','technician','admin') NOT NULL,
   status        ENUM('active','suspended','deleted') NOT NULL DEFAULT 'active',
   email_verified_at TIMESTAMP NULL DEFAULT NULL,
-  phone_verified_at TIMESTAMP NULL DEFAULT NULL,
   last_login_at TIMESTAMP NULL DEFAULT NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -51,34 +50,24 @@ CREATE TABLE users (
   ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE customer_profiles (
-  id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  user_id         BIGINT UNSIGNED NOT NULL,
-  firstname       VARCHAR(100) NOT NULL,
-  lastname        VARCHAR(100) NOT NULL,
-  avatar_url      VARCHAR(500) NULL,
-  date_of_birth   DATE NULL,
-  gender          ENUM('male','female','other') NULL,
-  default_address VARCHAR(500) NULL,
-  default_lat     DECIMAL(10,7) NULL,
-  default_lng     DECIMAL(10,7) NULL,
-  phone_backup    VARCHAR(32) NULL,
-  emergency_contact JSON NULL,
-  preferences     JSON NULL, -- notification preferences, etc.
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  -- Indexes
+  id                BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  user_id           BIGINT UNSIGNED NOT NULL,
+  default_address_id BIGINT UNSIGNED NULL,  -- มีคอลัมน์ไว้ก่อน แต่ยังไม่ใส่ FK
+  firstname         VARCHAR(100) NOT NULL,
+  lastname          VARCHAR(100) NOT NULL,
+  avatar_url        VARCHAR(500) NULL,
+  date_of_birth     DATE NULL,
+  gender            ENUM('male','female','other') NULL,
+  phone_backup      VARCHAR(32) NULL,
+  preferences       JSON NULL,
+  created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
   UNIQUE KEY uniq_customer_user (user_id),
   KEY idx_customer_name (firstname, lastname),
-  KEY idx_customer_location (default_lat, default_lng),
-  
-  -- Constraints
+
   CONSTRAINT fk_customer_user FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT chk_customer_coordinates CHECK (
-    (default_lat IS NULL AND default_lng IS NULL) OR
-    (default_lat BETWEEN -90 AND 90 AND default_lng BETWEEN -180 AND 180)
-  )
+    ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   ROW_FORMAT=DYNAMIC;
 
@@ -89,14 +78,14 @@ CREATE TABLE technician_profiles (
   bio              TEXT NULL,
   id_card_no       VARCHAR(64) NULL,
   tax_id           VARCHAR(64) NULL,
-  bank_account     JSON NULL, -- encrypted bank details
+  bank_account     JSON NULL,
   experience_years TINYINT UNSIGNED NULL,
   status           ENUM('pending','verified','rejected','suspended') NOT NULL DEFAULT 'pending',
   rating_avg       DECIMAL(3,2) NOT NULL DEFAULT 0.00,
   rating_count     INT UNSIGNED NOT NULL DEFAULT 0,
   total_jobs       INT UNSIGNED NOT NULL DEFAULT 0,
   completion_rate  DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-  response_time_avg INT UNSIGNED NULL, -- in minutes
+  response_time_avg INT UNSIGNED NULL,
   is_available     TINYINT(1) NOT NULL DEFAULT 1,
   last_seen_at     TIMESTAMP NULL DEFAULT NULL,
   verified_at      TIMESTAMP NULL DEFAULT NULL,
@@ -130,7 +119,7 @@ CREATE TABLE admin_profiles (
   firstname   VARCHAR(100) NOT NULL,
   lastname    VARCHAR(100) NOT NULL,
   department  VARCHAR(100) NULL,
-  permissions JSON NULL, -- role-based permissions
+  permissions JSON NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
@@ -355,16 +344,17 @@ CREATE TABLE customer_addresses (
   province      VARCHAR(100) NULL,
   country       VARCHAR(100) NOT NULL DEFAULT 'Thailand',
   is_default    TINYINT(1) NOT NULL DEFAULT 0,
-  access_notes  TEXT NULL, -- delivery/access instructions
+  access_notes  TEXT NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  -- Indexes
+
+  -- indexes
   KEY idx_addr_customer_default (customer_id, is_default),
   SPATIAL INDEX spx_addr_location (location),
   KEY idx_addr_postal (postal_code),
   KEY idx_addr_district (district, province),
-  
+  UNIQUE KEY uniq_addr_label (customer_id, label),
+
   CONSTRAINT fk_addr_customer FOREIGN KEY (customer_id) REFERENCES customer_profiles(id)
     ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1650,6 +1640,10 @@ INSERT INTO coupons (code, name, description, discount_type, discount_value, min
 -- =====================================================================
 
 -- Table optimization settings
+ALTER TABLE customer_profiles
+  ADD CONSTRAINT fk_customer_address
+  FOREIGN KEY (default_address_id) REFERENCES customer_addresses(id)
+  ON UPDATE CASCADE ON DELETE SET NULL;
 ALTER TABLE users ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 ALTER TABLE job_orders ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 ALTER TABLE payments ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
