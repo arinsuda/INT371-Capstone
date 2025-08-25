@@ -1,7 +1,7 @@
 package database
 
 import (
-	"fixed/src/modules/user"
+	"changsure-core-service/src/modules/user"
 
 	"gorm.io/gorm"
 )

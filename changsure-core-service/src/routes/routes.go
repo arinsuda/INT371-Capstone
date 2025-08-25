@@ -1,10 +1,10 @@
 package routes
 
 import (
-	"fixed/configs"
-	"fixed/pkg/middleware"
-	"fixed/src/modules/technical"
-	"fixed/src/modules/user"
+	"changsure-core-service/configs"
+	"changsure-core-service/pkg/middleware"
+	"changsure-core-service/src/modules/technical"
+	"changsure-core-service/src/modules/user"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"

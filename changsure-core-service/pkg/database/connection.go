@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"fixed/configs"
+	"changsure-core-service/configs"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

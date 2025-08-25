@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	Redis    RedisConfig
+	Minio    MinioConfig
 }
 
 type AppConfig struct {
@@ -32,13 +34,13 @@ type DatabaseConfig struct {
 	SSLMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
-	ConnMaxLifetime int // minutes
+	ConnMaxLifetime int
 }
 
 type JWTConfig struct {
 	Secret          string
-	AccessTokenTTL  int // hours
-	RefreshTokenTTL int // hours
+	AccessTokenTTL  int
+	RefreshTokenTTL int
 }
 
 type RedisConfig struct {
@@ -48,13 +50,40 @@ type RedisConfig struct {
 	DB       int
 }
 
+/* ===== MinIO & Upload Policy ===== */
+type MinioConfig struct {
+	Endpoint           string
+	AccessKey          string
+	SecretKey          string
+	UseSSL             bool
+	Region             string
+	Bucket             string
+	PresignUploadTTL   int
+	PresignDownloadTTL int
+	MaxFileMB          int
+	AllowDocTypes      []string
+	AllowMIME          []string
+
+	AllowDocTypesSet map[string]struct{}
+	AllowMIMESet     map[string]struct{}
+
+	EnableVirusScan bool
+}
+
 var GlobalConfig *Config
 
 func LoadConfig() *Config {
-	// Load .env if present; fall back to system env
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
+
+	allowDocTypes := getEnvAsCSV("ALLOW_DOC_TYPES",
+		"id_card,certificate,license,portfolio,insurance",
+	)
+	allowMIME := getEnvAsCSV("ALLOW_MIME",
+		"application/pdf,image/jpeg,image/png",
+	)
 
 	config := &Config{
 		App: AppConfig{
@@ -67,13 +96,13 @@ func LoadConfig() *Config {
 			Driver:          getEnv("DB_DRIVER", "mysql"),
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            getEnv("DB_PORT", "3306"),
-			Username:        getEnv("DB_USERNAME", "root"), // << สำคัญ: ต้องตรงกับ .env
+			Username:        getEnv("DB_USERNAME", "root"),
 			Password:        getEnv("DB_PASSWORD", ""),
 			DatabaseName:    getEnv("DB_NAME", "capstone_core"),
 			SSLMode:         getEnv("DB_SSLMODE", "disable"),
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300), // minutes
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300),
 		},
 		JWT: JWTConfig{
 			Secret:          getEnv("JWT_SECRET", "your-super-secret-jwt-key"),
@@ -86,11 +115,29 @@ func LoadConfig() *Config {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
+		Minio: MinioConfig{
+			Endpoint:           getEnv("MINIO_ENDPOINT", "127.0.0.1:9000"),
+			AccessKey:          getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+			SecretKey:          getEnv("MINIO_SECRET_KEY", "minioadmin123"),
+			UseSSL:             getEnvAsBool("MINIO_USE_SSL", false),
+			Region:             getEnv("MINIO_REGION", ""),
+			Bucket:             getEnv("MINIO_BUCKET", "oneplatform"),
+			PresignUploadTTL:   getEnvAsInt("PRESIGN_UPLOAD_TTL", 900),
+			PresignDownloadTTL: getEnvAsInt("PRESIGN_DOWNLOAD_TTL", 600),
+			MaxFileMB:          getEnvAsInt("MAX_FILE_MB", 50),
+			AllowDocTypes:      allowDocTypes,
+			AllowMIME:          allowMIME,
+			AllowDocTypesSet:   sliceToSet(allowDocTypes),
+			AllowMIMESet:       sliceToSet(allowMIME),
+			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN", false),
+		},
 	}
 
 	GlobalConfig = config
 	return config
 }
+
+/* ========== helpers ========== */
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -115,4 +162,30 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+func getEnvAsCSV(key string, defaultCSV string) []string {
+	raw := getEnv(key, defaultCSV)
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func sliceToSet(items []string) map[string]struct{} {
+	m := make(map[string]struct{}, len(items))
+	for _, v := range items {
+		if v = strings.TrimSpace(v); v != "" {
+			m[v] = struct{}{}
+		}
+	}
+	return m
 }

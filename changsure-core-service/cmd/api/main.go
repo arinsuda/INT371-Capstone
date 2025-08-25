@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"fixed/configs"
-	"fixed/pkg/database"
+	"changsure-core-service/configs"
+	"changsure-core-service/pkg/database"
 )
 
 func main() {

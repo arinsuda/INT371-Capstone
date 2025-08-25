@@ -21,11 +21,16 @@ USE changsure_app;
 
 CREATE TABLE users (
   id            BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  firstname     VARCHAR(100) NOT NULL,
+  lastname      VARCHAR(100) NOT NULL,
   email         VARCHAR(190) NULL,
   phone         VARCHAR(32)  NULL,
   password_hash VARCHAR(255) NOT NULL,
+  date_of_birth DATE NULL,
+  gender        ENUM('male','female','other') NULL,
   role          ENUM('customer','technician','admin') NOT NULL,
   status        ENUM('active','suspended','deleted') NOT NULL DEFAULT 'active',
+  avatar_url        VARCHAR(500) NULL,
   email_verified_at TIMESTAMP NULL DEFAULT NULL,
   last_login_at TIMESTAMP NULL DEFAULT NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -52,12 +57,7 @@ CREATE TABLE users (
 CREATE TABLE customer_profiles (
   id                BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   user_id           BIGINT UNSIGNED NOT NULL,
-  default_address_id BIGINT UNSIGNED NULL,  -- มีคอลัมน์ไว้ก่อน แต่ยังไม่ใส่ FK
-  firstname         VARCHAR(100) NOT NULL,
-  lastname          VARCHAR(100) NOT NULL,
-  avatar_url        VARCHAR(500) NULL,
-  date_of_birth     DATE NULL,
-  gender            ENUM('male','female','other') NULL,
+  default_address_id BIGINT UNSIGNED NULL,
   phone_backup      VARCHAR(32) NULL,
   preferences       JSON NULL,
   created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -116,8 +116,6 @@ CREATE TABLE technician_profiles (
 CREATE TABLE admin_profiles (
   id          BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   user_id     BIGINT UNSIGNED NOT NULL,
-  firstname   VARCHAR(100) NOT NULL,
-  lastname    VARCHAR(100) NOT NULL,
   department  VARCHAR(100) NULL,
   permissions JSON NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -139,8 +137,8 @@ CREATE TABLE technician_verifications (
   technician_id  BIGINT UNSIGNED NOT NULL,
   doc_type       ENUM('id_card','certificate','license','portfolio','insurance') NOT NULL,
   doc_url        VARCHAR(500) NOT NULL,
-  doc_number     VARCHAR(100) NULL, -- certificate/license number
-  issued_by      VARCHAR(200) NULL, -- issuing authority
+  doc_number     VARCHAR(100) NULL,
+  issued_by      VARCHAR(200) NULL,
   expires_at     DATE NULL,
   verify_status  ENUM('pending','approved','rejected','expired') NOT NULL DEFAULT 'pending',
   verified_by    BIGINT UNSIGNED NULL,

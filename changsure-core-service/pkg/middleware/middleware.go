@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"fixed/configs"
+	"changsure-core-service/configs"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/timeout"

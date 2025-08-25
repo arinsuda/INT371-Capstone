@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v4"
 
-	"fixed/configs"
+	"changsure-core-service/configs"
 )
 
 type Claims struct {
