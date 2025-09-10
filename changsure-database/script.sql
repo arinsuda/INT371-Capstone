@@ -64,7 +64,6 @@ CREATE TABLE customer_profiles (
   updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   UNIQUE KEY uniq_customer_user (user_id),
-  KEY idx_customer_name (firstname, lastname),
 
   CONSTRAINT fk_customer_user FOREIGN KEY (user_id) REFERENCES users(id)
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -116,13 +115,11 @@ CREATE TABLE technician_profiles (
 CREATE TABLE admin_profiles (
   id          BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   user_id     BIGINT UNSIGNED NOT NULL,
-  department  VARCHAR(100) NULL,
   permissions JSON NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
   UNIQUE KEY uniq_admin_user (user_id),
-  KEY idx_admin_department (department),
   
   CONSTRAINT fk_admin_user FOREIGN KEY (user_id) REFERENCES users(id)
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -1612,14 +1609,14 @@ INSERT INTO service_categories (name, description, parent_id, level, sort_order,
 ('Refrigerator', 'Fridge repairs and gas refill', 1, 1, 4, 1),
 ('Computer Repair', 'Laptop and desktop repairs', 1, 1, 5, 1);
 
--- Insert default admin user (password should be hashed in real implementation)
-INSERT INTO users (email, password_hash, role, status) VALUES
-('admin@changsure.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'active');
+-- Insert default admin user
+INSERT INTO users (email, password_hash, role, status)
+VALUES ('admin@changsure.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'active');
 
 SET @admin_user_id = LAST_INSERT_ID();
 
-INSERT INTO admin_profiles (user_id, firstname, lastname, department) VALUES
-(@admin_user_id, 'System', 'Administrator', 'IT');
+INSERT INTO admin_profiles (user_id, permissions)
+VALUES (@admin_user_id, JSON_ARRAY('all'));
 
 -- Insert default notification preferences
 INSERT INTO notification_preferences (user_id, category, push_enabled, email_enabled, sms_enabled) VALUES
@@ -1642,6 +1639,10 @@ ALTER TABLE customer_profiles
   ADD CONSTRAINT fk_customer_address
   FOREIGN KEY (default_address_id) REFERENCES customer_addresses(id)
   ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE service_categories 
+  ADD COLUMN created_by BIGINT UNSIGNED NULL,
+  ADD CONSTRAINT fk_sc_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE SET NULL;
 ALTER TABLE users ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 ALTER TABLE job_orders ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 ALTER TABLE payments ENGINE=InnoDB ROW_FORMAT=DYNAMIC;

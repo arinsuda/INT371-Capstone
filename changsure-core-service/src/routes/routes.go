@@ -25,6 +25,7 @@ func Setup(app *fiber.App, config *configs.Config, db *gorm.DB) {
 	// Setup all modules
 	setupUserModule(api, db, config)
 	setupTechnicalModule(api, db, config)
+	setupVerificationModule(api, db, config)
 
 	// Protected routes group
 	protected := api.Group("/protected")
@@ -50,11 +51,11 @@ func Setup(app *fiber.App, config *configs.Config, db *gorm.DB) {
 // setupUserModule initializes user module with its own routes
 func setupUserModule(api fiber.Router, db *gorm.DB, config *configs.Config) {
 	// สร้าง dependencies
-	userRepo := user.NewRepository(db, config)
+	userRepo := user.NewRepository(db)
 	userService := user.NewService(userRepo, config)
 	userHandler := user.NewHandler(userService, config)
 
-	// ให้ module จัดการ routes เอง ผ่าน RegisterRoutes method
+	// ให้ module จัดการ routes เอง ผ่าง RegisterRoutes method
 	userHandler.RegisterRoutes(api)
 }
 
@@ -67,6 +68,16 @@ func setupTechnicalModule(api fiber.Router, db *gorm.DB, config *configs.Config)
 
 	// ให้ module จัดการ routes เอง ผ่าง RegisterRoutes method
 	techHandler.RegisterRoutes(api)
+}
+
+func setupVerificationModule(api fiber.Router, db *gorm.DB, config *configs.Config) {
+	// สร้าง dependencies
+	veriRepo := technical.NewVerificationRepository(db)
+	veriService := technical.NewVerificationService(veriRepo, config)
+	veriHandler := technical.NewVerificationHandler(veriService, config)
+
+	// ให้ module จัดการ routes เอง ผ่าง RegisterRoutes method
+	veriHandler.RegisterRoutes(api)
 }
 
 // setupProtectedRoutes สำหรับ routes ที่ต้อง authenticate
