@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"fixed/configs"
-	"fixed/pkg/database"
-	"fixed/src/routes"
+	"changsure-core-service/configs"
+	"changsure-core-service/pkg/database"
+	"changsure-core-service/src/routes"
 
 	"github.com/gofiber/fiber/v3"
 )
