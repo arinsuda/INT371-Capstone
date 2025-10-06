@@ -16,10 +16,8 @@ func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
 	app.Use(SecurityExtras())
 	app.Use(Recover())
 
-	// request id ก่อน logger
 	app.Use(RequestID())
 
-	// CORS
 	if cfg.App.Environment == "production" {
 		app.Use(CORSProduction([]string{
 			"https://yourdomain.com",
@@ -29,17 +27,14 @@ func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
 		app.Use(CORS())
 	}
 
-	// logger
 	if cfg.App.Environment == "production" {
 		app.Use(LoggerProduction())
 	} else {
 		app.Use(Logger())
 	}
 
-	// compression
 	app.Use(Compress())
 
-	// rate limit
 	if cfg.App.Environment == "production" {
 		app.Use(StrictRateLimit())
 	} else {
@@ -47,7 +42,6 @@ func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
 	}
 }
 
-// ---- extras ----
 
 func APIKeyAuth(validAPIKeys []string) fiber.Handler {
 	return func(c fiber.Ctx) error {
@@ -78,7 +72,6 @@ func RequestID() fiber.Handler {
 	}
 }
 
-// ใช้ timeout ของ Fiber v3
 func Timeout(d time.Duration) fiber.Handler {
 	return timeout.New(
 		func(c fiber.Ctx) error { return c.Next() },

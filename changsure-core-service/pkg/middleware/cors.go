@@ -13,7 +13,7 @@ func CORS() fiber.Handler {
 		AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-API-Key"},
 		AllowCredentials: false,
-		MaxAge:           86400, // 24h
+		MaxAge:           86400,
 	})
 }
 
@@ -25,7 +25,7 @@ func CORSProduction(allowedOrigins []string) fiber.Handler {
 		AllowCredentials: true,
 		MaxAge:           86400,
 		Next: func(c fiber.Ctx) bool {
-			// ข้าม CORS สำหรับ health check
+
 			return strings.HasPrefix(c.Path(), "/health")
 		},
 	})

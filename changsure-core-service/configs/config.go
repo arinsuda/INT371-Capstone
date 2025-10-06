@@ -32,13 +32,13 @@ type DatabaseConfig struct {
 	SSLMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
-	ConnMaxLifetime int // minutes
+	ConnMaxLifetime int
 }
 
 type JWTConfig struct {
 	Secret          string
-	AccessTokenTTL  int // hours
-	RefreshTokenTTL int // hours
+	AccessTokenTTL  int
+	RefreshTokenTTL int
 }
 
 type RedisConfig struct {
@@ -51,9 +51,12 @@ type RedisConfig struct {
 var GlobalConfig *Config
 
 func LoadConfig() *Config {
-	// Load .env if present; fall back to system env
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf("[WARN] No .env file found, using system environment variables: %v", err)
+	} else {
+		log.Println("[INFO] Loaded configuration from .env file successfully")
 	}
 
 	config := &Config{
@@ -67,16 +70,16 @@ func LoadConfig() *Config {
 			Driver:          getEnv("DB_DRIVER", "mysql"),
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            getEnv("DB_PORT", "3306"),
-			Username:        getEnv("DB_USERNAME", "root"), // << สำคัญ: ต้องตรงกับ .env
+			Username:        getEnv("DB_USERNAME", "root"),
 			Password:        getEnv("DB_PASSWORD", ""),
 			DatabaseName:    getEnv("DB_NAME", "capstone_core"),
 			SSLMode:         getEnv("DB_SSLMODE", "disable"),
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300), // minutes
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300),
 		},
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", "your-super-secret-jwt-key"),
+			Secret:          getEnv("JWT_SECRET", ""),
 			AccessTokenTTL:  getEnvAsInt("JWT_ACCESS_TOKEN_TTL", 24),
 			RefreshTokenTTL: getEnvAsInt("JWT_REFRESH_TOKEN_TTL", 168),
 		},
@@ -86,6 +89,10 @@ func LoadConfig() *Config {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
+	}
+
+	if config.JWT.Secret == "" {
+		log.Fatal("[ERROR] Missing JWT_SECRET in .env — cannot start server securely")
 	}
 
 	GlobalConfig = config

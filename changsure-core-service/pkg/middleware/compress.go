@@ -11,7 +11,7 @@ func Compress() fiber.Handler {
 	return compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 		Next: func(c fiber.Ctx) bool {
-			// ข้ามไฟล์ media (ไม่คุ้มที่จะบีบ)
+
 			ct := c.Get("Content-Type")
 			return strings.HasPrefix(ct, "image/") ||
 				strings.HasPrefix(ct, "video/") ||

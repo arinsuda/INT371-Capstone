@@ -18,12 +18,10 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// ใช้ใน main/setup เพื่อผูก middleware (ดึง secret จาก config)
 func AuthMiddleware(cfg *configs.Config) fiber.Handler {
 	return JWTAuth(cfg.JWT.Secret)
 }
 
-// ตัวช่วยตอบ error แบบมาตรฐาน (เลี่ยงการพึ่งพา utils)
 func jsonError(c fiber.Ctx, code int, msg string, extra any) error {
 	resp := fiber.Map{
 		"success": false,
@@ -37,7 +35,7 @@ func jsonError(c fiber.Ctx, code int, msg string, extra any) error {
 
 func JWTAuth(secretKey string) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Authorization: Bearer <token>
+
 		auth := c.Get("Authorization")
 		if auth == "" {
 			return jsonError(c, fiber.StatusUnauthorized, "Authorization header required", nil)
@@ -49,10 +47,9 @@ func JWTAuth(secretKey string) fiber.Handler {
 		}
 		tokenStr := parts[1]
 
-		// พาร์สเป็น struct Claims เพื่อความปลอดภัยของชนิดข้อมูล
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-			// ตรวจวิธีลงนามเป็น HMAC เท่านั้น
+
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fiber.ErrUnauthorized
 			}
@@ -62,7 +59,6 @@ func JWTAuth(secretKey string) fiber.Handler {
 			return jsonError(c, fiber.StatusUnauthorized, "Invalid or expired token", nil)
 		}
 
-		// ตั้งค่า context ให้ handler ถัดไปใช้งาน
 		c.Locals("userID", claims.UserID)
 		c.Locals("email", claims.Email)
 		c.Locals("role", claims.Role)
@@ -71,8 +67,6 @@ func JWTAuth(secretKey string) fiber.Handler {
 		return c.Next()
 	}
 }
-
-// ------- Role-based Authorization -------
 
 func AdminOnly() fiber.Handler        { return RoleAuth("admin") }
 func ModeratorOnly() fiber.Handler    { return RoleAuth("moderator") }
@@ -97,8 +91,6 @@ func RoleAuth(allowedRoles ...string) fiber.Handler {
 	}
 }
 
-// ------- Helpers to issue tokens -------
-
 func GenerateJWT(userID uint, email, role, username, secret string, expireHours int) (string, error) {
 	now := time.Now()
 	claims := &Claims{
@@ -107,7 +99,7 @@ func GenerateJWT(userID uint, email, role, username, secret string, expireHours 
 		Role:     role,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			// ตั้งหมดอายุ
+
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(expireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
