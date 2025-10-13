@@ -1,4 +1,4 @@
-package com.example.basicflutter
+package com.example.changsure
 
 import io.flutter.embedding.android.FlutterActivity
 
