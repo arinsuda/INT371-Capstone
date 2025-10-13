@@ -1,4 +1,4 @@
-import 'package:basicflutter/theme.dart';
+import 'package:basicflutter/core/theme.dart';
 import 'package:flutter/material.dart';
 
 void main() {
