@@ -231,15 +231,3 @@ func (h *Handler) SearchNearby(c fiber.Ctx) error {
 		},
 	})
 }
-
-// RegisterRoutes registers all customer routes
-func (h *Handler) RegisterRoutes(router fiber.Router) {
-	customers := router.Group("/customers")
-
-	customers.Post("/", h.CreateCustomer)
-	customers.Get("/", h.ListCustomers)
-	customers.Get("/:id", h.GetCustomer)
-	customers.Put("/:id", h.UpdateCustomer)
-	customers.Delete("/:id", h.DeleteCustomer)
-	customers.Post("/nearby", h.SearchNearby)
-}
