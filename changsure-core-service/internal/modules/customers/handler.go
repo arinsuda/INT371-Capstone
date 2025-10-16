@@ -19,15 +19,7 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// CreateCustomer godoc
-// @Summary Create a new customer
-// @Tags customers
-// @Accept json
-// @Produce json
-// @Param customer body CreateCustomerRequest true "Customer info"
-// @Success 201 {object} CustomerResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /api/v1/customers [post]
+
 func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	var req CreateCustomerRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -66,14 +58,6 @@ func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	})
 }
 
-// GetCustomer godoc
-// @Summary Get customer by ID
-// @Tags customers
-// @Produce json
-// @Param id path int true "Customer ID"
-// @Success 200 {object} CustomerResponse
-// @Failure 404 {object} ErrorResponse
-// @Router /api/v1/customers/{id} [get]
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -104,16 +88,6 @@ func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	})
 }
 
-// UpdateCustomer godoc
-// @Summary Update customer
-// @Tags customers
-// @Accept json
-// @Produce json
-// @Param id path int true "Customer ID"
-// @Param customer body UpdateCustomerRequest true "Updated customer info"
-// @Success 200 {object} CustomerResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /api/v1/customers/{id] [put]
 func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -165,14 +139,6 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	})
 }
 
-// DeleteCustomer godoc
-// @Summary Delete customer
-// @Tags customers
-// @Produce json
-// @Param id path int true "Customer ID"
-// @Success 200 {object} SuccessResponse
-// @Failure 404 {object} ErrorResponse
-// @Router /api/v1/customers/{id} [delete]
 func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -202,14 +168,6 @@ func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	})
 }
 
-// ListCustomers godoc
-// @Summary List customers
-// @Tags customers
-// @Produce json
-// @Param page query int false "Page number" default(1)
-// @Param page_size query int false "Page size" default(20)
-// @Success 200 {object} ListResponse
-// @Router /api/v1/customers [get]
 func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	page := c.Query("page", "1")
 	pageSize := c.Query("page_size", "20")
@@ -237,14 +195,6 @@ func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	})
 }
 
-// SearchNearby godoc
-// @Summary Search customers nearby
-// @Tags customers
-// @Accept json
-// @Produce json
-// @Param search body SearchNearbyRequest true "Search parameters"
-// @Success 200 {object} ListResponse
-// @Router /api/v1/customers/nearby [post]
 func (h *Handler) SearchNearby(c fiber.Ctx) error {
 	var req SearchNearbyRequest
 	if err := c.Bind().JSON(&req); err != nil {

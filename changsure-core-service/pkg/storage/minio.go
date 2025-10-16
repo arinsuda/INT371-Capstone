@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"changsure-core-service/configs"
+	"changsure-core-service/internal/config"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -33,7 +33,7 @@ type MinioOptions struct {
 type MinioStorage struct {
 	c      *minio.Client
 	bucket string
-	cfg    *configs.MinioConfig
+	cfg    *config.MinioConfig
 }
 
 func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
@@ -52,7 +52,7 @@ func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
 	return s, nil
 }
 
-func NewMinioFromConfig(c configs.MinioConfig) (*MinioStorage, error) {
+func NewMinioFromConfig(c config.MinioConfig) (*MinioStorage, error) {
 	s, err := NewMinioStorage(MinioOptions{
 		Endpoint:  c.Endpoint,
 		AccessKey: c.AccessKey,
