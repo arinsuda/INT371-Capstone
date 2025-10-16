@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"changsure-core-service/pkg/middleware"
+	"changsure-core-service/internal/middleware"
 
 	"github.com/gofiber/fiber/v3"
 )

@@ -9,91 +9,79 @@ import (
 	"syscall"
 	"time"
 
-	"changsure-core-service/configs"
-	"changsure-core-service/pkg/database"
-	"changsure-core-service/pkg/registry"
-	"changsure-core-service/src/routes"
+	"changsure-core-service/internal/config"
+	"changsure-core-service/internal/database"
+	"changsure-core-service/internal/routes"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
-	// Load configuration
-	cfg := configs.LoadConfig()
+	cfg := config.LoadConfig()
 
-	// Validate database config
-	if err := cfg.ValidateDatabaseConfig(); err != nil {
-		log.Fatalf("❌ Invalid database config: %v", err)
-	}
-
-	// Connect to database
 	db, err := database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
+	defer db.Close()
 
-	// Run migrations
-	log.Println("🔄 Running database migrations...")
-	if err := database.AutoMigrate(db, registry.AllModels()...); err != nil {
-		log.Fatalf("❌ Failed to run migrations: %v", err)
+	if shouldRunMigrations(cfg) {
+		log.Println("🔄 Running database migrations...")
+		if err := db.MigrateWithExtras(); err != nil {
+			log.Fatalf("❌ Migration failed: %v", err)
+		}
+	} else {
+		log.Println("⊘ Skipping migrations (production mode)")
 	}
 
-	// Apply database extras (functions, views, procedures)
-	if err := database.ApplyExtras(db); err != nil {
-		log.Fatalf("❌ Failed to apply database extras: %v", err)
-	}
-
-	// Optional: Verify extras were applied
-	if err := database.VerifyExtras(db); err != nil {
-		log.Printf("⚠️  Warning: Database extras verification failed: %v", err)
-	}
-
-	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "Chang Sure API",
 		ServerHeader: "Chang Sure",
 		ErrorHandler: customErrorHandler,
 	})
 
-	// Setup routes with dependency injection
-	routes.Setup(app, cfg, db)
+	routes.Setup(app, cfg, db.Gorm())
 
-	// Start server in goroutine
+	printStartupInfo(cfg)
+
+	serverErrors := make(chan error, 1)
 	go func() {
 		addr := ":" + cfg.App.Port
-		log.Printf("✅ Server starting: env=%s port=%s db=%s",
-			cfg.App.Environment, cfg.App.Port, cfg.Database.DatabaseName)
-
-		printBanner()
-
-		if err := app.Listen(addr); err != nil {
-			log.Printf("❌ Server stopped: %v", err)
-		}
+		serverErrors <- app.Listen(addr)
 	}()
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("🛑 Shutting down server...")
+	select {
+	case err := <-serverErrors:
+		log.Fatalf("❌ Server error: %v", err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	case sig := <-shutdown:
+		log.Printf("🛑 Shutting down server... (signal: %v)", sig)
 
-	if err := app.ShutdownWithContext(ctx); err != nil {
-		log.Printf("❌ Graceful shutdown error: %v", err)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := app.ShutdownWithContext(ctx); err != nil {
+			log.Fatalf("❌ Graceful shutdown failed: %v", err)
+		}
+
+		log.Println("👋 Server stopped gracefully")
 	}
-
-	// Close database connection
-	if err := database.Close(); err != nil {
-		log.Printf("⚠️  Error closing database: %v", err)
-	}
-
-	log.Println("👋 Server stopped gracefully")
 }
 
-// customErrorHandler handles all errors in a consistent format
+func shouldRunMigrations(cfg *config.Config) bool {
+	switch cfg.App.Environment {
+	case "development", "staging":
+		return true
+	case "production":
+		return false
+	default:
+		return true
+	}
+}
+
 func customErrorHandler(c fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	message := "Internal Server Error"
@@ -104,12 +92,29 @@ func customErrorHandler(c fiber.Ctx, err error) error {
 	}
 
 	return c.Status(code).JSON(fiber.Map{
-		"status":  "error",
-		"message": message,
+		"success": false,
+		"error":   message,
+		"code":    code,
 	})
 }
 
-// printBanner prints the startup banner
+func printStartupInfo(cfg *config.Config) {
+	printBanner()
+
+	log.Printf("✅ Server started successfully")
+	log.Printf("📦 Environment: %s", cfg.App.Environment)
+	log.Printf("🔌 Port: %s", cfg.App.Port)
+	log.Printf("💾 Database: %s@%s:%s/%s",
+		cfg.Database.Username,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DatabaseName,
+	)
+	log.Printf("📍 API Base: http://localhost:%s/api/v1", cfg.App.Port)
+	log.Printf("💚 Health Check: http://localhost:%s/health", cfg.App.Port)
+	fmt.Println()
+}
+
 func printBanner() {
 	fmt.Println(`
    ________                       _____                 
@@ -119,8 +124,4 @@ func printBanner() {
 \____/_/ /_/\__,_/_/ /_/\__, / /____/\__,_/_/   \___/ 
                        /____/                           
 	`)
-	fmt.Println("🚀 Chang Sure API Server")
-	fmt.Println("📍 API Documentation: http://localhost:8080/api/v1")
-	fmt.Println("💚 Health Check: http://localhost:8080/health")
-	fmt.Println()
 }

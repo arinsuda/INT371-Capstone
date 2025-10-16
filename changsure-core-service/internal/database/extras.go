@@ -1,66 +1,37 @@
 package database
 
 import (
+
 	"fmt"
 	"log"
-	"gorm.io/gorm"
 )
 
+// sqlStatement เก็บชื่อและ SQL command ของแต่ละ extra object
 type sqlStatement struct {
 	name string
 	sql  string
 }
 
-func ApplyExtras(db *gorm.DB) error {
-	log.Println("🔧 Applying extras (functions, views, procedures)...")
+// ApplyExtras สร้าง views และ stored procedures (ไม่มี function)
+func (d *Database) ApplyExtras() error {
+	log.Println("🔧 Applying SQL extras...")
+
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB: %w", err)
+	}
 
 	stmts := []sqlStatement{
 		// ========= DROP Existing Objects =========
-		{
-			name: "Drop calculate_distance function",
-			sql:  `DROP FUNCTION IF EXISTS calculate_distance`,
-		},
-		{
-			name: "Drop view_service_starting_prices view",
-			sql:  `DROP VIEW IF EXISTS view_service_starting_prices`,
-		},
-		{
-			name: "Drop view_technicians_per_service view",
-			sql:  `DROP VIEW IF EXISTS view_technicians_per_service`,
-		},
-		{
-			name: "Drop auto_match_technician procedure",
-			sql:  `DROP PROCEDURE IF EXISTS auto_match_technician`,
-		},
-		{
-			name: "Drop create_reservation procedure",
-			sql:  `DROP PROCEDURE IF EXISTS create_reservation`,
-		},
-		{
-			name: "Drop set_reservation_status procedure",
-			sql:  `DROP PROCEDURE IF EXISTS set_reservation_status`,
-		},
-
-		// ========= CREATE Function =========
-		{
-			name: "Create calculate_distance function",
-			sql: `CREATE FUNCTION calculate_distance(
-				lat1 DECIMAL(10,7), lon1 DECIMAL(10,7),
-				lat2 DECIMAL(10,7), lon2 DECIMAL(10,7)
-			) RETURNS DECIMAL(10,2)
-			DETERMINISTIC
-			BEGIN
-				RETURN 6371 * 2 * ASIN(SQRT(
-					POWER(SIN((RADIANS(lat2)-RADIANS(lat1))/2),2) +
-					COS(RADIANS(lat1))*COS(RADIANS(lat2))*
-					POWER(SIN((RADIANS(lon2)-RADIANS(lon1))/2),2)
-				));
-			END`,
-		},
+		{name: "Drop view_service_starting_prices", sql: `DROP VIEW IF EXISTS view_service_starting_prices`},
+		{name: "Drop view_technicians_per_service", sql: `DROP VIEW IF EXISTS view_technicians_per_service`},
+		{name: "Drop auto_match_technician", sql: `DROP PROCEDURE IF EXISTS auto_match_technician`},
+		{name: "Drop create_reservation", sql: `DROP PROCEDURE IF EXISTS create_reservation`},
+		{name: "Drop set_reservation_status", sql: `DROP PROCEDURE IF EXISTS set_reservation_status`},
 
 		// ========= CREATE Views =========
 		{
-			name: "Create view_service_starting_prices view",
+			name: "Create view_service_starting_prices",
 			sql: `CREATE VIEW view_service_starting_prices AS
 				SELECT s.id AS service_id, s.name AS service_name,
 					   MIN(ts.price_min) AS starting_price
@@ -70,7 +41,7 @@ func ApplyExtras(db *gorm.DB) error {
 				GROUP BY s.id, s.name`,
 		},
 		{
-			name: "Create view_technicians_per_service view",
+			name: "Create view_technicians_per_service",
 			sql: `CREATE VIEW view_technicians_per_service AS
 				SELECT
 					ts.service_id, t.id AS technician_id, t.display_name,
@@ -81,9 +52,9 @@ func ApplyExtras(db *gorm.DB) error {
 				WHERE t.is_available = 1`,
 		},
 
-		// ========= CREATE Procedures =========
+		// ========= CREATE Procedures (Haversine inline) =========
 		{
-			name: "Create auto_match_technician procedure",
+			name: "Create auto_match_technician",
 			sql: `CREATE PROCEDURE auto_match_technician (
 				IN p_customer_id INT,
 				IN p_service_id INT,
@@ -102,23 +73,37 @@ func ApplyExtras(db *gorm.DB) error {
 				IF v_lat IS NULL OR v_lon IS NULL THEN
 					SELECT NULL AS technician_id, 'Missing customer location' AS message;
 				ELSE
-					SELECT v.technician_id, v.display_name,
-						   calculate_distance(v_lat, v_lon, v.latitude, v.longitude) AS distance_km,
-						   COALESCE(v.price_min, v.price_fixed) AS base_price,
-						   v.rating_avg, v.rating_count
+					SELECT 
+						v.technician_id, 
+						v.display_name,
+						(
+							6371 * 2 * ASIN(SQRT(
+								POWER(SIN((RADIANS(v.latitude)-RADIANS(v_lat))/2),2) +
+								COS(RADIANS(v_lat))*COS(RADIANS(v.latitude))*
+								POWER(SIN((RADIANS(v.longitude)-RADIANS(v_lon))/2),2)
+							))
+						) AS distance_km,
+						COALESCE(v.price_min, v.price_fixed) AS base_price,
+						v.rating_avg, v.rating_count
 					FROM view_technicians_per_service v
 					JOIN technician_service_areas a
 						ON a.technician_id = v.technician_id AND a.province_id = p_province_id
 					WHERE v.service_id = p_service_id
 						AND v.is_available = 1
 						AND (COALESCE(v.price_min, v.price_fixed) BETWEEN p_min_price AND p_max_price)
-						AND calculate_distance(v_lat, v_lon, v.latitude, v.longitude) <= p_max_distance
+						AND (
+							6371 * 2 * ASIN(SQRT(
+								POWER(SIN((RADIANS(v.latitude)-RADIANS(v_lat))/2),2) +
+								COS(RADIANS(v_lat))*COS(RADIANS(v.latitude))*
+								POWER(SIN((RADIANS(v.longitude)-RADIANS(v_lon))/2),2)
+							))
+						) <= p_max_distance
 					ORDER BY RAND() LIMIT 1;
 				END IF;
 			END`,
 		},
 		{
-			name: "Create create_reservation procedure",
+			name: "Create create_reservation",
 			sql: `CREATE PROCEDURE create_reservation (
 				IN p_customer_id INT,
 				IN p_technician_id INT,
@@ -158,7 +143,7 @@ func ApplyExtras(db *gorm.DB) error {
 			END`,
 		},
 		{
-			name: "Create set_reservation_status procedure",
+			name: "Create set_reservation_status",
 			sql: `CREATE PROCEDURE set_reservation_status(
 				IN p_reservation_id INT,
 				IN p_new_status_code VARCHAR(20)
@@ -182,33 +167,27 @@ func ApplyExtras(db *gorm.DB) error {
 		},
 	}
 
-	// Execute each statement with error tracking
 	for i, stmt := range stmts {
-		log.Printf("   [%d/%d] %s...", i+1, len(stmts), stmt.name)
-		
-		if err := db.Exec(stmt.sql).Error; err != nil {
-			return fmt.Errorf("failed to execute '%s': %w", stmt.name, err)
+		log.Printf("   [%d/%d] %s", i+1, len(stmts), stmt.name)
+		if _, err := sqlDB.Exec(stmt.sql); err != nil {
+			return fmt.Errorf("failed '%s': %w", stmt.name, err)
 		}
 	}
 
-	log.Println("✅ Extras applied successfully!")
+	log.Println("✅ SQL extras applied successfully")
 	return nil
 }
 
-// VerifyExtras checks if all database objects were created successfully
-func VerifyExtras(db *gorm.DB) error {
-	log.Println("🔍 Verifying database extras...")
-	
-	checks := []struct {
+// VerifyExtras ตรวจสอบว่า objects ทั้งหมดถูกสร้างเรียบร้อยแล้ว
+func (d *Database) VerifyExtras() error {
+	log.Println("🔍 Verifying SQL extras...")
+
+	type check struct {
 		objectType string
 		name       string
 		query      string
-	}{
-		{
-			objectType: "FUNCTION",
-			name:       "calculate_distance",
-			query:      "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_NAME = 'calculate_distance' AND ROUTINE_TYPE = 'FUNCTION'",
-		},
+	}
+	checks := []check{
 		{
 			objectType: "VIEW",
 			name:       "view_service_starting_prices",
@@ -236,17 +215,17 @@ func VerifyExtras(db *gorm.DB) error {
 		},
 	}
 
-	for _, check := range checks {
+	for _, c := range checks {
 		var count int
-		if err := db.Raw(check.query).Scan(&count).Error; err != nil {
-			return fmt.Errorf("failed to verify %s %s: %w", check.objectType, check.name, err)
+		if err := d.DB.Raw(c.query).Scan(&count).Error; err != nil {
+			return fmt.Errorf("verify %s %s: %w", c.objectType, c.name, err)
 		}
 		if count == 0 {
-			return fmt.Errorf("%s %s does not exist", check.objectType, check.name)
+			return fmt.Errorf("%s %s not found", c.objectType, c.name)
 		}
-		log.Printf("   ✓ %s %s exists", check.objectType, check.name)
+		log.Printf("   ✓ %s: %s", c.objectType, c.name)
 	}
 
-	log.Println("✅ All database extras verified successfully!")
+	log.Println("✅ All SQL extras verified successfully")
 	return nil
 }

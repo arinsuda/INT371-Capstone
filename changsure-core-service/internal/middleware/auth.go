@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v4"
 
-	"changsure-core-service/configs"
+	"changsure-core-service/internal/config"
 )
 
 type Claims struct {
@@ -18,7 +18,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func AuthMiddleware(cfg *configs.Config) fiber.Handler {
+func AuthMiddleware(cfg *config.Config) fiber.Handler {
 	return JWTAuth(cfg.JWT.Secret)
 }
 

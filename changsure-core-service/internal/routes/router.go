@@ -1,16 +1,16 @@
 package routes
 
 import (
-	"changsure-core-service/configs"
-	"changsure-core-service/pkg/middleware"
-	"changsure-core-service/pkg/registry"
+	"changsure-core-service/internal/config"
+	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/registry"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
 // Setup initializes all routes
-func Setup(app *fiber.App, config *configs.Config, db *gorm.DB) {
+func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
 	// Setup middleware
 	middleware.SetupMiddleware(app, config)
 

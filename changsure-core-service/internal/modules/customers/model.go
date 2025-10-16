@@ -2,7 +2,7 @@ package customers
 
 import (
 	"time"
-	"changsure-core-service/src/modules/provinces"
+	"changsure-core-service/internal/modules/provinces"
 )
 
 type Customer struct {

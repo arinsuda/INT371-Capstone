@@ -5,14 +5,14 @@ import (
 	"strings"
 	"time"
 
-	"changsure-core-service/configs"
+	"changsure-core-service/internal/config"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/timeout"
 	"github.com/google/uuid"
 )
 
-func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
+func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 	// Security headers
 	app.Use(Helmet())
 	app.Use(SecurityExtras())
@@ -20,7 +20,7 @@ func SetupMiddleware(app *fiber.App, cfg *configs.Config) {
 
 	// Request tracking
 	app.Use(RequestID())
-	app.Use(ContextMiddleware()) // ← เพิ่ม Context Middleware
+	app.Use(ContextMiddleware())
 
 	// CORS
 	if cfg.App.Environment == "production" {
