@@ -3,73 +3,84 @@ package routes
 import (
 	"changsure-core-service/configs"
 	"changsure-core-service/pkg/middleware"
+	"changsure-core-service/pkg/registry"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
-	"time"
 )
 
-
+// Setup initializes all routes
 func Setup(app *fiber.App, config *configs.Config, db *gorm.DB) {
-	
+	// Setup middleware
 	middleware.SetupMiddleware(app, config)
 
-	
-	setupHealthRoutes(app)
+	// Initialize dependency container
+	container := registry.NewContainer(db)
 
-	
+	// Health check routes
+	setupHealthRoutes(app, db)
+
+	// API v1 routes
+	setupAPIv1Routes(app, container)
+
+	// 404 handler (must be last)
 	setup404Handler(app)
 }
 
+// setupAPIv1Routes sets up all API v1 routes
+func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
+	api := app.Group("/api/v1")
 
-func setupHealthRoutes(app *fiber.App) {
-	
+	// Register module routes
+	container.CustomerHandler.RegisterRoutes(api)
+	// container.TechnicianHandler.RegisterRoutes(api)
+	// container.ReservationHandler.RegisterRoutes(api)
+}
+
+// setupHealthRoutes sets up health check endpoints
+func setupHealthRoutes(app *fiber.App, db *gorm.DB) {
+	// Simple health check
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status":    "ok",
-			"message":   "Server is running",
-			"timestamp": time.Now().UTC(),
-			"version":   "1.0.0",
+			"status":  "ok",
+			"message": "Server is running",
 		})
 	})
 
-	
+	// Detailed health check
 	app.Get("/health/detailed", func(c fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":    "ok",
-			"timestamp": time.Now().UTC(),
-			"version":   "1.0.0",
-			"services": fiber.Map{
-				"database": checkDatabaseHealth(),
-				"redis":    checkRedisHealth(),
-			},
-			"system": fiber.Map{
-				"memory": getMemoryUsage(),
-				"uptime": getUptime(),
-			},
-		})
-	})
-
-	
-	app.Get("/ready", func(c fiber.Ctx) error {
-		if isApplicationReady() {
-			return c.JSON(fiber.Map{"status": "ready"})
+		dbStatus := "healthy"
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			dbStatus = "unhealthy"
 		}
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-			"status": "not_ready",
+
+		return c.JSON(fiber.Map{
+			"status": "ok",
+			"services": fiber.Map{
+				"database": dbStatus,
+			},
 		})
 	})
 
-	
+	// Readiness probe
+	app.Get("/ready", func(c fiber.Ctx) error {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status": "not_ready",
+			})
+		}
+		return c.JSON(fiber.Map{"status": "ready"})
+	})
+
+	// Liveness probe
 	app.Get("/alive", func(c fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":    "alive",
-			"timestamp": time.Now().UTC(),
-		})
+		return c.JSON(fiber.Map{"status": "alive"})
 	})
 }
 
-
+// setup404Handler handles unknown routes
 func setup404Handler(app *fiber.App) {
 	app.Use(func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -81,31 +92,4 @@ func setup404Handler(app *fiber.App) {
 			},
 		})
 	})
-}
-
-
-
-func checkDatabaseHealth() string {
-	
-	return "healthy"
-}
-
-func checkRedisHealth() string {
-	
-	return "healthy"
-}
-
-func getMemoryUsage() string {
-	
-	return "256MB / 1GB"
-}
-
-func getUptime() string {
-	
-	return "0d 0h 10m"
-}
-
-func isApplicationReady() bool {
-	
-	return true
 }
