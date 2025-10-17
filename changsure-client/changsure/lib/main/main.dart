@@ -1,54 +1,33 @@
-import 'package:basicflutter/core/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/theme.dart';
+import '../module/auth/login.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
-//สร้าง widget เอง สำหรับค่าที่ไม่ค่อยมีการเปลี่ยนแปลง
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "My App",
-      home: MyHomePage(),
+      title: 'Changsure App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+        useMaterial3: true,
+        textTheme: GoogleFonts.notoSansThaiTextTheme(),
+        appBarTheme: AppBarTheme(
+          titleTextStyle: GoogleFonts.notoSansThai(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
-    );
-  }
-}
-
-//สร้าง widget เอง สำหรับค่าที่มีการเปลี่ยนแปลงบ่อย
-class MyHomePage extends StatefulWidget {
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int number = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    List<Widget> data = [];
-
-    // ขกลุ่มข้อมูล Text widget
-    for (var i = 0; i < 10; i++) {
-      data.add(Text("รายการที่ ${i + 1}"));
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: Text("Chang Sure")),
-      body: ListView.builder(
-        itemCount: 15,
-        itemBuilder: (BuildContext context, int index) {
-          return ListTile(title: Text("เมนูที่ ${index+1}"));
-        },
-      ),
+      home: const HomePage(),
     );
   }
 }

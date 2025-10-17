@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "13749204827",
+    "project_id": "changsure-29b0c",
+    "storage_bucket": "changsure-29b0c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:13749204827:android:0787016e9486bf41e58c7e",
+        "android_client_info": {
+          "package_name": "com.example.changsure"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "13749204827-l1at0skk139spijpn99sa6r1h5qo7161.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuJWqMXmBV16NuCGCF4ynMrjKnTJflllw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "13749204827-l1at0skk139spijpn99sa6r1h5qo7161.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
