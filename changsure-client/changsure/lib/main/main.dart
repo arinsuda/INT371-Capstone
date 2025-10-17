@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
-
-
 import '../module/auth/login.dart';
 
 void main() {
@@ -32,4 +31,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

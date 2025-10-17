@@ -39,7 +39,7 @@ dependencies:
 
 flutter_icons:
   android: true
-  image_path: "image/Logo_Light.png"
+  image_path: "assets/image/Logo_Light.png"
 
 dev_dependencies:
   flutter_test:
@@ -57,7 +57,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
+  assets:
+    - assets/image/
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
