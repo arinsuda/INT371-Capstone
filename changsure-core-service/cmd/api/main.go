@@ -14,9 +14,14 @@ import (
 	"changsure-core-service/internal/routes"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️  No .env file found, using environment variables")
+	}
+
 	cfg := config.LoadConfig()
 
 	db, err := database.Connect(cfg)
@@ -38,6 +43,9 @@ func main() {
 		AppName:      "Chang Sure API",
 		ServerHeader: "Chang Sure",
 		ErrorHandler: customErrorHandler,
+		BodyLimit:    10 * 1024 * 1024,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	})
 
 	routes.Setup(app, cfg, db.Gorm())
@@ -91,11 +99,39 @@ func customErrorHandler(c fiber.Ctx, err error) error {
 		message = e.Message
 	}
 
+	if os.Getenv("APP_ENV") == "production" {
+		log.Printf("ERROR: [%d] %s - Path: %s", code, message, c.Path())
+	}
+
 	return c.Status(code).JSON(fiber.Map{
 		"success": false,
-		"error":   message,
-		"code":    code,
+		"error": fiber.Map{
+			"code":    getErrorCode(code),
+			"message": message,
+		},
 	})
+}
+func getErrorCode(statusCode int) string {
+	switch statusCode {
+	case fiber.StatusBadRequest:
+		return "BAD_REQUEST"
+	case fiber.StatusUnauthorized:
+		return "UNAUTHORIZED"
+	case fiber.StatusForbidden:
+		return "FORBIDDEN"
+	case fiber.StatusNotFound:
+		return "NOT_FOUND"
+	case fiber.StatusRequestEntityTooLarge:
+		return "FILE_TOO_LARGE"
+	case fiber.StatusUnsupportedMediaType:
+		return "UNSUPPORTED_MEDIA_TYPE"
+	case fiber.StatusUnprocessableEntity:
+		return "UNPROCESSABLE_ENTITY"
+	case fiber.StatusInternalServerError:
+		return "INTERNAL_ERROR"
+	default:
+		return "UNKNOWN_ERROR"
+	}
 }
 
 func printStartupInfo(cfg *config.Config) {
@@ -112,6 +148,7 @@ func printStartupInfo(cfg *config.Config) {
 	)
 	log.Printf("📍 API Base: http://localhost:%s/api/v1", cfg.App.Port)
 	log.Printf("💚 Health Check: http://localhost:%s/health", cfg.App.Port)
+	log.Printf("🔍 OCR Endpoint: http://localhost:%s/api/v1/ocr/id-card", cfg.App.Port)
 	fmt.Println()
 }
 

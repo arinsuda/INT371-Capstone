@@ -9,53 +9,98 @@ import (
 	"changsure-core-service/internal/modules/services"
 	"changsure-core-service/internal/modules/technicians"
 
+	ocrmod "changsure-core-service/internal/modules/ocr"
+	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
+
+	"context"
+	"fmt"
+
 	"gorm.io/gorm"
 )
+
+// ContainerOption ใช้สำหรับปรับแต่ง container ตอนสร้าง
+type ContainerOption func(*Container) error
+
+// WithOCROptions ตัวอย่าง option เผื่อ OCR ต้องการ config ภายนอกในอนาคต
+func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
+	return func(c *Container) error {
+		mod, err := setup()
+		if err != nil {
+			return fmt.Errorf("init OCR module: %w", err)
+		}
+		c.ocrModule = mod
+		c.OCRHandler = mod.Handler
+		return nil
+	}
+}
 
 // Container holds all dependencies
 type Container struct {
 	DB *gorm.DB
 
 	// Repositories
-	CustomerRepo    customers.Repository
-	// TechnicianRepo  technicians.Repository
-	// ReservationRepo reservations.Repository
+	CustomerRepo customers.Repository
 
 	// Services
-	CustomerService    customers.Service
-	// TechnicianService  technicians.Service
-	// ReservationService reservations.Service
+	CustomerService customers.Service
 
 	// Handlers
-	CustomerHandler    *customers.Handler
-	// TechnicianHandler  *technicians.Handler
-	// ReservationHandler *reservations.Handler
+	CustomerHandler *customers.Handler
+	OCRHandler      *ocrhandler.OCRHandler
+
+	// Modules with lifecycle
+	ocrModule *ocrmod.OCRModule
 }
 
 // NewContainer creates and initializes all dependencies
-func NewContainer(db *gorm.DB) *Container {
+func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db is nil")
+	}
+
 	c := &Container{DB: db}
 
 	// Initialize repositories
 	c.CustomerRepo = customers.NewRepository(db)
-	// c.TechnicianRepo = technicians.NewRepository(db)
-	// c.ReservationRepo = reservations.NewRepository(db)
 
 	// Initialize services
 	c.CustomerService = customers.NewService(c.CustomerRepo)
-	// c.TechnicianService = technicians.NewService(c.TechnicianRepo)
-	// c.ReservationService = reservations.NewService(
-	// 	c.ReservationRepo,
-	// 	c.CustomerRepo,
-	// 	c.TechnicianRepo,
-	// )
 
 	// Initialize handlers
 	c.CustomerHandler = customers.NewHandler(c.CustomerService)
-	// c.TechnicianHandler = technicians.NewHandler(c.TechnicianService)
-	// c.ReservationHandler = reservations.NewHandler(c.ReservationService)
 
-	return c
+	// Default init for OCR (ถ้าไม่มี options override)
+	defaultOCR := func() (*ocrmod.OCRModule, error) {
+		return ocrmod.NewOCRModule()
+	}
+
+	if err := WithOCROptions(defaultOCR)(c); err != nil {
+		return nil, err
+	}
+
+	// Apply external options (ถ้าผู้เรียกส่งมา)
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
+
+	return c, nil
+}
+
+// Close ปิดทรัพยากรที่ต้องการ lifecycle
+func (c *Container) Close(ctx context.Context) error {
+	var firstErr error
+
+	// ปิด OCR module ถ้ามี Close
+	if c.ocrModule != nil {
+		if err := c.ocrModule.Close(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("close OCR module: %w", err)
+		}
+	}
+
+	// ถ้ามี resource อื่น ๆ ให้ปิดที่นี่
+	return firstErr
 }
 
 // AllModels returns all models for migration
