@@ -1,0 +1,34 @@
+# ===============================
+# 🌀 AIR CONFIG (Windows-friendly)
+# ===============================
+
+[build]
+# สร้าง .exe (จำเป็นบน Windows)
+cmd = "go build -o ./tmp/main.exe ./cmd/api"
+
+# ชี้ไปที่ไฟล์ .exe ที่ build ได้
+bin = "tmp/main.exe"
+
+# เว้นวรรคให้ Air มีเวลาจับการเปลี่ยนแปลง
+delay = 1000
+
+# โฟลเดอร์ที่ต้องเฝ้าดู
+include_dir = ["cmd", "internal", "pkg"]
+
+# โฟลเดอร์ที่ไม่ต้องเฝ้าดู
+exclude_dir = ["tmp", "vendor", "node_modules"]
+
+# ไม่ต้อง reload เวลาไฟล์ test เปลี่ยน
+exclude_file = ["*_test.go"]
+
+# บันทึก log การ build (ไม่บังคับ)
+log = "build.log"
+
+[env]
+file = ".env"
+
+[color]
+build = "green"
+main = "cyan"
+runner = "magenta"
+watcher = "yellow"
