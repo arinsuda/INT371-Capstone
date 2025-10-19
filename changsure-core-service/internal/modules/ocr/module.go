@@ -25,7 +25,7 @@ func NewOCRModule() (*OCRModule, error) {
 	cfg := config.LoadOCRConfig()
 
 	// 2. สร้าง core providers
-	ocrProvider, err := provider.NewTesseractProvider(cfg)
+	ocrProvider, err := provider.NewTesseractExecProvider(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCR provider: %w", err)
 	}
@@ -84,7 +84,7 @@ func NewOCRModule() (*OCRModule, error) {
 	}, nil
 }
 
-// createStrategies สร้าง strategies ทั้งหมด
+// createStrategies สร้าง strategies ทั้งหมด (เรียงตาม priority)
 func createStrategies(
 	ocrProvider provider.OCRProvider,
 	imageProcessor provider.ImageProcessor,
@@ -93,10 +93,22 @@ func createStrategies(
 	cfg *config.OCRConfig,
 ) []provider.OCRStrategy {
 	language := cfg.Language
-
 	strategies := []provider.OCRStrategy{}
 
-	// Strategy 1: Cropped Region (highest priority)
+	// 🆕 Strategy 1: Aggressive Crop (Priority 110 - สูงสุด)
+	// เหมาะสำหรับบัตรที่มี barcode, chip, photo
+	if cfg.Strategies.EnableAggressiveCrop {
+		strategies = append(strategies, strategy.NewAggressiveCropStrategy(
+			ocrProvider,
+			imageProcessor,
+			regionDetector,
+			idValidator,
+			3.0, // upscale 3x สำหรับความละเอียดสูง
+		))
+	}
+
+	// Strategy 2: Cropped Region (Priority 100)
+	// เหมาะสำหรับบัตรทั่วไป
 	if cfg.Strategies.EnableCroppedRegion {
 		strategies = append(strategies, strategy.NewCroppedRegionStrategy(
 			ocrProvider,
@@ -104,11 +116,12 @@ func createStrategies(
 			regionDetector,
 			idValidator,
 			language,
-			cfg.IDCard.UpscaleFactor, // ใช้ค่าจาก config
+			cfg.IDCard.UpscaleFactor,
 		))
 	}
 
-	// Strategy 2: Auto Rotate (ถ้าเปิดไว้)
+	// Strategy 3: Auto Rotate (Priority 70)
+	// เหมาะสำหรับภาพที่หมุน
 	if cfg.IDCard.EnableAutoRotate {
 		strategies = append(strategies, strategy.NewAutoRotateStrategy(
 			ocrProvider,
@@ -118,7 +131,8 @@ func createStrategies(
 		))
 	}
 
-	// Strategy 3: Full Image
+	// Strategy 4: Full Image (Priority 50)
+	// เหมาะสำหรับภาพที่มีแค่เลขบัตร
 	if cfg.Strategies.EnableFullImage {
 		strategies = append(strategies, strategy.NewFullImageStrategy(
 			ocrProvider,
@@ -128,7 +142,8 @@ func createStrategies(
 		))
 	}
 
-	// Strategy 4: Normalized Image
+	// Strategy 5: Normalized Image (Priority 30)
+	// เหมาะสำหรับภาพที่มีปัญหาแสง/contrast
 	if cfg.Strategies.EnableNormalizedImage {
 		strategies = append(strategies, strategy.NewNormalizedImageStrategy(
 			ocrProvider,
@@ -138,9 +153,17 @@ func createStrategies(
 		))
 	}
 
-	// ถ้าไม่มี strategy เลย ใช้ default
+	// ถ้าไม่มี strategy เลย ใช้ default strategies
 	if len(strategies) == 0 {
-		strategies = append(strategies,
+		strategies = []provider.OCRStrategy{
+			// Default: ใช้ Aggressive Crop + Cropped Region
+			strategy.NewAggressiveCropStrategy(
+				ocrProvider,
+				imageProcessor,
+				regionDetector,
+				idValidator,
+				3.0,
+			),
 			strategy.NewCroppedRegionStrategy(
 				ocrProvider,
 				imageProcessor,
@@ -155,7 +178,7 @@ func createStrategies(
 				idValidator,
 				language,
 			),
-		)
+		}
 	}
 
 	return strategies

@@ -75,12 +75,13 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		OCRRequest: dto.OCRRequest{
 			PreprocessImage:  parseBoolForm(c, "preprocess_image", true),
 			AutoRotate:       parseBoolForm(c, "auto_rotate", true),
+			NormalizeImage:   parseBoolForm(c, "normalize_image", true),
 			ValidateChecksum: parseBoolForm(c, "validate_checksum", true),
-			Language:         parseStringForm(c, "language", "tha+eng"),
+			Language:         parseStringForm(c, "language", "eng"), // ใช้ eng สำหรับตัวเลข
 			EnableConcurrent: parseBoolForm(c, "enable_concurrent", true),
 			StopOnSuccess:    parseBoolForm(c, "stop_on_success", true),
-			MinConfidence:    parseFloatForm(c, "min_confidence", 0.85),
-			Timeout:          parseIntForm(c, "timeout", 15),
+			MinConfidence:    parseFloatForm(c, "min_confidence", 0.80), // ลดเหลือ 0.80
+			Timeout:          parseIntForm(c, "timeout", 20), // เพิ่ม timeout เป็น 20s
 		},
 		ExtractName:    parseBoolForm(c, "extract_name", false),
 		ExtractDOB:     parseBoolForm(c, "extract_dob", false),

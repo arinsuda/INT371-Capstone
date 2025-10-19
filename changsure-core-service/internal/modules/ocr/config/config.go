@@ -90,6 +90,7 @@ type PerformanceConfig struct {
 
 // StrategyConfig การตั้งค่า strategies
 type StrategyConfig struct {
+	EnableAggressiveCrop    bool
 	EnableFullImage         bool
 	EnableCroppedRegion     bool
 	EnableNormalizedImage   bool
@@ -168,6 +169,7 @@ func LoadOCRConfig() *OCRConfig {
 		
 		// Strategies
 		Strategies: StrategyConfig{
+			EnableAggressiveCrop:   getEnvAsBool("OCR_STRATEGY_AGGRESSIVE", true),
 			EnableFullImage:        getEnvAsBool("OCR_STRATEGY_FULL", true),
 			EnableCroppedRegion:    getEnvAsBool("OCR_STRATEGY_CROPPED", true),
 			EnableNormalizedImage:  getEnvAsBool("OCR_STRATEGY_NORMALIZED", true),
