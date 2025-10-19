@@ -7,6 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
+
+	"fmt"
 )
 
 func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
@@ -17,9 +19,15 @@ func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
 		panic(err)
 	}
 
+	// 🆕 เพิ่มบรรทัดนี้
 	setupHealthRoutes(app, db)
+	setupTestTools(app, config)
 	setupAPIv1Routes(app, container)
 	setup404Handler(app)
+
+	for _, r := range app.GetRoutes() {
+		fmt.Printf("Route registered: %s %s\n", r.Method, r.Path)
+	}
 }
 
 func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
@@ -27,11 +35,18 @@ func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 
 	// Register module routes
 	container.CustomerHandler.RegisterRoutes(api)
+}
 
+func setupTestTools(app *fiber.App, config *config.Config) {
+	app.Get("/test", func(c fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"message": "Test route is working!",
+			"env":     config.App.Environment,
+		})
+	})
 }
 
 func setupHealthRoutes(app *fiber.App, db *gorm.DB) {
-	// Simple health check
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",

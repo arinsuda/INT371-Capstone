@@ -13,7 +13,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/provider"
 )
 
-// StrategyManager จัดการการรัน strategies
 type StrategyManager struct {
 	strategies       []provider.OCRStrategy
 	config           *config.OCRConfig
@@ -28,7 +27,6 @@ func NewStrategyManager(
 	cache provider.CacheManager,
 	metrics provider.MetricsCollector,
 ) *StrategyManager {
-	// เรียงตาม priority
 	sort.Slice(strategies, func(i, j int) bool {
 		return strategies[i].Priority() > strategies[j].Priority()
 	})
@@ -42,11 +40,9 @@ func NewStrategyManager(
 	}
 }
 
-// Execute รัน strategies ตาม configuration
 func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, language string) (*ExecutionResult, error) {
 	startTime := time.Now()
 
-	// เช็ค cache ก่อน
 	if m.config.Performance.EnableCache && m.cache != nil {
 		cacheKey := m.createCacheKey(imageData, "all", language)
 		if cached, found := m.cache.Get(cacheKey); found {
@@ -72,7 +68,6 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		return nil, err
 	}
 
-	// เลือก result ที่ดีที่สุด
 	bestResult := m.selectBestResult(results)
 
 	executionResult := &ExecutionResult{
@@ -82,7 +77,6 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		CacheHit:        false,
 	}
 
-	// บันทึกลง cache
 	if m.config.Performance.EnableCache && m.cache != nil && bestResult.Success {
 		cacheKey := m.createCacheKey(imageData, "all", language)
 		m.cache.Set(cacheKey, bestResult.OCRResult, m.config.Performance.CacheTTL)
@@ -91,13 +85,11 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 	return executionResult, nil
 }
 
-// executeConcurrent รัน strategies แบบ concurrent
 func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byte) ([]*provider.StrategyResult, error) {
 	var wg sync.WaitGroup
 	resultsChan := make(chan *provider.StrategyResult, len(m.strategies))
 	semaphore := make(chan struct{}, m.config.Performance.MaxConcurrency)
 
-	// สร้าง context ที่มี timeout
 	execCtx, cancel := context.WithTimeout(ctx, m.config.Performance.TotalTimeout)
 	defer cancel()
 
@@ -106,7 +98,6 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 		go func(s provider.OCRStrategy) {
 			defer wg.Done()
 
-			// จำกัดจำนวน concurrent executions
 			select {
 			case semaphore <- struct{}{}:
 				defer func() { <-semaphore }()
@@ -114,7 +105,6 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 				return
 			}
 
-			// รัน strategy พร้อม timeout
 			strategyCtx, strategyCancel := context.WithTimeout(execCtx, m.config.Performance.StrategyTimeout)
 			defer strategyCancel()
 
@@ -127,7 +117,6 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 				}
 			}
 
-			// บันทึก metrics
 			if m.metrics != nil {
 				m.metrics.RecordStrategyExecution(s.Name(), result.ProcessingTime, result.Success)
 				if result.Success && result.OCRResult != nil {
@@ -140,23 +129,20 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 
 			resultsChan <- result
 
-			// Early stopping ถ้า config เปิดไว้
 			if m.config.Strategies.StopOnFirstSuccess && 
 			   result.Success && 
 			   result.OCRResult != nil && 
 			   result.OCRResult.Confidence >= m.config.Strategies.MinConfidenceToStop {
-				cancel() // หยุด strategies อื่นที่ยังรันอยู่
+				cancel()
 			}
 		}(strategy)
 	}
 
-	// รอให้ทุก goroutine เสร็จ
 	go func() {
 		wg.Wait()
 		close(resultsChan)
 	}()
 
-	// รวบรวม results
 	var results []*provider.StrategyResult
 	for result := range resultsChan {
 		results = append(results, result)
@@ -169,23 +155,19 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 	return results, nil
 }
 
-// executeSequential รัน strategies แบบ sequential
 func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byte) ([]*provider.StrategyResult, error) {
 	var results []*provider.StrategyResult
 
-	// สร้าง context ที่มี timeout
 	execCtx, cancel := context.WithTimeout(ctx, m.config.Performance.TotalTimeout)
 	defer cancel()
 
 	for _, strategy := range m.strategies {
-		// ตรวจสอบว่า context ยัง valid อยู่ไหม
 		select {
 		case <-execCtx.Done():
 			return results, execCtx.Err()
 		default:
 		}
 
-		// รัน strategy พร้อม timeout
 		strategyCtx, strategyCancel := context.WithTimeout(execCtx, m.config.Performance.StrategyTimeout)
 		
 		result, err := strategy.Execute(strategyCtx, imageData)
@@ -199,7 +181,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 			}
 		}
 
-		// บันทึก metrics
 		if m.metrics != nil {
 			m.metrics.RecordStrategyExecution(strategy.Name(), result.ProcessingTime, result.Success)
 			if result.Success && result.OCRResult != nil {
@@ -212,7 +193,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 
 		results = append(results, result)
 
-		// Early stopping
 		if m.config.Strategies.StopOnFirstSuccess && 
 		   result.Success && 
 		   result.OCRResult != nil && 
@@ -228,7 +208,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 	return results, nil
 }
 
-// selectBestResult เลือก result ที่ดีที่สุด
 func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *provider.StrategyResult {
 	if len(results) == 0 {
 		return nil
@@ -242,12 +221,10 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 			continue
 		}
 
-		// คำนวณคะแนน (confidence * priority weight)
 		score := result.OCRResult.Confidence
 		
-		// เพิ่มคะแนนให้ strategy บางตัว
 		if result.Name == "cropped" {
-			score *= 1.1 // ให้น้ำหนักมากกว่า
+			score *= 1.1
 		}
 
 		if score > bestScore {
@@ -256,7 +233,6 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 		}
 	}
 
-	// ถ้าไม่เจอ result ที่ success เลย ส่ง result แรก
 	if best == nil {
 		return results[0]
 	}
@@ -264,7 +240,6 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 	return best
 }
 
-// createCacheKey สร้าง cache key
 func (m *StrategyManager) createCacheKey(imageData []byte, strategy string, language string) *provider.CacheKey {
 	hash := sha256.Sum256(imageData)
 	return &provider.CacheKey{
@@ -274,7 +249,6 @@ func (m *StrategyManager) createCacheKey(imageData []byte, strategy string, lang
 	}
 }
 
-// ExecutionResult ผลลัพธ์จากการรัน strategies
 type ExecutionResult struct {
 	BestResult      *provider.OCRResult
 	StrategyResults []*provider.StrategyResult

@@ -8,7 +8,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// NormalizedImageStrategy - ปรับ contrast/brightness แล้ว OCR
 type NormalizedImageStrategy struct {
 	ocrProvider    provider.OCRProvider
 	imageProcessor provider.ImageProcessor
@@ -28,7 +27,7 @@ func NewNormalizedImageStrategy(
 		imageProcessor: processor,
 		validator:      validator,
 		language:       language,
-		priority:       30, // lower priority
+		priority:       30,
 	}
 }
 
@@ -47,7 +46,6 @@ func (s *NormalizedImageStrategy) ShouldRetry() bool {
 func (s *NormalizedImageStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// 1. Convert to grayscale
 	grayData, err := s.imageProcessor.ConvertToGrayscale(ctx, imageData)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -58,7 +56,6 @@ func (s *NormalizedImageStrategy) Execute(ctx context.Context, imageData []byte)
 		}, nil
 	}
 
-	// 2. Normalize
 	normalizedData, err := s.imageProcessor.Normalize(ctx, grayData)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -69,13 +66,11 @@ func (s *NormalizedImageStrategy) Execute(ctx context.Context, imageData []byte)
 		}, nil
 	}
 
-	// 3. Enhance contrast
 	enhancedData, err := s.imageProcessor.EnhanceContrast(ctx, normalizedData)
 	if err != nil {
-		enhancedData = normalizedData // fallback
+		enhancedData = normalizedData
 	}
 
-	// 4. OCR
 	result, err := s.ocrProvider.ExtractText(ctx, enhancedData, &provider.OCROptions{
 		Language: s.language,
 		PSM:      6,
@@ -89,7 +84,6 @@ func (s *NormalizedImageStrategy) Execute(ctx context.Context, imageData []byte)
 		}, nil
 	}
 
-	// 5. Validate ID
 	idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 	hasValidID := idErr == nil && idNumber != ""
 

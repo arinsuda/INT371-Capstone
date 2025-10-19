@@ -5,28 +5,24 @@ import (
 	"regexp"
 )
 
-// IDCardValidator ตรวจและดึงเลขบัตรประชาชนไทย
 type IDCardValidator struct{}
 
 func NewIDCardValidator() *IDCardValidator {
 	return &IDCardValidator{}
 }
 
-// ExtractIDNumber ดึง 13 หลักแรกที่ดูเหมือนเลขบัตรจากข้อความ
 func (v *IDCardValidator) ExtractIDNumber(text string) (string, error) {
 	re := regexp.MustCompile(`\d{13}`)
 	id := re.FindString(text)
 	if id == "" {
 		return "", errors.New("no 13-digit number found")
 	}
-	// ตรวจ checksum ให้ด้วย (optional)
 	if err := v.ValidateChecksum(id); err != nil {
 		return "", err
 	}
 	return id, nil
 }
 
-// ValidateChecksum ตรวจสอบเลขบัตรประชาชนไทย 13 หลัก
 func (v *IDCardValidator) ValidateChecksum(id string) error {
 	if len(id) != 13 {
 		return errors.New("invalid length")

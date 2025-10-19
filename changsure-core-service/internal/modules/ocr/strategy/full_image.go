@@ -8,7 +8,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// FullImageStrategy - OCR ทั้งภาพ
 type FullImageStrategy struct {
 	ocrProvider    provider.OCRProvider
 	imageProcessor provider.ImageProcessor
@@ -28,7 +27,7 @@ func NewFullImageStrategy(
 		imageProcessor: processor,
 		validator:      validator,
 		language:       language,
-		priority:       50, // medium priority
+		priority:       50,
 	}
 }
 
@@ -47,7 +46,6 @@ func (s *FullImageStrategy) ShouldRetry() bool {
 func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// Preprocess image (normalize, enhance contrast)
 	processedData, err := s.imageProcessor.Preprocess(ctx, imageData, &provider.PreprocessOptions{
 		Normalize:       true,
 		EnhanceContrast: true,
@@ -62,10 +60,9 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 		}, nil
 	}
 
-	// OCR
 	result, err := s.ocrProvider.ExtractText(ctx, processedData, &provider.OCROptions{
 		Language: s.language,
-		PSM:      6, // Assume uniform block of text
+		PSM:      6,
 	})
 	if err != nil {
 		return &provider.StrategyResult{
@@ -76,7 +73,6 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 		}, nil
 	}
 
-	// Validate ID
 	idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 	hasValidID := idErr == nil && idNumber != ""
 

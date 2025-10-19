@@ -538,30 +538,82 @@
             
             finalCtx.putImageData(imageData, 0, 0);
         }
+async function processImage() {
+    if (!originalImage) return;
+    
+    // Extract ROI
+    const roiCanvas = document.getElementById('roiCanvas');
+    const roiCtx = roiCanvas.getContext('2d');
+    
+    const x = currentROI.x * originalImage.width;
+    const y = currentROI.y * originalImage.height;
+    const w = currentROI.w * originalImage.width;
+    const h = currentROI.h * originalImage.height;
+    
+    roiCanvas.width = w;
+    roiCanvas.height = h;
+    roiCtx.drawImage(originalImage, x, y, w, h, 0, 0, w, h);
+    
+    document.getElementById('roiSize').textContent = 
+        `${Math.round(w)}×${Math.round(h)}`;
+    
+    // Preprocess
+    preprocessImage(roiCanvas);
+    
+    // 🔥 เรียก API จริงแทน simulateOCR()
+    await callOCRAPI();
+}
+
+async function callOCRAPI() {
+    try {
+        // แปลง canvas เป็น blob
+        const finalCanvas = document.getElementById('finalCanvas');
+        const blob = await new Promise(resolve => 
+            finalCanvas.toBlob(resolve, 'image/png')
+        );
         
-        function simulateOCR() {
-            // Simulate OCR result
-            const mockResults = [
-                '1 1223 34455 66 7',
-                '1-1223-34455-66-7',
-                '1122334455667',
-                '1 1223  34455  66  7'
-            ];
-            
-            const randomResult = mockResults[Math.floor(Math.random() * mockResults.length)];
-            const confidence = (Math.random() * 0.3 + 0.7).toFixed(2);
-            
-            document.getElementById('detectedChars').textContent = 
-                randomResult.replace(/\s/g, '').length;
-            document.getElementById('confidence').textContent = 
-                (confidence * 100).toFixed(0) + '%';
-            
-            const result = document.getElementById('result');
-            result.style.display = 'block';
-            document.getElementById('ocrResult').textContent = 
-                `Raw Text: ${randomResult}\nCleaned: ${randomResult.replace(/[^\d]/g, '')}\nFormatted: ${formatIDNumber(randomResult.replace(/[^\d]/g, ''))}\nConfidence: ${(confidence * 100).toFixed(1)}%\nValid Checksum: ${validateChecksum(randomResult.replace(/[^\d]/g, ''))}`;
+        // สร้าง FormData
+        const formData = new FormData();
+        formData.append('image', blob, 'idcard.png');
+        
+        // เรียก API
+        const response = await fetch('http://localhost:8080/api/v1/ocr/id-card', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
+        const data = await response.json();
+        
+        // แสดงผล
+        displayOCRResult(data);
+        
+    } catch (error) {
+        console.error('OCR Error:', error);
+        alert('เกิดข้อผิดพลาดในการเรียก OCR API: ' + error.message);
+    }
+}
+
+// 🆕 เพิ่ม function แสดงผล
+function displayOCRResult(data) {
+    // ปรับตามโครงสร้าง response ของคุณ
+    const idNumber = data.data?.id_number || data.id_number || 'ไม่พบข้อมูล';
+    const confidence = data.data?.confidence || data.confidence || 0;
+    
+    document.getElementById('detectedChars').textContent = 
+        idNumber.replace(/[^\d]/g, '').length;
+    document.getElementById('confidence').textContent = 
+        (confidence * 100).toFixed(0) + '%';
+    
+    const result = document.getElementById('result');
+    result.style.display = 'block';
+    document.getElementById('ocrResult').textContent = 
+        `Raw Text: ${idNumber}\nCleaned: ${idNumber.replace(/[^\d]/g, '')}\nFormatted: ${formatIDNumber(idNumber.replace(/[^\d]/g, ''))}\nConfidence: ${(confidence * 100).toFixed(1)}%\nValid Checksum: ${validateChecksum(idNumber.replace(/[^\d]/g, ''))}`;
+}
+
         function formatIDNumber(id) {
             if (id.length !== 13) return id;
             return `${id[0]}-${id.substring(1,5)}-${id.substring(5,10)}-${id.substring(10,12)}-${id[12]}`;

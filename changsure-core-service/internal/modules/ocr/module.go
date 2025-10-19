@@ -12,19 +12,16 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// OCRModule เป็น main module
 type OCRModule struct {
 	Handler *handler.OCRHandler
 	Service *service.OCRService
 	Config  *config.OCRConfig
 }
 
-// NewOCRModule สร้าง OCR module พร้อม dependencies ทั้งหมด
 func NewOCRModule() (*OCRModule, error) {
-	// 1. Load config
+
 	cfg := config.LoadOCRConfig()
 
-	// 2. สร้าง core providers
 	ocrProvider, err := provider.NewTesseractExecProvider(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCR provider: %w", err)
@@ -33,11 +30,9 @@ func NewOCRModule() (*OCRModule, error) {
 	imageProcessor := provider.NewDefaultImageProcessor()
 	regionDetector := provider.NewDefaultRegionDetector()
 
-	// 3. สร้าง validators
 	idValidator := validator.NewIDCardValidator()
 	fileValidator := validator.NewFileValidator(cfg)
 
-	// 4. สร้าง cache และ metrics
 	var cacheManager provider.CacheManager
 	var metricsCollector provider.MetricsCollector
 
@@ -49,7 +44,6 @@ func NewOCRModule() (*OCRModule, error) {
 		metricsCollector = infra.NewMetricsCollector()
 	}
 
-	// 5. สร้าง strategies
 	strategies := createStrategies(
 		ocrProvider,
 		imageProcessor,
@@ -58,7 +52,6 @@ func NewOCRModule() (*OCRModule, error) {
 		cfg,
 	)
 
-	// 6. สร้าง strategy manager
 	strategyManager := strategy.NewStrategyManager(
 		strategies,
 		cfg,
@@ -66,7 +59,6 @@ func NewOCRModule() (*OCRModule, error) {
 		metricsCollector,
 	)
 
-	// 7. สร้าง service
 	ocrService := service.NewOCRService(
 		strategyManager,
 		idValidator,
@@ -74,7 +66,6 @@ func NewOCRModule() (*OCRModule, error) {
 		cfg,
 	)
 
-	// 8. สร้าง handler
 	ocrHandler := handler.NewOCRHandler(ocrService, fileValidator)
 
 	return &OCRModule{
@@ -84,7 +75,6 @@ func NewOCRModule() (*OCRModule, error) {
 	}, nil
 }
 
-// createStrategies สร้าง strategies ทั้งหมด (เรียงตาม priority)
 func createStrategies(
 	ocrProvider provider.OCRProvider,
 	imageProcessor provider.ImageProcessor,
@@ -95,20 +85,16 @@ func createStrategies(
 	language := cfg.Language
 	strategies := []provider.OCRStrategy{}
 
-	// 🆕 Strategy 1: Aggressive Crop (Priority 110 - สูงสุด)
-	// เหมาะสำหรับบัตรที่มี barcode, chip, photo
 	if cfg.Strategies.EnableAggressiveCrop {
 		strategies = append(strategies, strategy.NewAggressiveCropStrategy(
 			ocrProvider,
 			imageProcessor,
 			regionDetector,
 			idValidator,
-			3.0, // upscale 3x สำหรับความละเอียดสูง
+			3.0,
 		))
 	}
 
-	// Strategy 2: Cropped Region (Priority 100)
-	// เหมาะสำหรับบัตรทั่วไป
 	if cfg.Strategies.EnableCroppedRegion {
 		strategies = append(strategies, strategy.NewCroppedRegionStrategy(
 			ocrProvider,
@@ -120,8 +106,6 @@ func createStrategies(
 		))
 	}
 
-	// Strategy 3: Auto Rotate (Priority 70)
-	// เหมาะสำหรับภาพที่หมุน
 	if cfg.IDCard.EnableAutoRotate {
 		strategies = append(strategies, strategy.NewAutoRotateStrategy(
 			ocrProvider,
@@ -131,8 +115,6 @@ func createStrategies(
 		))
 	}
 
-	// Strategy 4: Full Image (Priority 50)
-	// เหมาะสำหรับภาพที่มีแค่เลขบัตร
 	if cfg.Strategies.EnableFullImage {
 		strategies = append(strategies, strategy.NewFullImageStrategy(
 			ocrProvider,
@@ -142,8 +124,6 @@ func createStrategies(
 		))
 	}
 
-	// Strategy 5: Normalized Image (Priority 30)
-	// เหมาะสำหรับภาพที่มีปัญหาแสง/contrast
 	if cfg.Strategies.EnableNormalizedImage {
 		strategies = append(strategies, strategy.NewNormalizedImageStrategy(
 			ocrProvider,
@@ -153,10 +133,8 @@ func createStrategies(
 		))
 	}
 
-	// ถ้าไม่มี strategy เลย ใช้ default strategies
 	if len(strategies) == 0 {
 		strategies = []provider.OCRStrategy{
-			// Default: ใช้ Aggressive Crop + Cropped Region
 			strategy.NewAggressiveCropStrategy(
 				ocrProvider,
 				imageProcessor,
@@ -184,7 +162,6 @@ func createStrategies(
 	return strategies
 }
 
-// contains ตรวจสอบว่า slice มี item หรือไม่
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
@@ -194,12 +171,10 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// NewModule alias สำหรับความเข้ากันได้
 func NewModule() (*OCRModule, error) {
 	return NewOCRModule()
 }
 
-// Close ปิด module
 func (m *OCRModule) Close() error {
 	if m.Service != nil {
 		return m.Service.Close()
