@@ -8,7 +8,6 @@ type OCRError struct {
 	Err     error
 }
 
-// NewOCRError สร้าง error ใหม่
 func NewOCRError(code, message string, err error) *OCRError {
 	return &OCRError{
 		Code:    code,

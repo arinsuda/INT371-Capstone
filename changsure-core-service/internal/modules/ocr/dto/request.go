@@ -1,46 +1,33 @@
 package dto
 
-// ============================================
-// 1️⃣ Request DTOs
-// ============================================
-
-// OCRRequest คำขอ OCR ทั่วไป
 type OCRRequest struct {
-	// Image processing options
-	PreprocessImage  bool   `json:"preprocess_image" form:"preprocess_image"`
-	AutoRotate       bool   `json:"auto_rotate" form:"auto_rotate"`
-	NormalizeImage   bool   `json:"normalize_image" form:"normalize_image"`
-	
-	// OCR options
-	Language         string `json:"language" form:"language"`
-	PSM              *int   `json:"psm,omitempty" form:"psm"` // Override PSM
-	
-	// Validation options
-	ValidateChecksum bool   `json:"validate_checksum" form:"validate_checksum"`
-	StrictMode       bool   `json:"strict_mode" form:"strict_mode"`
-	
-	// Performance options
-	Timeout          int    `json:"timeout,omitempty" form:"timeout"` // seconds
-	EnableConcurrent bool   `json:"enable_concurrent" form:"enable_concurrent"`
-	
-	// Strategy options
-	Strategies       []string `json:"strategies,omitempty" form:"strategies"` // ["full", "cropped", "normalized"]
-	StopOnSuccess    bool     `json:"stop_on_success" form:"stop_on_success"`
-	MinConfidence    float64  `json:"min_confidence,omitempty" form:"min_confidence"`
+	PreprocessImage bool `json:"preprocess_image" form:"preprocess_image"`
+	AutoRotate      bool `json:"auto_rotate" form:"auto_rotate"`
+	NormalizeImage  bool `json:"normalize_image" form:"normalize_image"`
+
+	Language string `json:"language" form:"language"`
+	PSM      *int   `json:"psm,omitempty" form:"psm"`
+
+	ValidateChecksum bool `json:"validate_checksum" form:"validate_checksum"`
+	StrictMode       bool `json:"strict_mode" form:"strict_mode"`
+
+	Timeout          int  `json:"timeout,omitempty" form:"timeout"`
+	EnableConcurrent bool `json:"enable_concurrent" form:"enable_concurrent"`
+
+	Strategies    []string `json:"strategies,omitempty" form:"strategies"`
+	StopOnSuccess bool     `json:"stop_on_success" form:"stop_on_success"`
+	MinConfidence float64  `json:"min_confidence,omitempty" form:"min_confidence"`
 }
 
-// IDCardRequest คำขอเฉพาะบัตรประชาชน
 type IDCardRequest struct {
 	OCRRequest
-	
-	// ID Card specific
+
 	ExtractName      bool `json:"extract_name" form:"extract_name"`
 	ExtractDOB       bool `json:"extract_dob" form:"extract_dob"`
 	ExtractAddress   bool `json:"extract_address" form:"extract_address"`
 	ExtractIssueDate bool `json:"extract_issue_date" form:"extract_issue_date"`
 	ExtractExpiry    bool `json:"extract_expiry" form:"extract_expiry"`
-	
-	// Region detection
+
 	AutoDetectRegion bool `json:"auto_detect_region" form:"auto_detect_region"`
 }
 

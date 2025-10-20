@@ -15,33 +15,33 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 
-	github.com/andybalholm/brotli v1.2.0 
-	github.com/dustin/go-humanize v1.0.1 
-	github.com/gabriel-vasile/mimetype v1.4.10 
-	github.com/go-ini/ini v1.67.0 
-	github.com/go-playground/locales v0.14.1 
-	github.com/go-playground/universal-translator v0.18.1 
-	github.com/go-sql-driver/mysql v1.8.1 
-	github.com/goccy/go-json v0.10.5 
-	github.com/gofiber/schema v1.6.0 
-	github.com/gofiber/utils/v2 v2.0.0-rc.1 
-	github.com/jinzhu/inflection v1.0.0 
-	github.com/jinzhu/now v1.1.5 
-	github.com/klauspost/compress v1.18.0 
-	github.com/klauspost/cpuid/v2 v2.3.0 
-	github.com/leodido/go-urn v1.4.0 
-	github.com/mattn/go-colorable v0.1.14 
-	github.com/mattn/go-isatty v0.0.20 
-	github.com/minio/crc64nvme v1.0.2 
-	github.com/minio/md5-simd v1.1.2 
-	github.com/philhofer/fwd v1.2.0 
-	github.com/rs/xid v1.6.0 
-	github.com/tinylib/msgp v1.4.0 
-	github.com/valyala/bytebufferpool v1.0.0 
-	github.com/valyala/fasthttp v1.65.0 
-	golang.org/x/crypto v0.43.0 
-	golang.org/x/net v0.46.0 
-	golang.org/x/sys v0.37.0 
-	golang.org/x/text v0.30.0 
+	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
+	github.com/go-ini/ini v1.67.0 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/gofiber/schema v1.6.0 // indirect
+	github.com/gofiber/utils/v2 v2.0.0-rc.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/minio/crc64nvme v1.0.2 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	github.com/tinylib/msgp v1.4.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.65.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 )

@@ -19,31 +19,31 @@ type OCRModule struct {
 }
 
 func NewOCRModule() (*OCRModule, error) {
-
 	cfg := config.LoadOCRConfig()
 
+	// Provider / Processor / Detector
 	ocrProvider, err := provider.NewTesseractExecProvider(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCR provider: %w", err)
 	}
+	imageProcessor := provider.NewDefaultImageProcessor() // ภายในรองรับลอจิกตาม opts ที่ส่งจาก strategy
+	regionDetector := provider.NewDefaultRegionDetector() // อ่านค่าครอปจาก ENV ตามที่ปรับไว้ก่อนหน้า
 
-	imageProcessor := provider.NewDefaultImageProcessor()
-	regionDetector := provider.NewDefaultRegionDetector()
-
+	// Validators
 	idValidator := validator.NewIDCardValidator()
 	fileValidator := validator.NewFileValidator(cfg)
 
+	// Infra: cache / metrics
 	var cacheManager provider.CacheManager
 	var metricsCollector provider.MetricsCollector
-
 	if cfg.Performance.EnableCache {
 		cacheManager = infra.NewMemoryCache()
 	}
-
 	if cfg.Performance.EnableMetrics {
 		metricsCollector = infra.NewMetricsCollector()
 	}
 
+	// Build strategies จาก cfg (ผูกกับ .env เต็มที่)
 	strategies := createStrategies(
 		ocrProvider,
 		imageProcessor,
@@ -52,6 +52,7 @@ func NewOCRModule() (*OCRModule, error) {
 		cfg,
 	)
 
+	// Manager
 	strategyManager := strategy.NewStrategyManager(
 		strategies,
 		cfg,
@@ -59,13 +60,13 @@ func NewOCRModule() (*OCRModule, error) {
 		metricsCollector,
 	)
 
+	// Service / Handler
 	ocrService := service.NewOCRService(
 		strategyManager,
 		idValidator,
 		metricsCollector,
 		cfg,
 	)
-
 	ocrHandler := handler.NewOCRHandler(ocrService, fileValidator)
 
 	return &OCRModule{
@@ -82,98 +83,73 @@ func createStrategies(
 	idValidator *validator.IDCardValidator,
 	cfg *config.OCRConfig,
 ) []provider.OCRStrategy {
-	language := cfg.Language
-	strategies := []provider.OCRStrategy{}
+	// สร้างเป็น map ก่อน เพื่อจัดเรียงตาม ExecutionOrder ได้ง่าย
+	registry := map[string]provider.OCRStrategy{}
 
 	if cfg.Strategies.EnableAggressiveCrop {
-		strategies = append(strategies, strategy.NewAggressiveCropStrategy(
-			ocrProvider,
-			imageProcessor,
-			regionDetector,
-			idValidator,
-			3.0,
-		))
+		registry["aggressive_crop"] = strategy.NewAggressiveCropStrategy(
+			ocrProvider, imageProcessor, regionDetector, idValidator, cfg,
+		)
 	}
-
 	if cfg.Strategies.EnableCroppedRegion {
-		strategies = append(strategies, strategy.NewCroppedRegionStrategy(
-			ocrProvider,
-			imageProcessor,
-			regionDetector,
-			idValidator,
-			language,
-			cfg.IDCard.UpscaleFactor,
-		))
+		registry["cropped"] = strategy.NewCroppedRegionStrategy(
+			ocrProvider, imageProcessor, regionDetector, idValidator, cfg,
+			
+		)
 	}
-
 	if cfg.IDCard.EnableAutoRotate {
-		strategies = append(strategies, strategy.NewAutoRotateStrategy(
-			ocrProvider,
-			imageProcessor,
-			idValidator,
-			language,
-		))
+		registry["auto_rotate"] = strategy.NewAutoRotateStrategy(
+			ocrProvider, imageProcessor, idValidator, cfg,
+		)
 	}
-
 	if cfg.Strategies.EnableFullImage {
-		strategies = append(strategies, strategy.NewFullImageStrategy(
-			ocrProvider,
-			imageProcessor,
-			idValidator,
-			language,
-		))
+		registry["full"] = strategy.NewFullImageStrategy(
+			ocrProvider, imageProcessor, idValidator, cfg,
+		)
 	}
-
 	if cfg.Strategies.EnableNormalizedImage {
-		strategies = append(strategies, strategy.NewNormalizedImageStrategy(
-			ocrProvider,
-			imageProcessor,
-			idValidator,
-			language,
-		))
+		registry["normalized"] = strategy.NewNormalizedImageStrategy(
+			ocrProvider, imageProcessor, idValidator, cfg,
+		)
 	}
 
-	if len(strategies) == 0 {
-		strategies = []provider.OCRStrategy{
-			strategy.NewAggressiveCropStrategy(
-				ocrProvider,
-				imageProcessor,
-				regionDetector,
-				idValidator,
-				3.0,
-			),
-			strategy.NewCroppedRegionStrategy(
-				ocrProvider,
-				imageProcessor,
-				regionDetector,
-				idValidator,
-				language,
-				2.0,
-			),
-			strategy.NewFullImageStrategy(
-				ocrProvider,
-				imageProcessor,
-				idValidator,
-				language,
-			),
+	// ถ้าไม่มีอะไรเปิดไว้เลย ให้มีชุด fallback ที่อ่านค่าใน cfg ภายในกลยุทธ์เอง
+	if len(registry) == 0 {
+		registry["aggressive_crop"] = strategy.NewAggressiveCropStrategy(
+			ocrProvider, imageProcessor, regionDetector, idValidator, cfg,
+		)
+		registry["cropped"] = strategy.NewCroppedRegionStrategy(
+			ocrProvider, imageProcessor, regionDetector, idValidator, cfg,
+		)
+		registry["full"] = strategy.NewFullImageStrategy(
+			ocrProvider, imageProcessor, idValidator, cfg,
+		)
+	}
+
+	// จัดเรียงตาม ExecutionOrder จาก .env; ถ้าเว้นว่างใช้ลำดับมาตรฐาน
+	order := cfg.Strategies.ExecutionOrder
+	if len(order) == 0 {
+		order = []string{"cropped", "aggressive_crop", "normalized", "auto_rotate", "full"}
+	}
+
+	out := make([]provider.OCRStrategy, 0, len(registry))
+	used := map[string]bool{}
+	for _, key := range order {
+		if s, ok := registry[key]; ok {
+			out = append(out, s)
+			used[key] = true
 		}
 	}
-
-	return strategies
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
+	// เติมกลยุทธ์ที่เปิดไว้แต่ไม่อยู่ใน order (กันตกหล่น)
+	for k, s := range registry {
+		if !used[k] {
+			out = append(out, s)
 		}
 	}
-	return false
+	return out
 }
 
-func NewModule() (*OCRModule, error) {
-	return NewOCRModule()
-}
+func NewModule() (*OCRModule, error) { return NewOCRModule() }
 
 func (m *OCRModule) Close() error {
 	if m.Service != nil {

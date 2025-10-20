@@ -7,13 +7,11 @@ import (
 	"changsure-core-service/internal/modules/ocr/provider"
 )
 
-// cacheEntry entry ใน cache
 type cacheEntry struct {
 	result    *provider.OCRResult
 	expiresAt time.Time
 }
 
-// MemoryCache implements CacheManager interface
 type MemoryCache struct {
 	cache map[string]*cacheEntry
 	mu    sync.RWMutex
@@ -24,13 +22,11 @@ func NewMemoryCache() provider.CacheManager {
 		cache: make(map[string]*cacheEntry),
 	}
 
-	// Cleanup goroutine
 	go cache.cleanupExpired()
 
 	return cache
 }
 
-// Get ดึงข้อมูลจาก cache
 func (c *MemoryCache) Get(key *provider.CacheKey) (*provider.OCRResult, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -42,7 +38,6 @@ func (c *MemoryCache) Get(key *provider.CacheKey) (*provider.OCRResult, bool) {
 		return nil, false
 	}
 
-	// ตรวจสอบว่าหมดอายุหรือไม่
 	if time.Now().After(entry.expiresAt) {
 		return nil, false
 	}
@@ -50,7 +45,6 @@ func (c *MemoryCache) Get(key *provider.CacheKey) (*provider.OCRResult, bool) {
 	return entry.result, true
 }
 
-// Set บันทึกข้อมูลลง cache
 func (c *MemoryCache) Set(key *provider.CacheKey, result *provider.OCRResult, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -64,7 +58,6 @@ func (c *MemoryCache) Set(key *provider.CacheKey, result *provider.OCRResult, tt
 	return nil
 }
 
-// Clear ล้าง cache ทั้งหมด
 func (c *MemoryCache) Clear() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -73,12 +66,10 @@ func (c *MemoryCache) Clear() error {
 	return nil
 }
 
-// buildKey สร้าง key string จาก CacheKey
 func (c *MemoryCache) buildKey(key *provider.CacheKey) string {
 	return key.ImageHash + ":" + key.Strategy + ":" + key.Language
 }
 
-// cleanupExpired ลบ entries ที่หมดอายุ
 func (c *MemoryCache) cleanupExpired() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()

@@ -2,7 +2,6 @@ package dto
 
 import "time"
 
-// OCRResponse response หลัก
 type OCRResponse struct {
 	Success   bool           `json:"success"`
 	Data      *OCRData       `json:"data,omitempty"`
@@ -11,7 +10,6 @@ type OCRResponse struct {
 	Timestamp time.Time      `json:"timestamp"`
 }
 
-// OCRData ข้อมูล OCR ทั่วไป
 type OCRData struct {
 	RawText    string   `json:"raw_text"`
 	Confidence float64  `json:"confidence"`
@@ -20,32 +18,26 @@ type OCRData struct {
 	Warnings   []string `json:"warnings,omitempty"`
 }
 
-// IDCardData ข้อมูลบัตรประชาชน
 type IDCardData struct {
 	OCRData
-	
-	// Required field
+
 	IDNumber string `json:"id_number"`
-	
-	// Optional fields
-	NameTH        string    `json:"name_th,omitempty"`
-	NameEN        string    `json:"name_en,omitempty"`
-	DateOfBirth   string    `json:"date_of_birth,omitempty"`
-	Address       string    `json:"address,omitempty"`
-	IssueDate     string    `json:"issue_date,omitempty"`
-	ExpiryDate    string    `json:"expiry_date,omitempty"`
-	
-	// Validation
-	ChecksumValid bool      `json:"checksum_valid"`
-	FormatValid   bool      `json:"format_valid"`
-	
-	// Detection info
+
+	NameTH      string `json:"name_th,omitempty"`
+	NameEN      string `json:"name_en,omitempty"`
+	DateOfBirth string `json:"date_of_birth,omitempty"`
+	Address     string `json:"address,omitempty"`
+	IssueDate   string `json:"issue_date,omitempty"`
+	ExpiryDate  string `json:"expiry_date,omitempty"`
+
+	ChecksumValid bool `json:"checksum_valid"`
+	FormatValid   bool `json:"format_valid"`
+
 	DetectedRegions []DetectedRegion `json:"detected_regions,omitempty"`
 }
 
-// DetectedRegion ข้อมูลพื้นที่ที่ตรวจพบ
 type DetectedRegion struct {
-	Type       string  `json:"type"` // "id_number", "name", "photo", etc.
+	Type       string  `json:"type"`
 	X          float64 `json:"x"`
 	Y          float64 `json:"y"`
 	Width      float64 `json:"width"`
@@ -53,17 +45,15 @@ type DetectedRegion struct {
 	Confidence float64 `json:"confidence"`
 }
 
-// Metadata ข้อมูล metadata
 type Metadata struct {
-	ProcessingTime  int64              `json:"processing_time_ms"`
-	StrategyUsed    string             `json:"strategy_used,omitempty"`
-	TotalStrategies int                `json:"total_strategies"`
-	ImageInfo       *ImageInfo         `json:"image_info,omitempty"`
-	StrategyResults []StrategyResult   `json:"strategy_results,omitempty"`
-	Version         string             `json:"version,omitempty"`
+	ProcessingTime  int64            `json:"processing_time_ms"`
+	StrategyUsed    string           `json:"strategy_used,omitempty"`
+	TotalStrategies int              `json:"total_strategies"`
+	ImageInfo       *ImageInfo       `json:"image_info,omitempty"`
+	StrategyResults []StrategyResult `json:"strategy_results,omitempty"`
+	Version         string           `json:"version,omitempty"`
 }
 
-// ImageInfo ข้อมูลภาพ
 type ImageInfo struct {
 	Width           int     `json:"width"`
 	Height          int     `json:"height"`
@@ -74,7 +64,6 @@ type ImageInfo struct {
 	WasPreprocessed bool    `json:"was_preprocessed"`
 }
 
-// StrategyResult ผลลัพธ์จากแต่ละ strategy
 type StrategyResult struct {
 	Name           string  `json:"name"`
 	Success        bool    `json:"success"`
@@ -84,16 +73,11 @@ type StrategyResult struct {
 	IDFound        bool    `json:"id_found,omitempty"`
 }
 
-// ErrorResponse error response
 type ErrorResponse struct {
 	Code    string                 `json:"code"`
 	Message string                 `json:"message"`
 	Details map[string]interface{} `json:"details,omitempty"`
 }
-
-// ============================================
-// 3️⃣ Helper Functions
-// ============================================
 
 func NewSuccessResponse(data *OCRData) *OCRResponse {
 	return &OCRResponse{
@@ -140,10 +124,6 @@ func NewErrorResponseWithDetails(code, message string, details map[string]interf
 		Timestamp: time.Now(),
 	}
 }
-
-// ============================================
-// 4️⃣ Error Codes
-// ============================================
 
 const (
 	ErrCodeInvalidInput     = "INVALID_INPUT"
