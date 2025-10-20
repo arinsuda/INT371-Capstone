@@ -12,7 +12,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// OCRService หลัก (Facade Pattern)
 type OCRService struct {
 	strategyManager *strategy.StrategyManager
 	validator       *validator.IDCardValidator
@@ -34,7 +33,6 @@ func NewOCRService(
 	}
 }
 
-// ProcessIDCard ประมวลผลบัตรประชาชน
 func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *dto.IDCardRequest) (*dto.IDCardData, *dto.Metadata, error) {
 	startTime := time.Now()
 

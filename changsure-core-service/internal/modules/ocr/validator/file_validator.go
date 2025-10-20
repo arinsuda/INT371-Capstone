@@ -19,7 +19,6 @@ func NewFileValidator(cfg *config.OCRConfig) *FileValidator {
 	return &FileValidator{config: cfg}
 }
 
-// ValidateFile ตรวจสอบไฟล์จาก multipart header
 func (v *FileValidator) ValidateFile(fileHeader *multipart.FileHeader) error {
 	if fileHeader == nil {
 		return ocrErrors.NewInvalidFileError("file header is nil", nil)
@@ -35,12 +34,10 @@ func (v *FileValidator) ValidateFile(fileHeader *multipart.FileHeader) error {
 	}
 	defer file.Close()
 
-	// อ่าน 512 ไบต์แรก เพื่อเดา MIME
 	sniff := make([]byte, 512)
 	n, _ := file.Read(sniff)
 	contentType := http.DetectContentType(sniff[:n])
 
-	// ถ้า detect ไม่ได้ ลอง fallback จากนามสกุลไฟล์
 	if contentType == "application/octet-stream" {
 		if ext := strings.ToLower(filepath.Ext(fileHeader.Filename)); ext != "" {
 			switch ext {
@@ -65,7 +62,6 @@ func (v *FileValidator) ValidateFile(fileHeader *multipart.FileHeader) error {
 	return nil
 }
 
-// ValidateFileBytes ใช้กรณีคุณมี []byte อยู่แล้ว
 func (v *FileValidator) ValidateFileBytes(data []byte, filename string) error {
 	if data == nil {
 		return ocrErrors.NewInvalidFileError("file bytes is nil", nil)
@@ -75,7 +71,6 @@ func (v *FileValidator) ValidateFileBytes(data []byte, filename string) error {
 	}
 	contentType := http.DetectContentType(first512(data))
 	if contentType == "application/octet-stream" {
-		// fallback จากนามสกุล
 		if ext := strings.ToLower(filepath.Ext(filename)); ext != "" {
 			switch ext {
 			case ".jpg", ".jpeg":
@@ -98,7 +93,6 @@ func (v *FileValidator) ValidateFileBytes(data []byte, filename string) error {
 }
 
 func (v *FileValidator) isAllowedFormat(contentType string, filename string) bool {
-	// ถ้าไม่ได้ตั้งค่ารายการ allowed ไว้ ก็ยอมเฉพาะ image/*
 	allowed := []string{"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 	if v.config != nil && len(v.config.AllowedFormats) > 0 {
 		allowed = v.config.AllowedFormats
@@ -108,7 +102,6 @@ func (v *FileValidator) isAllowedFormat(contentType string, filename string) boo
 			return true
 		}
 	}
-	// เผื่อเจอกรณี DetectContentType คืนค่าแปลก ๆ แต่เป็นรูปจริง ให้ยอมตามนามสกุล
 	ext := strings.ToLower(filepath.Ext(filename))
 	if strings.HasPrefix(contentType, "image/") && (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".heic" || ext == ".heif") {
 		return true

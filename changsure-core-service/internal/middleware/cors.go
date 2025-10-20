@@ -26,7 +26,7 @@ func CORSProduction(allowedOrigins []string) fiber.Handler {
 		MaxAge:           86400,
 		Next: func(c fiber.Ctx) bool {
 
-			return strings.HasPrefix(c.Path(), "/health")
+			return strings.HasPrefix(c.Path(), "/health") || strings.HasPrefix(c.Path(), "/test")
 		},
 	})
 }

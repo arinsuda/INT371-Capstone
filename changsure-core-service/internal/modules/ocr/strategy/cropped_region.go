@@ -8,7 +8,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// CroppedRegionStrategy - Crop เฉพาะส่วนเลขบัตร
 type CroppedRegionStrategy struct {
 	ocrProvider    provider.OCRProvider
 	imageProcessor provider.ImageProcessor
@@ -33,7 +32,7 @@ func NewCroppedRegionStrategy(
 		regionDetector: detector,
 		validator:      validator,
 		language:       language,
-		priority:       100, // high priority
+		priority:       100,
 		upscaleFactor:  upscaleFactor,
 	}
 }
@@ -53,7 +52,6 @@ func (s *CroppedRegionStrategy) ShouldRetry() bool {
 func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// 1. Detect ID number region
 	region, err := s.regionDetector.DetectIDNumberRegion(ctx, imageData)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -64,7 +62,6 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}, nil
 	}
 
-	// 2. Crop region
 	croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -75,7 +72,6 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}, nil
 	}
 
-	// 3. Upscale for better recognition
 	upscaledData, err := s.imageProcessor.Upscale(ctx, croppedData, s.upscaleFactor)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -86,16 +82,14 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}, nil
 	}
 
-	// 4. Normalize
 	normalizedData, err := s.imageProcessor.Normalize(ctx, upscaledData)
 	if err != nil {
-		normalizedData = upscaledData // fallback
+		normalizedData = upscaledData
 	}
 
-	// 5. OCR with numeric-only mode
 	result, err := s.ocrProvider.ExtractText(ctx, normalizedData, &provider.OCROptions{
-		Language: "eng", // numbers only
-		PSM:      7,     // Single text line
+		Language: "eng",
+		PSM:      7,
 	})
 	if err != nil {
 		return &provider.StrategyResult{
@@ -106,7 +100,6 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}, nil
 	}
 
-	// 6. Validate ID
 	idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 	hasValidID := idErr == nil && idNumber != ""
 

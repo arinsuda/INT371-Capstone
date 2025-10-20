@@ -9,8 +9,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/validator"
 )
 
-// AggressiveCropStrategy - Crop แบบเข้มงวด + preprocessing เต็มรูปแบบ
-// เหมาะสำหรับบัตรประชาชนที่มี barcode, chip card, photo
 type AggressiveCropStrategy struct {
 	ocrProvider    provider.OCRProvider
 	imageProcessor provider.ImageProcessor
@@ -33,7 +31,7 @@ func NewAggressiveCropStrategy(
 		regionDetector: detector,
 		validator:      validator,
 		upscaleFactor:  upscaleFactor,
-		priority:       110, // สูงกว่า CroppedRegionStrategy (100)
+		priority:       110,
 	}
 }
 
@@ -52,52 +50,41 @@ func (s *AggressiveCropStrategy) ShouldRetry() bool {
 func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// 1. Region (ทดลองหลายตำแหน่ง)
 	regions := []*provider.Region{
-		// Position 1: Standard
 		{X: 0.20, Y: 0.12, Width: 0.60, Height: 0.10, Type: "standard"},
-		// Position 2: Wider
 		{X: 0.15, Y: 0.10, Width: 0.70, Height: 0.12, Type: "wider"},
-		// Position 3: Center focused
 		{X: 0.25, Y: 0.14, Width: 0.50, Height: 0.08, Type: "center"},
 	}
 
 	var bestResult *provider.StrategyResult
-	// ลบบรรทัดนี้: var bestIDNumber string
 
 	for _, region := range regions {
-		// 2. Crop
 		croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
 		if err != nil {
 			continue
 		}
 
-		// 3. Grayscale
 		grayData, err := s.imageProcessor.ConvertToGrayscale(ctx, croppedData)
 		if err != nil {
 			grayData = croppedData
 		}
 
-		// 4. Upscale
 		upscaledData, err := s.imageProcessor.Upscale(ctx, grayData, s.upscaleFactor)
 		if err != nil {
 			continue
 		}
 
-		// 5. Enhance
 		enhancedData, err := s.imageProcessor.EnhanceContrast(ctx, upscaledData)
 		if err != nil {
 			enhancedData = upscaledData
 		}
 
-		// 6. Normalize
 		normalizedData, err := s.imageProcessor.Normalize(ctx, enhancedData)
 		if err != nil {
 			normalizedData = enhancedData
 		}
 
-		// 7. OCR - ลองหลาย PSM
-		psmModes := []int{7, 6, 11, 13} // Single line, Block, Sparse, Raw line
+		psmModes := []int{7, 6, 11, 13}
 
 		for _, psm := range psmModes {
 			result, err := s.ocrProvider.ExtractText(ctx, normalizedData, &provider.OCROptions{
@@ -110,10 +97,8 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 				continue
 			}
 
-			// 8. Validate
 			idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 			if idErr == nil && idNumber != "" {
-				// Found valid ID!
 				bestResult = &provider.StrategyResult{
 					Name:           s.Name(),
 					Success:        true,
@@ -140,7 +125,6 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		return bestResult, nil
 	}
 
-	// ไม่เจอเลย
 	return &provider.StrategyResult{
 		Name:           s.Name(),
 		Success:        false,

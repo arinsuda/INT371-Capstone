@@ -41,13 +41,12 @@ func (s *AutoRotateStrategy) Priority() int {
 }
 
 func (s *AutoRotateStrategy) ShouldRetry() bool {
-	return false // no retry needed
+	return false
 }
 
 func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// 1. Auto-rotate image
 	rotatedData, angle, err := s.imageProcessor.AutoRotate(ctx, imageData)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -58,16 +57,14 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		}, nil
 	}
 
-	// 2. Preprocess
 	processedData, err := s.imageProcessor.Preprocess(ctx, rotatedData, &provider.PreprocessOptions{
 		Normalize:       true,
 		EnhanceContrast: true,
 	})
 	if err != nil {
-		processedData = rotatedData // fallback
+		processedData = rotatedData
 	}
 
-	// 3. OCR
 	result, err := s.ocrProvider.ExtractText(ctx, processedData, &provider.OCROptions{
 		Language: s.language,
 		PSM:      6,
@@ -81,7 +78,6 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		}, nil
 	}
 
-	// 4. Validate ID
 	idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 	hasValidID := idErr == nil && idNumber != ""
 

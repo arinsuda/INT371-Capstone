@@ -18,10 +18,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// ContainerOption ใช้สำหรับปรับแต่ง container ตอนสร้าง
 type ContainerOption func(*Container) error
 
-// WithOCROptions ตัวอย่าง option เผื่อ OCR ต้องการ config ภายนอกในอนาคต
 func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 	return func(c *Container) error {
 		mod, err := setup()
@@ -34,7 +32,6 @@ func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 	}
 }
 
-// Container holds all dependencies
 type Container struct {
 	DB *gorm.DB
 
@@ -52,7 +49,6 @@ type Container struct {
 	ocrModule *ocrmod.OCRModule
 }
 
-// NewContainer creates and initializes all dependencies
 func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
 	if db == nil {
 		return nil, fmt.Errorf("db is nil")
@@ -78,7 +74,6 @@ func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
 		return nil, err
 	}
 
-	// Apply external options (ถ้าผู้เรียกส่งมา)
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
 			return nil, err
@@ -88,7 +83,6 @@ func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
 	return c, nil
 }
 
-// Close ปิดทรัพยากรที่ต้องการ lifecycle
 func (c *Container) Close(ctx context.Context) error {
 	var firstErr error
 

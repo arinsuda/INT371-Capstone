@@ -50,6 +50,14 @@ func main() {
 
 	routes.Setup(app, cfg, db.Gorm())
 
+	app.Get("/probe", func(c fiber.Ctx) error {
+		return c.SendString("probe ok")
+	})
+
+	for _, r := range app.GetRoutes() {
+		fmt.Printf("%-6s %s\n", r.Method, r.Path)
+	}
+
 	printStartupInfo(cfg)
 
 	serverErrors := make(chan error, 1)
