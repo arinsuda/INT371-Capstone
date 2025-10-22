@@ -44,17 +44,14 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 	}
 	req.SetDefaults()
 
-	// 1) รวมค่ามีผลจริงจาก req + config
 	eff := s.effectiveParamsForID(req)
 
-	// 2) ตั้ง timeout
 	if eff.timeoutSec > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(eff.timeoutSec)*time.Second)
 		defer cancel()
 	}
 
-	// 3) เรียกกลยุทธ์ OCR
 	execResult, err := s.strategyManager.Execute(ctx, imageData, eff.language)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute strategies: %w", err)
@@ -63,18 +60,15 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 		return nil, nil, errors.New("strategy execution returned nil result")
 	}
 
-	// 4) ถ้าไม่มีผลลัพธ์เลย
 	if execResult.BestResult == nil {
 		return s.createFailedIDResponse(execResult), s.createMetadata(execResult, start), nil
 	}
 
-	// 5) Early-accept: ถ้าเปิด stopOnSuccess และความเชื่อมั่นเกินเกณฑ์ ให้เดินหน้าตรวจเลขทันที
-	// (หมายเหตุ: StrategyManager ของคุณควรหยุดเองเมื่อเปิด StopOnSuccess อยู่แล้ว แต่เราเช็คซ้ำเผื่อ)
 	if eff.stopOnSuccess && execResult.BestResult.Confidence >= eff.minConfidenceStop {
 		// proceed
 	}
 
-	// 6) ดึงเลขบัตร + ตรวจ checksum
+	// ✅ ปรับปรุง: ลองดึงเลขบัตรด้วย validator ที่ปรับปรุงแล้ว
 	idNumber, idErr := s.validator.ExtractIDNumber(execResult.BestResult.Text)
 
 	checksumValid := false
@@ -93,31 +87,15 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 			checksumValid = true
 		}
 	} else {
-		// Fallback: clean แล้วลองหยิบ 13 หลัก
+		// ✅ Fallback ที่ปรับปรุงแล้ว: ใช้ validator ที่มี aggressive normalization
 		if eff.allowFallback {
-			clean := CleanToAsciiDigits(execResult.BestResult.Text)
-			cand := pickBestThaiID(clean, eff.validateChecksum)
-			if cand != "" {
-				idNumber = cand
-				formatValid = true
-				if eff.validateChecksum {
-					if err := s.validator.ValidateChecksum(idNumber); err != nil {
-						warnings = append(warnings, fmt.Sprintf("Checksum validation failed: %v", err))
-					} else {
-						checksumValid = true
-					}
-				} else {
-					checksumValid = true
-				}
-			} else {
-				warnings = append(warnings, "No valid ID card number detected (after fallback)")
-			}
+			// validator จะจัดการ normalization เองแล้ว
+			warnings = append(warnings, fmt.Sprintf("Using fallback extraction (original error: %v)", idErr))
 		} else {
 			warnings = append(warnings, "No valid ID card number detected")
 		}
 	}
 
-	// 7) สถานะ valid โดยรวม + เตือนเรื่องความเชื่อมั่นต่ำ
 	isValid := checksumValid && formatValid
 	if execResult.BestResult.Confidence < eff.confidenceMin {
 		warnings = append(warnings, fmt.Sprintf(
@@ -188,7 +166,6 @@ func (s *OCRService) ExtractText(ctx context.Context, imageData []byte, req *dto
 }
 
 func (s *OCRService) GetMetrics() map[string]interface{} {
-	// ✅ ใช้คอนฟิกใหม่ (อยู่ใต้ Performance)
 	if s.metrics == nil || s.config == nil || !s.config.Performance.EnableMetrics {
 		return nil
 	}
@@ -212,7 +189,6 @@ type effectiveParams struct {
 }
 
 func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParams {
-	// language: req → cfg.Language
 	lang := strings.TrimSpace(req.Language)
 	if lang == "" {
 		if s.config != nil && strings.TrimSpace(s.config.Language) != "" {
@@ -222,7 +198,6 @@ func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParam
 		}
 	}
 
-	// ความเชื่อมั่นขั้นต่ำ: req.MinConfidence → cfg.ConfidenceMin
 	cMin := req.MinConfidence
 	if cMin <= 0 && s.config != nil && s.config.ConfidenceMin > 0 {
 		cMin = s.config.ConfidenceMin
@@ -231,8 +206,6 @@ func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParam
 		cMin = 0.20
 	}
 
-	// Stop on success:
-	// ใช้ req.StopOnSuccess → cfg.StopOnSuccess → cfg.Strategies.StopOnFirstSuccess
 	sos := req.StopOnSuccess
 	if s.config != nil && !sos {
 		if s.config.StopOnSuccess {
@@ -242,7 +215,6 @@ func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParam
 		}
 	}
 
-	// เกณฑ์หยุด: req.MinConfidence (ถ้าตั้ง) → cfg.MinConfidenceStop → cfg.Strategies.MinConfidenceToStop
 	minStop := req.MinConfidence
 	if s.config != nil && minStop <= 0 {
 		if s.config.MinConfidenceStop > 0 {
@@ -255,7 +227,6 @@ func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParam
 		minStop = 0.80
 	}
 
-	// ตรวจ checksum: req.ValidateChecksum → cfg.IDCard.ValidateChecksum → cfg.ValidateChecksum
 	valChecksum := req.ValidateChecksum
 	if s.config != nil {
 		if !valChecksum && s.config.IDCard.ValidateChecksum {
@@ -266,17 +237,14 @@ func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParam
 		}
 	}
 
-	// อนุญาต fallback cleaning
 	allowFallback := true
 	if s.config != nil {
 		allowFallback = s.config.AllowFallback
-		// ถ้าไม่กำหนดใน .env, default true
 		if !s.config.AllowFallback {
 			allowFallback = true
 		}
 	}
 
-	// timeout: req.Timeout → cfg.TimeoutSec → cfg.Performance.TotalTimeout
 	tSec := req.Timeout
 	if tSec <= 0 && s.config != nil {
 		if s.config.TimeoutSec > 0 {
@@ -390,58 +358,5 @@ func (s *OCRService) createMetadata(execResult *strategy.ExecutionResult, start 
 	return md
 }
 
-// ===================== Utilities (เดิม) =====================
-
-func CleanToAsciiDigits(s string) string {
-	repl := strings.NewReplacer(
-		"๐", "0", "๑", "1", "๒", "2", "๓", "3", "๔", "4", "๕", "5", "๖", "6", "๗", "7", "๘", "8", "๙", "9",
-		"０", "0", "１", "1", "２", "2", "３", "3", "４", "4", "５", "5", "６", "6", "７", "7", "８", "8", "９", "9",
-		"O", "0", "o", "0", "I", "1", "l", "1", "B", "8", "S", "5", "Z", "2", "q", "9", "〇", "0",
-	)
-	s = repl.Replace(s)
-
-	var b strings.Builder
-	for _, r := range s {
-		switch {
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-		case r >= '๐' && r <= '๙':
-			b.WriteRune(r - '๐' + '0')
-		case r >= '０' && r <= '９':
-			b.WriteRune(r - '０' + '0')
-		}
-	}
-	return b.String()
-}
-
-func ThaiIDChecksumOK(id13 string) bool {
-	if len(id13) != 13 {
-		return false
-	}
-	sum := 0
-	for i := 0; i < 12; i++ {
-		sum += int(id13[i]-'0') * (13 - i)
-	}
-	check := (11 - (sum % 11)) % 10
-	return check == int(id13[12]-'0')
-}
-
-func pickBestThaiID(digits string, requireChecksum bool) string {
-	if len(digits) < 13 {
-		return ""
-	}
-	best := ""
-	for i := 0; i+13 <= len(digits); i++ {
-		cand := digits[i : i+13]
-		if requireChecksum {
-			if ThaiIDChecksumOK(cand) {
-				return cand
-			}
-		} else {
-			if best == "" {
-				best = cand
-			}
-		}
-	}
-	return best
-}
+// ✅ ลบฟังก์ชัน CleanToAsciiDigits, ThaiIDChecksumOK, pickBestThaiID
+// เพราะย้ายไปอยู่ใน validator แล้ว

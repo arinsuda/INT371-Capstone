@@ -57,13 +57,12 @@ func (s *AggressiveCropStrategy) ShouldRetry() bool { return true }
 func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	startTime := time.Now()
 
-	// ============ โหลดค่าที่มีผลจาก config ============
 	lang := "eng"
-	oem := 3
+	oem := 1 // ✅ ใช้ LSTM only
 	psmDefault := 7
-	upscale := 2.0
+	upscale := 3.0 // ✅ เพิ่มจาก 2.0
 	stopOnSuccess := true
-	minConfidenceStop := 0.80
+	minConfidenceStop := 0.75 // ✅ ลดจาก 0.80
 	strategyTimeout := time.Duration(0)
 
 	if s.cfg != nil {
@@ -78,14 +77,12 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		} else if s.cfg.PSM > 0 {
 			psmDefault = s.cfg.PSM
 		}
-		// upscaleFactor: ให้ใช้ field ใน struct ถ้าตั้งมา ไม่งั้นใช้จาก cfg
 		if s.upscaleFactor > 0 {
 			upscale = s.upscaleFactor
 		} else if s.cfg.IDCard.UpscaleFactor > 0 {
 			upscale = s.cfg.IDCard.UpscaleFactor
 		}
 
-		// stop-on-success + เกณฑ์หยุด
 		if s.cfg.StopOnSuccess {
 			stopOnSuccess = true
 		}
@@ -99,28 +96,35 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 			minConfidenceStop = s.cfg.Strategies.MinConfidenceToStop
 		}
 
-		// ต่อ strategy timeout ถ้ามี (ใช้ timeouts ที่สั้น เพื่อไม่ลากทั้งชุด)
 		if s.cfg.Performance.StrategyTimeout > 0 {
 			strategyTimeout = s.cfg.Performance.StrategyTimeout
 		}
 	}
 
-	// ============ เตรียมชุด region candidates จาก .env ============
-	// ใช้ค่าใน .env: OCR_ID_CROP_X/Y/W/H เป็นฐาน แล้วสร้างตัวแปรรอบ ๆ (กว้าง/แคบ/ขยับ)
+	// ✅ เพิ่มความหลากหลายของ regions มากขึ้น
 	var regions []*provider.Region
 	if s.cfg != nil && s.cfg.IDCard.IDNumberRegion.Enabled {
 		base := s.cfg.IDCard.IDNumberRegion
-		// base
-		regions = append(regions, &provider.Region{X: base.X, Y: base.Y, Width: base.Width, Height: base.Height, Type: "base"})
-		// variants: ขยาย/ย่อ/ขยับเล็กน้อยเพื่อชดเชย misalignment
+		
+		// Base + 8 variants (เพิ่มจาก 5 เดิม)
 		regions = append(regions,
-			&provider.Region{X: clamp01(base.X - 0.03), Y: clamp01(base.Y - 0.02), Width: clamp01(base.Width + 0.06), Height: clamp01(base.Height + 0.02), Type: "wider"},
-			&provider.Region{X: clamp01(base.X + 0.03), Y: clamp01(base.Y + 0.02), Width: clamp01(base.Width - 0.04), Height: clamp01(base.Height - 0.01), Type: "tighter"},
-			&provider.Region{X: base.X, Y: clamp01(base.Y - 0.02), Width: base.Width, Height: base.Height, Type: "up_shift"},
-			&provider.Region{X: base.X, Y: clamp01(base.Y + 0.02), Width: base.Width, Height: base.Height, Type: "down_shift"},
+			&provider.Region{X: base.X, Y: base.Y, Width: base.Width, Height: base.Height, Type: "base"},
+			
+			// Horizontal shifts
+			&provider.Region{X: clamp01(base.X - 0.05), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_left_far"},
+			&provider.Region{X: clamp01(base.X - 0.03), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_left"},
+			&provider.Region{X: clamp01(base.X + 0.03), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_right"},
+			&provider.Region{X: clamp01(base.X + 0.05), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_right_far"},
+			
+			// Vertical shifts
+			&provider.Region{X: base.X, Y: clamp01(base.Y - 0.03), Width: base.Width, Height: base.Height, Type: "shift_up"},
+			&provider.Region{X: base.X, Y: clamp01(base.Y + 0.03), Width: base.Width, Height: base.Height, Type: "shift_down"},
+			
+			// Size variants
+			&provider.Region{X: clamp01(base.X - 0.05), Y: clamp01(base.Y - 0.01), Width: clamp01(base.Width + 0.10), Height: clamp01(base.Height + 0.02), Type: "wider_taller"},
+			&provider.Region{X: clamp01(base.X + 0.02), Y: clamp01(base.Y + 0.01), Width: clamp01(base.Width - 0.04), Height: clamp01(base.Height - 0.01), Type: "tighter"},
 		)
 	} else {
-		// fallback เดิม
 		regions = []*provider.Region{
 			{X: 0.20, Y: 0.12, Width: 0.60, Height: 0.10, Type: "standard"},
 			{X: 0.15, Y: 0.10, Width: 0.70, Height: 0.12, Type: "wider"},
@@ -128,7 +132,6 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		}
 	}
 
-	// ถ้ามี RegionDetector ให้ลอง auto-detect เป็นตัวเลือกท้าย ๆ
 	if s.regionDetector != nil {
 		if auto, err := s.regionDetector.DetectIDNumberRegion(ctx, imageData); err == nil && auto != nil {
 			auto.Type = "auto_detect"
@@ -136,15 +139,18 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		}
 	}
 
-	// ============ เตรียม PSM modes โดยยึด .env เป็นหลัก ============
+	// ✅ เพิ่ม PSM variants มากขึ้น
 	psmModes := uniqueInts([]int{
-		psmDefault, // ค่าจาก .env ก่อน
-		7, 6, 11, 13,
+		psmDefault, // ค่าจาก config
+		7,  // Single line
+		6,  // Uniform block
+		13, // Raw line
+		11, // Sparse text
+		8,  // Single word
 	})
 
 	var best *provider.StrategyResult
 
-	// Strategy-level timeout (หากตั้งไว้)
 	if strategyTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, strategyTimeout)
@@ -152,33 +158,45 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 	}
 
 	for _, region := range regions {
-		// 1) crop
+		select {
+		case <-ctx.Done():
+			if best != nil {
+				return best, nil
+			}
+			return &provider.StrategyResult{
+				Name:           s.Name(),
+				Success:        false,
+				Error:          ctx.Err(),
+				ProcessingTime: time.Since(startTime),
+			}, nil
+		default:
+		}
+
 		croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
 		if err != nil {
 			continue
 		}
-		// 2) grayscale
+
 		grayData, err := s.imageProcessor.ConvertToGrayscale(ctx, croppedData)
 		if err != nil {
 			grayData = croppedData
 		}
-		// 3) upscaling (ตาม .env)
+
 		upscaledData, err := s.imageProcessor.Upscale(ctx, grayData, upscale)
 		if err != nil {
 			upscaledData = grayData
 		}
-		// 4) contrast
+
 		enhancedData, err := s.imageProcessor.EnhanceContrast(ctx, upscaledData)
 		if err != nil {
 			enhancedData = upscaledData
 		}
-		// 5) normalize
+
 		normalizedData, err := s.imageProcessor.Normalize(ctx, enhancedData)
 		if err != nil {
 			normalizedData = enhancedData
 		}
 
-		// 6) ลองหลาย PSM โดยยึด OEM/Language จาก .env
 		for _, psm := range psmModes {
 			result, err := s.ocrProvider.ExtractText(ctx, normalizedData, &provider.OCROptions{
 				Language: lang,
@@ -189,10 +207,10 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 				continue
 			}
 
-			// ถ้าพบรหัส 13 หลัก ถือว่า success
+			// ✅ ใช้ validator ที่ปรับปรุงแล้ว
 			idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 			if idErr == nil && idNumber != "" {
-				best = &provider.StrategyResult{
+				candidate := &provider.StrategyResult{
 					Name:           s.Name(),
 					Success:        true,
 					OCRResult:      result,
@@ -207,13 +225,15 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 						"upscale_factor": upscale,
 					},
 				}
-				// stop-on-success (จาก .env)
+
+				// Early exit ถ้าถึงเกณฑ์
 				if stopOnSuccess && result.Confidence >= minConfidenceStop {
-					return best, nil
+					return candidate, nil
 				}
-				// ไม่งั้นเก็บไว้ แต่ยังลองต่อเพื่อหา confidence ที่ดีกว่า
+
+				// เก็บ best
 				if best == nil || result.Confidence > best.OCRResult.Confidence {
-					// (จริง ๆ ไม่เข้าเคสนี้เพราะเพิ่งกำหนด best)
+					best = candidate
 				}
 			}
 		}
@@ -226,12 +246,10 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 	return &provider.StrategyResult{
 		Name:           s.Name(),
 		Success:        false,
-		Error:          fmt.Errorf("no valid ID found after trying all regions and PSM modes"),
+		Error:          fmt.Errorf("no valid ID found after trying %d regions and %d PSM modes", len(regions), len(psmModes)),
 		ProcessingTime: time.Since(startTime),
 	}, nil
 }
-
-// ===== helpers =====
 
 func clamp01(v float64) float64 {
 	if v < 0 {
@@ -243,3 +261,14 @@ func clamp01(v float64) float64 {
 	return v
 }
 
+func uniqueInts(xs []int) []int {
+	seen := make(map[int]struct{}, len(xs))
+	out := make([]int, 0, len(xs))
+	for _, v := range xs {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	return out
+}

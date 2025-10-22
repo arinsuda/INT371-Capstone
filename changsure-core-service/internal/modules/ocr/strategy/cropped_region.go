@@ -33,7 +33,7 @@ func NewCroppedRegionStrategy(
 		regionDetector: detector,
 		validator:      validator,
 		cfg:            cfg,
-		priority:       100, // StrategyManager จะจัดลำดับจริงตาม ExecutionOrder
+		priority:       100,
 	}
 }
 
@@ -44,11 +44,10 @@ func (s *CroppedRegionStrategy) ShouldRetry() bool { return true }
 func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	start := time.Now()
 
-	// ===== ค่าจาก config / .env =====
 	lang := "eng"
 	psm := 6
 	oem := 3
-	upscale := 1.0
+	upscale := 3.0 // ✅ เพิ่มจาก 1.0 → 3.0 สำหรับบัตรประชาชน
 	doNormalize := true
 	stopOnSuccess := false
 	minConfidenceStop := 0.80
@@ -78,7 +77,6 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 			minConfidenceStop = s.cfg.Strategies.MinConfidenceToStop
 		}
 
-		// Strategy-level timeout
 		if s.cfg.Performance.StrategyTimeout > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, s.cfg.Performance.StrategyTimeout)
@@ -86,17 +84,47 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}
 	}
 
-	// ===== 1) เลือก region =====
-	var region *provider.Region
-	var err error
+	// ✅ เพิ่ม: สร้าง multiple crop variants
+	var regions []*provider.Region
 
-	// ถ้าเปิดใช้ region จาก .env ให้ใช้ก่อน
 	if s.cfg != nil && s.cfg.IDCard.IDNumberRegion.Enabled {
-		r := s.cfg.IDCard.IDNumberRegion
-		region = &provider.Region{X: r.X, Y: r.Y, Width: r.Width, Height: r.Height, Type: "env"}
+		base := s.cfg.IDCard.IDNumberRegion
+
+		// Base region
+		regions = append(regions, &provider.Region{
+			X: base.X, Y: base.Y, Width: base.Width, Height: base.Height, Type: "base",
+		})
+
+		// ✅ Variants: ขยับเล็กน้อยเพื่อครอบคลุมกรณี alignment ไม่แม่นยำ
+		regions = append(regions,
+			// ขยับซ้าย
+			&provider.Region{
+				X: clamp01(base.X - 0.03), Y: base.Y,
+				Width: base.Width, Height: base.Height, Type: "shift_left",
+			},
+			// ขยับขวา
+			&provider.Region{
+				X: clamp01(base.X + 0.03), Y: base.Y,
+				Width: base.Width, Height: base.Height, Type: "shift_right",
+			},
+			// ขยับขึ้น
+			&provider.Region{
+				X: base.X, Y: clamp01(base.Y - 0.02),
+				Width: base.Width, Height: base.Height, Type: "shift_up",
+			},
+			// ขยับลง
+			&provider.Region{
+				X: base.X, Y: clamp01(base.Y + 0.02),
+				Width: base.Width, Height: base.Height, Type: "shift_down",
+			},
+			// ขยายกว้างขึ้น
+			&provider.Region{
+				X: clamp01(base.X - 0.05), Y: base.Y,
+				Width: clamp01(base.Width + 0.10), Height: base.Height, Type: "wider",
+			},
+		)
 	} else {
-		// ไม่เปิด — ให้ detector หา
-		region, err = s.regionDetector.DetectIDNumberRegion(ctx, imageData)
+		region, err := s.regionDetector.DetectIDNumberRegion(ctx, imageData)
 		if err != nil || region == nil {
 			return &provider.StrategyResult{
 				Name:           s.Name(),
@@ -105,117 +133,109 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 				ProcessingTime: time.Since(start),
 			}, nil
 		}
+		regions = append(regions, region)
 	}
 
-	// ===== 2) Crop =====
-	croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
-	if err != nil {
-		return &provider.StrategyResult{
-			Name:           s.Name(),
-			Success:        false,
-			Error:          fmt.Errorf("crop failed: %w", err),
-			ProcessingTime: time.Since(start),
-		}, nil
-	}
-
-	// ===== 3) Preprocess (เบาและเร็วสำหรับ ROI) =====
-	processed := croppedData
-
-	// Grayscale ช่วย OCR แทบทุกกรณี
-	if g, err := s.imageProcessor.ConvertToGrayscale(ctx, processed); err == nil {
-		processed = g
-	}
-
-	// Upscale ถ้าตั้งไว้ (>1)
-	if upscale > 1.0 {
-		if u, err := s.imageProcessor.Upscale(ctx, processed, upscale); err == nil {
-			processed = u
-		}
-	}
-
-	// Contrast + Normalize ตาม .env
-	if e, err := s.imageProcessor.EnhanceContrast(ctx, processed); err == nil {
-		processed = e
-	}
-	if doNormalize {
-		if n, err := s.imageProcessor.Normalize(ctx, processed); err == nil {
-			processed = n
-		}
-	}
-
-	// ===== 4) OCR: ลองหลาย PSM โดยยึดค่า .env เป็นตัวตั้ง =====
-	psmModes := uniqueInts([]int{psm, 7, 13, 6}) // 7=line, 13=raw line
 	var best *provider.OCRResult
+	var bestRegion *provider.Region
 	var bestPSM int
-	var lastErr error
 
-	for _, try := range psmModes {
-		res, err := s.ocrProvider.ExtractText(ctx, processed, &provider.OCROptions{
-			Language: lang,
-			PSM:      try,
-			OEM:      oem,
-		})
-		if err != nil || res == nil {
-			lastErr = err
+	// ✅ ลองทุก region variant
+	for _, region := range regions {
+		croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
+		if err != nil {
 			continue
 		}
 
-		// ensure Metadata map
-		if res.Metadata == nil {
-			res.Metadata = make(map[string]interface{}, 4)
-		}
-		res.Metadata["psm_used"] = try
-		res.Metadata["language"] = lang
-		res.Metadata["oem"] = oem
+		processed := croppedData
 
-		id, idErr := s.validator.ExtractIDNumber(res.Text)
-		hasID := idErr == nil && id != ""
-
-		// เกณฑ์หยุดเร็ว
-		if stopOnSuccess && hasID && res.Confidence >= minConfidenceStop {
-			return &provider.StrategyResult{
-				Name:           s.Name(),
-				Success:        true,
-				OCRResult:      res,
-				ProcessingTime: time.Since(start),
-				Metadata: map[string]interface{}{
-					"id_found":       true,
-					"id_number":      id,
-					"region":         region,
-					"upscale_factor": upscale,
-				},
-			}, nil
+		if g, err := s.imageProcessor.ConvertToGrayscale(ctx, processed); err == nil {
+			processed = g
 		}
 
-		// เลือก best ตามความเชื่อมั่น/ความยาวข้อความ
-		if best == nil ||
-			(res.Confidence > best.Confidence) ||
-			(res.Confidence == best.Confidence && len(res.Text) > len(best.Text)) {
-			best = res
-			bestPSM = try
+		if upscale > 1.0 {
+			if u, err := s.imageProcessor.Upscale(ctx, processed, upscale); err == nil {
+				processed = u
+			}
+		}
+
+		if e, err := s.imageProcessor.EnhanceContrast(ctx, processed); err == nil {
+			processed = e
+		}
+
+		if doNormalize {
+			if n, err := s.imageProcessor.Normalize(ctx, processed); err == nil {
+				processed = n
+			}
+		}
+
+		psmModes := uniqueInts([]int{psm, 7, 13, 6})
+
+		for _, try := range psmModes {
+			res, err := s.ocrProvider.ExtractText(ctx, processed, &provider.OCROptions{
+				Language: lang,
+				PSM:      try,
+				OEM:      oem,
+			})
+			if err != nil || res == nil {
+				continue
+			}
+
+			if res.Metadata == nil {
+				res.Metadata = make(map[string]interface{}, 4)
+			}
+			res.Metadata["psm_used"] = try
+			res.Metadata["language"] = lang
+			res.Metadata["oem"] = oem
+			res.Metadata["region_type"] = region.Type
+
+			id, idErr := s.validator.ExtractIDNumber(res.Text)
+			hasID := idErr == nil && id != ""
+
+			if stopOnSuccess && hasID && res.Confidence >= minConfidenceStop {
+				return &provider.StrategyResult{
+					Name:           s.Name(),
+					Success:        true,
+					OCRResult:      res,
+					ProcessingTime: time.Since(start),
+					Metadata: map[string]interface{}{
+						"id_found":       true,
+						"id_number":      id,
+						"region":         region,
+						"region_type":    region.Type,
+						"upscale_factor": upscale,
+					},
+				}, nil
+			}
+
+			if best == nil ||
+				(res.Confidence > best.Confidence) ||
+				(res.Confidence == best.Confidence && len(res.Text) > len(best.Text)) {
+				best = res
+				bestRegion = region
+				bestPSM = try
+			}
 		}
 	}
 
-	// ไม่ได้ผลลัพธ์
 	if best == nil {
 		return &provider.StrategyResult{
 			Name:           s.Name(),
 			Success:        false,
-			Error:          fmt.Errorf("ocr failed with all psm modes: %v", lastErr),
+			Error:          fmt.Errorf("ocr failed with all regions and psm modes"),
 			ProcessingTime: time.Since(start),
 		}, nil
 	}
 
-	// ตรวจ ID อีกรอบที่ผล best
 	id, idErr := s.validator.ExtractIDNumber(best.Text)
 	hasID := idErr == nil && id != ""
 
-	// ensure Metadata map ก่อนใส่เพิ่ม
 	if best.Metadata == nil {
 		best.Metadata = make(map[string]interface{}, 6)
 	}
 	best.Metadata["psm_used"] = bestPSM
 	best.Metadata["raw_text_len"] = len(best.Text)
+	best.Metadata["region_type"] = bestRegion.Type
 
 	return &provider.StrategyResult{
 		Name:           s.Name(),
@@ -225,8 +245,10 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		Metadata: map[string]interface{}{
 			"id_found":       hasID,
 			"id_number":      id,
-			"region":         region,
+			"region":         bestRegion,
+			"region_type":    bestRegion.Type,
 			"upscale_factor": upscale,
 		},
 	}, nil
 }
+

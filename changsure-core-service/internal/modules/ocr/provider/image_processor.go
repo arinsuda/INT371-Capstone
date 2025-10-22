@@ -34,8 +34,9 @@ func (p *DefaultImageProcessor) Preprocess(ctx context.Context, imageData []byte
 	if err := ctxErr(ctx); err != nil {
 		return nil, err
 	}
-	if opts.AutoRotate {
 
+	if opts.AutoRotate {
+		// Auto-rotate logic (currently placeholder)
 	}
 
 	var g *image.Gray
@@ -44,6 +45,15 @@ func (p *DefaultImageProcessor) Preprocess(ctx context.Context, imageData []byte
 			return nil, err
 		}
 		g = toGray(img)
+		img = g
+	}
+
+	// ✅ เพิ่ม: Sharpening ก่อน normalize เพื่อเพิ่มความคมชัด
+	if opts.EnhanceContrast && g != nil {
+		if err := ctxErr(ctx); err != nil {
+			return nil, err
+		}
+		g = sharpenImage(g)
 		img = g
 	}
 
@@ -117,7 +127,7 @@ func (p *DefaultImageProcessor) Upscale(ctx context.Context, imageData []byte, s
 }
 
 func (p *DefaultImageProcessor) AutoRotate(ctx context.Context, imageData []byte) ([]byte, float64, error) {
-
+	// Auto-rotate logic (placeholder)
 	return imageData, 0.0, nil
 }
 
@@ -142,7 +152,11 @@ func (p *DefaultImageProcessor) EnhanceContrast(ctx context.Context, imageData [
 		return nil, err
 	}
 	g := toGray(img)
+
+	// ✅ เพิ่ม sharpening ก่อน histogram equalization
+	g = sharpenImage(g)
 	g = histogramEqualization(g)
+
 	return encodePNG(g)
 }
 
@@ -162,7 +176,6 @@ func ctxErr(ctx context.Context) error {
 
 func toGray(src image.Image) *image.Gray {
 	if g, ok := src.(*image.Gray); ok {
-
 		b := g.Bounds()
 		dst := image.NewGray(b)
 		draw.Draw(dst, b, g, b.Min, draw.Src)
@@ -174,7 +187,6 @@ func toGray(src image.Image) *image.Gray {
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			r, g, bl, _ := src.At(x, y).RGBA()
-
 			yr := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(bl)
 			dst.SetGray(x, y, color.Gray{Y: uint8(yr / 257.0)})
 		}
@@ -198,7 +210,6 @@ func normalizeMinMax(g *image.Gray) *image.Gray {
 		}
 	}
 	if maxV <= minV {
-
 		return g
 	}
 	dst := image.NewGray(b)
@@ -268,6 +279,53 @@ func histogramEqualization(g *image.Gray) *image.Gray {
 			dr[x] = uint8(eq*255.0 + 0.5)
 		}
 	}
+	return dst
+}
+
+// ✅ เพิ่ม: Unsharp masking สำหรับเพิ่มความคมชัด
+func sharpenImage(g *image.Gray) *image.Gray {
+	b := g.Bounds()
+	w, h := b.Dx(), b.Dy()
+
+	// สร้าง blurred version (simple box blur)
+	blurred := image.NewGray(b)
+
+	// Simple 3x3 box blur
+	for y := 1; y < h-1; y++ {
+		for x := 1; x < w-1; x++ {
+			sum := 0
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					sum += int(g.GrayAt(b.Min.X+x+dx, b.Min.Y+y+dy).Y)
+				}
+			}
+			blurred.SetGray(b.Min.X+x, b.Min.Y+y, color.Gray{Y: uint8(sum / 9)})
+		}
+	}
+
+	// Unsharp mask: sharp = original + amount * (original - blurred)
+	amount := 1.5 // ค่าความแรงของ sharpening
+	dst := image.NewGray(b)
+
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			original := float64(g.GrayAt(x, y).Y)
+			blur := float64(blurred.GrayAt(x, y).Y)
+
+			sharp := original + amount*(original-blur)
+
+			// Clamp to [0, 255]
+			if sharp < 0 {
+				sharp = 0
+			}
+			if sharp > 255 {
+				sharp = 255
+			}
+
+			dst.SetGray(x, y, color.Gray{Y: uint8(sharp)})
+		}
+	}
+
 	return dst
 }
 

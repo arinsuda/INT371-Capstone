@@ -164,17 +164,3 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		ProcessingTime: time.Since(start),
 	}, nil
 }
-
-// ===== helpers =====
-
-func uniqueInts(xs []int) []int {
-	seen := make(map[int]struct{}, len(xs))
-	out := make([]int, 0, len(xs))
-	for _, v := range xs {
-		if _, ok := seen[v]; !ok {
-			seen[v] = struct{}{}
-			out = append(out, v)
-		}
-	}
-	return out
-}
