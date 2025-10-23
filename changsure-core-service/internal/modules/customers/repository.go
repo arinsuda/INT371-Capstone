@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repository interface - ถ้าอนาคตต้องการ mock testing
+
 type Repository interface {
 	Create(ctx context.Context, customer *Customer) error
 	GetByID(ctx context.Context, id uint) (*Customer, error)
@@ -17,22 +17,22 @@ type Repository interface {
 	SearchNearby(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
 }
 
-// repository struct - GORM implementation
+
 type repository struct {
 	db *gorm.DB
 }
 
-// NewRepository creates a new customer repository
+
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-// Create inserts a new customer
+
 func (r *repository) Create(ctx context.Context, customer *Customer) error {
 	return r.db.WithContext(ctx).Create(customer).Error
 }
 
-// GetByID retrieves customer by ID with province
+
 func (r *repository) GetByID(ctx context.Context, id uint) (*Customer, error) {
 	var customer Customer
 	err := r.db.WithContext(ctx).
@@ -41,14 +41,14 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*Customer, error) {
 	
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // Not found returns nil, not error
+			return nil, nil 
 		}
 		return nil, err
 	}
 	return &customer, nil
 }
 
-// GetByPhone finds customer by phone number
+
 func (r *repository) GetByPhone(ctx context.Context, phone string) (*Customer, error) {
 	var customer Customer
 	err := r.db.WithContext(ctx).
@@ -65,20 +65,20 @@ func (r *repository) GetByPhone(ctx context.Context, phone string) (*Customer, e
 	return &customer, nil
 }
 
-// Update modifies existing customer
+
 func (r *repository) Update(ctx context.Context, customer *Customer) error {
 	return r.db.WithContext(ctx).
 		Model(customer).
 		Updates(customer).Error
 }
 
-// Delete soft deletes customer
+
 func (r *repository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).
 		Delete(&Customer{}, id).Error
 }
 
-// List retrieves paginated customers
+
 func (r *repository) List(ctx context.Context, limit, offset int) ([]*Customer, error) {
 	var customers []*Customer
 	err := r.db.WithContext(ctx).
@@ -91,7 +91,7 @@ func (r *repository) List(ctx context.Context, limit, offset int) ([]*Customer, 
 	return customers, err
 }
 
-// SearchNearby finds customers within radius using the calculate_distance function
+
 func (r *repository) SearchNearby(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error) {
 	var customers []*Customer
 	

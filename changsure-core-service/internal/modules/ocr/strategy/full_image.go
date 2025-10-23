@@ -29,7 +29,7 @@ func NewFullImageStrategy(
 		imageProcessor: processor,
 		validator:      validator,
 		cfg:            cfg,
-		priority:       50, // ลำดับจริงปล่อยให้ StrategyManager/ExecutionOrder จัดการ
+		priority:       50,
 	}
 }
 
@@ -40,7 +40,6 @@ func (s *FullImageStrategy) ShouldRetry() bool { return true }
 func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	start := time.Now()
 
-	// ===== ค่าจาก config / .env =====
 	lang := "eng"
 	psm := 6
 	oem := 3
@@ -52,7 +51,7 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 		if s.cfg.Language != "" {
 			lang = s.cfg.Language
 		}
-		// PSM: ให้ IDCard.PSM ชนะ PSM root ถ้าตั้ง
+
 		if s.cfg.IDCard.PSM > 0 {
 			psm = s.cfg.IDCard.PSM
 		} else if s.cfg.PSM > 0 {
@@ -62,10 +61,8 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 			oem = s.cfg.OEM
 		}
 
-		// Normalize จาก .env (ใช้ flag ของ IDCard เป็นค่าเริ่ม เนื่องจากไม่มี global normalize)
 		doNormalize = s.cfg.IDCard.EnableNormalize
 
-		// Stop-on-success + เกณฑ์หยุด
 		stopOnSuccess = s.cfg.StopOnSuccess || s.cfg.Strategies.StopOnFirstSuccess
 		if s.cfg.MinConfidenceStop > 0 {
 			minConfidenceStop = s.cfg.MinConfidenceStop
@@ -74,7 +71,6 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 			minConfidenceStop = s.cfg.Strategies.MinConfidenceToStop
 		}
 
-		// Strategy-level timeout
 		if s.cfg.Performance.StrategyTimeout > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, s.cfg.Performance.StrategyTimeout)
@@ -82,12 +78,10 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 		}
 	}
 
-	// ===== 1) Preprocess ทั้งภาพ =====
 	processed, err := s.imageProcessor.Preprocess(ctx, imageData, &provider.PreprocessOptions{
-		Grayscale:       true,        // ช่วย OCR โดยรวม
-		Normalize:       doNormalize, // จาก .env
-		EnhanceContrast: true,        // เอกสารมักซีด/แสงไม่สม่ำเสมอ
-		// Upscale: ปกติไม่ขยายทั้งรูปเพื่อคุมเวลา/เมมโมรี่ (สตราทีจี้อื่นจัดการ ROI แล้ว)
+		Grayscale:       true,
+		Normalize:       doNormalize,
+		EnhanceContrast: true,
 	})
 	if err != nil {
 		return &provider.StrategyResult{
@@ -98,8 +92,7 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 		}, nil
 	}
 
-	// ===== 2) OCR: ลองหลาย PSM โดยยึดค่าจาก .env เป็นตัวตั้ง =====
-	psmCandidates := uniqueInts([]int{psm, 6, 3, 11}) // 6:block, 3:full auto, 11:sparse text
+	psmCandidates := uniqueInts([]int{psm, 6, 3, 11})
 	var best *provider.StrategyResult
 
 	for _, try := range psmCandidates {
@@ -129,19 +122,16 @@ func (s *FullImageStrategy) Execute(ctx context.Context, imageData []byte) (*pro
 			},
 		}
 
-		// หยุดเร็วเมื่อถึงเกณฑ์ที่กำหนด
 		if stopOnSuccess && hasID && res.Confidence >= minConfidenceStop {
 			return candidate, nil
 		}
 
-		// เก็บ best ตามความเชื่อมั่น
 		if best == nil || (candidate.OCRResult != nil && best.OCRResult != nil &&
 			candidate.OCRResult.Confidence > best.OCRResult.Confidence) {
 			best = candidate
 		}
 	}
 
-	// ถ้าไม่มี candidate เลย
 	if best == nil {
 		return &provider.StrategyResult{
 			Name:           s.Name(),

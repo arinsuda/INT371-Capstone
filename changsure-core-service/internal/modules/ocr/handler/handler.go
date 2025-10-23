@@ -194,8 +194,6 @@ func (h *OCRHandler) HealthCheck(c fiber.Ctx) error {
 	})
 }
 
-// ===================== helpers =====================
-
 func parseBoolForm(c fiber.Ctx, key string, defaultValue bool) bool {
 	if value := c.FormValue(key); value != "" {
 		if b, err := strconv.ParseBool(value); err == nil {

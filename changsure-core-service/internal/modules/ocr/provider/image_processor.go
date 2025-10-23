@@ -36,7 +36,7 @@ func (p *DefaultImageProcessor) Preprocess(ctx context.Context, imageData []byte
 	}
 
 	if opts.AutoRotate {
-		// Auto-rotate logic (currently placeholder)
+
 	}
 
 	var g *image.Gray
@@ -48,7 +48,6 @@ func (p *DefaultImageProcessor) Preprocess(ctx context.Context, imageData []byte
 		img = g
 	}
 
-	// ✅ เพิ่ม: Sharpening ก่อน normalize เพื่อเพิ่มความคมชัด
 	if opts.EnhanceContrast && g != nil {
 		if err := ctxErr(ctx); err != nil {
 			return nil, err
@@ -127,7 +126,7 @@ func (p *DefaultImageProcessor) Upscale(ctx context.Context, imageData []byte, s
 }
 
 func (p *DefaultImageProcessor) AutoRotate(ctx context.Context, imageData []byte) ([]byte, float64, error) {
-	// Auto-rotate logic (placeholder)
+
 	return imageData, 0.0, nil
 }
 
@@ -153,7 +152,6 @@ func (p *DefaultImageProcessor) EnhanceContrast(ctx context.Context, imageData [
 	}
 	g := toGray(img)
 
-	// ✅ เพิ่ม sharpening ก่อน histogram equalization
 	g = sharpenImage(g)
 	g = histogramEqualization(g)
 
@@ -282,15 +280,12 @@ func histogramEqualization(g *image.Gray) *image.Gray {
 	return dst
 }
 
-// ✅ เพิ่ม: Unsharp masking สำหรับเพิ่มความคมชัด
 func sharpenImage(g *image.Gray) *image.Gray {
 	b := g.Bounds()
 	w, h := b.Dx(), b.Dy()
 
-	// สร้าง blurred version (simple box blur)
 	blurred := image.NewGray(b)
 
-	// Simple 3x3 box blur
 	for y := 1; y < h-1; y++ {
 		for x := 1; x < w-1; x++ {
 			sum := 0
@@ -303,8 +298,7 @@ func sharpenImage(g *image.Gray) *image.Gray {
 		}
 	}
 
-	// Unsharp mask: sharp = original + amount * (original - blurred)
-	amount := 1.5 // ค่าความแรงของ sharpening
+	amount := 1.5
 	dst := image.NewGray(b)
 
 	for y := b.Min.Y; y < b.Max.Y; y++ {
@@ -314,7 +308,6 @@ func sharpenImage(g *image.Gray) *image.Gray {
 
 			sharp := original + amount*(original-blur)
 
-			// Clamp to [0, 255]
 			if sharp < 0 {
 				sharp = 0
 			}

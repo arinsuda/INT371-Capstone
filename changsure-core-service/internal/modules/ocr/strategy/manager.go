@@ -28,10 +28,9 @@ func NewStrategyManager(
 	cache provider.CacheManager,
 	metrics provider.MetricsCollector,
 ) *StrategyManager {
-	// 1) จัดลำดับตาม ExecutionOrder ก่อน ถ้าไม่ระบุให้ใช้ Priority (desc)
+
 	ordered := orderStrategies(strategies, cfg)
 
-	// 2) ค่าการทำงานแบบขนาน
 	enableConcurrent := false
 	maxConc := 1
 	if cfg != nil {
@@ -58,7 +57,6 @@ func NewStrategyManager(
 func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, language string) (*ExecutionResult, error) {
 	startTime := time.Now()
 
-	// ===== Cache (best result) =====
 	if m.config != nil && m.config.Performance.EnableCache && m.cache != nil {
 		cacheKey := m.createCacheKey(imageData, "all", language)
 		if cached, found := m.cache.Get(cacheKey); found {
@@ -71,7 +69,6 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		}
 	}
 
-	// ===== เลือก total timeout =====
 	totalTimeout := m.config.Performance.TotalTimeout
 	if totalTimeout <= 0 && m.config.TimeoutSec > 0 {
 		totalTimeout = time.Duration(m.config.TimeoutSec) * time.Second
@@ -83,7 +80,6 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		defer cancelExec()
 	}
 
-	// ===== Execute =====
 	var (
 		results []*provider.StrategyResult
 		err     error
@@ -108,7 +104,6 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		execResult.BestResult = best.OCRResult
 	}
 
-	// ===== Set cache เมื่อสำเร็จ =====
 	if m.config.Performance.EnableCache && m.cache != nil && best != nil && best.Success {
 		cacheKey := m.createCacheKey(imageData, "all", language)
 		m.cache.Set(cacheKey, best.OCRResult, m.config.Performance.CacheTTL)
@@ -124,13 +119,10 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 		sem         = make(chan struct{}, m.maxConcurrency)
 	)
 
-	// per-strategy timeout (0 = ไม่กำหนด)
 	strategyTimeout := m.config.Performance.StrategyTimeout
 
-	// เกณฑ์หยุดเร็วจาก config (root/strategies)
 	stopEarly, stopThreshold := stopConfig(m.config)
 
-	// จะใช้ cancel เฉพาะกรณีเราสร้าง context ที่มี timeout ให้เอง
 	ctxMain := ctx
 	var cancelMain context.CancelFunc
 	if m.config.Performance.TotalTimeout > 0 && ctxMain.Err() == nil {
@@ -150,7 +142,6 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 				return
 			}
 
-			// สร้าง context ของกลยุทธ์
 			stratCtx := ctxMain
 			var cancelStrat context.CancelFunc
 			if strategyTimeout > 0 {
@@ -167,7 +158,6 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 				}
 			}
 
-			// บันทึก metrics (ถ้ามี)
 			if m.metrics != nil {
 				m.metrics.RecordStrategyExecution(strat.Name(), res.ProcessingTime, res.Success)
 				if res.Success && res.OCRResult != nil {
@@ -178,14 +168,12 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 				}
 			}
 
-			// ส่งผลลัพธ์ออก
 			select {
 			case resultsChan <- res:
 			case <-ctxMain.Done():
 				return
 			}
 
-			// Stop on first success ตามเกณฑ์ (.env)
 			if stopEarly && res.Success && res.OCRResult != nil && res.OCRResult.Confidence >= stopThreshold {
 				if cancelMain != nil {
 					cancelMain()
@@ -213,19 +201,17 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byte) ([]*provider.StrategyResult, error) {
 	results := make([]*provider.StrategyResult, 0, len(m.strategies))
 
-	// per-strategy timeout
 	strategyTimeout := m.config.Performance.StrategyTimeout
 	stopEarly, stopThreshold := stopConfig(m.config)
 
 	for _, s := range m.strategies {
-		// เช็ค cancel / deadline ก่อน
+
 		select {
 		case <-ctx.Done():
 			return results, ctx.Err()
 		default:
 		}
 
-		// ทำงานแต่ละกลยุทธ์
 		stratCtx := ctx
 		var cancelStrat context.CancelFunc
 		if strategyTimeout > 0 {
@@ -243,7 +229,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 			}
 		}
 
-		// metrics
 		if m.metrics != nil {
 			m.metrics.RecordStrategyExecution(s.Name(), res.ProcessingTime, res.Success)
 			if res.Success && res.OCRResult != nil {
@@ -256,7 +241,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 
 		results = append(results, res)
 
-		// หยุดเร็วถ้าถึงเกณฑ์
 		if stopEarly && res.Success && res.OCRResult != nil && res.OCRResult.Confidence >= stopThreshold {
 			break
 		}
@@ -282,12 +266,10 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 		}
 		score := r.OCRResult.Confidence
 
-		// ชอบผลจาก "cropped" เล็กน้อยเพราะมีโอกาสเป็น ID ROI
 		if r.Name == "cropped" {
 			score *= 1.1
 		}
 
-		// ถ้า success ให้บวก bias เล็กน้อย
 		if r.Success {
 			score += 0.01
 		}
@@ -298,7 +280,6 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 		}
 	}
 
-	// หากไม่มีสักตัวที่มี OCRResult ให้คืนตัวแรก (ตามเดิม)
 	if best == nil {
 		return results[0]
 	}
@@ -314,11 +295,9 @@ func (m *StrategyManager) createCacheKey(imageData []byte, strategy string, lang
 	}
 }
 
-// ===== helpers =====
-
 func orderStrategies(strats []provider.OCRStrategy, cfg *config.OCRConfig) []provider.OCRStrategy {
 	if cfg == nil || len(cfg.Strategies.ExecutionOrder) == 0 {
-		// ไม่มีการกำหนดลำดับ: ใช้ Priority จากกลยุทธ์ (desc)
+
 		out := make([]provider.OCRStrategy, len(strats))
 		copy(out, strats)
 		sort.Slice(out, func(i, j int) bool {
@@ -327,7 +306,6 @@ func orderStrategies(strats []provider.OCRStrategy, cfg *config.OCRConfig) []pro
 		return out
 	}
 
-	// มี ExecutionOrder: จัดเรียงตาม order แล้วค่อยเติมตัวที่เหลือ
 	order := cfg.Strategies.ExecutionOrder
 	index := make(map[string]provider.OCRStrategy, len(strats))
 	for _, s := range strats {

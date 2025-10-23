@@ -35,17 +35,13 @@ func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 type Container struct {
 	DB *gorm.DB
 
-	// Repositories
 	CustomerRepo customers.Repository
 
-	// Services
 	CustomerService customers.Service
 
-	// Handlers
 	CustomerHandler *customers.Handler
 	OCRHandler      *ocrhandler.OCRHandler
 
-	// Modules with lifecycle
 	ocrModule *ocrmod.OCRModule
 }
 
@@ -56,16 +52,12 @@ func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
 
 	c := &Container{DB: db}
 
-	// Initialize repositories
 	c.CustomerRepo = customers.NewRepository(db)
 
-	// Initialize services
 	c.CustomerService = customers.NewService(c.CustomerRepo)
 
-	// Initialize handlers
 	c.CustomerHandler = customers.NewHandler(c.CustomerService)
 
-	// Default init for OCR (ถ้าไม่มี options override)
 	defaultOCR := func() (*ocrmod.OCRModule, error) {
 		return ocrmod.NewOCRModule()
 	}
@@ -86,18 +78,15 @@ func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
 func (c *Container) Close(ctx context.Context) error {
 	var firstErr error
 
-	// ปิด OCR module ถ้ามี Close
 	if c.ocrModule != nil {
 		if err := c.ocrModule.Close(); err != nil && firstErr == nil {
 			firstErr = fmt.Errorf("close OCR module: %w", err)
 		}
 	}
 
-	// ถ้ามี resource อื่น ๆ ให้ปิดที่นี่
 	return firstErr
 }
 
-// AllModels returns all models for migration
 func AllModels() []interface{} {
 	var all []interface{}
 	all = append(all, provinces.Models()...)

@@ -13,16 +13,14 @@ import (
 )
 
 func SetupMiddleware(app *fiber.App, cfg *config.Config) {
-	// Security headers
+
 	app.Use(Helmet())
 	app.Use(SecurityExtras())
 	app.Use(Recover())
 
-	// Request tracking
 	app.Use(RequestID())
 	app.Use(ContextMiddleware())
 
-	// CORS
 	if cfg.App.Environment == "production" {
 		app.Use(CORSProduction([]string{
 			"https://yourdomain.com",
@@ -32,17 +30,14 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 		app.Use(CORS())
 	}
 
-	// Logging
 	if cfg.App.Environment == "production" {
 		app.Use(LoggerProduction())
 	} else {
 		app.Use(Logger())
 	}
 
-	// Performance
 	app.Use(Compress())
 
-	// Rate limiting
 	if cfg.App.Environment == "production" {
 		app.Use(StrictRateLimit())
 	} else {
@@ -50,36 +45,29 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 	}
 }
 
-// ContextMiddleware injects context.Context into fiber.Ctx
-// Compatible with Fiber v3 beta.5
 func ContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Create background context
+
 		ctx := context.Background()
 
-		// Add request ID to context if available
 		if reqID, ok := c.Locals("request_id").(string); ok {
 			ctx = context.WithValue(ctx, "request_id", reqID)
 		}
 
-		// Store context in Locals for retrieval in handlers
 		c.Locals("requestContext", ctx)
 
 		return c.Next()
 	}
 }
 
-// GetContext retrieves context.Context from fiber.Ctx
-// Use this in your handlers to get the request context
 func GetContext(c fiber.Ctx) context.Context {
 	if ctx, ok := c.Locals("requestContext").(context.Context); ok {
 		return ctx
 	}
-	// Fallback to background context
+
 	return context.Background()
 }
 
-// APIKeyAuth validates API key from request header
 func APIKeyAuth(validAPIKeys []string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if key := c.Get("X-API-Key"); key != "" {
@@ -97,7 +85,6 @@ func APIKeyAuth(validAPIKeys []string) fiber.Handler {
 	}
 }
 
-// RequestID generates or extracts request ID
 func RequestID() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		id := c.Get("X-Request-ID")
@@ -110,7 +97,6 @@ func RequestID() fiber.Handler {
 	}
 }
 
-// Timeout adds timeout to requests
 func Timeout(d time.Duration) fiber.Handler {
 	return timeout.New(
 		func(c fiber.Ctx) error { return c.Next() },
@@ -126,7 +112,6 @@ func Timeout(d time.Duration) fiber.Handler {
 	)
 }
 
-// ContentTypeJSON validates JSON content type
 func ContentTypeJSON() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if m := c.Method(); m == fiber.MethodPost || m == fiber.MethodPut || m == fiber.MethodPatch {
@@ -142,7 +127,6 @@ func ContentTypeJSON() fiber.Handler {
 	}
 }
 
-// MaintenanceMode enables maintenance mode
 func MaintenanceMode(enabled bool, msg string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if !enabled {

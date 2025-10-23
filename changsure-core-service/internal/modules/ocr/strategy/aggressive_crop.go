@@ -58,11 +58,11 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 	startTime := time.Now()
 
 	lang := "eng"
-	oem := 1 // ✅ ใช้ LSTM only
+	oem := 1
 	psmDefault := 7
-	upscale := 3.0 // ✅ เพิ่มจาก 2.0
+	upscale := 3.0
 	stopOnSuccess := true
-	minConfidenceStop := 0.75 // ✅ ลดจาก 0.80
+	minConfidenceStop := 0.75
 	strategyTimeout := time.Duration(0)
 
 	if s.cfg != nil {
@@ -101,26 +101,21 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		}
 	}
 
-	// ✅ เพิ่มความหลากหลายของ regions มากขึ้น
 	var regions []*provider.Region
 	if s.cfg != nil && s.cfg.IDCard.IDNumberRegion.Enabled {
 		base := s.cfg.IDCard.IDNumberRegion
-		
-		// Base + 8 variants (เพิ่มจาก 5 เดิม)
+
 		regions = append(regions,
 			&provider.Region{X: base.X, Y: base.Y, Width: base.Width, Height: base.Height, Type: "base"},
-			
-			// Horizontal shifts
+
 			&provider.Region{X: clamp01(base.X - 0.05), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_left_far"},
 			&provider.Region{X: clamp01(base.X - 0.03), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_left"},
 			&provider.Region{X: clamp01(base.X + 0.03), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_right"},
 			&provider.Region{X: clamp01(base.X + 0.05), Y: base.Y, Width: base.Width, Height: base.Height, Type: "shift_right_far"},
-			
-			// Vertical shifts
+
 			&provider.Region{X: base.X, Y: clamp01(base.Y - 0.03), Width: base.Width, Height: base.Height, Type: "shift_up"},
 			&provider.Region{X: base.X, Y: clamp01(base.Y + 0.03), Width: base.Width, Height: base.Height, Type: "shift_down"},
-			
-			// Size variants
+
 			&provider.Region{X: clamp01(base.X - 0.05), Y: clamp01(base.Y - 0.01), Width: clamp01(base.Width + 0.10), Height: clamp01(base.Height + 0.02), Type: "wider_taller"},
 			&provider.Region{X: clamp01(base.X + 0.02), Y: clamp01(base.Y + 0.01), Width: clamp01(base.Width - 0.04), Height: clamp01(base.Height - 0.01), Type: "tighter"},
 		)
@@ -139,14 +134,13 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 		}
 	}
 
-	// ✅ เพิ่ม PSM variants มากขึ้น
 	psmModes := uniqueInts([]int{
-		psmDefault, // ค่าจาก config
-		7,  // Single line
-		6,  // Uniform block
-		13, // Raw line
-		11, // Sparse text
-		8,  // Single word
+		psmDefault,
+		7,
+		6,
+		13,
+		11,
+		8,
 	})
 
 	var best *provider.StrategyResult
@@ -207,7 +201,6 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 				continue
 			}
 
-			// ✅ ใช้ validator ที่ปรับปรุงแล้ว
 			idNumber, idErr := s.validator.ExtractIDNumber(result.Text)
 			if idErr == nil && idNumber != "" {
 				candidate := &provider.StrategyResult{
@@ -226,12 +219,10 @@ func (s *AggressiveCropStrategy) Execute(ctx context.Context, imageData []byte) 
 					},
 				}
 
-				// Early exit ถ้าถึงเกณฑ์
 				if stopOnSuccess && result.Confidence >= minConfidenceStop {
 					return candidate, nil
 				}
 
-				// เก็บ best
 				if best == nil || result.Confidence > best.OCRResult.Confidence {
 					best = candidate
 				}

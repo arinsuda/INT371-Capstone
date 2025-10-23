@@ -21,19 +21,19 @@ type OCRModule struct {
 func NewOCRModule() (*OCRModule, error) {
 	cfg := config.LoadOCRConfig()
 
-	// Provider / Processor / Detector
+	
 	ocrProvider, err := provider.NewTesseractExecProvider(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCR provider: %w", err)
 	}
-	imageProcessor := provider.NewDefaultImageProcessor() // ภายในรองรับลอจิกตาม opts ที่ส่งจาก strategy
-	regionDetector := provider.NewDefaultRegionDetector() // อ่านค่าครอปจาก ENV ตามที่ปรับไว้ก่อนหน้า
+	imageProcessor := provider.NewDefaultImageProcessor() 
+	regionDetector := provider.NewDefaultRegionDetector() 
 
-	// Validators
+	
 	idValidator := validator.NewIDCardValidator()
 	fileValidator := validator.NewFileValidator(cfg)
 
-	// Infra: cache / metrics
+	
 	var cacheManager provider.CacheManager
 	var metricsCollector provider.MetricsCollector
 	if cfg.Performance.EnableCache {
@@ -43,7 +43,7 @@ func NewOCRModule() (*OCRModule, error) {
 		metricsCollector = infra.NewMetricsCollector()
 	}
 
-	// Build strategies จาก cfg (ผูกกับ .env เต็มที่)
+	
 	strategies := createStrategies(
 		ocrProvider,
 		imageProcessor,
@@ -52,7 +52,7 @@ func NewOCRModule() (*OCRModule, error) {
 		cfg,
 	)
 
-	// Manager
+	
 	strategyManager := strategy.NewStrategyManager(
 		strategies,
 		cfg,
@@ -60,7 +60,7 @@ func NewOCRModule() (*OCRModule, error) {
 		metricsCollector,
 	)
 
-	// Service / Handler
+	
 	ocrService := service.NewOCRService(
 		strategyManager,
 		idValidator,
@@ -83,7 +83,7 @@ func createStrategies(
 	idValidator *validator.IDCardValidator,
 	cfg *config.OCRConfig,
 ) []provider.OCRStrategy {
-	// สร้างเป็น map ก่อน เพื่อจัดเรียงตาม ExecutionOrder ได้ง่าย
+	
 	registry := map[string]provider.OCRStrategy{}
 
 	if cfg.Strategies.EnableAggressiveCrop {
@@ -113,7 +113,7 @@ func createStrategies(
 		)
 	}
 
-	// ถ้าไม่มีอะไรเปิดไว้เลย ให้มีชุด fallback ที่อ่านค่าใน cfg ภายในกลยุทธ์เอง
+	
 	if len(registry) == 0 {
 		registry["aggressive_crop"] = strategy.NewAggressiveCropStrategy(
 			ocrProvider, imageProcessor, regionDetector, idValidator, cfg,
@@ -126,7 +126,7 @@ func createStrategies(
 		)
 	}
 
-	// จัดเรียงตาม ExecutionOrder จาก .env; ถ้าเว้นว่างใช้ลำดับมาตรฐาน
+	
 	order := cfg.Strategies.ExecutionOrder
 	if len(order) == 0 {
 		order = []string{"cropped", "aggressive_crop", "normalized", "auto_rotate", "full"}
@@ -140,7 +140,7 @@ func createStrategies(
 			used[key] = true
 		}
 	}
-	// เติมกลยุทธ์ที่เปิดไว้แต่ไม่อยู่ใน order (กันตกหล่น)
+	
 	for k, s := range registry {
 		if !used[k] {
 			out = append(out, s)

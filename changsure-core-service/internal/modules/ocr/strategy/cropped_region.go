@@ -47,7 +47,7 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 	lang := "eng"
 	psm := 6
 	oem := 3
-	upscale := 3.0 // ✅ เพิ่มจาก 1.0 → 3.0 สำหรับบัตรประชาชน
+	upscale := 3.0
 	doNormalize := true
 	stopOnSuccess := false
 	minConfidenceStop := 0.80
@@ -84,40 +84,37 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		}
 	}
 
-	// ✅ เพิ่ม: สร้าง multiple crop variants
 	var regions []*provider.Region
 
 	if s.cfg != nil && s.cfg.IDCard.IDNumberRegion.Enabled {
 		base := s.cfg.IDCard.IDNumberRegion
 
-		// Base region
 		regions = append(regions, &provider.Region{
 			X: base.X, Y: base.Y, Width: base.Width, Height: base.Height, Type: "base",
 		})
 
-		// ✅ Variants: ขยับเล็กน้อยเพื่อครอบคลุมกรณี alignment ไม่แม่นยำ
 		regions = append(regions,
-			// ขยับซ้าย
+
 			&provider.Region{
 				X: clamp01(base.X - 0.03), Y: base.Y,
 				Width: base.Width, Height: base.Height, Type: "shift_left",
 			},
-			// ขยับขวา
+
 			&provider.Region{
 				X: clamp01(base.X + 0.03), Y: base.Y,
 				Width: base.Width, Height: base.Height, Type: "shift_right",
 			},
-			// ขยับขึ้น
+
 			&provider.Region{
 				X: base.X, Y: clamp01(base.Y - 0.02),
 				Width: base.Width, Height: base.Height, Type: "shift_up",
 			},
-			// ขยับลง
+
 			&provider.Region{
 				X: base.X, Y: clamp01(base.Y + 0.02),
 				Width: base.Width, Height: base.Height, Type: "shift_down",
 			},
-			// ขยายกว้างขึ้น
+
 			&provider.Region{
 				X: clamp01(base.X - 0.05), Y: base.Y,
 				Width: clamp01(base.Width + 0.10), Height: base.Height, Type: "wider",
@@ -140,7 +137,6 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 	var bestRegion *provider.Region
 	var bestPSM int
 
-	// ✅ ลองทุก region variant
 	for _, region := range regions {
 		croppedData, err := s.regionDetector.CropRegion(ctx, imageData, region)
 		if err != nil {
@@ -251,4 +247,3 @@ func (s *CroppedRegionStrategy) Execute(ctx context.Context, imageData []byte) (
 		},
 	}, nil
 }
-

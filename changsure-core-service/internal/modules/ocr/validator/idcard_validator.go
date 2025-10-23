@@ -31,10 +31,10 @@ func NewIDCardValidator() *IDCardValidator {
 		digitPattern:      regexp.MustCompile(`\d{13}`),
 		multiSpacePattern: regexp.MustCompile(`\s+`),
 		thaiIDPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`(\d)\s*(\d{4})\s*(\d{5})\s*(\d{2})\s*(\d)`), // 1 1223 34455 66 7
-			regexp.MustCompile(`(\d)-(\d{4})-(\d{5})-(\d{2})-(\d)`),         // 1-1223-34455-66-7
-			regexp.MustCompile(`(\d{10})\s*(\d{3})`),                        // 1122334455 667
-			regexp.MustCompile(`(\d)\s*(\d{12})`),                           // 1 122334455667
+			regexp.MustCompile(`(\d)\s*(\d{4})\s*(\d{5})\s*(\d{2})\s*(\d)`),
+			regexp.MustCompile(`(\d)-(\d{4})-(\d{5})-(\d{2})-(\d)`),
+			regexp.MustCompile(`(\d{10})\s*(\d{3})`),
+			regexp.MustCompile(`(\d)\s*(\d{12})`),
 		},
 	}
 }
@@ -64,8 +64,8 @@ var (
 	}
 
 	firstDigitSubstitutes = map[rune][]rune{
-		'1': {'7', '4'}, // 1 might be misread as 7 or 4
-		'4': {'1', '7'}, // 4 is most commonly misread from 1
+		'1': {'7', '4'},
+		'4': {'1', '7'},
 		'0': {'8', '3'},
 		'7': {'1', '4'},
 		'8': {'0', '3', '1'},
@@ -137,7 +137,6 @@ type candidateScore struct {
 	score int
 }
 
-// findIDWithSpaces handles space-separated formats with scoring
 func (v *IDCardValidator) findIDWithSpaces(text string) string {
 	cleaned := regexp.MustCompile(`[^\d\s]`).ReplaceAllString(text, "")
 	cleaned = v.multiSpacePattern.ReplaceAllString(cleaned, " ")
@@ -148,20 +147,17 @@ func (v *IDCardValidator) findIDWithSpaces(text string) string {
 		return ""
 	}
 
-	// Collect all valid candidates with scores
 	var candidates []candidateScore
 
-	// Define all possible Thai ID patterns
 	patterns := [][]int{
-		{1, 4, 5, 2, 1}, // Standard: 1 1223 34455 66 7
-		{1, 4, 5, 3},    // Alternative: 9 2345 67890 001
-		{5, 5, 3},       // OCR error: 12345 67890 001
-		{5, 5, 2, 1},    // OCR error: 11223 34455 66 7
-		{2, 4, 5, 2},    // Missing last: 11 1223 34455 66
-		{1, 5, 5, 2},    // Alternative: 1 12233 44556 67
+		{1, 4, 5, 2, 1},
+		{1, 4, 5, 3},
+		{5, 5, 3},
+		{5, 5, 2, 1},
+		{2, 4, 5, 2},
+		{1, 5, 5, 2},
 	}
 
-	// Try each pattern
 	for _, pattern := range patterns {
 		if len(parts) != len(pattern) {
 			continue
@@ -169,7 +165,7 @@ func (v *IDCardValidator) findIDWithSpaces(text string) string {
 
 		var id strings.Builder
 		valid := true
-		
+
 		for i, expectedLen := range pattern {
 			if len(parts[i]) != expectedLen {
 				valid = false
@@ -183,58 +179,51 @@ func (v *IDCardValidator) findIDWithSpaces(text string) string {
 		}
 
 		candidate := id.String()
-		
-		// Try original
+
 		if v.ValidateChecksum(candidate) == nil {
 			firstDigit := rune(candidate[0])
-			score := firstDigitFrequency[firstDigit] + 20 // High bonus for matching pattern
+			score := firstDigitFrequency[firstDigit] + 20
 			candidates = append(candidates, candidateScore{candidate, score})
 		}
-		
-		// Try fixing last digit
+
 		for lastDigit := '0'; lastDigit <= '9'; lastDigit++ {
 			fixed := candidate[:12] + string(lastDigit)
 			if v.ValidateChecksum(fixed) == nil {
 				firstDigit := rune(fixed[0])
-				score := firstDigitFrequency[firstDigit] + 15 // Good bonus
+				score := firstDigitFrequency[firstDigit] + 15
 				candidates = append(candidates, candidateScore{fixed, score})
 			}
 		}
-		
-		// Try fixing first digit
+
 		firstDigit := rune(candidate[0])
 		if substitutes, exists := firstDigitSubstitutes[firstDigit]; exists {
 			for _, sub := range substitutes {
 				fixed := string(sub) + candidate[1:]
 				if v.ValidateChecksum(fixed) == nil {
-					score := firstDigitFrequency[sub] + 10 // Medium bonus
+					score := firstDigitFrequency[sub] + 10
 					candidates = append(candidates, candidateScore{fixed, score})
 				}
 			}
 		}
 	}
 
-	// Special case: 5-5-3 format like "12345 67890 001"
-	// This could be "1 2345 67890 001" with first two digits merged
 	if len(parts) == 3 && len(parts[0]) == 5 && len(parts[1]) == 5 && len(parts[2]) == 3 {
 		firstPart := parts[0]
-		
-		// Try splitting first part at positions 1 and 2
+
 		for splitPos := 1; splitPos <= 2; splitPos++ {
 			part1 := firstPart[:splitPos]
 			part2 := firstPart[splitPos:]
-			
+
 			baseCandidate := part1 + part2 + parts[1] + parts[2]
-			
+
 			if len(baseCandidate) == idLength {
-				// Try original
+
 				if v.ValidateChecksum(baseCandidate) == nil {
 					firstDigit := rune(baseCandidate[0])
-					score := firstDigitFrequency[firstDigit] + 25 // Highest bonus for correct split
+					score := firstDigitFrequency[firstDigit] + 25
 					candidates = append(candidates, candidateScore{baseCandidate, score})
 				}
-				
-				// Try fixing last digit
+
 				for lastDigit := '0'; lastDigit <= '9'; lastDigit++ {
 					fixed := baseCandidate[:12] + string(lastDigit)
 					if v.ValidateChecksum(fixed) == nil {
@@ -247,27 +236,24 @@ func (v *IDCardValidator) findIDWithSpaces(text string) string {
 		}
 	}
 
-	// Special case: 5-5-2-1 format like "11223 34455 66 7"
 	if len(parts) == 4 && len(parts[0]) == 5 && len(parts[1]) == 5 && len(parts[2]) == 2 && len(parts[3]) == 1 {
 		firstPart := parts[0]
 
-		// Try splitting first part at each position
 		for splitPos := 1; splitPos < len(firstPart); splitPos++ {
 			part1 := firstPart[:splitPos]
 			part2 := firstPart[splitPos:]
 
 			if (len(part1) == 1 && len(part2) == 4) || (len(part1) == 2 && len(part2) == 3) {
 				baseCandidate := part1 + part2 + parts[1] + parts[2] + parts[3]
-				
+
 				if len(baseCandidate) == idLength {
-					// Try original
+
 					if v.ValidateChecksum(baseCandidate) == nil {
 						firstDigit := rune(baseCandidate[0])
 						score := firstDigitFrequency[firstDigit] + 25
 						candidates = append(candidates, candidateScore{baseCandidate, score})
 					}
-					
-					// Try fixing last digit
+
 					for lastDigit := '0'; lastDigit <= '9'; lastDigit++ {
 						fixed := baseCandidate[:12] + string(lastDigit)
 						if v.ValidateChecksum(fixed) == nil {
@@ -281,7 +267,6 @@ func (v *IDCardValidator) findIDWithSpaces(text string) string {
 		}
 	}
 
-	// Return the candidate with the highest score
 	if len(candidates) > 0 {
 		best := candidates[0]
 		for _, c := range candidates[1:] {
@@ -373,49 +358,40 @@ func (v *IDCardValidator) ExtractIDNumber(text string) (string, error) {
 		return "", ErrEmptyText
 	}
 
-	// Step 1: Clean OCR noise
 	cleaned := v.cleanOCRNoise(text)
 
-	// Step 2: Try finding 13 consecutive digits
 	if id := v.digitPattern.FindString(cleaned); id != "" {
 		if v.ValidateChecksum(id) == nil {
 			return id, nil
 		}
 	}
 
-	// Step 3: Normalize OCR text
 	normalized := v.normalizeOCRText(cleaned)
 
-	// Step 3.5: Try finding ID with spaces FIRST (with scoring system)
 	if id := v.findIDWithSpaces(normalized); id != "" {
 		return id, nil
 	}
 
-	// Step 4: Try finding 13 consecutive digits after normalization
 	if id := v.digitPattern.FindString(normalized); id != "" {
 		if v.ValidateChecksum(id) == nil {
 			return id, nil
 		}
 	}
 
-	// Step 5: Try pattern matching for Thai ID format
 	if id := v.findThaiIDPattern(normalized); id != "" {
 		return id, nil
 	}
 
-	// Step 6: Extract digits only and try sliding window
 	digitsOnly := v.extractDigitsOnly(normalized)
 
 	if id, found := v.trySlidingWindow(digitsOnly); found {
 		return id, nil
 	}
 
-	// Step 7: Try first digit substitution with scoring
 	if id, found := v.tryFirstDigitSubstitutionWithScoring(digitsOnly); found {
 		return id, nil
 	}
 
-	// Step 8: Try all common first digit combinations (last resort)
 	if id, found := v.tryAllFirstDigitCombinations(digitsOnly); found {
 		return id, nil
 	}
@@ -454,21 +430,18 @@ func (v *IDCardValidator) Validate(id string) error {
 	return v.ValidateChecksum(id)
 }
 
-// DebugExtractIDNumber extracts ID with detailed logging
 func (v *IDCardValidator) DebugExtractIDNumber(text string) (string, []string, error) {
 	var logs []string
-	
+
 	if text == "" {
 		return "", logs, ErrEmptyText
 	}
 
 	logs = append(logs, "Input: "+text)
 
-	// Step 1: Clean OCR noise
 	cleaned := v.cleanOCRNoise(text)
 	logs = append(logs, "Cleaned: "+cleaned)
 
-	// Step 2: Try finding 13 consecutive digits
 	if id := v.digitPattern.FindString(cleaned); id != "" {
 		logs = append(logs, "Found 13 digits: "+id)
 		if v.ValidateChecksum(id) == nil {
@@ -478,11 +451,9 @@ func (v *IDCardValidator) DebugExtractIDNumber(text string) (string, []string, e
 		logs = append(logs, "✗ Checksum invalid")
 	}
 
-	// Step 3: Normalize OCR text
 	normalized := v.normalizeOCRText(cleaned)
 	logs = append(logs, "Normalized: "+normalized)
 
-	// Step 3.5: Try finding ID with spaces
 	logs = append(logs, "Trying findIDWithSpaces...")
 	if id := v.findIDWithSpaces(normalized); id != "" {
 		logs = append(logs, "Found via findIDWithSpaces: "+id)
@@ -490,7 +461,6 @@ func (v *IDCardValidator) DebugExtractIDNumber(text string) (string, []string, e
 	}
 	logs = append(logs, "✗ findIDWithSpaces returned empty")
 
-	// Continue with other methods...
 	digitsOnly := v.extractDigitsOnly(normalized)
 	logs = append(logs, "Digits only: "+digitsOnly)
 

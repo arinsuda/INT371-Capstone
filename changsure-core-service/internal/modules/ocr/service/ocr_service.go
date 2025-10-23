@@ -35,8 +35,6 @@ func NewOCRService(
 	}
 }
 
-// ===================== Public APIs =====================
-
 func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *dto.IDCardRequest) (*dto.IDCardData, *dto.Metadata, error) {
 	start := time.Now()
 	if req == nil {
@@ -65,10 +63,9 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 	}
 
 	if eff.stopOnSuccess && execResult.BestResult.Confidence >= eff.minConfidenceStop {
-		// proceed
+
 	}
 
-	// ✅ ปรับปรุง: ลองดึงเลขบัตรด้วย validator ที่ปรับปรุงแล้ว
 	idNumber, idErr := s.validator.ExtractIDNumber(execResult.BestResult.Text)
 
 	checksumValid := false
@@ -87,9 +84,9 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 			checksumValid = true
 		}
 	} else {
-		// ✅ Fallback ที่ปรับปรุงแล้ว: ใช้ validator ที่มี aggressive normalization
+
 		if eff.allowFallback {
-			// validator จะจัดการ normalization เองแล้ว
+
 			warnings = append(warnings, fmt.Sprintf("Using fallback extraction (original error: %v)", idErr))
 		} else {
 			warnings = append(warnings, "No valid ID card number detected")
@@ -175,8 +172,6 @@ func (s *OCRService) GetMetrics() map[string]interface{} {
 func (s *OCRService) Close() error {
 	return nil
 }
-
-// ===================== Internals =====================
 
 type effectiveParams struct {
 	language          string
@@ -357,6 +352,3 @@ func (s *OCRService) createMetadata(execResult *strategy.ExecutionResult, start 
 	}
 	return md
 }
-
-// ✅ ลบฟังก์ชัน CleanToAsciiDigits, ThaiIDChecksumOK, pickBestThaiID
-// เพราะย้ายไปอยู่ใน validator แล้ว

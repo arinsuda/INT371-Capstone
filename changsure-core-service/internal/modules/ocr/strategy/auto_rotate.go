@@ -29,7 +29,7 @@ func NewAutoRotateStrategy(
 		imageProcessor: processor,
 		validator:      validator,
 		cfg:            cfg,
-		priority:       70, // ใช้เลขคงที่; ลำดับจริงปล่อยให้ StrategyManager จัดตาม ExecutionOrder
+		priority:       70,
 	}
 }
 
@@ -40,13 +40,11 @@ func (s *AutoRotateStrategy) ShouldRetry() bool { return false }
 func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*provider.StrategyResult, error) {
 	start := time.Now()
 
-	// ===== ค่าจาก config / .env =====
 	lang := "eng"
 	if s.cfg != nil && s.cfg.Language != "" {
 		lang = s.cfg.Language
 	}
 
-	// PSM/OEM: ให้ใช้ IDCard.PSM > PSM (root) เป็นลำดับ
 	psm := 6
 	oem := 3
 	if s.cfg != nil {
@@ -60,13 +58,11 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		}
 	}
 
-	// Preprocess flags
 	doNormalize := true
 	if s.cfg != nil {
 		doNormalize = s.cfg.IDCard.EnableNormalize
 	}
 
-	// Stop on success & threshold (จะคืนผลเร็วถ้าเชื่อมั่นถึงเกณฑ์)
 	stopOnSuccess := false
 	minConfidenceStop := 0.80
 	if s.cfg != nil {
@@ -79,14 +75,12 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		}
 	}
 
-	// Strategy-level timeout
 	if s.cfg != nil && s.cfg.Performance.StrategyTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.cfg.Performance.StrategyTimeout)
 		defer cancel()
 	}
 
-	// ===== 1) Auto rotate =====
 	rotatedData, angle, err := s.imageProcessor.AutoRotate(ctx, imageData)
 	if err != nil {
 		return &provider.StrategyResult{
@@ -97,18 +91,15 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 		}, nil
 	}
 
-	// ===== 2) Preprocess ตาม config =====
 	processedData, err := s.imageProcessor.Preprocess(ctx, rotatedData, &provider.PreprocessOptions{
-		Grayscale:       true,        // ช่วย OCR เสมอ
-		Normalize:       doNormalize, // จาก .env
-		EnhanceContrast: true,        // เอกสารมักซีด/แสงไม่สม่ำเสมอ
-		// Upscale ไม่จำเป็นในขั้นตอนนี้เพราะ auto-rotate โฟกัส orientation
+		Grayscale:       true,
+		Normalize:       doNormalize,
+		EnhanceContrast: true,
 	})
 	if err != nil {
 		processedData = rotatedData
 	}
 
-	// ===== 3) OCR (ลอง PSM เล็กน้อย โดยยึดค่าจาก .env เป็นตัวตั้ง) =====
 	psmCandidates := []int{psm, 6, 7}
 	var best *provider.StrategyResult
 
@@ -140,24 +131,20 @@ func (s *AutoRotateStrategy) Execute(ctx context.Context, imageData []byte) (*pr
 			},
 		}
 
-		// เก็บ best ตาม confidence
 		if best == nil || (candidate.OCRResult != nil && best.OCRResult != nil &&
 			candidate.OCRResult.Confidence > best.OCRResult.Confidence) {
 			best = candidate
 		}
 
-		// หยุดเร็วเมื่อถึงเกณฑ์
 		if stopOnSuccess && hasValidID && res.Confidence >= minConfidenceStop {
 			return candidate, nil
 		}
 	}
 
-	// ถ้าไม่มีข้อความที่เป็น ID แต่ OCR ได้ ให้คืน best (success=false)
 	if best != nil {
 		return best, nil
 	}
 
-	// ไม่ได้อะไรเลย
 	return &provider.StrategyResult{
 		Name:           s.Name(),
 		Success:        false,

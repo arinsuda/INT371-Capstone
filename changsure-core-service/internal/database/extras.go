@@ -1,18 +1,15 @@
 package database
 
 import (
-
 	"fmt"
 	"log"
 )
 
-// sqlStatement เก็บชื่อและ SQL command ของแต่ละ extra object
 type sqlStatement struct {
 	name string
 	sql  string
 }
 
-// ApplyExtras สร้าง views และ stored procedures (ไม่มี function)
 func (d *Database) ApplyExtras() error {
 	log.Println("🔧 Applying SQL extras...")
 
@@ -22,14 +19,13 @@ func (d *Database) ApplyExtras() error {
 	}
 
 	stmts := []sqlStatement{
-		// ========= DROP Existing Objects =========
+
 		{name: "Drop view_service_starting_prices", sql: `DROP VIEW IF EXISTS view_service_starting_prices`},
 		{name: "Drop view_technicians_per_service", sql: `DROP VIEW IF EXISTS view_technicians_per_service`},
 		{name: "Drop auto_match_technician", sql: `DROP PROCEDURE IF EXISTS auto_match_technician`},
 		{name: "Drop create_reservation", sql: `DROP PROCEDURE IF EXISTS create_reservation`},
 		{name: "Drop set_reservation_status", sql: `DROP PROCEDURE IF EXISTS set_reservation_status`},
 
-		// ========= CREATE Views =========
 		{
 			name: "Create view_service_starting_prices",
 			sql: `CREATE VIEW view_service_starting_prices AS
@@ -52,7 +48,6 @@ func (d *Database) ApplyExtras() error {
 				WHERE t.is_available = 1`,
 		},
 
-		// ========= CREATE Procedures (Haversine inline) =========
 		{
 			name: "Create auto_match_technician",
 			sql: `CREATE PROCEDURE auto_match_technician (
@@ -178,7 +173,6 @@ func (d *Database) ApplyExtras() error {
 	return nil
 }
 
-// VerifyExtras ตรวจสอบว่า objects ทั้งหมดถูกสร้างเรียบร้อยแล้ว
 func (d *Database) VerifyExtras() error {
 	log.Println("🔍 Verifying SQL extras...")
 

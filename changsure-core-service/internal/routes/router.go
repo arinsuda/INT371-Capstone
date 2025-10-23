@@ -35,24 +35,24 @@ func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
 func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 	api := app.Group("/api/v1")
 
-	// Register module routes
+	
 	container.CustomerHandler.RegisterRoutes(api)
 	ocrroutes.Register(api, container.OCRHandler)
 }
 
-// routes.go (ใน setupTestTools)
+
 func setupTestTools(app *fiber.App, config *config.Config) {
-	// อย่าใส่ app.Use(middleware.CSP()) ตรงนี้ซ้ำ ถ้ามี global แล้ว
+	
 
 	app.Get("/ocr/test", func(c fiber.Ctx) error {
 		c.Set("Content-Security-Policy", strings.Join([]string{
 			"default-src 'self'",
 			"img-src 'self' data: blob:",
 			"connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 ws: wss:",
-			"script-src 'self' 'unsafe-inline'", // ใช้ได้กับ inline script ในหน้า test.html
-			"style-src 'self' 'unsafe-inline'",  // ใช้ได้กับ inline style
+			"script-src 'self' 'unsafe-inline'", 
+			"style-src 'self' 'unsafe-inline'",  
 			"font-src 'self' data:",
-			"worker-src 'self' blob:", // เผื่อใช้ worker/wasm ทีหลัง
+			"worker-src 'self' blob:", 
 			"object-src 'none'",
 			"base-uri 'self'",
 			"frame-ancestors 'none'",

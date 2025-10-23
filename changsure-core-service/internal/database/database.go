@@ -12,20 +12,17 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Database wraps GORM DB with additional functionality
 type Database struct {
 	*gorm.DB
 	config *config.DatabaseConfig
 }
 
-// Connect establishes database connection with proper configuration
 func Connect(cfg *config.Config) (*Database, error) {
-	// Validate config using helper from config package
+
 	if err := cfg.ValidateDatabaseConfig(); err != nil {
 		return nil, fmt.Errorf("invalid database config: %w", err)
 	}
 
-	// Get DSN from config package
 	dsn := cfg.GetDatabaseDSN()
 	if dsn == "" {
 		return nil, fmt.Errorf("DSN not configured for driver: %s", cfg.Database.Driver)
@@ -33,11 +30,10 @@ func Connect(cfg *config.Config) (*Database, error) {
 
 	gormConfig := &gorm.Config{
 		Logger:                 getLoggerMode(cfg.App.Environment),
-		SkipDefaultTransaction: true, // Better performance
-		PrepareStmt:            true, // Cache prepared statements
+		SkipDefaultTransaction: true,
+		PrepareStmt:            true,
 	}
 
-	// Open connection based on driver
 	var db *gorm.DB
 	var err error
 
@@ -57,12 +53,10 @@ func Connect(cfg *config.Config) (*Database, error) {
 		config: &cfg.Database,
 	}
 
-	// Configure connection pool
 	if err := database.configurePool(); err != nil {
 		return nil, fmt.Errorf("failed to configure pool: %w", err)
 	}
 
-	// Test connection
 	if err := database.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping: %w", err)
 	}
@@ -71,7 +65,6 @@ func Connect(cfg *config.Config) (*Database, error) {
 	return database, nil
 }
 
-// configurePool sets up connection pool parameters
 func (d *Database) configurePool() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
@@ -81,7 +74,6 @@ func (d *Database) configurePool() error {
 	sqlDB.SetMaxOpenConns(d.config.MaxOpenConns)
 	sqlDB.SetMaxIdleConns(d.config.MaxIdleConns)
 
-	// Convert minutes to duration (from config)
 	maxLifetime := time.Duration(d.config.ConnMaxLifetime) * time.Minute
 	sqlDB.SetConnMaxLifetime(maxLifetime)
 	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
@@ -89,7 +81,6 @@ func (d *Database) configurePool() error {
 	return nil
 }
 
-// Ping checks database connectivity
 func (d *Database) Ping() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
@@ -102,7 +93,6 @@ func (d *Database) Ping() error {
 	return sqlDB.PingContext(ctx)
 }
 
-// Close closes the database connection
 func (d *Database) Close() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
@@ -111,12 +101,10 @@ func (d *Database) Close() error {
 	return sqlDB.Close()
 }
 
-// Transaction executes function within a transaction
 func (d *Database) Transaction(fn func(*gorm.DB) error) error {
 	return d.DB.Transaction(fn)
 }
 
-// GetStats returns connection pool statistics
 func (d *Database) GetStats() map[string]interface{} {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
