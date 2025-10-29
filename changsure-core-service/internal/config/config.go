@@ -73,125 +73,136 @@ type MinioConfig struct {
 var GlobalConfig *Config
 
 func LoadConfig() *Config {
-
-	err := godotenv.Load(".env")
-	if err != nil {
+	// โหลด .env ถ้ามี (ไม่บังคับ)
+	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("[WARN] No .env file found, using system environment variables: %v", err)
 	} else {
 		log.Println("[INFO] Loaded configuration from .env file successfully")
 	}
 
-	allowDocTypes := getEnvAsCSV("ALLOW_DOC_TYPES",
-		"id_card,certificate,license,portfolio,insurance",
-	)
-	allowMIME := getEnvAsCSV("ALLOW_MIME",
-		"application/pdf,image/jpeg,image/png",
-	)
+	// CSV แบบ optional: ถ้าไม่ตั้ง ENV -> คืน nil
+	allowDocTypes := getEnvAsCSVOptional("ALLOW_DOC_TYPES")
+	allowMIME := getEnvAsCSVOptional("ALLOW_MIME")
 
-	config := &Config{
+	cfg := &Config{
 		App: AppConfig{
-			Name:        getEnv("APP_NAME", "CAPSTONE-API"),
-			Port:        getEnv("PORT", "8080"),
-			Environment: getEnv("APP_ENV", "development"),
-			Debug:       getEnvAsBool("APP_DEBUG", true),
+			Name:        getEnv("APP_NAME"),
+			Port:        getEnv("PORT"),
+			Environment: getEnv("APP_ENV"),
+			Debug:       getEnvAsBool("APP_DEBUG"),
 		},
 		Database: DatabaseConfig{
-			Driver:          getEnv("DB_DRIVER", "mysql"),
-			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnv("DB_PORT", "3306"),
-			Username:        getEnv("DB_USERNAME", "root"),
-			Password:        getEnv("DB_PASSWORD", ""),
-			DatabaseName:    getEnv("DB_NAME", "capstone_core"),
-			SSLMode:         getEnv("DB_SSLMODE", "disable"),
-			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 300),
+			Driver:          getEnv("DB_DRIVER"),
+			Host:            getEnv("DB_HOST"),
+			Port:            getEnv("DB_PORT"),
+			Username:        getEnv("DB_USERNAME"),
+			Password:        getEnv("DB_PASSWORD"),
+			DatabaseName:    getEnv("DB_NAME"),
+			SSLMode:         getEnv("DB_SSLMODE"),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS"),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS"),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME"),
 		},
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", ""),
-			AccessTokenTTL:  getEnvAsInt("JWT_ACCESS_TOKEN_TTL", 24),
-			RefreshTokenTTL: getEnvAsInt("JWT_REFRESH_TOKEN_TTL", 168),
+			Secret:          getEnv("JWT_SECRET"),
+			AccessTokenTTL:  getEnvAsInt("JWT_ACCESS_TOKEN_TTL"),
+			RefreshTokenTTL: getEnvAsInt("JWT_REFRESH_TOKEN_TTL"),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvAsInt("REDIS_DB", 0),
+			Host:     getEnv("REDIS_HOST"),
+			Port:     getEnv("REDIS_PORT"),
+			Password: getEnv("REDIS_PASSWORD"),
+			DB:       getEnvAsInt("REDIS_DB"),
 		},
 		Minio: MinioConfig{
-			Endpoint:           getEnv("MINIO_ENDPOINT", "127.0.0.1:9000"),
-			AccessKey:          getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-			SecretKey:          getEnv("MINIO_SECRET_KEY", "minioadmin123"),
-			UseSSL:             getEnvAsBool("MINIO_USE_SSL", false),
-			Region:             getEnv("MINIO_REGION", ""),
-			Bucket:             getEnv("MINIO_BUCKET", "oneplatform"),
-			PresignUploadTTL:   getEnvAsInt("PRESIGN_UPLOAD_TTL", 900),
-			PresignDownloadTTL: getEnvAsInt("PRESIGN_DOWNLOAD_TTL", 600),
-			MaxFileMB:          getEnvAsInt("MAX_FILE_MB", 50),
+			Endpoint:           getEnv("MINIO_ENDPOINT"),
+			AccessKey:          getEnv("MINIO_ACCESS_KEY"),
+			SecretKey:          getEnv("MINIO_SECRET_KEY"),
+			UseSSL:             getEnvAsBool("MINIO_USE_SSL"),
+			Region:             getEnv("MINIO_REGION"),
+			Bucket:             getEnv("MINIO_BUCKET"),
+			PresignUploadTTL:   getEnvAsInt("PRESIGN_UPLOAD_TTL"),
+			PresignDownloadTTL: getEnvAsInt("PRESIGN_DOWNLOAD_TTL"),
+			MaxFileMB:          getEnvAsInt("MAX_FILE_MB"),
 			AllowDocTypes:      allowDocTypes,
 			AllowMIME:          allowMIME,
 			AllowDocTypesSet:   sliceToSet(allowDocTypes),
 			AllowMIMESet:       sliceToSet(allowMIME),
-			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN", false),
+			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN"),
 		},
 	}
 
-	if config.JWT.Secret == "" {
-		log.Fatal("[ERROR] Missing JWT_SECRET in .env — cannot start server securely")
+	// sanity check เพิ่มเติม (จริง ๆ getEnv จะล้มก่อนอยู่แล้วถ้าไม่มี)
+	if strings.TrimSpace(cfg.JWT.Secret) == "" {
+		log.Fatal("[ERROR] Missing JWT_SECRET — cannot start server securely")
 	}
 
-	GlobalConfig = config
-	return config
+	GlobalConfig = cfg
+	return cfg
 }
 
-/* ========== helpers ========== */
+/* ========== helpers: strict (no default) ========== */
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func getEnv(key string) string {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		log.Fatalf("missing required env %s", key)
 	}
-	return defaultValue
+	return v
 }
 
-func getEnvAsInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
+func getEnvAsInt(key string) int {
+	raw := getEnv(key)
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		log.Fatalf("invalid int for %s=%q", key, raw)
 	}
-	return defaultValue
+	return n
 }
 
-func getEnvAsBool(key string, defaultValue bool) bool {
-	if value := os.Getenv(key); value != "" {
-		if boolValue, err := strconv.ParseBool(value); err == nil {
-			return boolValue
-		}
+func getEnvAsBool(key string) bool {
+	raw := getEnv(key)
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		log.Fatalf("invalid bool for %s=%q (expected true/false/1/0)", key, raw)
 	}
-	return defaultValue
+	return b
 }
 
-func getEnvAsCSV(key string, defaultCSV string) []string {
-	raw := getEnv(key, defaultCSV)
-	if strings.TrimSpace(raw) == "" {
-		return nil
+/* ========== CSV helpers ========== */
+
+// optional: ไม่ตั้ง ENV -> คืน nil
+func getEnvAsCSVOptional(key string) []string {
+	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
+		return splitCSV(v)
 	}
+	return nil
+}
+
+// strict: บังคับต้องมีค่า (ใช้แทน optional ถ้าต้องการบังคับ)
+func getEnvAsCSVStrict(key string) []string {
+	return splitCSV(getEnv(key))
+}
+
+func splitCSV(raw string) []string {
 	parts := strings.Split(raw, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
 		}
 	}
 	return out
 }
 
 func sliceToSet(items []string) map[string]struct{} {
+	if len(items) == 0 {
+		return map[string]struct{}{}
+	}
 	m := make(map[string]struct{}, len(items))
 	for _, v := range items {
-		if v = strings.TrimSpace(v); v != "" {
-			m[v] = struct{}{}
+		if s := strings.TrimSpace(v); s != "" {
+			m[s] = struct{}{}
 		}
 	}
 	return m
