@@ -1,34 +1,19 @@
-# ===============================
-# 🌀 AIR CONFIG (Windows-friendly)
-# ===============================
-
+# air.toml (minimal, ชัวร์สุด)
 [build]
-# สร้าง .exe (จำเป็นบน Windows)
-cmd = "go build -o ./tmp/main.exe ./cmd/api"
+cmd = "GOARCH=arm64 GOTOOLCHAIN=go1.25.3 go build -o ./tmp/main ./cmd/api"
+bin = "./tmp/main"
 
-# ชี้ไปที่ไฟล์ .exe ที่ build ได้
-bin = "tmp/main.exe"
-
-# เว้นวรรคให้ Air มีเวลาจับการเปลี่ยนแปลง
-delay = 1000
-
-# โฟลเดอร์ที่ต้องเฝ้าดู
-include_dir = ["cmd", "internal", "pkg"]
-
-# โฟลเดอร์ที่ไม่ต้องเฝ้าดู
+# ให้ air รู้ว่าไฟล์แบบไหน/ที่ไหนต้องเฝ้าดู
+include_ext = ["go", "mod", "sum", "env", "toml", "yaml", "yml"]
 exclude_dir = ["tmp", "vendor", "node_modules"]
 
-# ไม่ต้อง reload เวลาไฟล์ test เปลี่ยน
-exclude_file = ["*_test.go"]
+# ทำให้รีสตาร์ทเนียนขึ้น
+send_interrupt = true      # ส่ง SIGINT ไปปิดโปรเซสเก่า
+kill_delay = 500           # รอ 0.5s ก่อน kill ถ้ายังไม่ดับ
+delay = 1000               # รอ 1s หลัง build ก่อนสตาร์ทใหม่ (กันลูป/ไฟล์ยังเขียนไม่เสร็จ)
 
-# บันทึก log การ build (ไม่บังคับ)
+# ถ้า build ผิด ให้หยุด binary เก่าไปเลยจะเห็นชัดว่า error
+stop_on_error = true
+
+# (ทางเลือก) เปิด log ไว้เช็ค
 log = "build.log"
-
-[env]
-file = ".env"
-
-[color]
-build = "green"
-main = "cyan"
-runner = "magenta"
-watcher = "yellow"

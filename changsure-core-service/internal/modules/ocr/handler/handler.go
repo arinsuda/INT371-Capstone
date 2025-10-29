@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -24,27 +25,7 @@ func NewOCRHandler(ocrService *service.OCRService, fileValidator *validator.File
 	}
 }
 
-// ProcessIDCard godoc
-// @Summary Process Thai ID Card
-// @Description Extract information from Thai ID card image
-// @Tags OCR
-// @Accept multipart/form-data
-// @Produce json
-// @Param image formData file true "ID Card Image"
-// @Param preprocess_image formData bool false "Enable image preprocessing" default(true)
-// @Param auto_rotate formData bool false "Enable auto rotation" default(true)
-// @Param validate_checksum formData bool false "Validate ID checksum" default(true)
-// @Param language formData string false "OCR Language" default(tha+eng)
-// @Param enable_concurrent formData bool false "Enable concurrent processing" default(true)
-// @Param stop_on_success formData bool false "Stop on first success" default(true)
-// @Param min_confidence formData number false "Minimum confidence threshold" default(0.85)
-// @Param timeout formData int false "Timeout in seconds" default(15)
-// @Success 200 {object} dto.OCRResponse
-// @Failure 400 {object} dto.OCRResponse
-// @Failure 500 {object} dto.OCRResponse
-// @Router /api/ocr/id-card [post]
 func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
-	// 1. Get file from form
 	fileHeader, err := c.FormFile("image")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse(
@@ -53,7 +34,6 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		))
 	}
 
-	// Validate file
 	if err := h.fileValidator.ValidateFile(fileHeader); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse(
 			dto.ErrCodeInvalidFormat,
@@ -61,7 +41,6 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		))
 	}
 
-	// Read file bytes
 	imageData, err := validator.ReadFileBytes(fileHeader)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse(
@@ -70,33 +49,41 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		))
 	}
 
-	// 2. Parse request from form values
+	defaultPreprocess := envBool("ENABLE_PREPROCESSING", true)
+	defaultAutoRotate := envBool("OCR_AUTO_ROTATE", true)
+	defaultNormalize := envBool("OCR_NORMALIZE", true)
+	defaultValidateChecksum := envBool("OCR_VALIDATE_CHECKSUM", true)
+	defaultLanguage := envString("OCR_LANGUAGE", "eng")
+	defaultConcurrent := envBool("OCR_CONCURRENT", true)
+	defaultStopOnSuccess := envBool("OCR_STOP_ON_SUCCESS", true)
+	defaultMinConf := envFloat("OCR_MIN_CONFIDENCE_STOP", 0.60)
+	defaultTimeout := envInt("OCR_TIMEOUT", 30)
+
 	req := &dto.IDCardRequest{
 		OCRRequest: dto.OCRRequest{
-			PreprocessImage:  parseBoolForm(c, "preprocess_image", true),
-			AutoRotate:       parseBoolForm(c, "auto_rotate", true),
-			NormalizeImage:   parseBoolForm(c, "normalize_image", true),
-			ValidateChecksum: parseBoolForm(c, "validate_checksum", true),
-			Language:         parseStringForm(c, "language", "eng"), // ใช้ eng สำหรับตัวเลข
-			EnableConcurrent: parseBoolForm(c, "enable_concurrent", true),
-			StopOnSuccess:    parseBoolForm(c, "stop_on_success", true),
-			MinConfidence:    parseFloatForm(c, "min_confidence", 0.80), // ลดเหลือ 0.80
-			Timeout:          parseIntForm(c, "timeout", 20), // เพิ่ม timeout เป็น 20s
+			PreprocessImage:  parseBoolForm(c, "preprocess_image", defaultPreprocess),
+			AutoRotate:       parseBoolForm(c, "auto_rotate", defaultAutoRotate),
+			NormalizeImage:   parseBoolForm(c, "normalize_image", defaultNormalize),
+			ValidateChecksum: parseBoolForm(c, "validate_checksum", defaultValidateChecksum),
+			Language:         parseStringForm(c, "language", defaultLanguage),
+			EnableConcurrent: parseBoolForm(c, "enable_concurrent", defaultConcurrent),
+			StopOnSuccess:    parseBoolForm(c, "stop_on_success", defaultStopOnSuccess),
+			MinConfidence:    parseFloatForm(c, "min_confidence", defaultMinConf),
+			Timeout:          parseIntForm(c, "timeout", defaultTimeout),
 		},
-		ExtractName:    parseBoolForm(c, "extract_name", false),
-		ExtractDOB:     parseBoolForm(c, "extract_dob", false),
-		ExtractAddress: parseBoolForm(c, "extract_address", false),
+		ExtractName:    parseBoolForm(c, "extract_name", envBool("OCR_EXTRACT_NAME", false)),
+		ExtractDOB:     parseBoolForm(c, "extract_dob", envBool("OCR_EXTRACT_DOB", false)),
+		ExtractAddress: parseBoolForm(c, "extract_address", envBool("OCR_EXTRACT_ADDRESS", false)),
 	}
 
-	// Set defaults
-	req.SetDefaults()
-
-	// Parse strategies if provided
 	if strategiesStr := c.FormValue("strategies"); strategiesStr != "" {
 		req.Strategies = parseStrategies(strategiesStr)
+	} else {
+		req.Strategies = envStrategies()
 	}
 
-	// 3. Process ID card
+	req.SetDefaults()
+
 	result, metadata, err := h.ocrService.ProcessIDCard(c.Context(), imageData, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse(
@@ -105,13 +92,11 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		))
 	}
 
-	// 4. Build response
 	response := &dto.OCRResponse{
 		Success:  result.IsValid,
 		Metadata: metadata,
 	}
 
-	// Build custom data structure for ID card
 	responseData := map[string]interface{}{
 		"raw_text":       result.RawText,
 		"confidence":     result.Confidence,
@@ -123,10 +108,8 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 		"format_valid":   result.FormatValid,
 	}
 
-	// Set timestamp
 	response.Timestamp = time.Now()
 
-	// 5. Return response with custom data
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success":   response.Success,
 		"data":      responseData,
@@ -135,22 +118,7 @@ func (h *OCRHandler) ProcessIDCard(c fiber.Ctx) error {
 	})
 }
 
-// ExtractText godoc
-// @Summary Extract text from image
-// @Description Extract text from any image (not specific to ID card)
-// @Tags OCR
-// @Accept multipart/form-data
-// @Produce json
-// @Param image formData file true "Image file"
-// @Param preprocess_image formData bool false "Enable image preprocessing" default(true)
-// @Param language formData string false "OCR Language" default(tha+eng)
-// @Param timeout formData int false "Timeout in seconds" default(15)
-// @Success 200 {object} dto.OCRResponse
-// @Failure 400 {object} dto.OCRResponse
-// @Failure 500 {object} dto.OCRResponse
-// @Router /api/ocr/extract [post]
 func (h *OCRHandler) ExtractText(c fiber.Ctx) error {
-	// 1. Get file from form
 	fileHeader, err := c.FormFile("image")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse(
@@ -174,15 +142,17 @@ func (h *OCRHandler) ExtractText(c fiber.Ctx) error {
 		))
 	}
 
-	// 2. Parse request
+	defaultPreprocess := envBool("ENABLE_PREPROCESSING", true)
+	defaultLanguage := envString("OCR_LANGUAGE", "eng")
+	defaultTimeout := envInt("OCR_TIMEOUT_EXTRACT", envInt("OCR_TIMEOUT", 15))
+
 	req := &dto.OCRRequest{
-		PreprocessImage: parseBoolForm(c, "preprocess_image", true),
-		Language:        parseStringForm(c, "language", "tha+eng"),
-		Timeout:         parseIntForm(c, "timeout", 15),
+		PreprocessImage: parseBoolForm(c, "preprocess_image", defaultPreprocess),
+		Language:        parseStringForm(c, "language", defaultLanguage),
+		Timeout:         parseIntForm(c, "timeout", defaultTimeout),
 	}
 	req.SetDefaults()
 
-	// 3. Extract text
 	result, metadata, err := h.ocrService.ExtractText(c.Context(), imageData, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse(
@@ -191,7 +161,6 @@ func (h *OCRHandler) ExtractText(c fiber.Ctx) error {
 		))
 	}
 
-	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": result.IsValid,
 		"data": fiber.Map{
@@ -206,13 +175,6 @@ func (h *OCRHandler) ExtractText(c fiber.Ctx) error {
 	})
 }
 
-// GetMetrics godoc
-// @Summary Get OCR metrics
-// @Description Get performance metrics for OCR strategies
-// @Tags OCR
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/ocr/metrics [get]
 func (h *OCRHandler) GetMetrics(c fiber.Ctx) error {
 	metrics := h.ocrService.GetMetrics()
 	if metrics == nil {
@@ -224,13 +186,6 @@ func (h *OCRHandler) GetMetrics(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(metrics)
 }
 
-// HealthCheck godoc
-// @Summary Health check
-// @Description Check if OCR service is healthy
-// @Tags OCR
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/ocr/health [get]
 func (h *OCRHandler) HealthCheck(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "healthy",
@@ -238,10 +193,6 @@ func (h *OCRHandler) HealthCheck(c fiber.Ctx) error {
 		"version": "2.0.0",
 	})
 }
-
-// ============================================
-// Helper functions for Fiber v3
-// ============================================
 
 func parseBoolForm(c fiber.Ctx, key string, defaultValue bool) bool {
 	if value := c.FormValue(key); value != "" {
@@ -286,4 +237,58 @@ func parseStrategies(strategiesStr string) []string {
 		}
 	}
 	return strategies
+}
+
+func envString(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func envBool(key string, def bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
+	}
+	return def
+}
+
+func envInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return def
+}
+
+func envFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return def
+}
+
+func envStrategies() []string {
+	out := make([]string, 0, 4)
+	if envBool("OCR_STRATEGY_AGGRESSIVE", false) {
+		out = append(out, "aggressive")
+	}
+	if envBool("OCR_STRATEGY_FULL", false) {
+		out = append(out, "full")
+	}
+	if envBool("OCR_STRATEGY_CROPPED", false) {
+		out = append(out, "cropped")
+	}
+	if envBool("OCR_STRATEGY_NORMALIZED", false) {
+		out = append(out, "normalized")
+	}
+	if len(out) == 0 {
+		out = append(out, "full")
+	}
+	return out
 }

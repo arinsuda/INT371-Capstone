@@ -5,54 +5,74 @@ import (
 	"context"
 	"image"
 	"image/png"
+	"os"
+	"strconv"
 )
 
-// DefaultRegionDetector implements RegionDetector interface
-type DefaultRegionDetector struct{}
-
 func NewDefaultRegionDetector() RegionDetector {
-	return &DefaultRegionDetector{}
+	const (
+		defIDx    = 0.25
+		defIDy    = 0.15
+		defIDw    = 0.50
+		defIDh    = 0.08
+		defIDConf = 0.90
+
+		defNamex    = 0.25
+		defNamey    = 0.25
+		defNamew    = 0.50
+		defNameh    = 0.10
+		defNameConf = 0.80
+	)
+
+	d := &DefaultRegionDetector{
+		idX:          getEnvFloat("OCR_ID_CROP_X", defIDx),
+		idY:          getEnvFloat("OCR_ID_CROP_Y", defIDy),
+		idW:          getEnvFloat("OCR_ID_CROP_W", defIDw),
+		idH:          getEnvFloat("OCR_ID_CROP_H", defIDh),
+		idConfidence: getEnvFloat("OCR_ID_REGION_CONF", defIDConf),
+
+		nameX:          getEnvFloat("OCR_NAME_CROP_X", defNamex),
+		nameY:          getEnvFloat("OCR_NAME_CROP_Y", defNamey),
+		nameW:          getEnvFloat("OCR_NAME_CROP_W", defNamew),
+		nameH:          getEnvFloat("OCR_NAME_CROP_H", defNameh),
+		nameConfidence: getEnvFloat("OCR_NAME_REGION_CONF", defNameConf),
+	}
+
+	d.idX, d.idY, d.idW, d.idH = clampBox01(d.idX, d.idY, d.idW, d.idH)
+	d.nameX, d.nameY, d.nameW, d.nameH = clampBox01(d.nameX, d.nameY, d.nameW, d.nameH)
+
+	return d
 }
 
-// DetectIDNumberRegion ตรวจจับพื้นที่เลขบัตรประชาชน
 func (r *DefaultRegionDetector) DetectIDNumberRegion(ctx context.Context, imageData []byte) (*Region, error) {
-	// ลองหลายตำแหน่งสำหรับบัตรจริง
-	// บัตรประชาชนไทยมีเลขอยู่ตรงกลาง-บน
-
-	// Option 1: ตำแหน่งมาตรฐาน
 	return &Region{
-		X:          0.20, // เริ่มจากซ้าย 20%
-		Y:          0.12, // จากบน 12%
-		Width:      0.60, // กว้าง 60%
-		Height:     0.10, // สูง 10%
-		Confidence: 0.9,
+		X:          r.idX,
+		Y:          r.idY,
+		Width:      r.idW,
+		Height:     r.idH,
+		Confidence: r.idConfidence,
 		Type:       "id_number",
 	}, nil
 }
 
-// DetectNameRegion ตรวจจับพื้นที่ชื่อ
 func (r *DefaultRegionDetector) DetectNameRegion(ctx context.Context, imageData []byte) (*Region, error) {
-	// ชื่ออยู่ใต้เลขบัตร
 	return &Region{
-		X:          0.25,
-		Y:          0.25,
-		Width:      0.50,
-		Height:     0.10,
-		Confidence: 0.8,
+		X:          r.nameX,
+		Y:          r.nameY,
+		Width:      r.nameW,
+		Height:     r.nameH,
+		Confidence: r.nameConfidence,
 		Type:       "name",
 	}, nil
 }
 
-// DetectAllRegions ตรวจจับทุกพื้นที่
 func (r *DefaultRegionDetector) DetectAllRegions(ctx context.Context, imageData []byte) ([]*Region, error) {
 	var regions []*Region
 
-	// ID Number
 	if idRegion, err := r.DetectIDNumberRegion(ctx, imageData); err == nil {
 		regions = append(regions, idRegion)
 	}
 
-	// Name
 	if nameRegion, err := r.DetectNameRegion(ctx, imageData); err == nil {
 		regions = append(regions, nameRegion)
 	}
@@ -60,7 +80,6 @@ func (r *DefaultRegionDetector) DetectAllRegions(ctx context.Context, imageData 
 	return regions, nil
 }
 
-// CropRegion ตัดภาพตาม region
 func (r *DefaultRegionDetector) CropRegion(ctx context.Context, imageData []byte, region *Region) ([]byte, error) {
 	img, _, err := image.Decode(bytes.NewReader(imageData))
 	if err != nil {
@@ -71,13 +90,11 @@ func (r *DefaultRegionDetector) CropRegion(ctx context.Context, imageData []byte
 	width := bounds.Dx()
 	height := bounds.Dy()
 
-	// แปลง normalized coordinates เป็น pixel coordinates
 	x1 := int(region.X * float64(width))
 	y1 := int(region.Y * float64(height))
 	x2 := int((region.X + region.Width) * float64(width))
 	y2 := int((region.Y + region.Height) * float64(height))
 
-	// Clamp to bounds
 	if x1 < 0 {
 		x1 = 0
 	}
@@ -91,7 +108,6 @@ func (r *DefaultRegionDetector) CropRegion(ctx context.Context, imageData []byte
 		y2 = height
 	}
 
-	// Create cropped image
 	cropped := image.NewRGBA(image.Rect(0, 0, x2-x1, y2-y1))
 	for y := y1; y < y2; y++ {
 		for x := x1; x < x2; x++ {
@@ -99,12 +115,46 @@ func (r *DefaultRegionDetector) CropRegion(ctx context.Context, imageData []byte
 		}
 	}
 
-	// Encode to bytes
 	buf := new(bytes.Buffer)
-	err = png.Encode(buf, cropped)
-	if err != nil {
+	if err := png.Encode(buf, cropped); err != nil {
 		return nil, err
 	}
-
 	return buf.Bytes(), nil
+}
+
+func getEnvFloat(key string, def float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return def
+	}
+	return f
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func clampBox01(x, y, w, h float64) (float64, float64, float64, float64) {
+	x = clamp01(x)
+	y = clamp01(y)
+	w = clamp01(w)
+	h = clamp01(h)
+
+	if x+w > 1 {
+		w = 1 - x
+	}
+	if y+h > 1 {
+		h = 1 - y
+	}
+	return x, y, w, h
 }

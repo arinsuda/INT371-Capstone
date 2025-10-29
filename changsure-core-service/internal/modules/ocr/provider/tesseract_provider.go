@@ -16,11 +16,17 @@ type TesseractProvider struct {
 }
 
 func NewTesseractProvider(cfg *config.OCRConfig) (OCRProvider, error) {
-	// 🆕 Set TESSDATA_PREFIX environment variable
 	if cfg.TesseractDataPath != "" {
 		os.Setenv("TESSDATA_PREFIX", cfg.TesseractDataPath)
 	}
-	
+
+	client := gosseract.NewClient()
+	defer client.Close()
+
+	if err := client.SetLanguage("eng"); err != nil {
+		return nil, fmt.Errorf("tesseract language 'eng' not found. Please install: sudo apt-get install tesseract-ocr-eng")
+	}
+
 	return &TesseractProvider{
 		config: cfg,
 	}, nil
@@ -30,46 +36,132 @@ func (p *TesseractProvider) ExtractText(ctx context.Context, imageData []byte, o
 	client := gosseract.NewClient()
 	defer client.Close()
 
-	// ตั้งค่าภาษา
 	language := opts.Language
 	if language == "" {
 		language = "eng"
 	}
-	client.SetLanguage(language)
 
-	// ตั้งค่า PSM
+	if strings.Contains(language, "tha") {
+		language = "eng"
+	}
+
+	if err := client.SetLanguage(language); err != nil {
+		client.SetLanguage("osd")
+	}
+
 	psm := opts.PSM
 	if psm == 0 {
 		psm = 6
 	}
+
 	client.SetPageSegMode(gosseract.PageSegMode(psm))
 
-	// ถ้าเป็นการอ่านเลขบัตร
-	if psm == 7 && strings.Contains(language, "eng") && !strings.Contains(language, "tha") {
-		client.SetVariable("tessedit_char_whitelist", "0123456789 -")
+	if strings.Contains(language, "eng") {
+
+		client.SetVariable("classify_bln_numeric_mode", "1")
+
+		client.SetVariable("tessedit_char_blacklist", "")
+
+		client.SetVariable("classify_enable_adaptive_matcher", "1")
 	}
 
-	// Load image
+	oem := opts.OEM
+	if oem == 0 {
+		oem = 3
+	}
+
+	if oem == 3 {
+		oem = 1
+	}
+
+	client.SetVariable("tessedit_ocr_engine_mode", fmt.Sprintf("%d", oem))
+
 	err := client.SetImageFromBytes(imageData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set image: %w", err)
 	}
 
-	// Extract text
 	text, err := client.Text()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract text: %w", err)
 	}
 
+	if os.Getenv("OCR_DEBUG") == "true" {
+		fmt.Printf("\n=== [DEBUG] OCR Raw Output ===\n")
+		fmt.Printf("PSM: %d | OEM: %d | Language: %s\n", psm, oem, language)
+		fmt.Printf("Raw Text: %q\n", text)
+		fmt.Printf("Text Length: %d chars\n", len(text))
+		fmt.Printf("Digits Only: %q\n", extractDigitsForDebug(text))
+		fmt.Printf("==============================\n\n")
+	}
+
+	if strings.TrimSpace(text) == "" {
+
+		fallbackPSMs := []gosseract.PageSegMode{
+			gosseract.PSM_SINGLE_LINE,
+			gosseract.PSM_RAW_LINE,
+			gosseract.PSM_SINGLE_WORD,
+		}
+
+		for _, fallbackPSM := range fallbackPSMs {
+			client.SetPageSegMode(fallbackPSM)
+			if err := client.SetImageFromBytes(imageData); err == nil {
+				if retryText, err := client.Text(); err == nil && strings.TrimSpace(retryText) != "" {
+					text = retryText
+					psm = int(fallbackPSM)
+					break
+				}
+			}
+		}
+	}
+
+	confidence := p.estimateConfidence(text, psm)
+
 	return &OCRResult{
 		Text:       strings.TrimSpace(text),
-		Confidence: 0.85, // Default confidence
+		Confidence: confidence,
 		Language:   language,
 		Metadata: map[string]interface{}{
 			"psm": psm,
-			"oem": opts.OEM,
+			"oem": oem,
 		},
 	}, nil
+}
+
+func (p *TesseractProvider) estimateConfidence(text string, psm int) float64 {
+	if text == "" {
+		return 0.0
+	}
+
+	confidence := 0.75
+
+	digitCount := 0
+	for _, r := range text {
+		if r >= '0' && r <= '9' {
+			digitCount++
+		}
+	}
+
+	if digitCount >= 13 {
+		confidence += 0.15
+	} else if digitCount >= 10 {
+		confidence += 0.05
+	}
+
+	cleanRatio := float64(digitCount) / float64(len(text))
+	if cleanRatio > 0.7 {
+		confidence += 0.05
+	}
+
+	if psm == 7 {
+		confidence += 0.05
+	}
+
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+
+	return confidence
 }
 
 func (p *TesseractProvider) Close() error {
@@ -78,4 +170,14 @@ func (p *TesseractProvider) Close() error {
 
 func (p *TesseractProvider) Name() string {
 	return "tesseract"
+}
+
+func extractDigitsForDebug(text string) string {
+	var digits string
+	for _, r := range text {
+		if r >= '0' && r <= '9' {
+			digits += string(r)
+		}
+	}
+	return digits
 }

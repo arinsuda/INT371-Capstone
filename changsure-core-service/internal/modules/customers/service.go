@@ -13,7 +13,7 @@ var (
 	ErrInvalidInput        = errors.New("invalid input")
 )
 
-// Service interface
+
 type Service interface {
 	CreateCustomer(ctx context.Context, req *CreateCustomerRequest) (*Customer, error)
 	GetCustomer(ctx context.Context, id uint) (*Customer, error)
@@ -23,24 +23,24 @@ type Service interface {
 	FindNearbyCustomers(ctx context.Context, lat, lon, radiusKm float64) ([]*Customer, error)
 }
 
-// service struct
+
 type service struct {
 	repo Repository
 }
 
-// NewService creates a new customer service
+
 func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-// CreateCustomer creates a new customer
+
 func (s *service) CreateCustomer(ctx context.Context, req *CreateCustomerRequest) (*Customer, error) {
-	// Validate input
+	
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 
-	// Check if phone already exists
+	
 	if req.Phone != nil {
 		existing, err := s.repo.GetByPhone(ctx, *req.Phone)
 		if err != nil {
@@ -51,7 +51,7 @@ func (s *service) CreateCustomer(ctx context.Context, req *CreateCustomerRequest
 		}
 	}
 
-	// Create customer
+	
 	customer := &Customer{
 		FullName:   req.FullName,
 		Phone:      req.Phone,
@@ -65,11 +65,11 @@ func (s *service) CreateCustomer(ctx context.Context, req *CreateCustomerRequest
 		return nil, fmt.Errorf("failed to create customer: %w", err)
 	}
 
-	// Reload with relations
+	
 	return s.repo.GetByID(ctx, customer.ID)
 }
 
-// GetCustomer retrieves a customer by ID
+
 func (s *service) GetCustomer(ctx context.Context, id uint) (*Customer, error) {
 	customer, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -81,9 +81,9 @@ func (s *service) GetCustomer(ctx context.Context, id uint) (*Customer, error) {
 	return customer, nil
 }
 
-// UpdateCustomer updates an existing customer
+
 func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustomerRequest) (*Customer, error) {
-	// Check if customer exists
+	
 	customer, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -92,12 +92,12 @@ func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustom
 		return nil, ErrCustomerNotFound
 	}
 
-	// Validate input
+	
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 
-	// Check phone uniqueness if changed
+	
 	if req.Phone != nil && (customer.Phone == nil || *customer.Phone != *req.Phone) {
 		existing, err := s.repo.GetByPhone(ctx, *req.Phone)
 		if err != nil {
@@ -108,7 +108,7 @@ func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustom
 		}
 	}
 
-	// Update fields
+	
 	if req.FullName != nil {
 		customer.FullName = *req.FullName
 	}
@@ -135,9 +135,9 @@ func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustom
 	return s.repo.GetByID(ctx, id)
 }
 
-// DeleteCustomer deletes a customer
+
 func (s *service) DeleteCustomer(ctx context.Context, id uint) error {
-	// Check if exists
+	
 	customer, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (s *service) DeleteCustomer(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// ListCustomers retrieves paginated customers
+
 func (s *service) ListCustomers(ctx context.Context, page, pageSize int) ([]*Customer, error) {
 	if page < 1 {
 		page = 1
@@ -162,7 +162,7 @@ func (s *service) ListCustomers(ctx context.Context, page, pageSize int) ([]*Cus
 	return s.repo.List(ctx, pageSize, offset)
 }
 
-// FindNearbyCustomers finds customers within radius
+
 func (s *service) FindNearbyCustomers(ctx context.Context, lat, lon, radiusKm float64) ([]*Customer, error) {
 	if radiusKm <= 0 || radiusKm > 100 {
 		return nil, fmt.Errorf("%w: radius must be between 0 and 100 km", ErrInvalidInput)

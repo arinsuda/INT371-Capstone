@@ -19,6 +19,7 @@ type StrategyManager struct {
 	cache            provider.CacheManager
 	metrics          provider.MetricsCollector
 	enableConcurrent bool
+	maxConcurrency   int
 }
 
 func NewStrategyManager(
@@ -27,23 +28,36 @@ func NewStrategyManager(
 	cache provider.CacheManager,
 	metrics provider.MetricsCollector,
 ) *StrategyManager {
-	sort.Slice(strategies, func(i, j int) bool {
-		return strategies[i].Priority() > strategies[j].Priority()
-	})
+
+	ordered := orderStrategies(strategies, cfg)
+
+	enableConcurrent := false
+	maxConc := 1
+	if cfg != nil {
+		enableConcurrent = cfg.Performance.EnableConcurrent
+		maxConc = cfg.Performance.MaxConcurrency
+		if maxConc <= 0 {
+			maxConc = 1
+		}
+		if maxConc > len(ordered) {
+			maxConc = len(ordered)
+		}
+	}
 
 	return &StrategyManager{
-		strategies:       strategies,
+		strategies:       ordered,
 		config:           cfg,
 		cache:            cache,
 		metrics:          metrics,
-		enableConcurrent: cfg.Performance.EnableConcurrent,
+		enableConcurrent: enableConcurrent,
+		maxConcurrency:   maxConc,
 	}
 }
 
 func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, language string) (*ExecutionResult, error) {
 	startTime := time.Now()
 
-	if m.config.Performance.EnableCache && m.cache != nil {
+	if m.config != nil && m.config.Performance.EnableCache && m.cache != nil {
 		cacheKey := m.createCacheKey(imageData, "all", language)
 		if cached, found := m.cache.Get(cacheKey); found {
 			return &ExecutionResult{
@@ -55,87 +69,117 @@ func (m *StrategyManager) Execute(ctx context.Context, imageData []byte, languag
 		}
 	}
 
-	var results []*provider.StrategyResult
-	var err error
-
-	if m.enableConcurrent {
-		results, err = m.executeConcurrent(ctx, imageData)
-	} else {
-		results, err = m.executeSequential(ctx, imageData)
+	totalTimeout := m.config.Performance.TotalTimeout
+	if totalTimeout <= 0 && m.config.TimeoutSec > 0 {
+		totalTimeout = time.Duration(m.config.TimeoutSec) * time.Second
+	}
+	execCtx := ctx
+	var cancelExec context.CancelFunc
+	if totalTimeout > 0 {
+		execCtx, cancelExec = context.WithTimeout(ctx, totalTimeout)
+		defer cancelExec()
 	}
 
+	var (
+		results []*provider.StrategyResult
+		err     error
+	)
+	if m.enableConcurrent {
+		results, err = m.executeConcurrent(execCtx, imageData)
+	} else {
+		results, err = m.executeSequential(execCtx, imageData)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	bestResult := m.selectBestResult(results)
-
-	executionResult := &ExecutionResult{
-		BestResult:      bestResult.OCRResult,
+	best := m.selectBestResult(results)
+	execResult := &ExecutionResult{
+		BestResult:      nil,
 		StrategyResults: results,
 		TotalTime:       time.Since(startTime),
 		CacheHit:        false,
 	}
-
-	if m.config.Performance.EnableCache && m.cache != nil && bestResult.Success {
-		cacheKey := m.createCacheKey(imageData, "all", language)
-		m.cache.Set(cacheKey, bestResult.OCRResult, m.config.Performance.CacheTTL)
+	if best != nil {
+		execResult.BestResult = best.OCRResult
 	}
 
-	return executionResult, nil
+	if m.config.Performance.EnableCache && m.cache != nil && best != nil && best.Success {
+		cacheKey := m.createCacheKey(imageData, "all", language)
+		m.cache.Set(cacheKey, best.OCRResult, m.config.Performance.CacheTTL)
+	}
+
+	return execResult, nil
 }
 
 func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byte) ([]*provider.StrategyResult, error) {
-	var wg sync.WaitGroup
-	resultsChan := make(chan *provider.StrategyResult, len(m.strategies))
-	semaphore := make(chan struct{}, m.config.Performance.MaxConcurrency)
+	var (
+		wg          sync.WaitGroup
+		resultsChan = make(chan *provider.StrategyResult, len(m.strategies))
+		sem         = make(chan struct{}, m.maxConcurrency)
+	)
 
-	execCtx, cancel := context.WithTimeout(ctx, m.config.Performance.TotalTimeout)
-	defer cancel()
+	strategyTimeout := m.config.Performance.StrategyTimeout
 
-	for _, strategy := range m.strategies {
+	stopEarly, stopThreshold := stopConfig(m.config)
+
+	ctxMain := ctx
+	var cancelMain context.CancelFunc
+	if m.config.Performance.TotalTimeout > 0 && ctxMain.Err() == nil {
+		ctxMain, cancelMain = context.WithTimeout(ctx, m.config.Performance.TotalTimeout)
+		defer cancelMain()
+	}
+
+	for _, s := range m.strategies {
 		wg.Add(1)
-		go func(s provider.OCRStrategy) {
+		go func(strat provider.OCRStrategy) {
 			defer wg.Done()
 
 			select {
-			case semaphore <- struct{}{}:
-				defer func() { <-semaphore }()
-			case <-execCtx.Done():
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctxMain.Done():
 				return
 			}
 
-			strategyCtx, strategyCancel := context.WithTimeout(execCtx, m.config.Performance.StrategyTimeout)
-			defer strategyCancel()
+			stratCtx := ctxMain
+			var cancelStrat context.CancelFunc
+			if strategyTimeout > 0 {
+				stratCtx, cancelStrat = context.WithTimeout(ctxMain, strategyTimeout)
+				defer cancelStrat()
+			}
 
-			result, err := s.Execute(strategyCtx, imageData)
+			res, err := strat.Execute(stratCtx, imageData)
 			if err != nil {
-				result = &provider.StrategyResult{
-					Name:    s.Name(),
+				res = &provider.StrategyResult{
+					Name:    strat.Name(),
 					Success: false,
 					Error:   err,
 				}
 			}
 
 			if m.metrics != nil {
-				m.metrics.RecordStrategyExecution(s.Name(), result.ProcessingTime, result.Success)
-				if result.Success && result.OCRResult != nil {
-					m.metrics.RecordOCRConfidence(s.Name(), result.OCRResult.Confidence)
+				m.metrics.RecordStrategyExecution(strat.Name(), res.ProcessingTime, res.Success)
+				if res.Success && res.OCRResult != nil {
+					m.metrics.RecordOCRConfidence(strat.Name(), res.OCRResult.Confidence)
 				}
-				if !result.Success && result.Error != nil {
-					m.metrics.RecordError(s.Name(), result.Error.Error())
+				if !res.Success && res.Error != nil {
+					m.metrics.RecordError(strat.Name(), res.Error.Error())
 				}
 			}
 
-			resultsChan <- result
-
-			if m.config.Strategies.StopOnFirstSuccess && 
-			   result.Success && 
-			   result.OCRResult != nil && 
-			   result.OCRResult.Confidence >= m.config.Strategies.MinConfidenceToStop {
-				cancel()
+			select {
+			case resultsChan <- res:
+			case <-ctxMain.Done():
+				return
 			}
-		}(strategy)
+
+			if stopEarly && res.Success && res.OCRResult != nil && res.OCRResult.Confidence >= stopThreshold {
+				if cancelMain != nil {
+					cancelMain()
+				}
+			}
+		}(s)
 	}
 
 	go func() {
@@ -143,60 +187,61 @@ func (m *StrategyManager) executeConcurrent(ctx context.Context, imageData []byt
 		close(resultsChan)
 	}()
 
-	var results []*provider.StrategyResult
-	for result := range resultsChan {
-		results = append(results, result)
+	results := make([]*provider.StrategyResult, 0, len(m.strategies))
+	for r := range resultsChan {
+		results = append(results, r)
 	}
 
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no strategies completed")
 	}
-
 	return results, nil
 }
 
 func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byte) ([]*provider.StrategyResult, error) {
-	var results []*provider.StrategyResult
+	results := make([]*provider.StrategyResult, 0, len(m.strategies))
 
-	execCtx, cancel := context.WithTimeout(ctx, m.config.Performance.TotalTimeout)
-	defer cancel()
+	strategyTimeout := m.config.Performance.StrategyTimeout
+	stopEarly, stopThreshold := stopConfig(m.config)
 
-	for _, strategy := range m.strategies {
+	for _, s := range m.strategies {
+
 		select {
-		case <-execCtx.Done():
-			return results, execCtx.Err()
+		case <-ctx.Done():
+			return results, ctx.Err()
 		default:
 		}
 
-		strategyCtx, strategyCancel := context.WithTimeout(execCtx, m.config.Performance.StrategyTimeout)
-		
-		result, err := strategy.Execute(strategyCtx, imageData)
-		strategyCancel()
-
+		stratCtx := ctx
+		var cancelStrat context.CancelFunc
+		if strategyTimeout > 0 {
+			stratCtx, cancelStrat = context.WithTimeout(ctx, strategyTimeout)
+		}
+		res, err := s.Execute(stratCtx, imageData)
+		if cancelStrat != nil {
+			cancelStrat()
+		}
 		if err != nil {
-			result = &provider.StrategyResult{
-				Name:    strategy.Name(),
+			res = &provider.StrategyResult{
+				Name:    s.Name(),
 				Success: false,
 				Error:   err,
 			}
 		}
 
 		if m.metrics != nil {
-			m.metrics.RecordStrategyExecution(strategy.Name(), result.ProcessingTime, result.Success)
-			if result.Success && result.OCRResult != nil {
-				m.metrics.RecordOCRConfidence(strategy.Name(), result.OCRResult.Confidence)
+			m.metrics.RecordStrategyExecution(s.Name(), res.ProcessingTime, res.Success)
+			if res.Success && res.OCRResult != nil {
+				m.metrics.RecordOCRConfidence(s.Name(), res.OCRResult.Confidence)
 			}
-			if !result.Success && result.Error != nil {
-				m.metrics.RecordError(strategy.Name(), result.Error.Error())
+			if !res.Success && res.Error != nil {
+				m.metrics.RecordError(s.Name(), res.Error.Error())
 			}
 		}
 
-		results = append(results, result)
+		results = append(results, res)
 
-		if m.config.Strategies.StopOnFirstSuccess && 
-		   result.Success && 
-		   result.OCRResult != nil && 
-		   result.OCRResult.Confidence >= m.config.Strategies.MinConfidenceToStop {
+		if stopEarly && res.Success && res.OCRResult != nil && res.OCRResult.Confidence >= stopThreshold {
 			break
 		}
 	}
@@ -204,7 +249,6 @@ func (m *StrategyManager) executeSequential(ctx context.Context, imageData []byt
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no strategies completed")
 	}
-
 	return results, nil
 }
 
@@ -216,27 +260,29 @@ func (m *StrategyManager) selectBestResult(results []*provider.StrategyResult) *
 	var best *provider.StrategyResult
 	bestScore := -1.0
 
-	for _, result := range results {
-		if !result.Success || result.OCRResult == nil {
+	for _, r := range results {
+		if r == nil || r.OCRResult == nil {
 			continue
 		}
+		score := r.OCRResult.Confidence
 
-		score := result.OCRResult.Confidence
-		
-		if result.Name == "cropped" {
+		if r.Name == "cropped" {
 			score *= 1.1
+		}
+
+		if r.Success {
+			score += 0.01
 		}
 
 		if score > bestScore {
 			bestScore = score
-			best = result
+			best = r
 		}
 	}
 
 	if best == nil {
 		return results[0]
 	}
-
 	return best
 }
 
@@ -247,6 +293,53 @@ func (m *StrategyManager) createCacheKey(imageData []byte, strategy string, lang
 		Strategy:  strategy,
 		Language:  language,
 	}
+}
+
+func orderStrategies(strats []provider.OCRStrategy, cfg *config.OCRConfig) []provider.OCRStrategy {
+	if cfg == nil || len(cfg.Strategies.ExecutionOrder) == 0 {
+
+		out := make([]provider.OCRStrategy, len(strats))
+		copy(out, strats)
+		sort.Slice(out, func(i, j int) bool {
+			return out[i].Priority() > out[j].Priority()
+		})
+		return out
+	}
+
+	order := cfg.Strategies.ExecutionOrder
+	index := make(map[string]provider.OCRStrategy, len(strats))
+	for _, s := range strats {
+		index[s.Name()] = s
+	}
+
+	out := make([]provider.OCRStrategy, 0, len(strats))
+	used := make(map[string]bool, len(strats))
+	for _, key := range order {
+		if s, ok := index[key]; ok {
+			out = append(out, s)
+			used[key] = true
+		}
+	}
+	for _, s := range strats {
+		if !used[s.Name()] {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func stopConfig(cfg *config.OCRConfig) (stop bool, threshold float64) {
+	if cfg == nil {
+		return false, 0.80
+	}
+	stop = cfg.Strategies.StopOnFirstSuccess || cfg.StopOnSuccess
+	threshold = 0.80
+	if cfg.Strategies.MinConfidenceToStop > 0 {
+		threshold = cfg.Strategies.MinConfidenceToStop
+	} else if cfg.MinConfidenceStop > 0 {
+		threshold = cfg.MinConfidenceStop
+	}
+	return
 }
 
 type ExecutionResult struct {

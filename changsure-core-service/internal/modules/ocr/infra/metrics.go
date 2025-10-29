@@ -7,7 +7,6 @@ import (
 	"changsure-core-service/internal/modules/ocr/provider"
 )
 
-// StrategyMetrics metrics สำหรับแต่ละ strategy
 type StrategyMetrics struct {
 	Name              string
 	TotalExecutions   int64
@@ -19,7 +18,6 @@ type StrategyMetrics struct {
 	ErrorsByType      map[string]int64
 }
 
-// MetricsCollector implements provider.MetricsCollector
 type MetricsCollector struct {
 	strategies map[string]*StrategyMetrics
 	mu         sync.RWMutex
@@ -31,7 +29,6 @@ func NewMetricsCollector() provider.MetricsCollector {
 	}
 }
 
-// RecordStrategyExecution บันทึกการรัน strategy
 func (m *MetricsCollector) RecordStrategyExecution(strategy string, duration time.Duration, success bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -54,13 +51,11 @@ func (m *MetricsCollector) RecordStrategyExecution(strategy string, duration tim
 		metrics.FailureCount++
 	}
 
-	// คำนวณ average duration
 	if metrics.TotalExecutions > 0 {
 		metrics.AverageDuration = metrics.TotalDuration / time.Duration(metrics.TotalExecutions)
 	}
 }
 
-// RecordOCRConfidence บันทึก confidence
 func (m *MetricsCollector) RecordOCRConfidence(strategy string, confidence float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -70,12 +65,10 @@ func (m *MetricsCollector) RecordOCRConfidence(strategy string, confidence float
 		return
 	}
 
-	// Running average
 	totalConfidence := metrics.AverageConfidence * float64(metrics.SuccessCount-1)
 	metrics.AverageConfidence = (totalConfidence + confidence) / float64(metrics.SuccessCount)
 }
 
-// RecordError บันทึก error
 func (m *MetricsCollector) RecordError(strategy string, errorType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -88,14 +81,12 @@ func (m *MetricsCollector) RecordError(strategy string, errorType string) {
 	metrics.ErrorsByType[errorType]++
 }
 
-// GetMetrics ดึง metrics ทั้งหมด
 func (m *MetricsCollector) GetMetrics() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	result := make(map[string]interface{})
 
-	// คำนวณ totals
 	var totalExecutions int64
 	var totalSuccess int64
 	var totalFailures int64

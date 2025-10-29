@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"changsure-core-service/internal/modules/ocr/config"
@@ -34,59 +36,77 @@ func NewOCRService(
 }
 
 func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *dto.IDCardRequest) (*dto.IDCardData, *dto.Metadata, error) {
-	startTime := time.Now()
-
-	// Set defaults
+	start := time.Now()
+	if req == nil {
+		req = &dto.IDCardRequest{}
+	}
 	req.SetDefaults()
 
-	// สร้าง context พร้อม timeout
-	if req.Timeout > 0 {
+	eff := s.effectiveParamsForID(req)
+
+	if eff.timeoutSec > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.Timeout)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(eff.timeoutSec)*time.Second)
 		defer cancel()
 	}
 
-	// รัน strategies ผ่าน StrategyManager
-	execResult, err := s.strategyManager.Execute(ctx, imageData, req.Language)
+	execResult, err := s.strategyManager.Execute(ctx, imageData, eff.language)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute strategies: %w", err)
 	}
-
-	// ถ้าไม่เจอ result เลย
-	if execResult.BestResult == nil {
-		return s.createFailedResponse(execResult, startTime), s.createMetadata(execResult, startTime), nil
+	if execResult == nil {
+		return nil, nil, errors.New("strategy execution returned nil result")
 	}
 
-	// Extract ID number
+	if execResult.BestResult == nil {
+		return s.createFailedIDResponse(execResult), s.createMetadata(execResult, start), nil
+	}
+
+	if eff.stopOnSuccess && execResult.BestResult.Confidence >= eff.minConfidenceStop {
+
+	}
+
 	idNumber, idErr := s.validator.ExtractIDNumber(execResult.BestResult.Text)
-	
-	// Validate checksum
+
 	checksumValid := false
 	formatValid := false
-	warnings := []string{}
+	warnings := make([]string, 0, 4)
 
 	if idErr == nil && idNumber != "" {
 		formatValid = true
-		if req.ValidateChecksum {
+		if eff.validateChecksum {
 			if err := s.validator.ValidateChecksum(idNumber); err != nil {
 				warnings = append(warnings, fmt.Sprintf("Checksum validation failed: %v", err))
 			} else {
 				checksumValid = true
 			}
 		} else {
-			checksumValid = true // assume valid if not validating
+			checksumValid = true
 		}
 	} else {
-		warnings = append(warnings, "No valid ID card number detected")
+
+		if eff.allowFallback {
+
+			warnings = append(warnings, fmt.Sprintf("Using fallback extraction (original error: %v)", idErr))
+		} else {
+			warnings = append(warnings, "No valid ID card number detected")
+		}
 	}
 
-	// สร้าง response
+	isValid := checksumValid && formatValid
+	if execResult.BestResult.Confidence < eff.confidenceMin {
+		warnings = append(warnings, fmt.Sprintf(
+			"OCR confidence (%.2f) is below minimum threshold (%.2f)",
+			execResult.BestResult.Confidence, eff.confidenceMin,
+		))
+	}
+
 	idCardData := &dto.IDCardData{
 		OCRData: dto.OCRData{
 			RawText:    execResult.BestResult.Text,
 			Confidence: execResult.BestResult.Confidence,
 			Language:   execResult.BestResult.Language,
-			IsValid:    checksumValid && formatValid,
+			IsValid:    isValid,
 			Warnings:   warnings,
 		},
 		IDNumber:      idNumber,
@@ -94,72 +114,195 @@ func (s *OCRService) ProcessIDCard(ctx context.Context, imageData []byte, req *d
 		FormatValid:   formatValid,
 	}
 
-	// สร้าง metadata
-	metadata := s.createMetadata(execResult, startTime)
-
-	return idCardData, metadata, nil
+	return idCardData, s.createMetadata(execResult, start), nil
 }
 
-// ExtractText ดึงข้อความทั่วไป (ไม่ใช่บัตรประชาชน)
 func (s *OCRService) ExtractText(ctx context.Context, imageData []byte, req *dto.OCRRequest) (*dto.OCRData, *dto.Metadata, error) {
-	startTime := time.Now()
-
-	// Set defaults
+	start := time.Now()
+	if req == nil {
+		req = &dto.OCRRequest{}
+	}
 	req.SetDefaults()
 
-	// สร้าง context พร้อม timeout
-	if req.Timeout > 0 {
+	eff := s.effectiveParamsForOCR(req)
+
+	if eff.timeoutSec > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.Timeout)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(eff.timeoutSec)*time.Second)
 		defer cancel()
 	}
 
-	// รัน strategies
-	execResult, err := s.strategyManager.Execute(ctx, imageData, req.Language)
+	execResult, err := s.strategyManager.Execute(ctx, imageData, eff.language)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute strategies: %w", err)
 	}
 
-	if execResult.BestResult == nil {
+	if execResult == nil || execResult.BestResult == nil {
 		return &dto.OCRData{
 			IsValid:  false,
 			Warnings: []string{"No text could be extracted"},
-		}, s.createMetadata(execResult, startTime), nil
+		}, s.createMetadata(execResult, start), nil
 	}
 
 	warnings := []string{}
-	if execResult.BestResult.Confidence < s.config.ConfidenceMin {
+	if execResult.BestResult.Confidence < eff.confidenceMin {
 		warnings = append(warnings, fmt.Sprintf(
 			"OCR confidence (%.2f) is below minimum threshold (%.2f)",
-			execResult.BestResult.Confidence,
-			s.config.ConfidenceMin,
+			execResult.BestResult.Confidence, eff.confidenceMin,
 		))
 	}
 
-	ocrData := &dto.OCRData{
+	data := &dto.OCRData{
 		RawText:    execResult.BestResult.Text,
 		Confidence: execResult.BestResult.Confidence,
 		Language:   execResult.BestResult.Language,
-		IsValid:    execResult.BestResult.Confidence >= s.config.ConfidenceMin,
+		IsValid:    execResult.BestResult.Confidence >= eff.confidenceMin,
 		Warnings:   warnings,
 	}
-
-	metadata := s.createMetadata(execResult, startTime)
-
-	return ocrData, metadata, nil
+	return data, s.createMetadata(execResult, start), nil
 }
 
-// createFailedResponse สร้าง response สำหรับกรณีล้มเหลว
-func (s *OCRService) createFailedResponse(execResult *strategy.ExecutionResult, startTime time.Time) *dto.IDCardData {
-	warnings := []string{"All strategies failed to extract ID card number"}
-	
-	// รวบรวม errors จาก strategies
-	for _, result := range execResult.StrategyResults {
-		if !result.Success && result.Error != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", result.Name, result.Error))
+func (s *OCRService) GetMetrics() map[string]interface{} {
+	if s.metrics == nil || s.config == nil || !s.config.Performance.EnableMetrics {
+		return nil
+	}
+	return s.metrics.GetMetrics()
+}
+
+func (s *OCRService) Close() error {
+	return nil
+}
+
+type effectiveParams struct {
+	language          string
+	confidenceMin     float64
+	minConfidenceStop float64
+	stopOnSuccess     bool
+	validateChecksum  bool
+	allowFallback     bool
+	timeoutSec        int
+}
+
+func (s *OCRService) effectiveParamsForID(req *dto.IDCardRequest) effectiveParams {
+	lang := strings.TrimSpace(req.Language)
+	if lang == "" {
+		if s.config != nil && strings.TrimSpace(s.config.Language) != "" {
+			lang = s.config.Language
+		} else {
+			lang = "eng"
 		}
 	}
 
+	cMin := req.MinConfidence
+	if cMin <= 0 && s.config != nil && s.config.ConfidenceMin > 0 {
+		cMin = s.config.ConfidenceMin
+	}
+	if cMin <= 0 {
+		cMin = 0.20
+	}
+
+	sos := req.StopOnSuccess
+	if s.config != nil && !sos {
+		if s.config.StopOnSuccess {
+			sos = true
+		} else if s.config.Strategies.StopOnFirstSuccess {
+			sos = true
+		}
+	}
+
+	minStop := req.MinConfidence
+	if s.config != nil && minStop <= 0 {
+		if s.config.MinConfidenceStop > 0 {
+			minStop = s.config.MinConfidenceStop
+		} else if s.config.Strategies.MinConfidenceToStop > 0 {
+			minStop = s.config.Strategies.MinConfidenceToStop
+		}
+	}
+	if minStop <= 0 {
+		minStop = 0.80
+	}
+
+	valChecksum := req.ValidateChecksum
+	if s.config != nil {
+		if !valChecksum && s.config.IDCard.ValidateChecksum {
+			valChecksum = true
+		}
+		if !valChecksum && s.config.ValidateChecksum {
+			valChecksum = true
+		}
+	}
+
+	allowFallback := true
+	if s.config != nil {
+		allowFallback = s.config.AllowFallback
+		if !s.config.AllowFallback {
+			allowFallback = true
+		}
+	}
+
+	tSec := req.Timeout
+	if tSec <= 0 && s.config != nil {
+		if s.config.TimeoutSec > 0 {
+			tSec = s.config.TimeoutSec
+		} else if s.config.Performance.TotalTimeout > 0 {
+			tSec = int(s.config.Performance.TotalTimeout.Seconds())
+		}
+	}
+
+	return effectiveParams{
+		language:          lang,
+		confidenceMin:     cMin,
+		minConfidenceStop: minStop,
+		stopOnSuccess:     sos,
+		validateChecksum:  valChecksum,
+		allowFallback:     allowFallback,
+		timeoutSec:        tSec,
+	}
+}
+
+func (s *OCRService) effectiveParamsForOCR(req *dto.OCRRequest) effectiveParams {
+	lang := strings.TrimSpace(req.Language)
+	if lang == "" {
+		if s.config != nil && strings.TrimSpace(s.config.Language) != "" {
+			lang = s.config.Language
+		} else {
+			lang = "tha+eng"
+		}
+	}
+
+	cMin := req.MinConfidence
+	if cMin <= 0 && s.config != nil && s.config.ConfidenceMin > 0 {
+		cMin = s.config.ConfidenceMin
+	}
+	if cMin <= 0 {
+		cMin = 0.20
+	}
+
+	tSec := req.Timeout
+	if tSec <= 0 && s.config != nil {
+		if s.config.TimeoutSec > 0 {
+			tSec = s.config.TimeoutSec
+		} else if s.config.Performance.TotalTimeout > 0 {
+			tSec = int(s.config.Performance.TotalTimeout.Seconds())
+		}
+	}
+
+	return effectiveParams{
+		language:      lang,
+		confidenceMin: cMin,
+		timeoutSec:    tSec,
+	}
+}
+
+func (s *OCRService) createFailedIDResponse(execResult *strategy.ExecutionResult) *dto.IDCardData {
+	warnings := []string{"All strategies failed to extract ID card number"}
+	if execResult != nil {
+		for _, r := range execResult.StrategyResults {
+			if !r.Success && r.Error != nil {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", r.Name, r.Error))
+			}
+		}
+	}
 	return &dto.IDCardData{
 		OCRData: dto.OCRData{
 			RawText:  "",
@@ -171,60 +314,41 @@ func (s *OCRService) createFailedResponse(execResult *strategy.ExecutionResult, 
 	}
 }
 
-// createMetadata สร้าง metadata
-func (s *OCRService) createMetadata(execResult *strategy.ExecutionResult, startTime time.Time) *dto.Metadata {
-	strategyResults := make([]dto.StrategyResult, 0, len(execResult.StrategyResults))
-	
-	var strategyUsed string
-	for _, result := range execResult.StrategyResults {
-		strategyResult := dto.StrategyResult{
-			Name:           result.Name,
-			Success:        result.Success,
-			ProcessingTime: result.ProcessingTime.Milliseconds(),
-		}
+func (s *OCRService) createMetadata(execResult *strategy.ExecutionResult, start time.Time) *dto.Metadata {
+	md := &dto.Metadata{
+		ProcessingTime:  time.Since(start).Milliseconds(),
+		StrategyUsed:    "",
+		TotalStrategies: 0,
+		StrategyResults: make([]dto.StrategyResult, 0),
+		Version:         "2.0.0",
+	}
+	if execResult == nil {
+		return md
+	}
 
-		if result.Success && result.OCRResult != nil {
-			strategyResult.Confidence = result.OCRResult.Confidence
-			if result.Metadata != nil {
-				if idFound, ok := result.Metadata["id_found"].(bool); ok {
-					strategyResult.IDFound = idFound
+	md.TotalStrategies = len(execResult.StrategyResults)
+	for _, r := range execResult.StrategyResults {
+		item := dto.StrategyResult{
+			Name:           r.Name,
+			Success:        r.Success,
+			ProcessingTime: r.ProcessingTime.Milliseconds(),
+		}
+		if r.Success && r.OCRResult != nil {
+			item.Confidence = r.OCRResult.Confidence
+			if r.Metadata != nil {
+				if idFound, ok := r.Metadata["id_found"].(bool); ok {
+					item.IDFound = idFound
 				}
 			}
 		}
-
-		if result.Error != nil {
-			strategyResult.Error = result.Error.Error()
+		if r.Error != nil {
+			item.Error = r.Error.Error()
 		}
+		md.StrategyResults = append(md.StrategyResults, item)
 
-		strategyResults = append(strategyResults, strategyResult)
-
-		// หา strategy ที่ใช้จริง
-		if execResult.BestResult != nil && result.Success && result.OCRResult == execResult.BestResult {
-			strategyUsed = result.Name
+		if execResult.BestResult != nil && r.Success && r.OCRResult == execResult.BestResult {
+			md.StrategyUsed = r.Name
 		}
 	}
-
-	metadata := &dto.Metadata{
-		ProcessingTime:  time.Since(startTime).Milliseconds(),
-		StrategyUsed:    strategyUsed,
-		TotalStrategies: len(execResult.StrategyResults),
-		StrategyResults: strategyResults,
-		Version:         "2.0.0",
-	}
-
-	return metadata
-}
-
-// GetMetrics ดึง metrics
-func (s *OCRService) GetMetrics() map[string]interface{} {
-	if s.metrics == nil {
-		return nil
-	}
-	return s.metrics.GetMetrics()
-}
-
-// Close ปิด service
-func (s *OCRService) Close() error {
-	// Clean up resources if needed
-	return nil
+	return md
 }

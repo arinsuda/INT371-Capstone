@@ -21,33 +21,31 @@ func NewTesseractExecProvider(cfg *config.OCRConfig) (OCRProvider, error) {
 }
 
 func (p *TesseractExecProvider) ExtractText(ctx context.Context, imageData []byte, opts *OCROptions) (*OCRResult, error) {
-	// สร้าง temp file
+
 	tempFile, err := os.CreateTemp("", "ocr-*.png")
 	if err != nil {
 		return nil, err
 	}
 	defer os.Remove(tempFile.Name())
-	
+
 	if _, err := tempFile.Write(imageData); err != nil {
 		return nil, err
 	}
 	tempFile.Close()
 
-	// Output file
 	outputBase := filepath.Join(os.TempDir(), fmt.Sprintf("ocr-%d", os.Getpid()))
 	defer os.Remove(outputBase + ".txt")
 
-	// Build command
 	args := []string{
 		tempFile.Name(),
 		outputBase,
 		"--psm", fmt.Sprintf("%d", opts.PSM),
 		"-l", opts.Language,
-		"--tessdata-dir", p.config.TesseractDataPath, // 🆕 เพิ่มบรรทัดนี้
+		"--tessdata-dir", p.config.TesseractDataPath,
 	}
 
 	cmd := exec.CommandContext(ctx, p.config.TesseractPath, args...)
-	
+
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -55,7 +53,6 @@ func (p *TesseractExecProvider) ExtractText(ctx context.Context, imageData []byt
 		return nil, fmt.Errorf("tesseract error: %w, stderr: %s", err, stderr.String())
 	}
 
-	// อ่าน result
 	data, err := os.ReadFile(outputBase + ".txt")
 	if err != nil {
 		return nil, err

@@ -9,12 +9,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// Handler handles HTTP requests for customers
+
 type Handler struct {
 	service Service
 }
 
-// NewHandler creates a new customer handler
+
 func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }

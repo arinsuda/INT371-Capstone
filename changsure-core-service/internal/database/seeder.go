@@ -8,15 +8,12 @@ import (
 	"changsure-core-service/internal/modules/reservation_statuses"
 )
 
-// Seed populates the database with initial data
 func (d *Database) Seed() error {
 	log.Println("🌱 Seeding database...")
 
-	// Seed in order (respect foreign keys)
 	seeders := []func() error{
 		d.seedProvinces,
 		d.seedReservationStatuses,
-		// เพิ่ม seeders อื่นๆ
 	}
 
 	for _, seeder := range seeders {

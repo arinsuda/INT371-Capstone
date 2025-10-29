@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// HealthCheck represents database health status
 type HealthCheck struct {
 	Status       string                 `json:"status"`
 	ResponseTime string                 `json:"response_time"`
@@ -13,7 +12,6 @@ type HealthCheck struct {
 	Error        string                 `json:"error,omitempty"`
 }
 
-// Health checks database connectivity and returns stats
 func (d *Database) Health() HealthCheck {
 	start := time.Now()
 
