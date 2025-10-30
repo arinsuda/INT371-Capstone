@@ -1,109 +1,45 @@
-FROM cirrusci/flutter
+FROM ghcr.io/cirruslabs/flutter:stable-android
 
-RUN apt-get update -y && \
-  apt-get upgrade -y
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TZ=UTC
 
-# Install basics
-RUN apt-get install -y --no-install-recommends \
-  git \
-  wget \
-  curl \
-  zip \
-  unzip \
-  apt-transport-https \
-  ca-certificates \
-  gnupg
+ARG ANDROID_PLATFORM=android-34
+ARG ANDROID_BUILD_TOOLS=34.0.0
 
-# Add repo for chrome stable
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
-RUN echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | \
-    tee /etc/apt/sources.list.d/google-chrome.list
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl wget gnupg apt-transport-https \
+      zip unzip git locales \
+      clang cmake ninja-build pkg-config libgtk-3-dev \
+      x11-xserver-utils xauth xvfb; \
+    echo "en_US.UTF-8 UTF-8" >/etc/locale.gen; \
+    locale-gen; \
+    install -m 0755 -d /usr/share/keyrings; \
 
-# Add repo for gcloud sdk and install it
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
-    tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+      -o /usr/share/keyrings/google-linux-signing-key.gpg; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list; \
 
-RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
-    apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+      -o /usr/share/keyrings/google-cloud.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/google-cloud.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+      > /etc/apt/sources.list.d/google-cloud-sdk.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      google-chrome-stable google-cloud-sdk; \
+    gcloud config set core/disable_usage_reporting true; \
+    gcloud config set component_manager/disable_update_check true; \
+    rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y google-cloud-sdk && \
-    gcloud config set core/disable_usage_reporting true && \
-    gcloud config set component_manager/disable_update_check true
+RUN set -eux; \
+    yes "y" | sdkmanager --licenses > /dev/null; \
+    yes "y" | sdkmanager \
+      "platforms;${ANDROID_PLATFORM}" \
+      "build-tools;${ANDROID_BUILD_TOOLS}" \
+      "platform-tools" > /dev/null
 
-# Add repo for OpenJDK 8 from JFrog.io
-RUN wget -q -O - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | apt-key add -
-RUN echo 'deb [arch=amd64] https://adoptopenjdk.jfrog.io/adoptopenjdk/deb bullseye main' | \
-    tee /etc/apt/sources.list.d/adoptopenjdk.list
-
-# Install the dependencies needed for the rest of the build.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  adoptopenjdk-8-hotspot \
-  build-essential \
-  default-jdk-headless \
-  gcc \
-  google-chrome-stable \
-  lib32stdc++6 \
-  libglu1-mesa \
-  libstdc++6 \
-  locales \
-  nodejs \
-  npm \
-  ruby \
-  ruby-dev && \
-  apt-get clean
-
-ENV JAVA_HOME="/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64"
-
-# Install the Android SDK Dependency.
-ENV ANDROID_SDK_URL="https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip"
-ENV ANDROID_TOOLS_ROOT="/opt/android_sdk"
-RUN mkdir -p "${ANDROID_TOOLS_ROOT}"
-RUN mkdir -p ~/.android
-# Silence warning.
-RUN touch ~/.android/repositories.cfg
-ENV ANDROID_SDK_ARCHIVE="${ANDROID_TOOLS_ROOT}/archive"
-RUN wget --progress=dot:giga "${ANDROID_SDK_URL}" -O "${ANDROID_SDK_ARCHIVE}"
-RUN unzip -q -d "${ANDROID_TOOLS_ROOT}" "${ANDROID_SDK_ARCHIVE}"
-# Suppressing output of sdkmanager to keep log size down
-# (it prints install progress WAY too often).
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "tools" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "build-tools;28.0.3" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "platforms;android-30" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "platform-tools" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "cmdline-tools;latest" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "extras;android;m2repository" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "extras;google;m2repository" > /dev/null
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" "patcher;v4" > /dev/null
-RUN rm "${ANDROID_SDK_ARCHIVE}"
-ENV PATH="${ANDROID_TOOLS_ROOT}/tools:${PATH}"
-ENV PATH="${ANDROID_TOOLS_ROOT}/tools/bin:${PATH}"
-# Silence warnings when accepting android licenses.
-RUN mkdir -p ~/.android
-RUN touch ~/.android/repositories.cfg
-
-# Add npm to path.
-ENV PATH="/usr/bin:${PATH}"
-
-# Set locale to en_US
-RUN locale-gen en_US "en_US.UTF-8" && DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales
-ENV LANG en_US.UTF-8
-
-# Install dependencies for desktop flutter run
-RUN apt-get install -y --no-install-recommends \
-  clang \
-  cmake \
-  libgtk-3-dev \
-  ninja-build \
-	pkg-config \
-	x11-xserver-utils \
-	xauth \
-	xvfb && \
-  apt-get upgrade -y --no-install-recommends && \
-  apt-get clean
-
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-
-# Try building a sample flutter project
-WORKDIR /root
-RUN flutter create .
-RUN flutter build apk --release
+WORKDIR /workspace
