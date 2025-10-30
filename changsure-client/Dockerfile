@@ -1,22 +1,22 @@
-FROM cirrusci/flutter
+FROM cirrusci/flutter:stable
 
-
+# Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-
+# Set locale early
 ENV LANG=en_US.UTF-8
 
+# Set Android environment variables (ใช้ชื่อมาตรฐาน)
+ENV ANDROID_HOME="/opt/android-sdk"
+ENV ANDROID_SDK_ROOT="${ANDROID_HOME}"
+ENV ANDROID_CMDLINE_TOOLS_VERSION="11076708"
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/build-tools/33.0.2:/usr/bin:${PATH}"
 
-ENV JAVA_HOME="/usr/lib/jvm/temurin-8-jdk-amd64"
-ENV ANDROID_SDK_URL="https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip"
-ENV ANDROID_TOOLS_ROOT="/opt/android_sdk"
-ENV PATH="${ANDROID_TOOLS_ROOT}/tools:${ANDROID_TOOLS_ROOT}/tools/bin:/usr/bin:${PATH}"
-
-
+# Install system dependencies in a single layer
 RUN apt-get update -y && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    
+    # Basic tools
     git \
     wget \
     curl \
@@ -25,39 +25,37 @@ RUN apt-get update -y && \
     apt-transport-https \
     ca-certificates \
     gnupg \
-    
+    # Build tools
     build-essential \
     gcc \
     clang \
     cmake \
     ninja-build \
     pkg-config \
-    
-    default-jdk-headless \
-    
+    # System libraries
     lib32stdc++6 \
     libglu1-mesa \
     libstdc++6 \
     libgtk-3-dev \
-    
+    # Desktop support
     x11-xserver-utils \
     xauth \
     xvfb \
-    
+    # Node.js and Ruby
     nodejs \
     npm \
     ruby \
     ruby-dev \
-    
+    # Locales
     locales && \
-    
+    # Set up locale
     locale-gen en_US "en_US.UTF-8" && \
     dpkg-reconfigure locales && \
-    
+    # Clean up apt cache
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-
+# Add Google Chrome repository and install
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main' | \
     tee /etc/apt/sources.list.d/google-chrome.list && \
@@ -66,8 +64,8 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --d
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-
-RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+# Add Google Cloud SDK repository and install
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
     gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
     tee /etc/apt/sources.list.d/google-cloud-sdk.list && \
@@ -78,50 +76,48 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-
-RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | \
-    gpg --dearmor -o /usr/share/keyrings/adoptium.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bullseye main" | \
-    tee /etc/apt/sources.list.d/adoptium.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends temurin-8-jdk && \
+# Install OpenJDK (ใช้จาก Debian repository ตรงไม่มีปัญหา)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    openjdk-11-jdk \
+    openjdk-17-jdk && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Set Java 11 as default (Flutter ใช้ได้ดีกับ Java 11)
+ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
 
-RUN mkdir -p "${ANDROID_TOOLS_ROOT}" ~/.android && \
+# Set up Android SDK with modern command line tools
+RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" && \
+    mkdir -p ~/.android && \
     touch ~/.android/repositories.cfg && \
-    wget --progress=dot:giga "${ANDROID_SDK_URL}" -O /tmp/android-sdk.zip && \
-    unzip -q -d "${ANDROID_TOOLS_ROOT}" /tmp/android-sdk.zip && \
-    rm /tmp/android-sdk.zip
+    cd "${ANDROID_HOME}/cmdline-tools" && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip && \
+    unzip -q commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip && \
+    rm commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip && \
+    mv cmdline-tools latest
 
+# Accept all Android SDK licenses first
+RUN yes | sdkmanager --licenses || true
 
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" \
-    "tools" \
-    "build-tools;28.0.3" \
-    "platforms;android-30" \
+# Install Android SDK components (เฉพาะที่จำเป็นและมีอยู่จริง)
+RUN sdkmanager --install \
     "platform-tools" \
-    "cmdline-tools;latest" \
-    "extras;android;m2repository" \
-    "extras;google;m2repository" \
-    "patcher;v4" > /dev/null
+    "platforms;android-33" \
+    "platforms;android-34" \
+    "build-tools;33.0.2" \
+    "build-tools;34.0.0" \
+    "cmdline-tools;latest" && \
+    sdkmanager --update
 
+# Verify installations
+RUN sdkmanager --list_installed
 
-RUN yes "y" | "${ANDROID_TOOLS_ROOT}/tools/bin/sdkmanager" --licenses > /dev/null || true
-
-
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-
-
-WORKDIR /root
-
-
-RUN flutter create . && \
-    flutter build apk --release && \
-    rm -rf /root/*
-
-
+# Set working directory
 WORKDIR /app
 
+# Verify Flutter installation
+RUN flutter doctor -v
 
+# Default command
 CMD ["/bin/bash"]
