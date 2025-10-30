@@ -84,8 +84,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set Java 11 as default (Flutter ใช้ได้ดีกับ Java 11)
-ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+# Set Java 17 as default (Android SDK Command Line Tools ใหม่ต้องการ Java 17)
+ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
 
 # Set up Android SDK with modern command line tools
 RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" && \
