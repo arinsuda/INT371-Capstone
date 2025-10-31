@@ -15,12 +15,14 @@ jobs:
     strategy:
       matrix:
         service:
-          - name: core-service
+          - id: be
             context: ./changsure-core-service
             dockerfile: ./changsure-core-service/Dockerfile
-          - name: client
+            image_repo: changsure-core-service
+          - id: fe
             context: ./changsure-client
             dockerfile: ./changsure-client/Dockerfile
+            image_repo: changsure-client
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,15 +36,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push - ${{ matrix.service.name }}
+      - name: Build & Push - ${{ matrix.service.id }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
           push: true
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service.name }}:latest
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service.name }}:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service.image_repo }}:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service.image_repo }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
