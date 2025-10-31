@@ -45,3 +45,22 @@ jobs:
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service.name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+    deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into VM & deploy BE
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: ${{ secrets.VM_PORT || 22 }}
+          script: |
+            set -e
+            cd ~
+            # ดึง image ล่าสุดจาก Docker Hub และสลับคอนเทนเนอร์ BE
+            docker compose pull core-service
+            docker compose up -d core-service
+            docker image prune -f
