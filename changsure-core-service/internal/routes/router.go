@@ -66,6 +66,13 @@ func setupTestTools(app *fiber.App, config *config.Config) {
 }
 
 func setupHealthRoutes(app *fiber.App, db *gorm.DB) {
+app.Get("/", func(c fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":  "ok",
+			"message": "Welcome to Changsure Core Service API",
+		})
+	})
+
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",
