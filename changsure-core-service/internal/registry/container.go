@@ -98,7 +98,6 @@ func (c *Container) Close(ctx context.Context) error {
 
 func AllModels() []interface{} {
 	var all []interface{}
-	// ควรสร้างตารางที่ถูกอ้างอิงก่อน (provinces) แล้วค่อย customers -> customer_addresses
 	all = append(all, provinces.Models()...)
 	all = append(all, customers.Models()...)
 	all = append(all, customeraddresses.Models()...)
