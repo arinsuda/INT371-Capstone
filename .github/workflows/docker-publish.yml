@@ -48,19 +48,12 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: SSH into VM & deploy BE
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            set -e
-            cd ~
-            # ถ้า image private ให้ login ก่อน (คอมเมนต์ออกถ้าจำเป็น)
-            # docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
-            docker compose pull core-service
-            docker compose up -d core-service
-            docker image prune -f
+      - name: Pull & restart BE
+        run: |
+          set -euo pipefail
+          cd ~
+          docker compose pull core-service
+          docker compose up -d core-service
+          docker compose ps
