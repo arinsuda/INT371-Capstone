@@ -37,6 +37,9 @@ func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 
 	
 	container.CustomerHandler.RegisterRoutes(api)
+	container.CustomerAddressHandler.RegisterRoutes(api)
+	container.ProvinceHandler.RegisterRoutes(api)
+	
 	ocrroutes.Register(api, container.OCRHandler)
 }
 

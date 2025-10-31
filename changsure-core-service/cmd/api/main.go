@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"strings"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/database"
@@ -39,6 +40,15 @@ func main() {
 		log.Println("⊘ Skipping migrations (production mode)")
 	}
 
+	if shouldRunSeed(cfg) {
+		log.Println("🌱 Running database seeders...")
+		if err := db.Seed(); err != nil {
+			log.Fatalf("❌ Seeding failed: %v", err)
+		}
+	} else {
+		log.Println("⊘ Skipping seeders")
+	}
+
 	app := fiber.New(fiber.Config{
 		AppName:      "Chang Sure API",
 		ServerHeader: "Chang Sure",
@@ -49,7 +59,7 @@ func main() {
 	})
 
 	routes.Setup(app, cfg, db.Gorm())
-	
+
 	printStartupInfo(cfg)
 
 	serverErrors := make(chan error, 1)
@@ -87,6 +97,22 @@ func shouldRunMigrations(cfg *config.Config) bool {
 		return false
 	default:
 		return true
+	}
+}
+
+func shouldRunSeed(cfg *config.Config) bool {
+	// เปิดได้ด้วย ENV ตัวใดตัวหนึ่ง
+	// SEED_ON_BOOT=true   หรือ   APP_SEED=true
+	envSeed := strings.ToLower(os.Getenv("SEED_ON_BOOT"))
+	if envSeed == "1" || envSeed == "true" || strings.ToLower(os.Getenv("APP_SEED")) == "true" {
+		return true
+	}
+
+	switch cfg.App.Environment {
+	case "development":
+		return false
+	default:
+		return false
 	}
 }
 

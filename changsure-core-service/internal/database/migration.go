@@ -42,13 +42,13 @@ func (d *Database) MigrateWithExtras(extraModels ...interface{}) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	if err := d.ApplyExtras(); err != nil {
-		return fmt.Errorf("extras failed: %w", err)
-	}
+	// if err := d.ApplyExtras(); err != nil {
+	// 	return fmt.Errorf("extras failed: %w", err)
+	// }
 
-	if err := d.VerifyExtras(); err != nil {
-		return fmt.Errorf("verification failed: %w", err)
-	}
+	// if err := d.VerifyExtras(); err != nil {
+	// 	return fmt.Errorf("verification failed: %w", err)
+	// }
 
 	return nil
 }
