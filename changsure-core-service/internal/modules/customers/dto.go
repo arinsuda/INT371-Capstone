@@ -2,138 +2,162 @@ package customers
 
 import (
 	"errors"
+	"regexp"
 	"strings"
+	"time"
+
+	customer_addresses "changsure-core-service/internal/modules/customer_addresses"
+	provinces "changsure-core-service/internal/modules/provinces"
 )
 
 type CreateCustomerRequest struct {
-	FullName   string   `json:"fullname" validate:"required,min=2,max=190"`
-	Phone      *string  `json:"phone" validate:"omitempty,min=10,max=32"`
-	Address    *string  `json:"address" validate:"omitempty,max=500"`
-	Latitude   *float64 `json:"latitude" validate:"omitempty,min=-90,max=90"`
-	Longitude  *float64 `json:"longitude" validate:"omitempty,min=-180,max=180"`
-	ProvinceID *uint    `json:"province_id" validate:"omitempty,min=1"`
+	FirstName string  `json:"firstname"   validate:"required,min=2,max=150"`
+	LastName  string  `json:"lastname"    validate:"required,min=2,max=150"`
+	Email     *string `json:"email"       validate:"omitempty,max=100"`
+	Phone     *string `json:"phone"       validate:"omitempty,max=10"`
+	AvatarURL *string `json:"avatar_url"  validate:"omitempty,max=255"`
 }
 
 func (r *CreateCustomerRequest) Validate() error {
-	if strings.TrimSpace(r.FullName) == "" {
-		return errors.New("fullname is required")
+	if s := strings.TrimSpace(r.FirstName); len(s) < 2 || len(s) > 150 {
+		return errors.New("firstname must be between 2 and 150 characters")
 	}
-	if len(r.FullName) < 2 || len(r.FullName) > 190 {
-		return errors.New("fullname must be between 2 and 190 characters")
+	if s := strings.TrimSpace(r.LastName); len(s) < 2 || len(s) > 150 {
+		return errors.New("lastname must be between 2 and 150 characters")
 	}
-
-	if (r.Latitude != nil && r.Longitude == nil) || (r.Latitude == nil && r.Longitude != nil) {
-		return errors.New("both latitude and longitude must be provided together")
-	}
-
-	if r.Latitude != nil {
-		if *r.Latitude < -90 || *r.Latitude > 90 {
-			return errors.New("latitude must be between -90 and 90")
+	if r.Email != nil {
+		if len(*r.Email) > 100 || !isBasicEmail(*r.Email) {
+			return errors.New("invalid email format or length > 100")
 		}
 	}
-
-	if r.Longitude != nil {
-		if *r.Longitude < -180 || *r.Longitude > 180 {
-			return errors.New("longitude must be between -180 and 180")
+	if r.Phone != nil {
+		if len(*r.Phone) > 10 || !isDigits(*r.Phone) {
+			return errors.New("phone must be digits and at most 10 characters")
 		}
 	}
-
+	if r.AvatarURL != nil && len(*r.AvatarURL) > 255 {
+		return errors.New("avatar_url length must be <= 255")
+	}
 	return nil
 }
 
 type UpdateCustomerRequest struct {
-	FullName   *string  `json:"fullname" validate:"omitempty,min=2,max=190"`
-	Phone      *string  `json:"phone" validate:"omitempty,min=10,max=32"`
-	Address    *string  `json:"address" validate:"omitempty,max=500"`
-	Latitude   *float64 `json:"latitude" validate:"omitempty,min=-90,max=90"`
-	Longitude  *float64 `json:"longitude" validate:"omitempty,min=-180,max=180"`
-	ProvinceID *uint    `json:"province_id" validate:"omitempty,min=1"`
+	FirstName *string `json:"firstname"   validate:"omitempty,min=2,max=150"`
+	LastName  *string `json:"lastname"    validate:"omitempty,min=2,max=150"`
+	Email     *string `json:"email"       validate:"omitempty,max=100"`
+	Phone     *string `json:"phone"       validate:"omitempty,max=10"`
+	AvatarURL *string `json:"avatar_url"  validate:"omitempty,max=255"`
 }
 
 func (r *UpdateCustomerRequest) Validate() error {
-	if r.FullName != nil {
-		if len(*r.FullName) < 2 || len(*r.FullName) > 190 {
-			return errors.New("fullname must be between 2 and 190 characters")
+	if r.FirstName != nil {
+		s := strings.TrimSpace(*r.FirstName)
+		if len(s) < 2 || len(s) > 150 {
+			return errors.New("firstname must be between 2 and 150 characters")
 		}
 	}
-
-	if r.Latitude != nil {
-		if *r.Latitude < -90 || *r.Latitude > 90 {
-			return errors.New("latitude must be between -90 and 90")
+	if r.LastName != nil {
+		s := strings.TrimSpace(*r.LastName)
+		if len(s) < 2 || len(s) > 150 {
+			return errors.New("lastname must be between 2 and 150 characters")
 		}
 	}
-
-	if r.Longitude != nil {
-		if *r.Longitude < -180 || *r.Longitude > 180 {
-			return errors.New("longitude must be between -180 and 180")
+	if r.Email != nil {
+		if len(*r.Email) > 100 || !isBasicEmail(*r.Email) {
+			return errors.New("invalid email format or length > 100")
 		}
 	}
-
+	if r.Phone != nil {
+		if len(*r.Phone) > 10 || !isDigits(*r.Phone) {
+			return errors.New("phone must be digits and at most 10 characters")
+		}
+	}
+	if r.AvatarURL != nil && len(*r.AvatarURL) > 255 {
+		return errors.New("avatar_url length must be <= 255")
+	}
 	return nil
 }
 
 type CustomerResponse struct {
-	ID        uint              `json:"id"`
-	FullName  string            `json:"fullname"`
-	Phone     *string           `json:"phone,omitempty"`
-	Address   *string           `json:"address,omitempty"`
-	Latitude  *float64          `json:"latitude,omitempty"`
-	Longitude *float64          `json:"longitude,omitempty"`
-	Province  *ProvinceResponse `json:"province,omitempty"`
-	CreatedAt string            `json:"created_at"`
+	ID        uint                      `json:"id"`
+	FirstName string                    `json:"firstname"`
+	LastName  string                    `json:"lastname"`
+	Email     *string                   `json:"email,omitempty"`
+	Phone     *string                   `json:"phone,omitempty"`
+	AvatarURL *string                   `json:"avatar_url,omitempty"`
+	CreatedAt string                    `json:"created_at"`
+	UpdatedAt string                    `json:"updated_at"`
+	Addresses []customer_addresses.CustomerAddressResponse `json:"addresses,omitempty"`
 }
 
 type ProvinceResponse struct {
 	ID     uint   `json:"id"`
 	NameTH string `json:"name_th"`
-	NameEN string `json:"name_en"`
 }
 
-func ToResponse(c *Customer) *CustomerResponse {
+func ToCustomerResponse(c *Customer) *CustomerResponse {
 	resp := &CustomerResponse{
 		ID:        c.ID,
-		FullName:  c.FullName,
+		FirstName: c.FirstName,
+		LastName:  c.LastName,
+		Email:     c.Email,
 		Phone:     c.Phone,
-		Address:   c.Address,
-		Latitude:  c.Latitude,
-		Longitude: c.Longitude,
-		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		AvatarURL: c.AvatarURL,
+		CreatedAt: c.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
 
-	if c.Province != nil {
-		resp.Province = &ProvinceResponse{
-			ID:     c.Province.ID,
-			NameTH: c.Province.NameTH,
-			NameEN: *c.Province.NameEN,
+	if len(c.Addresses) > 0 {
+		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
+		for _, a := range c.Addresses {
+			item := customer_addresses.CustomerAddressResponse{
+				ID:          a.ID,
+				HouseNumber: a.HouseNumber,
+				Village:     a.Village,
+				Moo:         a.Moo,
+				Soi:         a.Soi,
+				Road:        a.Road,
+				Subdistrict: a.Subdistrict,
+				District:    a.District,
+				PostalCode:  a.PostalCode,
+				Country:     a.Country,
+				Latitude:    a.Latitude,
+				Longitude:   a.Longitude,
+				CreatedAt:   a.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   a.UpdatedAt.Format(time.RFC3339),
+			}
+			if a.Province != nil {
+				item.Province = provinces.ProvinceResponse{ID: a.Province.ID, NameTH: a.Province.NameTH}
+			} else {
+				item.Province = provinces.ProvinceResponse{ID: a.ProvinceID}
+			}
+			resp.Addresses = append(resp.Addresses, item)
 		}
 	}
-
 	return resp
 }
 
-func ToResponseList(customers []*Customer) []*CustomerResponse {
-	responses := make([]*CustomerResponse, len(customers))
-	for i, c := range customers {
-		responses[i] = ToResponse(c)
+func ToCustomerResponseList(list []*Customer) []*CustomerResponse {
+	out := make([]*CustomerResponse, len(list))
+	for i, c := range list {
+		out[i] = ToCustomerResponse(c)
 	}
-	return responses
+	return out
 }
 
-type SearchNearbyRequest struct {
-	Latitude  float64 `json:"latitude" validate:"required,min=-90,max=90"`
-	Longitude float64 `json:"longitude" validate:"required,min=-180,max=180"`
-	RadiusKm  float64 `json:"radius_km" validate:"required,min=0.1,max=100"`
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
-func (r *SearchNearbyRequest) Validate() error {
-	if r.Latitude < -90 || r.Latitude > 90 {
-		return errors.New("latitude must be between -90 and 90")
-	}
-	if r.Longitude < -180 || r.Longitude > 180 {
-		return errors.New("longitude must be between -180 and 180")
-	}
-	if r.RadiusKm <= 0 || r.RadiusKm > 100 {
-		return errors.New("radius must be between 0.1 and 100 km")
-	}
-	return nil
+func isBasicEmail(s string) bool {
+	re := regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
+	return re.MatchString(s)
 }

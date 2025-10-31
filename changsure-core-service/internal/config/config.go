@@ -73,14 +73,12 @@ type MinioConfig struct {
 var GlobalConfig *Config
 
 func LoadConfig() *Config {
-	// โหลด .env ถ้ามี (ไม่บังคับ)
 	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("[WARN] No .env file found, using system environment variables: %v", err)
 	} else {
 		log.Println("[INFO] Loaded configuration from .env file successfully")
 	}
 
-	// CSV แบบ optional: ถ้าไม่ตั้ง ENV -> คืน nil
 	allowDocTypes := getEnvAsCSVOptional("ALLOW_DOC_TYPES")
 	allowMIME := getEnvAsCSVOptional("ALLOW_MIME")
 
@@ -132,7 +130,6 @@ func LoadConfig() *Config {
 		},
 	}
 
-	// sanity check เพิ่มเติม (จริง ๆ getEnv จะล้มก่อนอยู่แล้วถ้าไม่มี)
 	if strings.TrimSpace(cfg.JWT.Secret) == "" {
 		log.Fatal("[ERROR] Missing JWT_SECRET — cannot start server securely")
 	}
@@ -171,7 +168,6 @@ func getEnvAsBool(key string) bool {
 
 /* ========== CSV helpers ========== */
 
-// optional: ไม่ตั้ง ENV -> คืน nil
 func getEnvAsCSVOptional(key string) []string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
 		return splitCSV(v)
@@ -179,7 +175,6 @@ func getEnvAsCSVOptional(key string) []string {
 	return nil
 }
 
-// strict: บังคับต้องมีค่า (ใช้แทน optional ถ้าต้องการบังคับ)
 func getEnvAsCSVStrict(key string) []string {
 	return splitCSV(getEnv(key))
 }

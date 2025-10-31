@@ -5,21 +5,18 @@ import (
 	"strconv"
 
 	"changsure-core-service/internal/middleware"
-
 	"github.com/gofiber/fiber/v3"
 )
-
 
 type Handler struct {
 	service Service
 }
 
-
 func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-
+// POST /customers
 func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	var req CreateCustomerRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -27,6 +24,12 @@ func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 			"status":  "error",
 			"message": "Invalid request body",
 			"error":   err.Error(),
+		})
+	}
+	if err := req.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
 		})
 	}
 
@@ -37,6 +40,12 @@ func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 				"status":  "error",
 				"message": "Phone number already exists",
+			})
+		}
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Email already exists",
 			})
 		}
 		if errors.Is(err, ErrInvalidInput) {
@@ -54,10 +63,11 @@ func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Customer created successfully",
-		"data":    ToResponse(customer),
+		"data":    ToCustomerResponse(customer),
 	})
 }
 
+// GET /customers/:id
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -84,10 +94,11 @@ func (h *Handler) GetCustomer(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"status": "success",
-		"data":   ToResponse(customer),
+		"data":   ToCustomerResponse(customer),
 	})
 }
 
+// PATCH /customers/:id
 func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -102,6 +113,12 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Invalid request body",
+		})
+	}
+	if err := req.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
 		})
 	}
 
@@ -120,6 +137,12 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 				"message": "Phone number already exists",
 			})
 		}
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Email already exists",
+			})
+		}
 		if errors.Is(err, ErrInvalidInput) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"status":  "error",
@@ -135,10 +158,11 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "Customer updated successfully",
-		"data":    ToResponse(customer),
+		"data":    ToCustomerResponse(customer),
 	})
 }
 
+// DELETE /customers/:id
 func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -168,6 +192,7 @@ func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	})
 }
 
+// GET /customers 
 func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	page := c.Query("page", "1")
 	pageSize := c.Query("page_size", "20")
@@ -187,47 +212,10 @@ func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "success",
 		"data": fiber.Map{
-			"customers": ToResponseList(customers),
+			"customers": ToCustomerResponseList(customers),
 			"page":      pageInt,
 			"page_size": pageSizeInt,
 			"total":     len(customers),
-		},
-	})
-}
-
-func (h *Handler) SearchNearby(c fiber.Ctx) error {
-	var req SearchNearbyRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request body",
-		})
-	}
-
-	if err := req.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
-	}
-
-	ctx := middleware.GetContext(c)
-	customers, err := h.service.FindNearbyCustomers(ctx, req.Latitude, req.Longitude, req.RadiusKm)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to search nearby customers",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data": fiber.Map{
-			"customers": ToResponseList(customers),
-			"count":     len(customers),
-			"latitude":  req.Latitude,
-			"longitude": req.Longitude,
-			"radius_km": req.RadiusKm,
 		},
 	})
 }
