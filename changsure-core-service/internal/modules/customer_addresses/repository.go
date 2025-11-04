@@ -62,7 +62,7 @@ func (r *repository) Delete(ctx context.Context, id uint) error {
 
 func (r *repository) SearchNearby(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*CustomerAddress, error) {
 	raw := `
-		SELECT * FROM customer_address ca
+		SELECT * FROM customer_addresses ca
 		WHERE ca.latitude IS NOT NULL AND ca.longitude IS NOT NULL
 		  AND ( 6371 * 2 * ASIN(
 				SQRT(

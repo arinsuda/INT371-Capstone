@@ -6,19 +6,26 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
-	"strings"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/database"
 	"changsure-core-service/internal/routes"
+	"changsure-core-service/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
+	recovermw "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/joho/godotenv"
 )
 
 func main() {
+
+	if err := validation.Init("th"); err != nil {
+		log.Fatalf("Failed to initialize validation: %v", err)
+	}
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️  No .env file found, using environment variables")
 	}
@@ -57,6 +64,10 @@ func main() {
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	})
+
+	app.Use(recovermw.New(recovermw.Config{
+		EnableStackTrace: true,
+	}))
 
 	routes.Setup(app, cfg, db.Gorm())
 
@@ -101,13 +112,10 @@ func shouldRunMigrations(cfg *config.Config) bool {
 }
 
 func shouldRunSeed(cfg *config.Config) bool {
-	// เปิดได้ด้วย ENV ตัวใดตัวหนึ่ง
-	// SEED_ON_BOOT=true   หรือ   APP_SEED=true
 	envSeed := strings.ToLower(os.Getenv("SEED_ON_BOOT"))
 	if envSeed == "1" || envSeed == "true" || strings.ToLower(os.Getenv("APP_SEED")) == "true" {
 		return true
 	}
-
 	switch cfg.App.Environment {
 	case "development":
 		return false
@@ -137,6 +145,7 @@ func customErrorHandler(c fiber.Ctx, err error) error {
 		},
 	})
 }
+
 func getErrorCode(statusCode int) string {
 	switch statusCode {
 	case fiber.StatusBadRequest:
