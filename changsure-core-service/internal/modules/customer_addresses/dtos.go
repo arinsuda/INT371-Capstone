@@ -1,7 +1,6 @@
 package customeraddresses
 
 import (
-	"errors"
 	"time"
 
 	provinces "changsure-core-service/internal/modules/provinces"
@@ -16,20 +15,10 @@ type CreateCustomerAddressRequest struct {
 	Road        *string  `json:"road"         validate:"omitempty,max=100"`
 	Subdistrict *string  `json:"subdistrict"  validate:"omitempty,max=100"`
 	District    *string  `json:"district"     validate:"omitempty,max=100"`
-	PostalCode  *string  `json:"postal_code"  validate:"omitempty,max=5"`
+	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"` // ใช้กฎ custom จาก global
 	Country     *string  `json:"country"      validate:"omitempty,max=100"`
-	Latitude    *float64 `json:"latitude"     validate:"omitempty"`
-	Longitude   *float64 `json:"longitude"    validate:"omitempty"`
-}
-
-func (r *CreateCustomerAddressRequest) Validate() error {
-	if r.ProvinceID == 0 {
-		return errors.New("province_id is required")
-	}
-	if r.PostalCode != nil && (!isDigits(*r.PostalCode) || len(*r.PostalCode) > 5) {
-		return errors.New("postal_code must be digits and at most 5 characters")
-	}
-	return nil
+	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`       // lat/lon custom
+	Longitude   *float64 `json:"longitude"    validate:"omitempty,lon"`
 }
 
 type UpdateCustomerAddressRequest struct {
@@ -41,20 +30,10 @@ type UpdateCustomerAddressRequest struct {
 	Road        *string  `json:"road"         validate:"omitempty,max=100"`
 	Subdistrict *string  `json:"subdistrict"  validate:"omitempty,max=100"`
 	District    *string  `json:"district"     validate:"omitempty,max=100"`
-	PostalCode  *string  `json:"postal_code"  validate:"omitempty,max=5"`
+	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"`
 	Country     *string  `json:"country"      validate:"omitempty,max=100"`
-	Latitude    *float64 `json:"latitude"     validate:"omitempty"`
-	Longitude   *float64 `json:"longitude"    validate:"omitempty"`
-}
-
-func (r *UpdateCustomerAddressRequest) Validate() error {
-	if r.ProvinceID != nil && *r.ProvinceID == 0 {
-		return errors.New("province_id must be >= 1 when provided")
-	}
-	if r.PostalCode != nil && (!isDigits(*r.PostalCode) || len(*r.PostalCode) > 5) {
-		return errors.New("postal_code must be digits and at most 5 characters")
-	}
-	return nil
+	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`
+	Longitude   *float64 `json:"longitude"    validate:"omitempty,lon"`
 }
 
 type CustomerAddressResponse struct {
@@ -106,16 +85,4 @@ func ToResponseList(arr []*CustomerAddress) []CustomerAddressResponse {
 		out = append(out, ToResponse(a))
 	}
 	return out
-}
-
-func isDigits(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
 }
