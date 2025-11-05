@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"changsure-core-service/internal/modules/provinces"
+	"changsure-core-service/internal/modules/service_categories"
 )
 
 func (d *Database) Seed() error {
@@ -12,7 +13,7 @@ func (d *Database) Seed() error {
 
 	seeders := []func() error{
 		d.seedProvinces,
-		// d.seedReservationStatuses,
+		d.seedServiceCategories,
 	}
 
 	for _, seeder := range seeders {
@@ -56,26 +57,39 @@ func (d *Database) seedProvinces() error {
 	return nil
 }
 
-// func (d *Database) seedReservationStatuses() error {
-// 	var count int64
-// 	d.DB.Model(&reservation_statuses.ReservationStatus{}).Count(&count)
-// 	if count > 0 {
-// 		log.Println("   ⊘ Reservation statuses already seeded, skipping")
-// 		return nil
-// 	}
+func (d *Database) seedServiceCategories() error {
+	var count int64
+	d.DB.Model(&service_categories.ServiceCategory{}).Count(&count)
+	if count > 0 {
+		log.Println("   ⊘ Service categories already seeded, skipping")
+		return nil
+	}
 
-// 	data := []reservation_statuses.ReservationStatus{
-// 		{Code: "pending", Name: "Pending", Description: "Waiting for confirmation"},
-// 		{Code: "confirmed", Name: "Confirmed", Description: "Confirmed by technician"},
-// 		{Code: "in_progress", Name: "In Progress", Description: "Service is ongoing"},
-// 		{Code: "completed", Name: "Completed", Description: "Service completed"},
-// 		{Code: "cancelled", Name: "Cancelled", Description: "Cancelled by customer or technician"},
-// 	}
+	ptr := func(s string) *string { return &s }
 
-// 	if err := d.DB.Create(&data).Error; err != nil {
-// 		return fmt.Errorf("seed reservation statuses: %w", err)
-// 	}
+	data := []service_categories.ServiceCategory{
+		{
+			CatName: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า",
+			CatDesc: ptr("บริการเกี่ยวกับระบบไฟฟ้า การเดินสาย ติดตั้งปลั๊กไฟ ซ่อมแอร์ และซ่อมเครื่องใช้ไฟฟ้าทั่วไป"),
+		},
+		{
+			CatName: "งานประปา",
+			CatDesc: ptr("บริการซ่อมและติดตั้งระบบประปา แก้ไขท่อรั่ว ติดตั้งสุขภัณฑ์ และตรวจสอบระบบน้ำ"),
+		},
+		{
+			CatName: "งานทาสี",
+			CatDesc: ptr("บริการทาสีอาคาร บ้าน ที่พักอาศัย ภายนอก-ภายใน รวมถึงงานรีโนเวทผนัง"),
+		},
+		{
+			CatName: "งานซ่อมบำรุงทั่วไป",
+			CatDesc: ptr("บริการซ่อมแซมอุปกรณ์ทั่วไป เช่น เฟอร์นิเจอร์ ประตู หน้าต่าง หรืองานบำรุงรักษาอื่นๆ"),
+		},
+	}
 
-// 	log.Printf("   ✓ Seeded %d reservation statuses", len(data))
-// 	return nil
-// }
+	if err := d.DB.Create(&data).Error; err != nil {
+		return fmt.Errorf("seed service categories: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d service categories", len(data))
+	return nil
+}
