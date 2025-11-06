@@ -13,14 +13,6 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-/*
-   MinIO client + helpers
-   - Ensure bucket เมื่อบูตระบบ
-   - Presigned PUT/GET (เข้ากันได้กับของเดิม)
-   - Presigned POST Policy (แนะนำสำหรับล็อก content-type/ขนาดไฟล์)
-   - อัปโหลดผ่านเซิร์ฟเวอร์ (Put)
-*/
-
 type MinioOptions struct {
 	Endpoint  string
 	AccessKey string

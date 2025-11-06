@@ -1,22 +1,29 @@
 package registry
 
 import (
-	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
-	"changsure-core-service/internal/modules/customers"
-	"changsure-core-service/internal/modules/provinces"
-
-	ocrmod "changsure-core-service/internal/modules/ocr"
-	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
-
 	"context"
 	"fmt"
 
 	"gorm.io/gorm"
+
+	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
+	"changsure-core-service/internal/modules/customers"
+	ocrmod "changsure-core-service/internal/modules/ocr"
+	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
+	"changsure-core-service/internal/modules/provinces"
+	"changsure-core-service/internal/modules/service_categories"
+	"changsure-core-service/internal/modules/services"
+	"changsure-core-service/internal/modules/technician_addresses"
+	"changsure-core-service/internal/modules/technician_services"
+	"changsure-core-service/internal/modules/technicians"
+
+	"changsure-core-service/internal/config"
+	"changsure-core-service/pkg/storage"
 )
 
 type ContainerOption func(*Container) error
 
-func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
+func WithOCRModule(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 	return func(c *Container) error {
 		mod, err := setup()
 		if err != nil {
@@ -29,77 +36,164 @@ func WithOCROptions(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 }
 
 type Container struct {
-	DB *gorm.DB
+	DB      *gorm.DB
+	Storage *storage.MinioStorage
 
-	// Repositories
-	CustomerRepo        customers.Repository
-	CustomerAddressRepo customeraddresses.Repository
-	ProvinceRepo        provinces.Repository
+	CustomerRepo          customers.Repository
+	CustomerAddressRepo   customeraddresses.Repository
+	ProvinceRepo          provinces.Repository
+	TechnicianRepo        technicians.Repository
+	TechnicianAddressRepo technician_addresses.Repository
+	TechnicianServiceRepo technician_services.Repository
+	ServiceCategoryRepo   service_categories.Repository
+	ServiceRepo           services.Repository
 
-	// Services
-	CustomerService        customers.Service
-	CustomerAddressService customeraddresses.Service
-	ProvinceService        provinces.Service
+	CustomerService          customers.Service
+	CustomerAddressService   customeraddresses.Service
+	ProvinceService          provinces.Service
+	TechnicianService        technicians.Service
+	TechnicianServiceService technician_services.Service
+	ServiceCategoryService   service_categories.Service
+	ServiceService           services.ServiceSvc
 
-	// Handlers
-	CustomerHandler        *customers.Handler
-	CustomerAddressHandler *customeraddresses.Handler
-	ProvinceHandler        *provinces.Handler
-	OCRHandler             *ocrhandler.OCRHandler
+	CustomerHandler          *customers.Handler
+	CustomerAddressHandler   *customeraddresses.Handler
+	ProvinceHandler          *provinces.Handler
+	OCRHandler               *ocrhandler.OCRHandler
+	TechnicianHandler        *technicians.Handler
+	TechnicianServiceHandler *technician_services.Handler
+	ServiceCategoryHandler   *service_categories.Handler
+	ServiceHandler           *services.Handler
 
 	ocrModule *ocrmod.OCRModule
 }
 
-func NewContainer(db *gorm.DB, opts ...ContainerOption) (*Container, error) {
+func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Container, error) {
 	if db == nil {
-		return nil, fmt.Errorf("db is nil")
+		return nil, fmt.Errorf("database connection is required")
 	}
+	if cfg == nil {
+		return nil, fmt.Errorf("configuration is required")
+	}
+
 	c := &Container{DB: db}
 
-	// ---------- Customers ----------
-	c.CustomerRepo = customers.NewRepository(db)
-	c.CustomerService = customers.NewService(c.CustomerRepo)
-	c.CustomerHandler = customers.NewHandler(c.CustomerService)
-
-	// ---------- Provinces ----------
-	c.ProvinceRepo = provinces.NewRepository(db)
-	c.ProvinceService = provinces.NewService(c.ProvinceRepo)
-	c.ProvinceHandler = provinces.NewHandler(c.ProvinceService)
-
-	// ---------- Customer Addresses ----------
-	c.CustomerAddressRepo = customeraddresses.NewRepository(db)
-	c.CustomerAddressService = customeraddresses.NewService(c.CustomerAddressRepo, c.CustomerRepo)
-	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
-
-	// ---------- OCR (optional) ----------
-	defaultOCR := func() (*ocrmod.OCRModule, error) {
-		return ocrmod.NewOCRModule()
-	}
-	if err := WithOCROptions(defaultOCR)(c); err != nil {
+	if err := c.initStorage(cfg); err != nil {
 		return nil, err
 	}
+
+	c.initCustomerModule()
+	c.initProvinceModule()
+	c.initCustomerAddressModule()
+	c.initTechnicianModule()
+	c.initTechnicianServiceModule()
+	c.initServiceCategoryModule(cfg)
+	c.initServiceModule()
+
+	if err := c.initOCRModule(); err != nil {
+		return nil, err
+	}
+
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("apply container option: %w", err)
 		}
 	}
+
 	return c, nil
 }
 
+func (c *Container) initStorage(cfg *config.Config) error {
+	store, err := storage.NewMinioFromConfig(cfg.Minio)
+	if err != nil {
+		return fmt.Errorf("init minio storage: %w", err)
+	}
+	c.Storage = store
+	return nil
+}
+
+func (c *Container) initCustomerModule() {
+	c.CustomerRepo = customers.NewRepository(c.DB)
+	c.CustomerService = customers.NewService(c.CustomerRepo)
+	c.CustomerHandler = customers.NewHandler(c.CustomerService)
+}
+
+func (c *Container) initProvinceModule() {
+	c.ProvinceRepo = provinces.NewRepository(c.DB)
+	c.ProvinceService = provinces.NewService(c.ProvinceRepo)
+	c.ProvinceHandler = provinces.NewHandler(c.ProvinceService)
+}
+
+func (c *Container) initCustomerAddressModule() {
+	c.CustomerAddressRepo = customeraddresses.NewRepository(c.DB)
+	c.CustomerAddressService = customeraddresses.NewService(
+		c.CustomerAddressRepo,
+		c.CustomerRepo,
+	)
+	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
+}
+
+func (c *Container) initTechnicianModule() {
+	c.TechnicianRepo = technicians.NewRepository(c.DB)
+	c.TechnicianAddressRepo = technician_addresses.NewRepository(c.DB)
+	c.TechnicianService = technicians.NewService(
+		c.DB,
+		c.TechnicianRepo,
+		c.TechnicianAddressRepo,
+	)
+	c.TechnicianHandler = technicians.NewHandler(c.TechnicianService)
+}
+
+func (c *Container) initTechnicianServiceModule() {
+	c.TechnicianServiceRepo = technician_services.NewRepository(c.DB)
+	c.TechnicianServiceService = technician_services.NewService(c.TechnicianServiceRepo)
+	c.TechnicianServiceHandler = technician_services.NewHandler(c.TechnicianServiceService)
+}
+
+func (c *Container) initServiceCategoryModule(cfg *config.Config) {
+	c.ServiceCategoryRepo = service_categories.NewRepository(c.DB)
+	c.ServiceCategoryService = service_categories.NewService(c.ServiceCategoryRepo)
+	c.ServiceCategoryHandler = service_categories.NewHandler(
+		c.ServiceCategoryService,
+		c.Storage,
+		cfg,
+	)
+}
+
+func (c *Container) initServiceModule() {
+	c.ServiceRepo = services.NewRepository(c.DB)
+	c.ServiceService = services.NewService(c.ServiceRepo)
+	c.ServiceHandler = services.NewHandler(c.ServiceService)
+}
+
+func (c *Container) initOCRModule() error {
+	defaultOCR := func() (*ocrmod.OCRModule, error) {
+		return ocrmod.NewOCRModule()
+	}
+	return WithOCRModule(defaultOCR)(c)
+}
+
 func (c *Container) Close(ctx context.Context) error {
-	var firstErr error
 	if c.ocrModule != nil {
-		if err := c.ocrModule.Close(); err != nil && firstErr == nil {
-			firstErr = fmt.Errorf("close OCR module: %w", err)
+		if err := c.ocrModule.Close(); err != nil {
+			return fmt.Errorf("close OCR module: %w", err)
 		}
 	}
-	return firstErr
+	return nil
 }
 
 func AllModels() []interface{} {
-	var all []interface{}
-	all = append(all, provinces.Models()...)
-	all = append(all, customers.Models()...)
-	all = append(all, customeraddresses.Models()...)
-	return all
+	models := make([]interface{}, 0)
+
+	models = append(models, provinces.Models()...)
+	models = append(models, service_categories.Models()...)
+	models = append(models, services.Models()...)
+	models = append(models, customers.Models()...)
+	models = append(models, technicians.Models()...)
+
+	models = append(models, customeraddresses.Models()...)
+	models = append(models, technician_addresses.Models()...)
+	models = append(models, technician_services.Models()...)
+
+	return models
 }

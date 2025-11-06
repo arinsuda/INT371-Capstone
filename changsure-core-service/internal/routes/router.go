@@ -17,7 +17,7 @@ import (
 func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
 	middleware.SetupMiddleware(app, config)
 
-	container, err := registry.NewContainer(db)
+	container, err := registry.NewContainer(db, config)
 	if err != nil {
 		panic(err)
 	}
@@ -39,6 +39,9 @@ func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 	container.CustomerHandler.RegisterRoutes(api)
 	container.CustomerAddressHandler.RegisterRoutes(api)
 	container.ProvinceHandler.RegisterRoutes(api)
+	container.TechnicianHandler.RegisterRoutes(api)
+	container.TechnicianServiceHandler.RegisterRoutes(api)
+	container.ServiceCategoryHandler.RegisterRoutes(api)
 	
 	ocrroutes.Register(api, container.OCRHandler)
 }
