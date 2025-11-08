@@ -1,12 +1,24 @@
+import 'package:changsure/module/auth/login.dart';
+import 'package:changsure/module/home/homePage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
-import '../module/auth/login.dart';
+import 'package:changsure/core/footer/footerBar.dart';
+import 'package:provider/provider.dart';
+
+import '../state/bottomBarState.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => BottomBarState()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -27,7 +39,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomePage(),
+      home: const LoginScreen(),
     );
   }
 }
