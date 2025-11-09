@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme.dart';
+import '../../../core/theme.dart';
 
 class RecommendedServiceSection extends StatelessWidget {
   const RecommendedServiceSection({super.key});

@@ -1,11 +1,11 @@
 import 'package:changsure/core/button/primary_button.dart';
-import 'package:changsure/module/profile/servicesSection.dart';
+import 'package:changsure/module/profile/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../state/bottomBarState.dart';
-import 'profileCardSection.dart';
-import 'actionButtonSection.dart';
+import 'profile/profileCardSection.dart';
+import 'profile/actionButtonSection.dart';
 import 'package:changsure/module/profile/editProfile.dart';
 
 double toLogicalPx(BuildContext context, double px) =>

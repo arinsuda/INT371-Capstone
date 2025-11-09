@@ -4,7 +4,7 @@ import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
 import '../../module/profile/editProfile.dart';
-import '../../module/profile/profile.dart';
+import '../../module/profile/profilePage.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
 

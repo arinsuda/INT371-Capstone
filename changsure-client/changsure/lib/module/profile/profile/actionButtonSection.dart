@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../state/bottomBarState.dart';
-import 'viewProfile.dart'; // import หน้า viewProfile.dart
+import '../../../state/bottomBarState.dart';
+import '../viewProfile.dart'; // import หน้า viewProfile.dart
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});
