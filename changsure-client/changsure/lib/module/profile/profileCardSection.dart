@@ -32,7 +32,7 @@ class ProfileSection extends StatelessWidget {
         children: [
           // รูปโปรไฟล์
           CircleAvatar(radius: 30, backgroundImage: AssetImage(profileImage)),
-          SizedBox(width: toLogicalPx(context, 16)),
+          SizedBox(width:  16),
 
           // ชื่อ อีเมล เบอร์
           Expanded(

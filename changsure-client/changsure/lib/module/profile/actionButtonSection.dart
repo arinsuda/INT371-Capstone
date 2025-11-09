@@ -13,7 +13,7 @@ class ActionButtonSection extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: buttons.map((button) {

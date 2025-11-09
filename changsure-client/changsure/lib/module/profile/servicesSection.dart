@@ -14,11 +14,10 @@ class RecommendedServiceSection extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // หัวข้อ section
           const Text(
             'บริการแนะนำ',
             style: TextStyle(
@@ -29,11 +28,10 @@ class RecommendedServiceSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // รายการแนวตั้ง
           Column(
             children: List.generate(items.length, (index) {
               final item = items[index];
-              final isLast = index == items.length ;
+              final isLast = index == items.length;
 
               return Column(
                 children: [
@@ -66,7 +64,6 @@ class RecommendedServiceSection extends StatelessWidget {
                     ),
                   ),
 
-                  // เส้นแบ่ง (เว้นอันสุดท้ายไม่ต้องมี)
                   if (!isLast)
                     const Divider(
                       color: Color(0xFFF2F2F2),

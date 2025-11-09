@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
+import '../../module/profile/editProfile.dart';
 import '../../module/profile/profile.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
@@ -103,7 +104,13 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
         final selectedIndex = bottomBarState.selectedIndex;
 
         return Scaffold(
-          body: IndexedStack(index: selectedIndex, children: _pages),
+          body: Stack(
+            children: [
+              IndexedStack(index: selectedIndex, children: _pages),
+              if (bottomBarState.currentSubPage != null)
+                bottomBarState.currentSubPage!,
+            ],
+          ),
           bottomNavigationBar: Padding(
             padding: const EdgeInsets.only(bottom: 50),
             child: Container(

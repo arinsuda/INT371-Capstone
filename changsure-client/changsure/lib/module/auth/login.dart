@@ -81,14 +81,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       alignment: Alignment.centerRight,
                       child: PrimaryButton(
                         text: 'เข้าสู่ระบบ',
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const FooterBarTemplate(),
-                            ),
-                          );
-                        },
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
+                            );
+                          }
+
                       ),
                     ),
 

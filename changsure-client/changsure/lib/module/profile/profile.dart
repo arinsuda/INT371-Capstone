@@ -1,9 +1,12 @@
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/module/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme.dart';
-import 'profileCardSection.dart'; // ProfileSection
-import 'actionButtonSection.dart'; // ActionButtonSection
+import '../../state/bottomBarState.dart';
+import 'profileCardSection.dart';
+import 'actionButtonSection.dart';
+import 'package:changsure/module/profile/editProfile.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -28,34 +31,32 @@ class _ProfileState extends State<Profile> {
               child: Text(
                 "โปรไฟล์",
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             ProfileSection(
               profileImage: 'assets/image/Technician.png',
               fullName: 'สมชาย ใจดี',
               email: 'somchai@example.com',
               phone: '081-234-5678',
-              onEdit: () {},
+              onEdit: () {
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const EditProfile());
+              },
             ),
             ActionButtonSection(),
             RecommendedServiceSection(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PrimaryButton(
-                text: "ออกจากระบบ",
-                onPressed: () {},
-              ),
+              child: PrimaryButton(text: "ออกจากระบบ", onPressed: () {}),
             ),
           ],
         ),
       ),
     );
-
   }
 }

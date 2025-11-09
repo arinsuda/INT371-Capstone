@@ -1,11 +1,9 @@
 import 'package:changsure/module/auth/login.dart';
-import 'package:changsure/module/home/homePage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/core/footer/footerBar.dart';
 import 'package:provider/provider.dart';
-
+import '../core/footer/footerBar.dart';
 import '../state/bottomBarState.dart';
 
 void main() {
@@ -39,7 +37,25 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const AppRoot(),
     );
+  }
+}
+
+/// Root widget ของแอป ใช้ BottomBar อยู่ตลอด
+class AppRoot extends StatelessWidget {
+  const AppRoot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLoggedIn = true; // ปรับ logic ตรวจสอบ login จริงได้
+
+    // ถ้ายังไม่ login → แสดงหน้า Login
+    if (!isLoggedIn) {
+      return const LoginScreen();
+    }
+
+    // ถ้า login แล้ว → ใช้ FooterBarTemplate ที่มี BottomBar
+    return const FooterBarTemplate();
   }
 }
