@@ -30,6 +30,11 @@ class _EditProfileState extends State<EditProfile> {
   );
   final TextEditingController _searchController = TextEditingController();
 
+  final TextEditingController aboutController = TextEditingController(
+    text: 'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน',
+  );
+
+
   Map<String, bool> _selectedProvinces = {};
   String _searchText = '';
 
@@ -96,7 +101,7 @@ class _EditProfileState extends State<EditProfile> {
                 const SizedBox(width: 48),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // ---------- Avatar ----------
             Center(
@@ -137,6 +142,7 @@ class _EditProfileState extends State<EditProfile> {
             _buildTextField("อีเมล", emailController),
             _buildTextField("เบอร์โทร", phoneController),
 
+            _buildTextArea("เกี่ยวกับ", aboutController),
             // ---------- จังหวัด ----------
             const Text(
               "จังหวัดที่รับบริการ",
@@ -215,6 +221,55 @@ class _EditProfileState extends State<EditProfile> {
       ),
     );
   }
+
+  Widget _buildTextArea(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: AppColors.colorTertiaryText,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            maxLines: 5, // หรือใช้ null ถ้าอยากให้ขยายอัตโนมัติ
+            textAlignVertical: TextAlignVertical.top,
+            decoration: InputDecoration(
+              hintText: 'เขียนรายละเอียดเกี่ยวกับตัวคุณ...',
+              hintStyle: const TextStyle(color: Color(0xFFAAAAAA)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.primaryBorder,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildProvinceSearchBar() {
     return Container(

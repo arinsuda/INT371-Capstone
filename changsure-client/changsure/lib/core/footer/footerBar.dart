@@ -112,9 +112,18 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
             ],
           ),
           bottomNavigationBar: Padding(
-            padding: const EdgeInsets.only(bottom: 50),
+            padding: const EdgeInsets.only(bottom: 45),
             child: Container(
-              color: Colors.white, // กำหนด background เป็นสีขาว
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26, // สีเงา
+                    blurRadius: 8, // ความเบลอของเงา
+                    offset: const Offset(0, -2), // เงาด้านบน (-y) หรือด้านล่าง (+y)
+                  ),
+                ]
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(4, (index) {

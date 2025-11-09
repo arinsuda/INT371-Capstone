@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../state/bottomBarState.dart';
+import 'viewProfile.dart'; // import หน้า viewProfile.dart
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});
@@ -19,7 +22,6 @@ class ActionButtonSection extends StatelessWidget {
         children: buttons.map((button) {
           final icon = button['icon'];
 
-          // ตรวจสอบ type ของ icon
           Widget iconWidget;
           if (icon is IconData) {
             iconWidget = Icon(
@@ -38,29 +40,38 @@ class ActionButtonSection extends StatelessWidget {
             iconWidget = const SizedBox.shrink();
           }
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF6F7F9),
-                  shape: BoxShape.circle,
+          return GestureDetector(
+            onTap: () {
+              // ตรวจสอบปุ่ม "ดูโปรไฟล์ช่าง"
+              if (button['label'] == 'ดูโปรไฟล์ช่าง') {
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfile());
+              }
+              // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F7F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(child: iconWidget),
                 ),
-                child: Center(child: iconWidget),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                button['label'] as String,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF737373),
+                const SizedBox(height: 8),
+                Text(
+                  button['label'] as String,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF737373),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+              ],
+            ),
           );
         }).toList(),
       ),
