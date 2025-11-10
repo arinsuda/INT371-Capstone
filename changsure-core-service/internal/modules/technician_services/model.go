@@ -18,7 +18,7 @@ type TechnicianService struct {
 	UpdatedAt                time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt                *time.Time `gorm:"index" json:"-"`
 
-	Service services.Service `gorm:"foreignKey:ID;references:ServiceID" json:"service"`
+	Service services.Service `gorm:"foreignKey:ServiceID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"service"`
 }
 
 func (TechnicianService) TableName() string { return "technician_services" }
