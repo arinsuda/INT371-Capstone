@@ -2,8 +2,10 @@ package database
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"log"
 
+	badge "changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/provinces"
 	"changsure-core-service/internal/modules/service_categories"
 	"changsure-core-service/internal/modules/services"
@@ -16,6 +18,7 @@ func (d *Database) Seed() error {
 		d.seedProvinces,
 		d.seedServiceCategories,
 		d.seedServices,
+		d.seedBadges,
 	}
 
 	for _, seeder := range seeders {
@@ -194,5 +197,71 @@ func (d *Database) seedServices() error {
 	}
 
 	log.Printf("   ✓ Seeded %d services", len(records))
+	return nil
+}
+
+func (d *Database) seedBadges() error {
+	log.Println("   → Seeding badges")
+
+	seeds := []badge.Badge{
+		{
+			Name:        "Recommend",
+			Description: "ได้รับการแนะนำจากผู้ใช้จำนวนมาก",
+			IconURL:     "",
+			Level:       1,
+			IsActive:    true,
+		},
+		{
+			Name:        "High Rating",
+			Description: "คะแนนรีวิวเฉลี่ยสูงตามเกณฑ์",
+			IconURL:     "",
+			Level:       2,
+			IsActive:    true,
+		},
+		{
+			Name:        "Fast",
+			Description: "ตอบกลับ/ปิดงานรวดเร็วกว่าเกณฑ์",
+			IconURL:     "",
+			Level:       2,
+			IsActive:    true,
+		},
+	}
+
+	for _, s := range seeds {
+		var exist badge.Badge
+		err := d.DB.Unscoped().Where("name = ?", s.Name).First(&exist).Error
+		switch {
+		case err == nil:
+			if exist.DeletedAt.Valid {
+				if err := d.DB.Unscoped().
+					Model(&badge.Badge{}).
+					Where("id = ?", exist.ID).
+					Update("deleted_at", nil).Error; err != nil {
+					return fmt.Errorf("restore badge %q: %w", s.Name, err)
+				}
+			}
+			exist.Description = s.Description
+			exist.Level = s.Level
+			exist.IsActive = s.IsActive
+			if err := d.DB.Save(&exist).Error; err != nil {
+				return fmt.Errorf("update badge %q: %w", s.Name, err)
+			}
+
+		case err != nil && err.Error() == "record not found":
+			fallthrough
+		case err == gorm.ErrRecordNotFound:
+			if err := d.DB.Create(&s).Error; err != nil {
+				return fmt.Errorf("create badge %q: %w", s.Name, err)
+			}
+
+		default:
+			return fmt.Errorf("read badge %q: %w", s.Name, err)
+		}
+	}
+
+	var total int64
+	if err := d.DB.Model(&badge.Badge{}).Count(&total).Error; err == nil {
+		log.Printf("   ✓ Seeded/updated badges (total now: %d)", total)
+	}
 	return nil
 }

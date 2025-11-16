@@ -5,8 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/provinces"
 	addr "changsure-core-service/internal/modules/technician_addresses"
+
 	"gorm.io/gorm"
 )
 
@@ -87,13 +89,30 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		Preload("ServiceAreas.Province").
 		Preload("ServiceAreas.Services", "is_active = ?", true).
 		Preload("ServiceAreas.Services.Service").
-		// ถ้าต้องการชื่อหมวดด้วย ให้เปิดบรรทัดถัดไป:
-		// Preload("ServiceAreas.Services.Service.Category").
+		Preload("Badges").
+		Preload("Badges.Badge").
 		First(&tech, techID).Error; err != nil {
 		return nil, err
 	}
 
-	// provinces
+	badgesRes := make([]badge.BadgeResponse, 0, len(tech.Badges))
+	for _, tb := range tech.Badges {
+		b := tb.Badge
+		if b.ID == 0 {
+			continue
+		}
+
+		badgesRes = append(badgesRes, badge.BadgeResponse{
+			ID:          b.ID,
+			Name:        b.Name,
+			Description: b.Description,
+			IconURL:     b.IconURL,
+			Level:       b.Level,
+			IsActive:    b.IsActive,
+			CreatedAt:   b.CreatedAt.Unix(),
+			UpdatedAt:   b.UpdatedAt.Unix(),
+		})
+	}
 	provinceIDs := make([]uint, 0, len(tech.ServiceAreas))
 	provincesRes := make([]provinces.ProvinceResponse, 0, len(tech.ServiceAreas))
 	servicesRes := make([]TechServiceRes, 0, 8)
@@ -151,6 +170,7 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		IsVerified:  tech.IsVerified,
 		Provinces:   provincesRes,
 		Services:    servicesRes,
+		Badges:      badgesRes, // 👈 ใช้ badgesRes โดยตรง
 	}
 	return res, nil
 }

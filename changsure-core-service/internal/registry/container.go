@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"changsure-core-service/internal/modules/badge"
 	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
 	"changsure-core-service/internal/modules/customers"
 	ocrmod "changsure-core-service/internal/modules/ocr"
@@ -14,6 +15,7 @@ import (
 	"changsure-core-service/internal/modules/service_categories"
 	"changsure-core-service/internal/modules/services"
 	"changsure-core-service/internal/modules/technician_addresses"
+	"changsure-core-service/internal/modules/technician_badges"
 	"changsure-core-service/internal/modules/technician_services"
 	"changsure-core-service/internal/modules/technicians"
 
@@ -47,6 +49,8 @@ type Container struct {
 	TechnicianServiceRepo technician_services.Repository
 	ServiceCategoryRepo   service_categories.Repository
 	ServiceRepo           services.Repository
+	BadgeRepo             badge.Repository
+	TechnicianBadgeRepo   technician_badges.Repository
 
 	CustomerService          customers.Service
 	CustomerAddressService   customeraddresses.Service
@@ -55,6 +59,8 @@ type Container struct {
 	TechnicianServiceService technician_services.Service
 	ServiceCategoryService   service_categories.Service
 	ServiceService           services.ServiceSvc
+	BadgeService             badge.Service
+	TechnicianBadgeService   technician_badges.Service
 
 	CustomerHandler          *customers.Handler
 	CustomerAddressHandler   *customeraddresses.Handler
@@ -64,6 +70,8 @@ type Container struct {
 	TechnicianServiceHandler *technician_services.Handler
 	ServiceCategoryHandler   *service_categories.Handler
 	ServiceHandler           *services.Handler
+	BadgeHandler             *badge.RouteBundle
+	TechnicianBadgeHandler   *technician_badges.Handler
 
 	ocrModule *ocrmod.OCRModule
 }
@@ -89,6 +97,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianServiceModule()
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
+	c.initBadgeModule()
 
 	if err := c.initOCRModule(); err != nil {
 		return nil, err
@@ -173,6 +182,18 @@ func (c *Container) initOCRModule() error {
 	return WithOCRModule(defaultOCR)(c)
 }
 
+func (c *Container) initBadgeModule() {
+	c.BadgeRepo = badge.NewRepository(c.DB)
+	c.BadgeService = badge.NewService(c.BadgeRepo)
+	c.BadgeHandler = badge.NewRouteBundle(c.DB, c.Storage)
+}
+
+func (c *Container) initTechnicianBadgeModule() {
+	c.TechnicianBadgeRepo = technician_badges.NewRepository(c.DB)
+	c.TechnicianBadgeService = technician_badges.NewService(c.TechnicianBadgeRepo)
+	c.TechnicianBadgeHandler = technician_badges.NewHandler(c.TechnicianBadgeService)
+}
+
 func (c *Container) Close(ctx context.Context) error {
 	if c.ocrModule != nil {
 		if err := c.ocrModule.Close(); err != nil {
@@ -194,6 +215,10 @@ func AllModels() []interface{} {
 	models = append(models, customeraddresses.Models()...)
 	models = append(models, technician_addresses.Models()...)
 	models = append(models, technician_services.Models()...)
+
+	models = append(models, badge.Models()...)
+	models = append(models, technician_badges.Models()...)
+
 
 	return models
 }

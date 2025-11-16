@@ -2,6 +2,7 @@ package technicians
 
 import (
 	provinces "changsure-core-service/internal/modules/provinces"
+	badges "changsure-core-service/internal/modules/badge"
 )
 
 type TechnicianProfileReq struct {
@@ -45,6 +46,7 @@ type TechnicianProfileRes struct {
 
 	Provinces []provinces.ProvinceResponse `json:"provinces"`
 	Services  []TechServiceRes             `json:"services"`
+	Badges    []badges.BadgeResponse       `json:"badges"`
 }
 
 type TechnicianProvincesPatchReq struct {

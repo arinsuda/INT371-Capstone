@@ -35,7 +35,6 @@ func Setup(app *fiber.App, config *config.Config, db *gorm.DB) {
 func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 	api := app.Group("/api/v1")
 
-	
 	container.CustomerHandler.RegisterRoutes(api)
 	container.CustomerAddressHandler.RegisterRoutes(api)
 	container.ProvinceHandler.RegisterRoutes(api)
@@ -43,23 +42,23 @@ func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 	container.TechnicianServiceHandler.RegisterRoutes(api)
 	container.ServiceCategoryHandler.RegisterRoutes(api)
 	container.ServiceHandler.RegisterRoutes(api)
-	
+	container.BadgeHandler.RegisterRoutes(api)
+	container.TechnicianBadgeHandler.RegisterRoutes(api)
+
 	ocrroutes.Register(api, container.OCRHandler)
 }
 
-
 func setupTestTools(app *fiber.App, config *config.Config) {
-	
 
 	app.Get("/ocr/test", func(c fiber.Ctx) error {
 		c.Set("Content-Security-Policy", strings.Join([]string{
 			"default-src 'self'",
 			"img-src 'self' data: blob:",
 			"connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 ws: wss:",
-			"script-src 'self' 'unsafe-inline'", 
-			"style-src 'self' 'unsafe-inline'",  
+			"script-src 'self' 'unsafe-inline'",
+			"style-src 'self' 'unsafe-inline'",
 			"font-src 'self' data:",
-			"worker-src 'self' blob:", 
+			"worker-src 'self' blob:",
 			"object-src 'none'",
 			"base-uri 'self'",
 			"frame-ancestors 'none'",
@@ -70,7 +69,7 @@ func setupTestTools(app *fiber.App, config *config.Config) {
 }
 
 func setupHealthRoutes(app *fiber.App, db *gorm.DB) {
-app.Get("/", func(c fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",
 			"message": "Welcome to Changsure Core Service API",

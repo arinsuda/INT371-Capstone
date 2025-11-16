@@ -4,6 +4,7 @@ import (
 	"time"
 
 	technician_addresses "changsure-core-service/internal/modules/technician_addresses"
+	technician_badges "changsure-core-service/internal/modules/technician_badges"
 )
 
 type Technician struct {
@@ -24,6 +25,7 @@ type Technician struct {
 	DeletedAt   *time.Time `gorm:"index" json:"-"`
 
 	ServiceAreas []technician_addresses.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
+	Badges       []technician_badges.TechnicianBadge  `gorm:"foreignKey:BadgeID;" json:"badges,omitempty"`
 }
 
 func (Technician) TableName() string { return "technicians" }
