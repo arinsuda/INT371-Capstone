@@ -1,8 +1,12 @@
 package technicians
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"time"
+
+	utils "changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -108,4 +112,61 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 		})
 	}
 	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) AddService(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "id")
+	if err != nil || techID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	}
+
+	var body AddTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+
+	if body.ProvinceID == 0 || body.ServiceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := h.svc.AddService(ctx, techID, body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "service added to technician",
+		"data":    result,
+	})
+}
+
+func (h *Handler) RemoveService(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "id")
+	if err != nil || techID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	}
+
+	var body RemoveTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+	if body.ProvinceID == 0 || body.ServiceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.svc.RemoveService(ctx, techID, body); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "service removed successfully",
+	})
 }

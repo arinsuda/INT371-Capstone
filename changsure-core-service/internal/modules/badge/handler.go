@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/gofiber/fiber/v3"
 	utils "changsure-core-service/pkg/utils"
+	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct{ svc Service }
@@ -97,7 +97,10 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 			}
 			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success": true,
+			"message": "badge permanently deleted",
+		})
 	}
 
 	if err := h.svc.Delete(ctx, id); err != nil {
@@ -106,7 +109,10 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		}
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "badge deleted",
+	})
 }
 
 func (h *Handler) Restore(c fiber.Ctx) error {

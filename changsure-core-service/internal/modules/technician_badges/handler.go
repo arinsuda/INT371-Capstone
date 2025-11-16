@@ -70,5 +70,8 @@ func (h *Handler) Remove(c fiber.Ctx) error {
 	if err := h.svc.RemoveBadge(ctx, id, hard); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "badge removed",
+	})
 }

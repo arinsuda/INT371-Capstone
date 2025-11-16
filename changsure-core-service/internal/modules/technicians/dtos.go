@@ -1,8 +1,8 @@
 package technicians
 
 import (
-	provinces "changsure-core-service/internal/modules/provinces"
 	badges "changsure-core-service/internal/modules/badge"
+	provinces "changsure-core-service/internal/modules/provinces"
 )
 
 type TechnicianProfileReq struct {
@@ -44,11 +44,31 @@ type TechnicianProfileRes struct {
 	IsAvailable bool     `json:"is_available"`
 	IsVerified  bool     `json:"is_verified"`
 
-	Provinces []provinces.ProvinceResponse `json:"provinces"`
-	Services  []TechServiceRes             `json:"services"`
-	Badges    []badges.BadgeResponse       `json:"badges"`
+	Provinces      []provinces.ProvinceResponse `json:"provinces"`
+	Services       []TechServiceRes             `json:"services"`
+	ServiceSummary []TechServiceSummary         `json:"service_summary"`
+	Badges         []badges.BadgeResponse       `json:"badges"`
 }
 
 type TechnicianProvincesPatchReq struct {
 	ProvinceIDs []uint `json:"province_ids" validate:"required,min=1,dive,gt=0"`
+}
+
+type AddTechServiceReq struct {
+	ProvinceID  uint     `json:"province_id"`
+	ServiceID   uint     `json:"service_id"`
+	PricingType string   `json:"pricing_type"`
+	PriceFixed  *float64 `json:"price_fixed,omitempty"`
+	PriceMin    *float64 `json:"price_min,omitempty"`
+	PriceMax    *float64 `json:"price_max,omitempty"`
+}
+
+type TechServiceSummary struct {
+	ServiceID   uint   `json:"service_id"`
+	ServiceName string `json:"service_name"`
+}
+
+type RemoveTechServiceReq struct {
+	ProvinceID uint `json:"province_id"`
+	ServiceID  uint `json:"service_id"`
 }
