@@ -1,11 +1,11 @@
 import 'package:changsure/core/button/primary_button.dart';
-import 'package:changsure/module/profile/profile/servicesSection.dart';
+import 'package:changsure/core/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
-import '../profile/profileCardSection.dart';
-import '../profile/actionButtonSection.dart';
+import 'package:changsure/core/profile/profileCardSection.dart';
+import 'actionButtonSection.dart';
 import 'package:changsure/module/profile/technician/editProfile.dart';
 
 import 'viewProfileTab.dart';
@@ -13,14 +13,14 @@ import 'viewProfileTab.dart';
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
-class Profile extends StatefulWidget {
-  const Profile({super.key});
+class TechnicianProfile extends StatefulWidget {
+  const TechnicianProfile({super.key});
 
   @override
-  State<Profile> createState() => _ProfileState();
+  State<TechnicianProfile> createState() => _ProfileState();
 }
 
-class _ProfileState extends State<Profile> {
+class _ProfileState extends State<TechnicianProfile> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(

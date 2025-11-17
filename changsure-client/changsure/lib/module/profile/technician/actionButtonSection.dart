@@ -2,7 +2,7 @@ import 'package:changsure/module/profile/technician/activities/postActivity.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../state/bottomBarState.dart';
-import '../technician/viewProfileTab.dart';
+import 'viewProfileTab.dart';
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});

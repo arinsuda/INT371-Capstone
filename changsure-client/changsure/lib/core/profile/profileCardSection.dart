@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
@@ -89,7 +90,12 @@ class ProfileSection extends StatelessWidget {
           // ปุ่ม Edit
           IconButton(
             onPressed: onEdit,
-            icon: Icon(Icons.edit_square, color: Colors.black),
+            icon: SvgPicture.asset(
+              'assets/icons/editIcon.svg',
+              width: 24,
+              height: 24,
+              color: Colors.black,
+            ),
           ),
         ],
       ),
