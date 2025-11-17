@@ -1,7 +1,8 @@
+import 'package:changsure/module/profile/technician/activities/postActivity.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../state/bottomBarState.dart';
-import '../viewProfile.dart'; // import หน้า viewProfile.dart
+import '../../../../state/bottomBarState.dart';
+import '../technician/viewProfileTab.dart';
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});
@@ -44,7 +45,10 @@ class ActionButtonSection extends StatelessWidget {
             onTap: () {
               // ตรวจสอบปุ่ม "ดูโปรไฟล์ช่าง"
               if (button['label'] == 'ดูโปรไฟล์ช่าง') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfile());
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfilePage());
+              }
+              if (button['label'] == 'ลงผลงาน') {
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const PostActivity());
               }
               // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
             },

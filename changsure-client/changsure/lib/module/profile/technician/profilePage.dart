@@ -2,11 +2,13 @@ import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/module/profile/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme.dart';
-import '../../state/bottomBarState.dart';
-import 'profile/profileCardSection.dart';
-import 'profile/actionButtonSection.dart';
-import 'package:changsure/module/profile/editProfile.dart';
+import '../../../core/theme.dart';
+import '../../../state/bottomBarState.dart';
+import '../profile/profileCardSection.dart';
+import '../profile/actionButtonSection.dart';
+import 'package:changsure/module/profile/technician/editProfile.dart';
+
+import 'viewProfileTab.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
-import '../../module/profile/editProfile.dart';
-import '../../module/profile/profilePage.dart';
+import '../../module/profile/technician/editProfile.dart';
+import '../../module/profile/technician/profilePage.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
 
@@ -111,75 +111,76 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
                 bottomBarState.currentSubPage!,
             ],
           ),
-          bottomNavigationBar: Padding(
-            padding: const EdgeInsets.only(bottom: 45),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26, // สีเงา
-                    blurRadius: 8, // ความเบลอของเงา
-                    offset: const Offset(0, -2), // เงาด้านบน (-y) หรือด้านล่าง (+y)
-                  ),
-                ]
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(4, (index) {
-                  final labels = ["หน้าหลัก", "ติดตามสถานะ", "แชท", "โปรไฟล์"];
-                  final inactivePaths = [
-                    'assets/icons/home.png',
-                    'assets/icons/status.png',
-                    'assets/icons/chat.png',
-                    'assets/icons/profile.png',
-                  ];
-                  final activePaths = [
-                    'assets/icons/home_active.png',
-                    'assets/icons/status_active.png',
-                    'assets/icons/chat_active.png',
-                    'assets/icons/profile_active.png',
-                  ];
+          bottomNavigationBar: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 8, // ใช้ค่าจากระบบ
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(4, (index) {
+                final labels = ["หน้าหลัก", "ติดตามสถานะ", "แชท", "โปรไฟล์"];
+                final inactivePaths = [
+                  'assets/icons/home.png',
+                  'assets/icons/status.png',
+                  'assets/icons/chat.png',
+                  'assets/icons/profile.png',
+                ];
+                final activePaths = [
+                  'assets/icons/home_active.png',
+                  'assets/icons/status_active.png',
+                  'assets/icons/chat_active.png',
+                  'assets/icons/profile_active.png',
+                ];
 
-                  return GestureDetector(
-                    onTapDown: (_) {
-                      setState(() {
-                        _focusedIndex = index;
-                      });
-                    },
-                    onTapUp: (_) {
-                      setState(() {
-                        _focusedIndex = -1;
-                      });
-                      bottomBarState.setIndex(index);
-                      _motionController.index = index;
-                    },
-                    onTapCancel: () {
-                      setState(() {
-                        _focusedIndex = -1;
-                      });
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _assetIcon(
-                          inactivePaths[index],
-                          activePaths[index],
-                          index,
-                          selectedIndex,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          labels[index],
-                          style: _tabTextStyle(index, selectedIndex),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
+                return GestureDetector(
+                  onTapDown: (_) {
+                    setState(() {
+                      _focusedIndex = index;
+                    });
+                  },
+                  onTapUp: (_) {
+                    setState(() {
+                      _focusedIndex = -1;
+                    });
+                    Provider.of<BottomBarState>(context, listen: false).setIndex(index);
+                    _motionController.index = index;
+                  },
+                  onTapCancel: () {
+                    setState(() {
+                      _focusedIndex = -1;
+                    });
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _assetIcon(
+                        inactivePaths[index],
+                        activePaths[index],
+                        index,
+                        Provider.of<BottomBarState>(context).selectedIndex,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        labels[index],
+                        style: _tabTextStyle(index, Provider.of<BottomBarState>(context).selectedIndex),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ),
           ),
+
         );
       },
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../core/theme.dart';
-import '../../../mockDB/servicesCategories.dart';
+import '../../../../core/theme.dart';
+import '../../../../mockDB/servicesCategories.dart';
 
 class ServiceTag extends StatelessWidget {
   const ServiceTag({super.key});

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../core/theme.dart';
+import '../../../../core/theme.dart';
 
 class TechnicianBadge extends StatelessWidget {
   const TechnicianBadge({super.key});

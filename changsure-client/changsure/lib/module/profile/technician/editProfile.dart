@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:provider/provider.dart';
-import '../../mockDB/province.dart';
-import '../../mockDB/servicesCategories.dart';
+import '../../../mockDB/province.dart';
+import '../../../mockDB/servicesCategories.dart';
+import '../../../state/bottomBarState.dart';
 import 'package:flutter/services.dart';
-
-import '../../state/bottomBarState.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -305,9 +304,9 @@ class _EditProfileState extends State<EditProfile> {
 
     // แยกจังหวัดที่ติ๊ก / ไม่ติ๊ก
     List<String> checked =
-        filtered.where((p) => _selectedProvinces[p] == true).toList()..sort();
+    filtered.where((p) => _selectedProvinces[p] == true).toList()..sort();
     List<String> unchecked =
-        filtered.where((p) => _selectedProvinces[p] != true).toList()..sort();
+    filtered.where((p) => _selectedProvinces[p] != true).toList()..sort();
 
     List<String> displayList = [...checked, ...unchecked];
 
@@ -462,7 +461,7 @@ class _EditProfileState extends State<EditProfile> {
                                 int.tryParse(
                                   _maxPriceControllers[subService]!.text,
                                 ) ??
-                                0;
+                                    0;
                             if (max > 0 && max < min) {
                               _maxPriceControllers[subService]!.text = val;
                             }
@@ -497,7 +496,7 @@ class _EditProfileState extends State<EditProfile> {
                                 int.tryParse(
                                   _minPriceControllers[subService]!.text,
                                 ) ??
-                                0;
+                                    0;
                             if (max < min) {
                               // ถ้า max < min ให้ auto set = min
                               _maxPriceControllers[subService]!.text = min
