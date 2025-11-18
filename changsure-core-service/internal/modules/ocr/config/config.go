@@ -91,7 +91,7 @@ func LoadOCRConfig() *OCRConfig {
 
 		Provider:          getEnv("OCR_PROVIDER", "tesseract"),
 		TesseractPath:     getEnv("TESSERACT_PATH", "tesseract"),
-		TesseractDataPath: getEnv("TESSDATA_PREFIX", "/opt/homebrew/share/tessdata/"),
+		TesseractDataPath: getEnv("TESSDATA_PREFIX", "/opt/homebrew/share/tessdata/", ""),
 		Language:          getEnv("OCR_LANGUAGE", "tha+eng"),
 		PSM:               getEnvAsInt("OCR_PSM", 6),
 		OEM:               getEnvAsInt("OCR_OEM", 3),
