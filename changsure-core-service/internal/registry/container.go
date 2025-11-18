@@ -17,6 +17,7 @@ import (
 	"changsure-core-service/internal/modules/technician_addresses"
 	"changsure-core-service/internal/modules/technician_badges"
 	"changsure-core-service/internal/modules/technician_services"
+	techworks "changsure-core-service/internal/modules/technician_works"
 	"changsure-core-service/internal/modules/technicians"
 
 	"changsure-core-service/internal/config"
@@ -41,37 +42,49 @@ type Container struct {
 	DB      *gorm.DB
 	Storage *storage.MinioStorage
 
-	CustomerRepo          customers.Repository
-	CustomerAddressRepo   customeraddresses.Repository
-	ProvinceRepo          provinces.Repository
-	TechnicianRepo        technicians.Repository
-	TechnicianAddressRepo technician_addresses.Repository
-	TechnicianServiceRepo technician_services.Repository
-	ServiceCategoryRepo   service_categories.Repository
-	ServiceRepo           services.Repository
-	BadgeRepo             badge.Repository
-	TechnicianBadgeRepo   technician_badges.Repository
+	CustomerRepo    customers.Repository
+	CustomerService customers.Service
+	CustomerHandler *customers.Handler
 
-	CustomerService          customers.Service
-	CustomerAddressService   customeraddresses.Service
-	ProvinceService          provinces.Service
-	TechnicianService        technicians.Service
+	CustomerAddressRepo    customeraddresses.Repository
+	CustomerAddressService customeraddresses.Service
+	CustomerAddressHandler *customeraddresses.Handler
+
+	ProvinceRepo    provinces.Repository
+	ProvinceService provinces.Service
+	ProvinceHandler *provinces.Handler
+
+	TechnicianRepo    technicians.Repository
+	TechnicianService technicians.Service
+	TechnicianHandler *technicians.Handler
+
+	TechnicianServiceRepo    technician_services.Repository
 	TechnicianServiceService technician_services.Service
-	ServiceCategoryService   service_categories.Service
-	ServiceService           services.ServiceSvc
-	BadgeService             badge.Service
-	TechnicianBadgeService   technician_badges.Service
-
-	CustomerHandler          *customers.Handler
-	CustomerAddressHandler   *customeraddresses.Handler
-	ProvinceHandler          *provinces.Handler
-	OCRHandler               *ocrhandler.OCRHandler
-	TechnicianHandler        *technicians.Handler
 	TechnicianServiceHandler *technician_services.Handler
-	ServiceCategoryHandler   *service_categories.Handler
-	ServiceHandler           *services.Handler
-	BadgeHandler             *badge.RouteBundle
-	TechnicianBadgeHandler   *technician_badges.Handler
+
+	TechnicianAddressRepo technician_addresses.Repository
+
+	ServiceCategoryRepo    service_categories.Repository
+	ServiceCategoryService service_categories.Service
+	ServiceCategoryHandler *service_categories.Handler
+
+	ServiceRepo    services.Repository
+	ServiceService services.ServiceSvc
+	ServiceHandler *services.Handler
+
+	BadgeRepo    badge.Repository
+	BadgeService badge.Service
+	BadgeHandler *badge.RouteBundle
+
+	TechnicianBadgeRepo    technician_badges.Repository
+	TechnicianBadgeService technician_badges.Service
+	TechnicianBadgeHandler *technician_badges.Handler
+
+	TechnicianWorkRepo    techworks.Repository
+	TechnicianWorkService techworks.Service
+	TechnicianWorkHandler *techworks.Handler
+
+	OCRHandler *ocrhandler.OCRHandler
 
 	ocrModule *ocrmod.OCRModule
 }
@@ -98,6 +111,8 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
 	c.initBadgeModule()
+	c.initTechnicianBadgeModule()
+	c.initTechnicianWorkModule()
 
 	if err := c.initOCRModule(); err != nil {
 		return nil, err
@@ -194,6 +209,12 @@ func (c *Container) initTechnicianBadgeModule() {
 	c.TechnicianBadgeHandler = technician_badges.NewHandler(c.TechnicianBadgeService)
 }
 
+func (c *Container) initTechnicianWorkModule() {
+	c.TechnicianWorkRepo = techworks.NewRepository(c.DB)
+	c.TechnicianWorkService = techworks.NewService(c.TechnicianWorkRepo)
+	c.TechnicianWorkHandler = techworks.NewHandler(c.TechnicianWorkService)
+}
+
 func (c *Container) Close(ctx context.Context) error {
 	if c.ocrModule != nil {
 		if err := c.ocrModule.Close(); err != nil {
@@ -218,7 +239,7 @@ func AllModels() []interface{} {
 
 	models = append(models, badge.Models()...)
 	models = append(models, technician_badges.Models()...)
-
+	models = append(models, techworks.Models()...)
 
 	return models
 }

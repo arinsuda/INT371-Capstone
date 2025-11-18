@@ -44,6 +44,7 @@ func setupAPIv1Routes(app *fiber.App, container *registry.Container) {
 	container.ServiceHandler.RegisterRoutes(api)
 	container.BadgeHandler.RegisterRoutes(api)
 	container.TechnicianBadgeHandler.RegisterRoutes(api)
+	container.TechnicianWorkHandler.RegisterRoutes(api)
 
 	ocrroutes.Register(api, container.OCRHandler)
 }
