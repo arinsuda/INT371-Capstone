@@ -6,3 +6,4 @@
 .env.staging
 minio_data/
 tmp.*
+main tmp
