@@ -30,7 +30,7 @@ func NewHandler(s Service, st *storage.MinioStorage, cfg *config.Config) *Handle
 		storage:  st,
 		endpoint: cfg.Minio.Endpoint,
 		bucket:   cfg.Minio.Bucket,
-		public:   true, // ถ้า bucket เป็น private เปลี่ยนเป็น false หรืออ่านจาก cfg/env
+		public:   true,
 	}
 }
 
@@ -110,7 +110,6 @@ func (h *Handler) UploadIcon(c fiber.Ctx) error {
 	return c.Status(http.StatusCreated).JSON(fiber.Map{"success": true, "data": fiber.Map{"icon_url": url}})
 }
 
-// ---------- helpers ----------
 var allowedMIME = map[string]struct{}{
 	"image/jpeg": {}, "image/png": {}, "image/webp": {},
 }

@@ -232,40 +232,51 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		var area addr.TechnicianServiceArea
-		err := tx.
+		if err := tx.
 			Where("technician_id = ? AND province_id = ?", techID, req.ProvinceID).
-			First(&area).Error
+			First(&area).Error; err != nil {
 
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			area = addr.TechnicianServiceArea{
-				TechnicianID: techID,
-				ProvinceID:   req.ProvinceID,
-				IsActive:     true,
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+
+				return errors.New("technician does not serve this province, please update provinces first")
 			}
-			if err := tx.Create(&area).Error; err != nil {
-				return err
-			}
-		} else if err != nil {
 			return err
 		}
 
 		var existing tsvc.TechnicianService
-		if err := tx.Where(
-			"technician_service_areas_id = ? AND service_id = ?",
-			area.ID, req.ServiceID,
-		).First(&existing).Error; err == nil {
+		if err := tx.
+			Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).
+			First(&existing).Error; err == nil {
 
-			return tx.Model(&existing).Association("Service").Find(&existing.Service)
+			if err := tx.Model(&existing).Association("Service").Find(&existing.Service); err != nil {
+				return err
+			}
+
+			result = AddedTechServiceResult{
+				TechnicianID: techID,
+				ProvinceID:   req.ProvinceID,
+				Service: TechServiceBrief{
+					ID:          existing.Service.ID,
+					Name:        existing.Service.SerName,
+					PricingType: existing.PricingType,
+					PriceFixed:  existing.PriceFixed,
+					PriceMin:    existing.PriceMin,
+					PriceMax:    existing.PriceMax,
+				},
+			}
+			return nil
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
 
 		ts := tsvc.TechnicianService{
-			TechnicianServiceAreasID: area.ID,
-			ServiceID:                req.ServiceID,
-			PricingType:              req.PricingType,
-			PriceFixed:               req.PriceFixed,
-			PriceMin:                 req.PriceMin,
-			PriceMax:                 req.PriceMax,
-			IsActive:                 true,
+			TechnicianID: techID,
+			ServiceID:    req.ServiceID,
+			PricingType:  req.PricingType,
+			PriceFixed:   req.PriceFixed,
+			PriceMin:     req.PriceMin,
+			PriceMax:     req.PriceMax,
+			IsActive:     true,
 		}
 
 		if err := tx.Create(&ts).Error; err != nil {
@@ -288,7 +299,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 				PriceMax:    ts.PriceMax,
 			},
 		}
-
 		return nil
 	})
 
@@ -326,22 +336,10 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 		}
 
 		if err := tx.Where(
-			"technician_service_areas_id = ? AND service_id = ?",
-			area.ID, req.ServiceID,
+			"technician_id = ? AND service_id = ?",
+			techID, req.ServiceID,
 		).Delete(&tsvc.TechnicianService{}).Error; err != nil {
 			return err
-		}
-
-		var cnt int64
-		if err := tx.Model(&tsvc.TechnicianService{}).
-			Where("technician_service_areas_id = ? AND deleted_at IS NULL", area.ID).
-			Count(&cnt).Error; err != nil {
-			return err
-		}
-		if cnt == 0 {
-			if err := tx.Delete(&area).Error; err != nil {
-				return err
-			}
 		}
 
 		return nil

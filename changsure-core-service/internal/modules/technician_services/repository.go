@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ใช้ struct ภายใน package เพื่อตัดวงจร import
 type SearchTechnician struct {
 	ID          uint     `gorm:"column:id"           json:"id"`
 	FirstName   string   `gorm:"column:firstname"    json:"firstname"`
@@ -44,14 +43,15 @@ func (r *repository) Search(q SearchTechniciansQuery) ([]SearchTechnician, int64
 	)
 
 	db := r.db.Table("technicians AS t").
-		Joins("JOIN technician_service_areas tsa ON tsa.technician_id = t.id AND tsa.is_active = 1").
-		Joins("JOIN technician_services ts ON ts.technician_service_areas_id = tsa.id AND ts.is_active = 1").
+		Joins("JOIN technician_services ts ON ts.technician_id = t.id AND ts.is_active = 1").
 		Joins("JOIN services s ON s.id = ts.service_id AND s.is_active = 1").
+		Joins("LEFT JOIN technician_service_areas tsa ON tsa.technician_id = t.id AND tsa.is_active = 1").
 		Where("s.id = ?", q.ServiceID)
 
 	if q.ProvinceID != nil {
 		db = db.Where("tsa.province_id = ?", *q.ProvinceID)
 	}
+
 	if q.PriceMin != nil {
 		db = db.Where(`((ts.pricing_type='FIXED' AND ts.price_fixed >= ?) OR (ts.pricing_type='RANGE' AND ts.price_max >= ?))`, *q.PriceMin, *q.PriceMin)
 	}
@@ -62,12 +62,10 @@ func (r *repository) Search(q SearchTechniciansQuery) ([]SearchTechnician, int64
 		db = db.Where("t.rating_avg >= ?", *q.RatingMin)
 	}
 
-	// นับจำนวน technician แบบ distinct
 	if err := db.Distinct("t.id").Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// เลือกคอลัมน์ให้แมปกับ SearchTechnician
 	db = db.Select(`
 		t.id, t.firstname, t.lastname, t.avatar_url, 
 		t.rating_avg, t.rating_count,
@@ -82,7 +80,6 @@ func (r *repository) Search(q SearchTechniciansQuery) ([]SearchTechnician, int64
 		db = db.Order("t.rating_avg DESC")
 	}
 
-	// pagination
 	if q.Page <= 0 {
 		q.Page = 1
 	}

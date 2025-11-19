@@ -91,6 +91,6 @@ func (s *service) ListProvinces(ctx context.Context) ([]*Province, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *service) CountProvinces(ctx context.Context) (int64, error) { // ✅ เพิ่ม
+func (s *service) CountProvinces(ctx context.Context) (int64, error) {
 	return s.repo.Count(ctx)
 }

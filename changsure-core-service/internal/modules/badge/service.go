@@ -1,4 +1,3 @@
-// internal/modules/badge/service.go
 package badge
 
 import (

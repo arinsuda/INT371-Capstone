@@ -1,4 +1,3 @@
-// internal/modules/badge/repo.go
 package badge
 
 import (

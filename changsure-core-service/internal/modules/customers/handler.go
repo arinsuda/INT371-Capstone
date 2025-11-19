@@ -16,7 +16,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// POST /customers
 func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	var req CreateCustomerRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -67,7 +66,6 @@ func (h *Handler) CreateCustomer(c fiber.Ctx) error {
 	})
 }
 
-// GET /customers/:id
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -98,7 +96,6 @@ func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	})
 }
 
-// PATCH /customers/:id
 func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -162,7 +159,6 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	})
 }
 
-// DELETE /customers/:id
 func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -192,7 +188,6 @@ func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	})
 }
 
-// GET /customers 
 func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	page := c.Query("page", "1")
 	pageSize := c.Query("page_size", "20")

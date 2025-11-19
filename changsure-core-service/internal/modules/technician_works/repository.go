@@ -46,7 +46,6 @@ func (r *repository) Update(ctx context.Context, w *TechnicianWork, replaceImage
 			return err
 		}
 		if replaceImages != nil {
-			// ลบรูปเก่าทิ้ง (soft delete)
 			if err := tx.
 				Where("work_id = ?", w.ID).
 				Delete(&TechnicianWorkImage{}).Error; err != nil {

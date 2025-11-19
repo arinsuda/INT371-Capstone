@@ -152,7 +152,6 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	// ✅ ตามที่คุณขอ: ใช้ 200 + message แทน 204
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "work deleted successfully",
