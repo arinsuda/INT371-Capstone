@@ -145,32 +145,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 			UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
 		})
 
-		for _, ts := range a.Services {
-			if !ts.IsActive {
-				continue
-			}
-			var catID *uint
-			var catName *string
-			if ts.Service.Category != nil {
-				cid := ts.Service.Category.ID
-				cnm := ts.Service.Category.CatName
-				catID = &cid
-				catName = &cnm
-			}
-
-			servicesRes = append(servicesRes, TechServiceRes{
-				AreaID:      a.ID,
-				ProvinceID:  a.ProvinceID,
-				ServiceID:   ts.ServiceID,
-				ServiceName: ts.Service.SerName,
-				CategoryID:  catID,
-				Category:    catName,
-				PricingType: ts.PricingType,
-				PriceFixed:  ts.PriceFixed,
-				PriceMin:    ts.PriceMin,
-				PriceMax:    ts.PriceMax,
-			})
-		}
 	}
 
 	summaryMap := make(map[uint]string)
