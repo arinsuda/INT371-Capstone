@@ -25,7 +25,7 @@ type Technician struct {
 	DeletedAt   *time.Time `gorm:"index" json:"-"`
 
 	ServiceAreas []technician_addresses.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
-	Badges       []technician_badges.TechnicianBadge  `gorm:"foreignKey:BadgeID;" json:"badges,omitempty"`
+	Badges       []technician_badges.TechnicianBadge          `gorm:"foreignKey:TechnicianID" json:"badges,omitempty"`
 }
 
 func (Technician) TableName() string { return "technicians" }

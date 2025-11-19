@@ -1,10 +1,14 @@
+// internal/modules/technician_badges/handler.go
 package technician_badges
 
 import (
 	"context"
+	goerrors "errors"
 	"time"
 
-	utils "changsure-core-service/pkg/utils"
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/pkg/utils"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -19,7 +23,7 @@ func NewHandler(svc Service) *Handler {
 func (h *Handler) Assign(c fiber.Ctx) error {
 	technicianID, err := utils.ParseUintParam(c, "technician_id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
 	var body struct {
@@ -27,7 +31,7 @@ func (h *Handler) Assign(c fiber.Ctx) error {
 		ExpiredAt *time.Time `json:"expired_at"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+		return appErrors.BadRequest(c, "invalid body")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -35,7 +39,10 @@ func (h *Handler) Assign(c fiber.Ctx) error {
 
 	tb, err := h.svc.AssignBadge(ctx, technicianID, body.BadgeID, body.ExpiredAt)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		if goerrors.Is(err, ErrTechnicianNotFound) {
+			return appErrors.NotFound(c, "technician not found")
+		}
+		return appErrors.InternalError(c, "failed to assign badge", err)
 	}
 	return c.Status(fiber.StatusCreated).JSON(tb)
 }
@@ -43,7 +50,7 @@ func (h *Handler) Assign(c fiber.Ctx) error {
 func (h *Handler) ListByTechnician(c fiber.Ctx) error {
 	technicianID, err := utils.ParseUintParam(c, "technician_id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -51,7 +58,10 @@ func (h *Handler) ListByTechnician(c fiber.Ctx) error {
 
 	items, err := h.svc.GetBadgesByTechnician(ctx, technicianID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		if goerrors.Is(err, ErrTechnicianNotFound) {
+			return appErrors.NotFound(c, "technician not found")
+		}
+		return appErrors.InternalError(c, "failed to get badges", err)
 	}
 	return c.JSON(items)
 }

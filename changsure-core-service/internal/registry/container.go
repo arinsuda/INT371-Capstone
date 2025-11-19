@@ -205,7 +205,12 @@ func (c *Container) initBadgeModule() {
 
 func (c *Container) initTechnicianBadgeModule() {
 	c.TechnicianBadgeRepo = technician_badges.NewRepository(c.DB)
-	c.TechnicianBadgeService = technician_badges.NewService(c.TechnicianBadgeRepo)
+
+	c.TechnicianBadgeService = technician_badges.NewService(
+		c.TechnicianBadgeRepo,
+		c.TechnicianRepo,
+	)
+
 	c.TechnicianBadgeHandler = technician_badges.NewHandler(c.TechnicianBadgeService)
 }
 
