@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -39,16 +40,20 @@ func (r *repository) Delete(ctx context.Context, id uint) error {
 }
 
 func (r *repository) List(ctx context.Context, q ListQuery) ([]Service, int64, error) {
-	db := r.db.WithContext(ctx).Model(&Service{}).Preload("Category")
+	db := r.db.WithContext(ctx).Model(&Service{})
 
-	if q.CategoryID != nil {
+	if q.Search != "" {
+		s := strings.ToLower(strings.TrimSpace(q.Search))
+		like := "%" + s + "%"
+		db = db.Where("(LOWER(ser_name) LIKE ? OR LOWER(ser_description) LIKE ?)", like, like)
+	}
+
+	if q.CategoryID != nil && *q.CategoryID > 0 {
 		db = db.Where("category_id = ?", *q.CategoryID)
 	}
-	if q.Active != nil {
-		db = db.Where("is_active = ?", *q.Active)
-	}
-	if q.Search != "" {
-		db = db.Where("ser_name LIKE ?", "%"+q.Search+"%")
+
+	if q.IsActive != nil {
+		db = db.Where("is_active = ?", *q.IsActive)
 	}
 
 	var total int64
@@ -56,18 +61,34 @@ func (r *repository) List(ctx context.Context, q ListQuery) ([]Service, int64, e
 		return nil, 0, err
 	}
 
-	page, size := q.Page, q.PageSize
-	if page <= 0 {
+	sortBy := q.SortBy
+	if sortBy == "" {
+		sortBy = "created_at"
+	}
+	sortOrder := strings.ToLower(q.SortOrder)
+	if sortOrder != "asc" {
+		sortOrder = "desc"
+	}
+	db = db.Order(sortBy + " " + sortOrder)
+
+	page := q.Page
+	if page < 1 {
 		page = 1
 	}
-	if size <= 0 || size > 100 {
-		size = 20
+	pageSize := q.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
 	}
-	offset := (page - 1) * size
+	offset := (page - 1) * pageSize
 
 	var items []Service
-	if err := db.Order("ser_name ASC").Offset(offset).Limit(size).Find(&items).Error; err != nil {
+	if err := db.
+		Limit(pageSize).
+		Offset(offset).
+		Preload("Category").
+		Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
+
 	return items, total, nil
 }
