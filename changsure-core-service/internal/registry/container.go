@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
 	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
 	"changsure-core-service/internal/modules/customers"
@@ -41,6 +42,10 @@ func WithOCRModule(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
 type Container struct {
 	DB      *gorm.DB
 	Storage *storage.MinioStorage
+
+	AuthRepo    auth.RefreshTokenRepository
+	AuthService auth.Service
+	AuthHandler *auth.Handler
 
 	CustomerRepo    customers.Repository
 	CustomerService customers.Service
@@ -107,6 +112,9 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initProvinceModule()
 	c.initCustomerAddressModule()
 	c.initTechnicianModule()
+
+	c.initAuthModule(cfg)
+
 	c.initTechnicianServiceModule()
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
@@ -134,6 +142,19 @@ func (c *Container) initStorage(cfg *config.Config) error {
 	}
 	c.Storage = store
 	return nil
+}
+
+func (c *Container) initAuthModule(cfg *config.Config) {
+	c.AuthRepo = auth.NewRefreshTokenRepository(c.DB)
+
+	c.AuthService = auth.NewService(
+		c.CustomerRepo,
+		c.TechnicianRepo,
+		c.AuthRepo,
+		cfg,
+	)
+
+	c.AuthHandler = auth.NewHandler(c.AuthService)
 }
 
 func (c *Container) initCustomerModule() {
@@ -231,6 +252,8 @@ func (c *Container) Close(ctx context.Context) error {
 
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
+
+	models = append(models, auth.Models()...)
 
 	models = append(models, provinces.Models()...)
 	models = append(models, service_categories.Models()...)

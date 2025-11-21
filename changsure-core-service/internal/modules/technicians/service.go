@@ -55,11 +55,11 @@ func (s *service) UpsertProfile(ctx context.Context, techID uint, req Technician
 
 	if techID == 0 {
 		if req.Email != nil && *req.Email != "" {
-			if ex, err := s.repo.FindByEmail(*req.Email); err == nil {
+			if ex, err := s.repo.FindByEmail(ctx, *req.Email); err == nil {
 				t = ex
 			}
 		} else if req.Phone != nil && *req.Phone != "" {
-			if ex, err := s.repo.FindByPhone(*req.Phone); err == nil {
+			if ex, err := s.repo.FindByPhone(ctx, *req.Phone); err == nil {
 				t = ex
 			}
 		}
