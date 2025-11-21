@@ -43,13 +43,15 @@ func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Co
 	public := api.Group("/auth")
 	container.AuthHandler.RegisterRoutes(public)
 
-	common := authenticated.Group("/common")
+	common := authenticated.Group("")
 	container.ProvinceHandler.RegisterRoutes(common)
 	container.ServiceCategoryHandler.RegisterRoutes(common)
 	container.ServiceHandler.RegisterRoutes(common)
+	container.BadgeHandler.RegisterRoutes(common)
+
 	ocrroutes.Register(common, container.OCRHandler)
 
-	customer := authenticated.Group("/customer", middleware.CustomerOnly())
+	customer := authenticated.Group("/customers", middleware.CustomerOnly())
 	container.CustomerHandler.RegisterRoutes(customer)
 	container.CustomerAddressHandler.RegisterRoutes(customer)
 
@@ -57,9 +59,9 @@ func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Co
 	container.TechnicianHandler.RegisterRoutes(technician)
 	container.TechnicianServiceHandler.RegisterRoutes(technician)
 	container.TechnicianWorkHandler.RegisterRoutes(technician)
+	container.TechnicianBadgeHandler.RegisterRoutes(technician)
 
-	admin := authenticated.Group("/admin", middleware.AdminOnly())
-	container.BadgeHandler.RegisterRoutes(admin)
+	// admin := authenticated.Group("", middleware.AdminOnly())
 }
 
 func setupHealthRoutes(app *fiber.App, db *gorm.DB) {

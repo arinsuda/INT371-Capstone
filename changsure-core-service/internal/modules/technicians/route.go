@@ -8,8 +8,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	technicians := router.Group("")
 
 	technicians.Get("/profile", h.GetProfile)
-	technicians.Post("/profile", h.PostProfile)
-	technicians.Patch("/profile", h.PostProfile)
+	technicians.Patch("/profile", h.UpdateProfile)
 
 	technicians.Patch("/provinces", h.PatchProvinces)
 	technicians.Post("/:id/services", h.AddService)

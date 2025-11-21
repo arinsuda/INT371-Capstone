@@ -17,8 +17,6 @@ type TechnicianProfileReq struct {
 }
 
 type TechServiceRes struct {
-	AreaID      uint     `json:"area_id"`
-	ProvinceID  uint     `json:"province_id"`
 	ServiceID   uint     `json:"service_id"`
 	ServiceName string   `json:"service_name"`
 	CategoryID  *uint    `json:"category_id,omitempty"`

@@ -47,7 +47,7 @@ func techIDFromLocals(c fiber.Ctx) uint {
 	return 0
 }
 
-func (h *Handler) PostProfile(c fiber.Ctx) error {
+func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	var req TechnicianProfileReq
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
@@ -68,8 +68,11 @@ func (h *Handler) PostProfile(c fiber.Ctx) error {
 			"success": false, "error": err.Error(),
 		})
 	}
-	return c.Status(http.StatusCreated).JSON(fiber.Map{
-		"success": true, "data": fiber.Map{"technician_id": id},
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "profile updated",
+		"data":    fiber.Map{"technician_id": id},
 	})
 }
 
