@@ -55,7 +55,6 @@ type TechnicianProvincesPatchReq struct {
 }
 
 type AddTechServiceReq struct {
-	ProvinceID  uint     `json:"province_id"`
 	ServiceID   uint     `json:"service_id"`
 	PricingType string   `json:"pricing_type"`
 	PriceFixed  *float64 `json:"price_fixed,omitempty"`

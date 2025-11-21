@@ -38,51 +38,28 @@ func setupPublicRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Container) {
 	api := app.Group("/api/v1")
 
-	setupPublicAPIRoutes(api, container)
-	setupAuthenticatedRoutes(api, cfg, container)
-}
-
-func setupPublicAPIRoutes(api fiber.Router, container *registry.Container) {
-	container.AuthHandler.RegisterRoutes(api)
-}
-
-func setupAuthenticatedRoutes(api fiber.Router, cfg *config.Config, container *registry.Container) {
 	authenticated := api.Group("", middleware.AuthMiddleware(cfg))
 
-	setupCommonRoutes(authenticated, container)
-	setupAdminRoutes(authenticated, container)
-	setupCustomerRoutes(authenticated, container)
-	setupTechnicianRoutes(authenticated, container)
-}
+	public := api.Group("/auth")
+	container.AuthHandler.RegisterRoutes(public)
 
-func setupCommonRoutes(auth fiber.Router, container *registry.Container) {
-	common := auth.Group("")
-
+	common := authenticated.Group("/common")
 	container.ProvinceHandler.RegisterRoutes(common)
 	container.ServiceCategoryHandler.RegisterRoutes(common)
 	container.ServiceHandler.RegisterRoutes(common)
 	ocrroutes.Register(common, container.OCRHandler)
-}
 
-func setupAdminRoutes(auth fiber.Router, container *registry.Container) {
-	admin := auth.Group("", middleware.AdminOnly())
-
-	container.BadgeHandler.RegisterRoutes(admin)
-}
-
-func setupCustomerRoutes(auth fiber.Router, container *registry.Container) {
-	customer := auth.Group("", middleware.CustomerOnly())
-
+	customer := authenticated.Group("/customer", middleware.CustomerOnly())
 	container.CustomerHandler.RegisterRoutes(customer)
 	container.CustomerAddressHandler.RegisterRoutes(customer)
-}
 
-func setupTechnicianRoutes(auth fiber.Router, container *registry.Container) {
-	technician := auth.Group("", middleware.TechnicianOnly())
-
+	technician := authenticated.Group("/technicians", middleware.TechnicianOnly())
 	container.TechnicianHandler.RegisterRoutes(technician)
 	container.TechnicianServiceHandler.RegisterRoutes(technician)
 	container.TechnicianWorkHandler.RegisterRoutes(technician)
+
+	admin := authenticated.Group("/admin", middleware.AdminOnly())
+	container.BadgeHandler.RegisterRoutes(admin)
 }
 
 func setupHealthRoutes(app *fiber.App, db *gorm.DB) {

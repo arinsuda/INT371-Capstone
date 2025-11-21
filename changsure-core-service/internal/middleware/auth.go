@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -88,6 +89,10 @@ func RoleAuth(allowedRoles ...string) fiber.Handler {
 		if !ok || role == "" {
 			return jsonError(c, fiber.StatusForbidden, "Role information not found", nil)
 		}
+
+		// เพิ่ม log เพื่อ debug
+		fmt.Printf("User role from token: '%s', Required roles: %v\n", role, allowedRoles)
+
 		for _, r := range allowedRoles {
 			if role == r {
 				return c.Next()

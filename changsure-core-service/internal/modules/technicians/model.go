@@ -5,6 +5,7 @@ import (
 
 	technician_addresses "changsure-core-service/internal/modules/technician_addresses"
 	technician_badges "changsure-core-service/internal/modules/technician_badges"
+	tsvc "changsure-core-service/internal/modules/technician_services"
 )
 
 type Technician struct {
@@ -29,6 +30,7 @@ type Technician struct {
 
 	ServiceAreas []technician_addresses.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
 	Badges       []technician_badges.TechnicianBadge          `gorm:"foreignKey:TechnicianID" json:"badges,omitempty"`
+	Services []tsvc.TechnicianService `gorm:"foreignKey:TechnicianID" json:"services,omitempty"`
 }
 
 func (Technician) TableName() string { return "technicians" }

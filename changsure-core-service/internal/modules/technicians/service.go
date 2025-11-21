@@ -29,7 +29,6 @@ type service struct {
 
 type AddedTechServiceResult struct {
 	TechnicianID uint             `json:"technician_id"`
-	ProvinceID   uint             `json:"province_id"`
 	Service      TechServiceBrief `json:"service"`
 }
 
@@ -47,66 +46,56 @@ func NewService(db *gorm.DB, r Repository, a addr.Repository) Service {
 }
 
 func (s *service) UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error) {
+	if techID == 0 {
+		return 0, errors.New("unauthorized: technician id missing from auth")
+	}
 	if s.area == nil {
 		return 0, errors.New("technicians.service: area repository not wired")
 	}
 
-	t := &Technician{ID: techID}
-
-	if techID == 0 {
-		if req.Email != nil && *req.Email != "" {
-			if ex, err := s.repo.FindByEmail(ctx, *req.Email); err == nil {
-				t = ex
-			}
-		} else if req.Phone != nil && *req.Phone != "" {
-			if ex, err := s.repo.FindByPhone(ctx, *req.Phone); err == nil {
-				t = ex
-			}
-		}
-	} else {
-		_ = s.db.WithContext(ctx).First(t, techID).Error
+	var t Technician
+	if err := s.db.WithContext(ctx).First(&t, techID).Error; err != nil {
+		return 0, err
 	}
 
-	t.FirstName, t.LastName = req.FirstName, req.LastName
-	t.Phone, t.Email, t.Bio, t.AvatarURL = req.Phone, req.Email, req.Bio, req.AvatarURL
+	t.FirstName = req.FirstName
+	t.LastName = req.LastName
+	t.Phone = req.Phone
+	t.Email = req.Email
+	t.Bio = req.Bio
+	t.AvatarURL = req.AvatarURL
 
-	var id uint
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		if t.ID == 0 {
-			err = tx.Create(t).Error
-		} else {
-			err = tx.Save(t).Error
-		}
-		if err != nil {
+		if err := tx.Save(&t).Error; err != nil {
 			return err
 		}
-		id = t.ID
 
 		if len(req.ProvinceIDs) > 0 {
-			if err = s.area.ReplaceForTech(tx, t.ID, req.ProvinceIDs); err != nil {
+			if err := s.area.ReplaceForTech(tx, t.ID, req.ProvinceIDs); err != nil {
 				return err
 			}
 		}
+
 		return nil
 	})
 	if err != nil {
 		return 0, err
 	}
-	return id, nil
+
+	return t.ID, nil
 }
 
 func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfileRes, error) {
 	if techID == 0 {
-		return nil, errors.New("technician id is required")
+		return nil, errors.New("unauthorized: technician id missing from auth")
 	}
 
 	var tech Technician
 	if err := s.db.WithContext(ctx).
 		Preload("ServiceAreas", "is_active = ?", true).
 		Preload("ServiceAreas.Province").
-		Preload("ServiceAreas.Services", "is_active = ?", true).
-		Preload("ServiceAreas.Services.Service").
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
 		Preload("Badges").
 		Preload("Badges.Badge").
 		First(&tech, techID).Error; err != nil {
@@ -119,7 +108,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		if b.ID == 0 {
 			continue
 		}
-
 		badgesRes = append(badgesRes, badge.BadgeResponse{
 			ID:          b.ID,
 			Name:        b.Name,
@@ -131,12 +119,9 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 			UpdatedAt:   b.UpdatedAt.Unix(),
 		})
 	}
-	provinceIDs := make([]uint, 0, len(tech.ServiceAreas))
-	provincesRes := make([]provinces.ProvinceResponse, 0, len(tech.ServiceAreas))
-	servicesRes := make([]TechServiceRes, 0, 8)
 
+	provincesRes := make([]provinces.ProvinceResponse, 0, len(tech.ServiceAreas))
 	for _, a := range tech.ServiceAreas {
-		provinceIDs = append(provinceIDs, a.ProvinceID)
 		p := a.Province
 		provincesRes = append(provincesRes, provinces.ProvinceResponse{
 			ID:        p.ID,
@@ -144,7 +129,21 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 			CreatedAt: p.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
 		})
+	}
 
+	servicesRes := make([]TechServiceRes, 0, len(tech.ServiceAreas))
+	for _, ts := range tech.Services {
+		if ts.Service.ID == 0 {
+			continue
+		}
+		servicesRes = append(servicesRes, TechServiceRes{
+			ServiceID:   ts.Service.ID,
+			ServiceName: ts.Service.SerName,
+			PricingType: ts.PricingType,
+			PriceFixed:  ts.PriceFixed,
+			PriceMin:    ts.PriceMin,
+			PriceMax:    ts.PriceMax,
+		})
 	}
 
 	summaryMap := make(map[uint]string)
@@ -178,16 +177,18 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		ServiceSummary: serviceSummary,
 		Badges:         badgesRes,
 	}
+
 	return res, nil
 }
 
 func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error {
 	if techID == 0 {
-		return errors.New("technician id is required")
+		return errors.New("unauthorized: technician id missing from auth")
 	}
 	if s.area == nil {
 		return errors.New("technicians.service: area repository not wired")
 	}
+
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return s.area.ReplaceForTech(tx, techID, provinceIDs)
 	})
@@ -195,27 +196,12 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 
 func (s *service) AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error) {
 	if techID == 0 {
-		return nil, errors.New("technician id is required")
-	}
-	if s.area == nil {
-		return nil, errors.New("technicians.service: area repository not wired")
+		return nil, errors.New("unauthorized: technician id missing from auth")
 	}
 
 	var result AddedTechServiceResult
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
-		var area addr.TechnicianServiceArea
-		if err := tx.
-			Where("technician_id = ? AND province_id = ?", techID, req.ProvinceID).
-			First(&area).Error; err != nil {
-
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-
-				return errors.New("technician does not serve this province, please update provinces first")
-			}
-			return err
-		}
 
 		var existing tsvc.TechnicianService
 		if err := tx.
@@ -228,7 +214,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 
 			result = AddedTechServiceResult{
 				TechnicianID: techID,
-				ProvinceID:   req.ProvinceID,
 				Service: TechServiceBrief{
 					ID:          existing.Service.ID,
 					Name:        existing.Service.SerName,
@@ -263,7 +248,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 
 		result = AddedTechServiceResult{
 			TechnicianID: techID,
-			ProvinceID:   req.ProvinceID,
 			Service: TechServiceBrief{
 				ID:          ts.Service.ID,
 				Name:        ts.Service.SerName,
@@ -273,9 +257,9 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 				PriceMax:    ts.PriceMax,
 			},
 		}
+
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -285,37 +269,14 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 
 func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error {
 	if techID == 0 {
-		return errors.New("technician id is required")
+		return errors.New("unauthorized: technician id missing from auth")
 	}
-	if s.area == nil {
-		return errors.New("technicians.service: area repository not wired")
-	}
-	if req.ProvinceID == 0 || req.ServiceID == 0 {
-		return errors.New("province_id and service_id are required")
+	if req.ServiceID == 0 {
+		return errors.New("service_id is required")
 	}
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
-		var area addr.TechnicianServiceArea
-		err := tx.
-			Where("technician_id = ? AND province_id = ?", techID, req.ProvinceID).
-			First(&area).Error
-
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		if err := tx.Where(
-			"technician_id = ? AND service_id = ?",
-			techID, req.ServiceID,
-		).Delete(&tsvc.TechnicianService{}).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return tx.Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).
+			Delete(&tsvc.TechnicianService{}).Error
 	})
 }

@@ -5,7 +5,7 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	technicians := router.Group("/technicians")
+	technicians := router.Group("")
 
 	technicians.Get("/profile", h.GetProfile)
 	technicians.Post("/profile", h.PostProfile)

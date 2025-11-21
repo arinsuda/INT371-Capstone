@@ -1,12 +1,8 @@
 package technicians
 
 import (
-	"context"
 	"net/http"
 	"strconv"
-	"time"
-
-	utils "changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -16,18 +12,36 @@ type Handler struct{ svc Service }
 func NewHandler(s Service) *Handler { return &Handler{svc: s} }
 
 func techIDFromLocals(c fiber.Ctx) uint {
-	switch v := c.Locals("tech_id").(type) {
-	case uint:
-		return v
-	case uint64:
-		return uint(v)
-	case int:
-		if v > 0 {
-			return uint(v)
+	if v := c.Locals("userID"); v != nil {
+		switch x := v.(type) {
+		case uint:
+			return x
+		case uint64:
+			return uint(x)
+		case int:
+			if x > 0 {
+				return uint(x)
+			}
+		case string:
+			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
+				return uint(id)
+			}
 		}
-	case string:
-		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
-			return uint(id)
+	}
+	if v := c.Locals("tech_id"); v != nil {
+		switch x := v.(type) {
+		case uint:
+			return x
+		case uint64:
+			return uint(x)
+		case int:
+			if x > 0 {
+				return uint(x)
+			}
+		case string:
+			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
+				return uint(id)
+			}
 		}
 	}
 	return 0
@@ -42,6 +56,11 @@ func (h *Handler) PostProfile(c fiber.Ctx) error {
 	}
 
 	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false, "error": "unauthorized",
+		})
+	}
 
 	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
 	if err != nil {
@@ -57,16 +76,9 @@ func (h *Handler) PostProfile(c fiber.Ctx) error {
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		if idStr := c.Query("id"); idStr != "" {
-			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				techID = uint(id)
-			}
-		}
-	}
-	if techID == 0 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"error":   "technician id is required",
+			"error":   "unauthorized",
 		})
 	}
 
@@ -94,15 +106,8 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		if idStr := c.Query("id"); idStr != "" {
-			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				techID = uint(id)
-			}
-		}
-	}
-	if techID == 0 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": "technician id is required",
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false, "error": "unauthorized",
 		})
 	}
 
@@ -115,9 +120,9 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 }
 
 func (h *Handler) AddService(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
 	var body AddTechServiceReq
@@ -125,16 +130,9 @@ func (h *Handler) AddService(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
 	}
 
-	if body.ProvinceID == 0 || body.ServiceID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := h.svc.AddService(ctx, techID, body)
+	result, err := h.svc.AddService(c.Context(), techID, body)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -145,9 +143,9 @@ func (h *Handler) AddService(c fiber.Ctx) error {
 }
 
 func (h *Handler) RemoveService(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
 	var body RemoveTechServiceReq
@@ -158,11 +156,8 @@ func (h *Handler) RemoveService(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := h.svc.RemoveService(ctx, techID, body); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	if err := h.svc.RemoveService(c.Context(), techID, body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
