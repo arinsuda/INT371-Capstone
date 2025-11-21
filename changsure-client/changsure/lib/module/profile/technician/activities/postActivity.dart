@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
+import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -146,10 +147,7 @@ class _PostActivityState extends State<PostActivity> {
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.black),
                   onPressed: () {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage();
+                    Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
                   },
                 ),
                 const Expanded(

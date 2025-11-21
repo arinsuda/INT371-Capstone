@@ -1,4 +1,6 @@
 import 'package:changsure/module/profile/technician/activities/postActivity.dart';
+import 'package:changsure/module/profile/technician/addressPage.dart';
+import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../state/bottomBarState.dart';
@@ -48,7 +50,10 @@ class ActionButtonSection extends StatelessWidget {
                 Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfilePage());
               }
               if (button['label'] == 'ลงผลงาน') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const PostActivity());
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
+              }
+              if (button['label'] == 'ที่อยู่ของฉัน') {
+                Provider.of<BottomBarState>(context, listen: false).setSubPage(const AddressPage());
               }
               // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
             },
