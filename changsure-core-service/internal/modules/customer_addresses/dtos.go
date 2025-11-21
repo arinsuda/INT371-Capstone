@@ -15,9 +15,9 @@ type CreateCustomerAddressRequest struct {
 	Road        *string  `json:"road"         validate:"omitempty,max=100"`
 	Subdistrict *string  `json:"subdistrict"  validate:"omitempty,max=100"`
 	District    *string  `json:"district"     validate:"omitempty,max=100"`
-	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"` // ใช้กฎ custom จาก global
+	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"`
 	Country     *string  `json:"country"      validate:"omitempty,max=100"`
-	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`       // lat/lon custom
+	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`
 	Longitude   *float64 `json:"longitude"    validate:"omitempty,lon"`
 }
 

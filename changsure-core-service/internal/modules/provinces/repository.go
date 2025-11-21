@@ -59,7 +59,7 @@ func (r *repository) GetAll(ctx context.Context) ([]*Province, error) {
 	return items, nil
 }
 
-func (r *repository) Count(ctx context.Context) (int64, error) { // ✅ นับทั้งหมด
+func (r *repository) Count(ctx context.Context) (int64, error) {
 	var n int64
 	if err := r.db.WithContext(ctx).Model(&Province{}).Count(&n).Error; err != nil {
 		return 0, err

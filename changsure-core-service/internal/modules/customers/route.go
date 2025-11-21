@@ -5,11 +5,13 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	customers := router.Group("/customers")
+	g := router.Group("")
 
-	customers.Post("/", h.CreateCustomer)
-	customers.Get("/", h.ListCustomers)
-	customers.Get("/:id", h.GetCustomer)
-	customers.Patch("/:id", h.UpdateCustomer)
-	customers.Delete("/:id", h.DeleteCustomer)
+	g.Get("/profile", h.GetProfile)
+	g.Patch("/profile", h.UpdateProfile)
+
+	g.Get("/", h.ListCustomers)
+	g.Get("/:id", h.GetCustomer)
+	g.Patch("/:id", h.UpdateCustomer)
+	g.Delete("/:id", h.DeleteCustomer)
 }

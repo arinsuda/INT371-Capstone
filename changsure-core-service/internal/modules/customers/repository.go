@@ -8,17 +8,21 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, customer *Customer) error
 	GetByID(ctx context.Context, id uint) (*Customer, error)
 	GetByPhone(ctx context.Context, phone string) (*Customer, error)
 	GetByEmail(ctx context.Context, email string) (*Customer, error)
+
+	Create(ctx context.Context, customer *Customer) error
 	Update(ctx context.Context, customer *Customer) error
 	Delete(ctx context.Context, id uint) error
 	GetAll(ctx context.Context, limit, offset int) ([]*Customer, error)
 
-	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
+	FindByID(ctx context.Context, id uint) (*Customer, error)
+	FindByEmail(ctx context.Context, email string) (*Customer, error)
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	Exists(ctx context.Context, id uint) (bool, error)
 
+	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
 }
 
 type repository struct {
@@ -164,4 +168,48 @@ func (r *repository) SearchNearbyAddresses(ctx context.Context, lat, lon, radius
 		Find(&customers).Error
 
 	return customers, err
+}
+
+func (r *repository) FindByID(ctx context.Context, id uint) (*Customer, error) {
+	var customer Customer
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		Preload("Addresses").
+		Preload("Addresses.Province").
+		First(&customer).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &customer, nil
+}
+
+func (r *repository) FindByEmail(ctx context.Context, email string) (*Customer, error) {
+	var customer Customer
+	err := r.db.WithContext(ctx).
+		Where("email = ?", email).
+		Preload("Addresses").
+		Preload("Addresses.Province").
+		First(&customer).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &customer, nil
+}
+
+func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&Customer{}).
+		Where("email = ?", email).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

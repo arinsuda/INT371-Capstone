@@ -9,6 +9,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	EnvDevelopment = "development"
+	EnvProduction  = "production"
+	EnvStaging     = "staging"
+)
+
 type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
@@ -50,7 +56,6 @@ type RedisConfig struct {
 	DB       int
 }
 
-/* ===== MinIO & Upload Policy ===== */
 type MinioConfig struct {
 	Endpoint           string
 	AccessKey          string
@@ -138,7 +143,17 @@ func LoadConfig() *Config {
 	return cfg
 }
 
-/* ========== helpers: strict (no default) ========== */
+func (c *Config) IsDevelopment() bool {
+	return strings.EqualFold(c.App.Environment, EnvDevelopment)
+}
+
+func (c *Config) IsProduction() bool {
+	return strings.EqualFold(c.App.Environment, EnvProduction)
+}
+
+func (c *Config) IsStaging() bool {
+	return strings.EqualFold(c.App.Environment, EnvStaging)
+}
 
 func getEnv(key string) string {
 	v, ok := os.LookupEnv(key)
@@ -165,8 +180,6 @@ func getEnvAsBool(key string) bool {
 	}
 	return b
 }
-
-/* ========== CSV helpers ========== */
 
 func getEnvAsCSVOptional(key string) []string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {

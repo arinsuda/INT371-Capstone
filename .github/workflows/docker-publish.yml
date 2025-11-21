@@ -79,16 +79,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Pull images ใหม่
           docker compose pull --ignore-pull-failures
 
-          # Restart services
           docker compose up -d --remove-orphans
 
-          # Show running containers
           docker compose ps
 
-          # Clean up unused images (keep last 3 days)
           docker image prune -af --filter "until=72h"
         continue-on-error: false
 

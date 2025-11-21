@@ -17,9 +17,13 @@ type UpdateServiceRequest struct {
 }
 
 type ListQuery struct {
-	CategoryID *uint  `query:"category_id"`
-	Active     *bool  `query:"active"`
-	Search     string `query:"q"`
-	Page       int    `query:"page"`
-	PageSize   int    `query:"page_size"`
+	Search     string
+	CategoryID *uint
+	IsActive   *bool
+
+	Page     int
+	PageSize int
+
+	SortBy    string
+	SortOrder string
 }

@@ -4,15 +4,20 @@ import (
 	"time"
 
 	technician_addresses "changsure-core-service/internal/modules/technician_addresses"
+	technician_badges "changsure-core-service/internal/modules/technician_badges"
+	tsvc "changsure-core-service/internal/modules/technician_services"
 )
 
 type Technician struct {
-	ID          uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	FirstName   string     `gorm:"type:varchar(150);not null" json:"firstname"`
-	LastName    string     `gorm:"type:varchar(150);not null" json:"lastname"`
-	Bio         *string    `gorm:"type:text" json:"bio"`
-	Phone       *string    `gorm:"type:varchar(10)" json:"phone"`
-	Email       *string    `gorm:"type:varchar(100);uniqueIndex" json:"email"`
+	ID        uint    `gorm:"primaryKey;autoIncrement" json:"id"`
+	FirstName string  `gorm:"type:varchar(150);not null" json:"firstname"`
+	LastName  string  `gorm:"type:varchar(150);not null" json:"lastname"`
+	Bio       *string `gorm:"type:text" json:"bio"`
+	Phone     *string `gorm:"type:varchar(10)" json:"phone"`
+
+	Email        *string `gorm:"type:varchar(100);uniqueIndex" json:"email"`
+	PasswordHash string  `gorm:"type:varchar(255);not null" json:"-"`
+
 	AvatarURL   *string    `gorm:"type:varchar(255)" json:"avatar_url"`
 	RatingAvg   *float64   `gorm:"type:decimal(3,2);default:0.0" json:"rating_avg"`
 	RatingCount uint       `gorm:"default:0" json:"rating_count"`
@@ -24,6 +29,8 @@ type Technician struct {
 	DeletedAt   *time.Time `gorm:"index" json:"-"`
 
 	ServiceAreas []technician_addresses.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
+	Badges       []technician_badges.TechnicianBadge          `gorm:"foreignKey:TechnicianID" json:"badges,omitempty"`
+	Services []tsvc.TechnicianService `gorm:"foreignKey:TechnicianID" json:"services,omitempty"`
 }
 
 func (Technician) TableName() string { return "technicians" }

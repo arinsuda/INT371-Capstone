@@ -12,24 +12,42 @@ type Handler struct{ svc Service }
 func NewHandler(s Service) *Handler { return &Handler{svc: s} }
 
 func techIDFromLocals(c fiber.Ctx) uint {
-	switch v := c.Locals("tech_id").(type) {
-	case uint:
-		return v
-	case uint64:
-		return uint(v)
-	case int:
-		if v > 0 {
-			return uint(v)
+	if v := c.Locals("userID"); v != nil {
+		switch x := v.(type) {
+		case uint:
+			return x
+		case uint64:
+			return uint(x)
+		case int:
+			if x > 0 {
+				return uint(x)
+			}
+		case string:
+			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
+				return uint(id)
+			}
 		}
-	case string:
-		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
-			return uint(id)
+	}
+	if v := c.Locals("tech_id"); v != nil {
+		switch x := v.(type) {
+		case uint:
+			return x
+		case uint64:
+			return uint(x)
+		case int:
+			if x > 0 {
+				return uint(x)
+			}
+		case string:
+			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
+				return uint(id)
+			}
 		}
 	}
 	return 0
 }
 
-func (h *Handler) PostProfile(c fiber.Ctx) error {
+func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	var req TechnicianProfileReq
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
@@ -38,6 +56,11 @@ func (h *Handler) PostProfile(c fiber.Ctx) error {
 	}
 
 	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false, "error": "unauthorized",
+		})
+	}
 
 	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
 	if err != nil {
@@ -45,24 +68,20 @@ func (h *Handler) PostProfile(c fiber.Ctx) error {
 			"success": false, "error": err.Error(),
 		})
 	}
-	return c.Status(http.StatusCreated).JSON(fiber.Map{
-		"success": true, "data": fiber.Map{"technician_id": id},
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "profile updated",
+		"data":    fiber.Map{"technician_id": id},
 	})
 }
 
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		if idStr := c.Query("id"); idStr != "" {
-			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				techID = uint(id)
-			}
-		}
-	}
-	if techID == 0 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"error":   "technician id is required",
+			"error":   "unauthorized",
 		})
 	}
 
@@ -90,15 +109,8 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		if idStr := c.Query("id"); idStr != "" {
-			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				techID = uint(id)
-			}
-		}
-	}
-	if techID == 0 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": "technician id is required",
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false, "error": "unauthorized",
 		})
 	}
 
@@ -108,4 +120,51 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 		})
 	}
 	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) AddService(c fiber.Ctx) error {
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	var body AddTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+
+	result, err := h.svc.AddService(c.Context(), techID, body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "service added to technician",
+		"data":    result,
+	})
+}
+
+func (h *Handler) RemoveService(c fiber.Ctx) error {
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	var body RemoveTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+	if body.ProvinceID == 0 || body.ServiceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
+	}
+
+	if err := h.svc.RemoveService(c.Context(), techID, body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "service removed successfully",
+	})
 }

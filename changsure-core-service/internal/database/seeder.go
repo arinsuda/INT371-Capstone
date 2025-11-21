@@ -2,10 +2,13 @@ package database
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"log"
 
+	badge "changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/provinces"
 	"changsure-core-service/internal/modules/service_categories"
+	"changsure-core-service/internal/modules/services"
 )
 
 func (d *Database) Seed() error {
@@ -14,6 +17,8 @@ func (d *Database) Seed() error {
 	seeders := []func() error{
 		d.seedProvinces,
 		d.seedServiceCategories,
+		d.seedServices,
+		d.seedBadges,
 	}
 
 	for _, seeder := range seeders {
@@ -91,5 +96,172 @@ func (d *Database) seedServiceCategories() error {
 	}
 
 	log.Printf("   ✓ Seeded %d service categories", len(data))
+	return nil
+}
+
+func (d *Database) seedServices() error {
+	var count int64
+	if err := d.DB.Model(&services.Service{}).Count(&count).Error; err != nil {
+		return fmt.Errorf("count services: %w", err)
+	}
+	if count > 0 {
+		log.Println("   ⊘ Services already seeded, skipping")
+		return nil
+	}
+
+	var cats []service_categories.ServiceCategory
+	if err := d.DB.Find(&cats).Error; err != nil {
+		return fmt.Errorf("read service categories: %w", err)
+	}
+	catID := map[string]uint{}
+	for _, c := range cats {
+		catID[c.CatName] = c.ID
+	}
+
+	requiredCats := []string{
+		"งานไฟฟ้าและเครื่องใช้ไฟฟ้า",
+		"งานประปา",
+		"งานทาสี",
+		"งานซ่อมบำรุงทั่วไป",
+	}
+	for _, name := range requiredCats {
+		if _, ok := catID[name]; !ok {
+			return fmt.Errorf("missing service category %q, seedServiceCategories must run first", name)
+		}
+	}
+
+	type item struct {
+		Cat  string
+		Name string
+		Desc *string
+		Img  *string
+	}
+
+	items := []item{
+		// ===== งานทาสี =====
+		{Cat: "งานทาสี", Name: "ทาสีภายในอาคาร"},
+		{Cat: "งานทาสี", Name: "ทาสีภายนอกอาคาร"},
+		{Cat: "งานทาสี", Name: "ทาสีรั้วบ้าน"},
+		{Cat: "งานทาสี", Name: "ทาสีหลังคา (แบบ Bager กับ Synotex)"},
+		{Cat: "งานทาสี", Name: "ทาสีเฟอร์นิเจอร์ไม้"},
+		{Cat: "งานทาสี", Name: "สำรวจทาสี"},
+
+		// ===== งานประปา =====
+		{Cat: "งานประปา", Name: "ซ่อมท่อน้ำรั่ว / ท่อแตก"},
+		{Cat: "งานประปา", Name: "ติดตั้งอ่างล้างหน้า"},
+		{Cat: "งานประปา", Name: "ล้างถังพักน้ำ / แทงก์น้ำ"},
+		{Cat: "งานประปา", Name: "ติดตั้งปั๊มน้ำ"},
+		{Cat: "งานประปา", Name: "ติดตั้งสุขภัณฑ์ธรรมดา"},
+		{Cat: "งานประปา", Name: "ติดตั้งสุขภัณฑ์อัตโนมัติ"},
+		{Cat: "งานประปา", Name: "ซ่อมท่ออุดตัน / ส้วมตัน"},
+		{Cat: "งานประปา", Name: "ติดตั้งเครื่องทำน้ำอุ่น (แบบเดิน)"},
+		{Cat: "งานประปา", Name: "ติดตั้งเครื่องทำน้ำอุ่น (แบบจั๊ม)"},
+
+		// ===== งานไฟฟ้าและเครื่องใช้ไฟฟ้า – กลุ่มไฟฟ้า =====
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งปลั๊กไฟ / สวิตช์ไฟ"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "เปลี่ยนปลั๊กไฟ / สวิตช์ไฟ"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งเบรกเกอร์"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมไฟไม่ติด / ไฟช็อต"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ตรวจสอบระบบไฟฟ้าในบ้าน"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งพัดลมติดผนัง"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งพัดลมดูดอากาศ"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "เปลี่ยนดาวน์ไลท์ / ไฟเพดาน"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งไฟฉุกเฉิน"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ติดตั้งกล้องวงจรปิด"},
+
+		// ===== งานไฟฟ้าและเครื่องใช้ไฟฟ้า – กลุ่มเครื่องใช้ไฟฟ้า =====
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมแอร์"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ล้างแอร์"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมตู้เย็น"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมเครื่องซักผ้า / เครื่องอบผ้า"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมเตาอบ / เตาไมโครเวฟ"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมทีวี ขนาด 19 - 35 นิ้ว"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมทีวี ขนาด 36 - 60 นิ้ว"},
+		{Cat: "งานไฟฟ้าและเครื่องใช้ไฟฟ้า", Name: "ซ่อมทีวี ขนาดมากกว่า 60 นิ้ว"},
+	}
+
+	records := make([]services.Service, 0, len(items))
+	for _, it := range items {
+		cid := catID[it.Cat]
+		records = append(records, services.Service{
+			SerName:        it.Name,
+			SerDescription: it.Desc,
+			ImageURL:       it.Img,
+			IsActive:       true,
+			CategoryID:     cid,
+		})
+	}
+
+	if err := d.DB.Create(&records).Error; err != nil {
+		return fmt.Errorf("seed services: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d services", len(records))
+	return nil
+}
+
+func (d *Database) seedBadges() error {
+	log.Println("   → Seeding badges")
+
+	seeds := []badge.Badge{
+		{
+			Name:        "Recommend",
+			Description: "ได้รับการแนะนำจากผู้ใช้จำนวนมาก",
+			IconURL:     "",
+			Level:       1,
+			IsActive:    true,
+		},
+		{
+			Name:        "High Rating",
+			Description: "คะแนนรีวิวเฉลี่ยสูงตามเกณฑ์",
+			IconURL:     "",
+			Level:       2,
+			IsActive:    true,
+		},
+		{
+			Name:        "Fast",
+			Description: "ตอบกลับ/ปิดงานรวดเร็วกว่าเกณฑ์",
+			IconURL:     "",
+			Level:       2,
+			IsActive:    true,
+		},
+	}
+
+	for _, s := range seeds {
+		var exist badge.Badge
+		err := d.DB.Unscoped().Where("name = ?", s.Name).First(&exist).Error
+		switch {
+		case err == nil:
+			if exist.DeletedAt.Valid {
+				if err := d.DB.Unscoped().
+					Model(&badge.Badge{}).
+					Where("id = ?", exist.ID).
+					Update("deleted_at", nil).Error; err != nil {
+					return fmt.Errorf("restore badge %q: %w", s.Name, err)
+				}
+			}
+			exist.Description = s.Description
+			exist.Level = s.Level
+			exist.IsActive = s.IsActive
+			if err := d.DB.Save(&exist).Error; err != nil {
+				return fmt.Errorf("update badge %q: %w", s.Name, err)
+			}
+
+		case err != nil && err.Error() == "record not found":
+			fallthrough
+		case err == gorm.ErrRecordNotFound:
+			if err := d.DB.Create(&s).Error; err != nil {
+				return fmt.Errorf("create badge %q: %w", s.Name, err)
+			}
+
+		default:
+			return fmt.Errorf("read badge %q: %w", s.Name, err)
+		}
+	}
+
+	var total int64
+	if err := d.DB.Model(&badge.Badge{}).Count(&total).Error; err == nil {
+		log.Printf("   ✓ Seeded/updated badges (total now: %d)", total)
+	}
 	return nil
 }

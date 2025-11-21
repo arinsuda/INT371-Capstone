@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -68,10 +69,19 @@ func JWTAuth(secretKey string) fiber.Handler {
 	}
 }
 
-func AdminOnly() fiber.Handler        { return RoleAuth("admin") }
-func ModeratorOnly() fiber.Handler    { return RoleAuth("moderator") }
-func UserOrAdmin() fiber.Handler      { return RoleAuth("user", "admin") }
-func ModeratorOrAdmin() fiber.Handler { return RoleAuth("moderator", "admin") }
+func AdminOnly() fiber.Handler { return RoleAuth("admin") }
+
+func CustomerOnly() fiber.Handler {
+	return RoleAuth("customer")
+}
+
+func TechnicianOnly() fiber.Handler {
+	return RoleAuth("technician")
+}
+
+func CustomerOrTechnician() fiber.Handler {
+	return RoleAuth("customer", "technician")
+}
 
 func RoleAuth(allowedRoles ...string) fiber.Handler {
 	return func(c fiber.Ctx) error {
@@ -79,6 +89,10 @@ func RoleAuth(allowedRoles ...string) fiber.Handler {
 		if !ok || role == "" {
 			return jsonError(c, fiber.StatusForbidden, "Role information not found", nil)
 		}
+
+		// เพิ่ม log เพื่อ debug
+		fmt.Printf("User role from token: '%s', Required roles: %v\n", role, allowedRoles)
+
 		for _, r := range allowedRoles {
 			if role == r {
 				return c.Next()
@@ -91,7 +105,25 @@ func RoleAuth(allowedRoles ...string) fiber.Handler {
 	}
 }
 
-func GenerateJWT(userID uint, email, role, username, secret string, expireHours int) (string, error) {
+func ParseToken(tokenStr, secret string) (*Claims, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fiber.ErrUnauthorized
+		}
+		return []byte(secret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, fiber.ErrUnauthorized
+	}
+	return claims, nil
+}
+
+func generateToken(
+	userID uint,
+	email, role, username, secret string,
+	expireHours int,
+) (string, error) {
 	now := time.Now()
 	claims := &Claims{
 		UserID:   userID,
@@ -99,12 +131,20 @@ func GenerateJWT(userID uint, email, role, username, secret string, expireHours 
 		Role:     role,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(expireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 		},
 	}
+
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return tok.SignedString([]byte(secret))
+}
+
+func GenerateAccessToken(
+	userID uint,
+	email, role, username, secret string,
+	expireHours int,
+) (string, error) {
+	return generateToken(userID, email, role, username, secret, expireHours)
 }

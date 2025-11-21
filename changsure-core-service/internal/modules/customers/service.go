@@ -14,7 +14,9 @@ var (
 )
 
 type Service interface {
-	CreateCustomer(ctx context.Context, req *CreateCustomerRequest) (*Customer, error)
+	GetProfile(ctx context.Context, customerID uint) (*Customer, error)
+	UpdateProfile(ctx context.Context, customerID uint, req *UpdateCustomerRequest) (*Customer, error)
+
 	GetCustomer(ctx context.Context, id uint) (*Customer, error)
 	UpdateCustomer(ctx context.Context, id uint, req *UpdateCustomerRequest) (*Customer, error)
 	DeleteCustomer(ctx context.Context, id uint) error
@@ -31,44 +33,18 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) CreateCustomer(ctx context.Context, req *CreateCustomerRequest) (*Customer, error) {
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+func (s *service) GetProfile(ctx context.Context, customerID uint) (*Customer, error) {
+	if customerID == 0 {
+		return nil, errors.New("unauthorized: customer id missing from auth")
 	}
+	return s.GetCustomer(ctx, customerID)
+}
 
-	if req.Phone != nil {
-		existing, err := s.repo.GetByPhone(ctx, *req.Phone)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
-			return nil, ErrPhoneAlreadyExists
-		}
+func (s *service) UpdateProfile(ctx context.Context, customerID uint, req *UpdateCustomerRequest) (*Customer, error) {
+	if customerID == 0 {
+		return nil, errors.New("unauthorized: customer id missing from auth")
 	}
-
-	if req.Email != nil {
-		existing, err := s.repo.GetByEmail(ctx, *req.Email)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
-			return nil, ErrEmailAlreadyExists
-		}
-	}
-
-	customer := &Customer{
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		AvatarURL: req.AvatarURL,
-	}
-
-	if err := s.repo.Create(ctx, customer); err != nil {
-		return nil, fmt.Errorf("failed to create customer: %w", err)
-	}
-
-	return s.repo.GetByID(ctx, customer.ID)
+	return s.UpdateCustomer(ctx, customerID, req)
 }
 
 func (s *service) GetCustomer(ctx context.Context, id uint) (*Customer, error) {

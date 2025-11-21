@@ -13,12 +13,12 @@ func NewService(r Repository) Service { return &service{repo: r} }
 
 func (s *service) SetPricing(ctx context.Context, req TechnicianPricingReq) (uint, error) {
 	p := &TechnicianService{
-		TechnicianServiceAreasID: req.AreaID,
-		ServiceID:                req.ServiceID,
-		PricingType:              req.PricingType,
-		PriceFixed:               req.PriceFixed,
-		PriceMin:                 req.PriceMin,
-		PriceMax:                 req.PriceMax,
+		TechnicianID: req.TechnicianID,
+		ServiceID:    req.ServiceID,
+		PricingType:  req.PricingType,
+		PriceFixed:   req.PriceFixed,
+		PriceMin:     req.PriceMin,
+		PriceMax:     req.PriceMax,
 	}
 	if req.IsActive != nil {
 		p.IsActive = *req.IsActive

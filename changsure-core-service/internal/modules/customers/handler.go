@@ -2,9 +2,9 @@ package customers
 
 import (
 	"errors"
+	"net/http"
 	"strconv"
 
-	"changsure-core-service/internal/middleware"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -16,143 +16,157 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// POST /customers
-func (h *Handler) CreateCustomer(c fiber.Ctx) error {
-	var req CreateCustomerRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request body",
-			"error":   err.Error(),
-		})
+// Extract customer ID from JWT locals
+func customerIDFromLocals(c fiber.Ctx) uint {
+	if v := c.Locals("userID"); v != nil {
+		switch x := v.(type) {
+		case uint:
+			return x
+		case uint64:
+			return uint(x)
+		case int:
+			if x > 0 {
+				return uint(x)
+			}
+		case string:
+			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
+				return uint(id)
+			}
+		}
 	}
-	if err := req.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
+	return 0
+}
+
+//
+// ============================
+//     PROFILE (SELF)
+// ============================
+//
+
+func (h *Handler) GetProfile(c fiber.Ctx) error {
+	customerID := customerIDFromLocals(c)
+	if customerID == 0 {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"error":   "unauthorized",
 		})
 	}
 
-	ctx := middleware.GetContext(c)
-	customer, err := h.service.CreateCustomer(ctx, &req)
+	customer, err := h.service.GetProfile(c.Context(), customerID)
 	if err != nil {
-		if errors.Is(err, ErrPhoneAlreadyExists) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Phone number already exists",
+		if err == ErrCustomerNotFound {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
+				"success": false,
+				"message": "Customer not found",
 			})
 		}
-		if errors.Is(err, ErrEmailAlreadyExists) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Email already exists",
-			})
-		}
-		if errors.Is(err, ErrInvalidInput) {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": err.Error(),
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to create customer",
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to get profile",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Customer created successfully",
+	return c.JSON(fiber.Map{
+		"success": true,
 		"data":    ToCustomerResponse(customer),
 	})
 }
 
-// GET /customers/:id
+func (h *Handler) UpdateProfile(c fiber.Ctx) error {
+	customerID := customerIDFromLocals(c)
+	if customerID == 0 {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"error":   "unauthorized",
+		})
+	}
+
+	var req UpdateCustomerRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+		})
+	}
+
+	customer, err := h.service.UpdateProfile(c.Context(), customerID, &req)
+	if err != nil {
+		switch {
+		case err == ErrCustomerNotFound:
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Customer not found"})
+		case err == ErrPhoneAlreadyExists:
+			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Phone number already exists"})
+		case err == ErrEmailAlreadyExists:
+			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Email already exists"})
+		case err == ErrInvalidInput:
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"success": false, "message": err.Error()})
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update profile"})
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Profile updated successfully",
+		"data":    ToCustomerResponse(customer),
+	})
+}
+
+//
+// ============================
+//     CRUD (ADMIN / SYSTEM)
+// ============================
+//
+
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Invalid customer ID",
 		})
 	}
 
-	ctx := middleware.GetContext(c)
-	customer, err := h.service.GetCustomer(ctx, uint(id))
+	customer, err := h.service.GetCustomer(c.Context(), uint(id))
 	if err != nil {
 		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
 				"status":  "error",
 				"message": "Customer not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Failed to get customer",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToCustomerResponse(customer),
-	})
+	return c.JSON(fiber.Map{"status": "success", "data": ToCustomerResponse(customer)})
 }
 
-// PATCH /customers/:id
 func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid customer ID",
-		})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid customer ID"})
 	}
 
 	var req UpdateCustomerRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request body",
-		})
-	}
-	if err := req.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid request body"})
 	}
 
-	ctx := middleware.GetContext(c)
-	customer, err := h.service.UpdateCustomer(ctx, uint(id), &req)
+	customer, err := h.service.UpdateCustomer(c.Context(), uint(id), &req)
 	if err != nil {
-		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Customer not found",
-			})
+		switch {
+		case errors.Is(err, ErrCustomerNotFound):
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Customer not found"})
+		case errors.Is(err, ErrPhoneAlreadyExists):
+			return c.Status(http.StatusConflict).JSON(fiber.Map{"status": "error", "message": "Phone number already exists"})
+		case errors.Is(err, ErrEmailAlreadyExists):
+			return c.Status(http.StatusConflict).JSON(fiber.Map{"status": "error", "message": "Email already exists"})
+		default:
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to update customer"})
 		}
-		if errors.Is(err, ErrPhoneAlreadyExists) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Phone number already exists",
-			})
-		}
-		if errors.Is(err, ErrEmailAlreadyExists) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Email already exists",
-			})
-		}
-		if errors.Is(err, ErrInvalidInput) {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": err.Error(),
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to update customer",
-		})
 	}
 
 	return c.JSON(fiber.Map{
@@ -162,37 +176,22 @@ func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
 	})
 }
 
-// DELETE /customers/:id
 func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid customer ID",
-		})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid customer ID"})
 	}
 
-	ctx := middleware.GetContext(c)
-	if err := h.service.DeleteCustomer(ctx, uint(id)); err != nil {
+	if err := h.service.DeleteCustomer(c.Context(), uint(id)); err != nil {
 		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Customer not found",
-			})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Customer not found"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to delete customer",
-		})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to delete customer"})
 	}
 
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Customer deleted successfully",
-	})
+	return c.JSON(fiber.Map{"status": "success", "message": "Customer deleted successfully"})
 }
 
-// GET /customers 
 func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	page := c.Query("page", "1")
 	pageSize := c.Query("page_size", "20")
@@ -200,13 +199,9 @@ func (h *Handler) ListCustomers(c fiber.Ctx) error {
 	pageInt, _ := strconv.Atoi(page)
 	pageSizeInt, _ := strconv.Atoi(pageSize)
 
-	ctx := middleware.GetContext(c)
-	customers, err := h.service.ListCustomers(ctx, pageInt, pageSizeInt)
+	customers, err := h.service.ListCustomers(c.Context(), pageInt, pageSizeInt)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to list customers",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to list customers"})
 	}
 
 	return c.JSON(fiber.Map{
