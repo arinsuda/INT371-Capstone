@@ -14,7 +14,7 @@ class TechnicianBadge extends StatelessWidget {
       },
       {
         'label': 'ChangSure Recommend',
-        'icon': 'assets/icons/changSure_rec.',
+        'icon': 'assets/icons/changSure_rec.png',
       },
       {
         'label': 'High-Rating Technician',

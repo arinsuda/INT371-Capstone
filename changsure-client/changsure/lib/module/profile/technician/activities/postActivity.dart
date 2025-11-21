@@ -304,10 +304,7 @@ class _PostActivityState extends State<PostActivity> {
                     },
                     onTapUp: (_) {
                       setState(() => _isCancelPressed = false);
-                      Provider.of<BottomBarState>(
-                        context,
-                        listen: false,
-                      ).closeSubPage();
+                      Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
                     },
                     onTapCancel: () {
                       setState(() => _isCancelPressed = false);
@@ -339,10 +336,7 @@ class _PostActivityState extends State<PostActivity> {
                   child: PrimaryButton(
                     text: "บันทึก",
                     onPressed: () {
-                      Provider.of<BottomBarState>(
-                        context,
-                        listen: false,
-                      ).closeSubPage();
+                      Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
                     },
                   ),
                 ),
