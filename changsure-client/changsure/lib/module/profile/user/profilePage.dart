@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
 import 'package:changsure/core/profile/profileCardSection.dart';
 import 'package:changsure/module/profile/user/editProfile.dart';
+import './addressPage.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -72,36 +73,48 @@ class _ProfileState extends State<UserProfile> {
                   Column(
                     children: List.generate(items.length, (index) {
                       final item = items[index];
-                      final isLast = index == items.length;
+                      final isLast = index == items.length - 1; // แก้ตรงนี้
 
                       return Column(
                         children: [
                           // แถวไอเท็ม
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  item['icon'] as IconData,
-                                  color: const Color(0xFF737373),
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    item['label'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black,
+                          InkWell(
+                            onTap: () {
+                              if (item['label'] == 'ที่อยู่ของฉัน') {
+                                Provider.of<BottomBarState>(
+                                  context,
+                                  listen: false,
+                                ).setSubPage(const AddressPage());
+                              } else if (item['label'] == 'ประวัติการรับบริการ') {
+                                // ทำอย่างอื่น ถ้ามี
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    item['icon'] as IconData,
+                                    color: const Color(0xFF737373),
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      item['label'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Color(0xFFAAAAAA),
-                                  size: 24,
-                                ),
-                              ],
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: Color(0xFFAAAAAA),
+                                    size: 24,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
@@ -115,6 +128,7 @@ class _ProfileState extends State<UserProfile> {
                       );
                     }),
                   ),
+
                 ],
               ),
             ),

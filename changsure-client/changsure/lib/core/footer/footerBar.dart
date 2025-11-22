@@ -25,8 +25,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
     HomePage(),
     const Center(child: Text('ติดตามสถานะ')),
     const Center(child: Text('แชท')),
-    TechnicianProfile(),
-    // UserProfile()
+    // TechnicianProfile(),
+    UserProfile()
   ];
 
   @override
