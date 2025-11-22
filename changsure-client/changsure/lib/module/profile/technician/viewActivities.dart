@@ -131,6 +131,7 @@ class _ViewActivitiesState extends State<ViewActivities> {
                 itemBuilder: (context, index) {
                   final activity = mockActivities[index];
                   return TechnicianCard(
+                    id: activity.id,
                     serviceCategoryName: activity.serviceCategoryName,
                     description: activity.description,
                     images: activity.images,

@@ -3,7 +3,7 @@ import 'package:changsure/core/theme.dart';
 
 class PrimaryButton extends StatefulWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const PrimaryButton({super.key, required this.text, required this.onPressed});
 
@@ -16,22 +16,28 @@ class _PrimaryButtonState extends State<PrimaryButton> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = widget.onPressed == null;
+
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
+        onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
+        onTapUp: isDisabled
+            ? null
+            : (_) {
           setState(() => _isPressed = false);
-          widget.onPressed();
+          widget.onPressed!();
         },
-        onTapCancel: () => setState(() => _isPressed = false),
+        onTapCancel: isDisabled ? null : () => setState(() => _isPressed = false),
         child: Stack(
           children: [
-            // Gradient background
+            // Background
             Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: isDisabled
+                    ? null
+                    : LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: _isPressed
@@ -45,6 +51,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                   ],
                   stops: [0.12, 1.0],
                 ),
+                color: isDisabled ? AppColors.primaryBGHover : null,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -62,7 +69,10 @@ class _PrimaryButtonState extends State<PrimaryButton> {
             Center(
               child: Text(
                 widget.text,
-                style: const TextStyle(fontSize: 16, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDisabled ? AppColors.primaryBorder: Colors.white,
+                ),
               ),
             ),
           ],

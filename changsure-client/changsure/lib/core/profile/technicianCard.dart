@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../module/profile/technician/activities/viewActivityById.dart';
+import '../../state/bottomBarState.dart';
 import '../theme.dart';
 
 class TechnicianCard extends StatelessWidget {
+  final int id;
   final String serviceCategoryName;
   final String description;
   final List<String> images;
 
   const TechnicianCard({
     super.key,
+    required this.id,
     required this.serviceCategoryName,
     required this.description,
     required this.images,
@@ -124,89 +129,97 @@ class TechnicianCard extends StatelessWidget {
       }
     }
 
-    return Card(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Stack สำหรับรูป + label
-          Stack(
-            children: [
-              // รูปภาพ ชิดขอบบน + top corners โค้ง
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                child: buildImages(),
-              ),
-              // Label serviceCategory ซ้อนบนซ้าย
-              Positioned(
-                top: 0,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
+    return GestureDetector(
+      onTap: () {
+        Provider.of<BottomBarState>(
+          context,
+          listen: false,
+        ).setSubPage(ViewActivityById(id: id));
+      },
+      child: Card(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Stack สำหรับรูป + label
+            Stack(
+              children: [
+                // รูปภาพ ชิดขอบบน + top corners โค้ง
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
-                  decoration: BoxDecoration(
-                    color: categoryColors["background"],
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(0),
-                      bottomLeft: Radius.circular(10),
-                      topRight: Radius.circular(0),
-                      bottomRight: Radius.circular(10),
+                  child: buildImages(),
+                ),
+                // Label serviceCategory ซ้อนบนซ้าย
+                Positioned(
+                  top: 0,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: categoryColors["background"],
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(0),
+                        bottomLeft: Radius.circular(10),
+                        topRight: Radius.circular(0),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      serviceCategoryName,
+                      style: TextStyle(
+                        color: categoryColors["text"],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    serviceCategoryName,
-                    style: TextStyle(
-                      color: categoryColors["text"],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          const SizedBox(height: 8),
-          // Description (บังคับ 2 บรรทัด)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: SizedBox(
-              height: 35,
-              child: Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.5,
-                  color: AppColors.colorTertiaryText,
+            const SizedBox(height: 8),
+            // Description (บังคับ 2 บรรทัด)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: SizedBox(
+                height: 35,
+                child: Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: AppColors.colorTertiaryText,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // ดูรายละเอียดเพิ่มเติม
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              "ดูรายละเอียดเพิ่มเติม",
-              style: TextStyle(
-                color: AppColors.primaryBorderHover,
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
+            const SizedBox(height: 8),
+            // ดูรายละเอียดเพิ่มเติม
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                "ดูรายละเอียดเพิ่มเติม",
+                style: TextStyle(
+                  color: AppColors.primaryBorderHover,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ), // UI การ์ดเดิม
     );
   }
 }

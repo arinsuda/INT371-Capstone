@@ -66,7 +66,7 @@ class _AddressState extends State<Address> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -96,6 +96,7 @@ class _AddressState extends State<Address> {
               ],
             ),
             const SizedBox(height: 16),
+
             // Container(
             //   height: 250,
             //   width: double.infinity,
@@ -141,15 +142,22 @@ class _AddressState extends State<Address> {
             //         ),
             // ),
             // const SizedBox(height: 16),
-
-            _buildTextArea(
-              "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-              houseNumberController,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              // ปรับ horizontal เป็น 6
+              child: Column(
+                children: [
+                  _buildTextArea(
+                    "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
+                    houseNumberController,
+                  ),
+                  _buildTextField("แขวง/ตำบล", subDistrictController),
+                  _buildTextField("เขต/อำเภอ", districtController),
+                  _buildTextField("จังหวัด", provinceController),
+                  _buildTextField("รหัสไปรษณี", postCodeController),
+                ],
+              ),
             ),
-            _buildTextField("แขวง/ตำบล", subDistrictController),
-            _buildTextField("เขต/อำเภอ", districtController),
-            _buildTextField("จังหวัด", provinceController),
-            _buildTextField("รหัสไปรษณี", postCodeController),
           ],
         ),
       ),

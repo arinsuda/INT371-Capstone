@@ -20,7 +20,7 @@ class ViewProfilePage extends StatelessWidget {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

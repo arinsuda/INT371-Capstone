@@ -30,9 +30,9 @@ class _EditProfileState extends State<EditProfile> {
   final TextEditingController _searchController = TextEditingController();
 
   final TextEditingController aboutController = TextEditingController(
-    text: 'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน',
+    text:
+        'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน',
   );
-
 
   Map<String, bool> _selectedProvinces = {};
   String _searchText = '';
@@ -70,7 +70,7 @@ class _EditProfileState extends State<EditProfile> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
             Row(
@@ -143,37 +143,56 @@ class _EditProfileState extends State<EditProfile> {
 
             _buildTextArea("เกี่ยวกับ", aboutController),
             // ---------- จังหวัด ----------
-            const Text(
-              "จังหวัดที่รับบริการ",
-              style: TextStyle(
-                color: AppColors.colorTertiaryText,
-                fontSize: 12,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: const Text(
+                "จังหวัดที่รับบริการ",
+                style: TextStyle(
+                  color: AppColors.colorTertiaryText,
+                  fontSize: 12,
+                ),
               ),
             ),
+
             const SizedBox(height: 6),
-            _buildProvinceSearchBar(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: _buildProvinceSearchBar(),
+            ),
             const SizedBox(height: 12),
 
             // ---------- แสดงรายการจังหวัด ----------
-            _buildProvinceCheckboxList(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: _buildProvinceCheckboxList(),
+            ),
 
             const SizedBox(height: 16),
 
             // ---------- ประเภทงาน ----------
-            const Text(
-              "ประเภทงานที่รับบริการ",
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.colorTertiaryText,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: const Text(
+                "ประเภทงานที่รับบริการ",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.colorTertiaryText,
+                ),
               ),
             ),
             const SizedBox(height: 8),
 
-            ..._buildServiceCategories(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: Column(children: _buildServiceCategories()),
+            ),
 
             const SizedBox(height: 32),
 
-            PrimaryButton(text: "บันทึกการแก้ไข", onPressed: () {}),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: PrimaryButton(text: "บันทึกการแก้ไข", onPressed: () {}),
+            ),
           ],
         ),
       ),
@@ -183,7 +202,7 @@ class _EditProfileState extends State<EditProfile> {
   // ---------- Widgets ----------
   Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -223,7 +242,7 @@ class _EditProfileState extends State<EditProfile> {
 
   Widget _buildTextArea(String label, TextEditingController controller) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -269,7 +288,6 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 
-
   Widget _buildProvinceSearchBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -304,9 +322,9 @@ class _EditProfileState extends State<EditProfile> {
 
     // แยกจังหวัดที่ติ๊ก / ไม่ติ๊ก
     List<String> checked =
-    filtered.where((p) => _selectedProvinces[p] == true).toList()..sort();
+        filtered.where((p) => _selectedProvinces[p] == true).toList()..sort();
     List<String> unchecked =
-    filtered.where((p) => _selectedProvinces[p] != true).toList()..sort();
+        filtered.where((p) => _selectedProvinces[p] != true).toList()..sort();
 
     List<String> displayList = [...checked, ...unchecked];
 
@@ -461,7 +479,7 @@ class _EditProfileState extends State<EditProfile> {
                                 int.tryParse(
                                   _maxPriceControllers[subService]!.text,
                                 ) ??
-                                    0;
+                                0;
                             if (max > 0 && max < min) {
                               _maxPriceControllers[subService]!.text = val;
                             }
@@ -496,7 +514,7 @@ class _EditProfileState extends State<EditProfile> {
                                 int.tryParse(
                                   _minPriceControllers[subService]!.text,
                                 ) ??
-                                    0;
+                                0;
                             if (max < min) {
                               // ถ้า max < min ให้ auto set = min
                               _maxPriceControllers[subService]!.text = min
