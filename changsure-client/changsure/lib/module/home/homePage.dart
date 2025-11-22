@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import '../../core/theme.dart';
-import '../auth/login.dart'; // ✅ import login เข้ามา
+import '../auth/login.dart';
+import 'package:provider/provider.dart';
+import '../../repositories/auth_repository.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -15,9 +17,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   void _onStartPressed() {
+    final authRepo = Provider.of<AuthRepository>(context, listen: false);
+
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (context) => LoginScreen(authRepo: authRepo)),
     );
   }
 

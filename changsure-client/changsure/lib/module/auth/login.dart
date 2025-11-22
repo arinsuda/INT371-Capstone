@@ -1,13 +1,21 @@
 import 'package:changsure/core/footer/footerBar.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/button/primary_button.dart';
 import '../../core/theme.dart';
+import '../../repositories/auth_repository.dart';
+
+import '../../models/login_request.dart';
+import '../../state/auth_state.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final AuthRepository authRepo;
+
+  const LoginScreen({super.key, required this.authRepo});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,6 +26,52 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onLoginPressed() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final req = LoginRequest(email: email, password: password);
+
+      final res = await widget.authRepo.login(req);
+
+      final authState = Provider.of<AuthState>(context, listen: false);
+      await authState.setToken(res.token);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("เข้าสู่ระบบล้มเหลว: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,18 +130,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: toLogicalPx(context, 24)),
 
-                    // ✅ ปุ่มเข้าสู่ระบบ
                     Align(
                       alignment: Alignment.centerRight,
                       child: PrimaryButton(
-                        text: 'เข้าสู่ระบบ',
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
-                            );
-                          }
-
+                        text: _loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ',
+                        onPressed: () => _onLoginPressed(),
                       ),
                     ),
 
