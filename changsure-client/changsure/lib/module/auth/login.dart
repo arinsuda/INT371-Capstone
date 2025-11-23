@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final res = await widget.authRepo.login(req);
 
       final authState = Provider.of<AuthState>(context, listen: false);
-      await authState.setToken(res.token);
+      await authState.setToken(res.accessToken);
 
       if (!mounted) return;
 

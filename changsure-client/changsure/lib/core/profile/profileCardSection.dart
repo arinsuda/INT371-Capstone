@@ -1,39 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
+import '../../../../models/profile.dart'; // ✅ ใช้ model จริงจาก API
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class ProfileSection extends StatelessWidget {
-  final String profileImage;
-  final String fullName;
-  final String email;
-  final String phone;
+  final Profile profile; // ✅ รับข้อมูลจริงเป็น object
   final VoidCallback onEdit;
+
+  // ตอนนี้ BE ยังไม่มีฟิลด์รูปกับเบอร์ → ทำ optional ไว้ก่อน
+  final String? profileImageUrl; // ✅ URL รูปจาก BE (ถ้ามี)
+  final String? phone; // ✅ เบอร์จาก BE (ถ้ามี)
 
   const ProfileSection({
     super.key,
-    required this.profileImage,
-    required this.fullName,
-    required this.email,
-    required this.phone,
+    required this.profile,
     required this.onEdit,
+    this.profileImageUrl,
+    this.phone,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fullName = profile.fullName; // getter ที่ทำ fallback ให้แล้วใน model
+    final email = profile.email;
+    final showPhone = (phone != null && phone!.trim().isNotEmpty)
+        ? phone!
+        : "-";
+
     return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: 10,
-        horizontal: 18,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // รูปโปรไฟล์
-          CircleAvatar(radius: 30, backgroundImage: AssetImage(profileImage)),
-          SizedBox(width:  16),
+          // ✅ รูปโปรไฟล์ (ถ้ามี url ใช้ NetworkImage / ถ้าไม่มีใช้รูป default)
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.grey.shade300,
+            backgroundImage:
+                (profileImageUrl != null && profileImageUrl!.isNotEmpty)
+                ? NetworkImage(profileImageUrl!)
+                : const AssetImage("assets/image/default_profile.png")
+                      as ImageProvider,
+          ),
+
+          const SizedBox(width: 16),
 
           // ชื่อ อีเมล เบอร์
           Expanded(
@@ -42,7 +55,7 @@ class ProfileSection extends StatelessWidget {
               children: [
                 // ชื่อเต็ม
                 Text(
-                  "คุณ ${fullName}",
+                  "คุณ $fullName",
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -53,30 +66,29 @@ class ProfileSection extends StatelessWidget {
                 // แถวเดียว: Email + Phone
                 Row(
                   children: [
-                    // Email
-                    Icon(Icons.email, size: 14, color: const Color(0xFF9B9B9B) ),
+                    const Icon(Icons.email, size: 14, color: Color(0xFF9B9B9B)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         email,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
-                          color: const Color(0xFF545454),
+                          color: Color(0xFF545454),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+
                     SizedBox(width: toLogicalPx(context, 16)),
 
-                    // Phone
-                    Icon(Icons.phone, size: 14, color: const Color(0xFF9B9B9B)),
+                    const Icon(Icons.phone, size: 14, color: Color(0xFF9B9B9B)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        phone,
-                        style: TextStyle(
+                        showPhone,
+                        style: const TextStyle(
                           fontSize: 10,
-                          color: const Color(0xFF545454),
+                          color: Color(0xFF545454),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -1,9 +1,19 @@
 class LoginResponse {
-  final String token;
+  final String accessToken;
+  final String refreshToken;
+  final int createdAt;
 
-  LoginResponse({required this.token});
+  LoginResponse({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.createdAt,
+  });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
-    return LoginResponse(token: json["token"]);
+    return LoginResponse(
+      accessToken: json["access_token"] ?? "",
+      refreshToken: json["refresh_token"] ?? "",
+      createdAt: json["created_at"] ?? 0,
+    );
   }
 }

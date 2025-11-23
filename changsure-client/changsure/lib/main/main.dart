@@ -13,11 +13,15 @@ import '../repositories/auth_repository.dart';
 import '../config/app_config.dart';
 import '../state/auth_state.dart';
 
+import '../repositories/profile_repository.dart';
+import '../state/profile_state.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final apiClient = ApiClient(AppConfig.baseUrl);
   final authRepo = AuthRepository(apiClient);
+  final profileRepo = ProfileRepository(apiClient);
 
   runApp(
     MultiProvider(
@@ -25,12 +29,16 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BottomBarState()),
 
         Provider<AuthRepository>.value(value: authRepo),
+        Provider<ProfileRepository>.value(value: profileRepo),
 
         ChangeNotifierProxyProvider<AuthRepository, AuthState>(
           create: (_) => AuthState(),
           update: (_, repo, authState) {
             return authState!..loadToken();
           },
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => ProfileState(profileRepo)..loadProfile(),
         ),
       ],
       child: const MyApp(),
