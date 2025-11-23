@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  api:
+    container_name: changsure-api-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - go_cache:/go/pkg/mod
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      MINIO_ENDPOINT: minio:9000
+      OCR_BASE_URL: http://ocr:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-net
+
+  db:
+    container_name: changsure-mysql-dev
+    image: mysql:8.4
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: changSure@sit.65
+      MYSQL_DATABASE: changsurev1
+      MYSQL_USER: changSure
+      MYSQL_PASSWORD: changSure@sit.65
+      TZ: Asia/Bangkok
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pchangSure@sit.65"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - changsure-net
+
+  redis:
+    container_name: changsure-redis-dev
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - changsure-net
+
+  minio:
+    container_name: changsure-minio-dev
+    image: minio/minio
+    command: server /data --console-address :9001
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - changsure-net
+
+  ocr:
+    container_name: paddle-ocr-service-dev
+    build:
+      context: ../ocr-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - changsure-net
+
+networks:
+  changsure-net:
+
+volumes:
+  mysql_data:
+  minio_data:
+  go_cache:
