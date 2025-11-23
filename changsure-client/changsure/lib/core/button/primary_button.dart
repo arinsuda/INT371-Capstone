@@ -5,7 +5,19 @@ class PrimaryButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
 
-  const PrimaryButton({super.key, required this.text, required this.onPressed});
+  // --- ใหม่ ---
+  final double fontSize;
+  final EdgeInsetsGeometry padding;
+  final double borderRadius;
+
+  const PrimaryButton({
+    super.key,
+    required this.text,
+    required this.onPressed,
+    this.fontSize = 16, // default
+    this.padding = const EdgeInsets.symmetric(vertical: 14), // default
+    this.borderRadius = 10, // default
+  });
 
   @override
   State<PrimaryButton> createState() => _PrimaryButtonState();
@@ -18,61 +30,60 @@ class _PrimaryButtonState extends State<PrimaryButton> {
   Widget build(BuildContext context) {
     final bool isDisabled = widget.onPressed == null;
 
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: GestureDetector(
-        onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
-        onTapUp: isDisabled
-            ? null
-            : (_) {
-          setState(() => _isPressed = false);
-          widget.onPressed!();
-        },
-        onTapCancel: isDisabled ? null : () => setState(() => _isPressed = false),
+    return GestureDetector(
+      onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
+      onTapUp: isDisabled
+          ? null
+          : (_) {
+        setState(() => _isPressed = false);
+        widget.onPressed!();
+      },
+      onTapCancel:
+      isDisabled ? null : () => setState(() => _isPressed = false),
+      child: Container(
+        padding: widget.padding, // ← ใช้ padding ที่ส่งเข้ามา
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: isDisabled
+              ? null
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _isPressed
+                ? [
+              AppColors.secondary.withOpacity(0.8),
+              AppColors.secondary,
+            ]
+                : [
+              AppColors.primary.withOpacity(0.8),
+              AppColors.primary,
+            ],
+            stops: const [0.12, 1.0],
+          ),
+          color: isDisabled ? AppColors.primaryBGHover : null,
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+        ),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            // Background
-            Container(
-              decoration: BoxDecoration(
-                gradient: isDisabled
-                    ? null
-                    : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: _isPressed
-                      ? [
-                    AppColors.secondary.withOpacity(0.8),
-                    AppColors.secondary,
-                  ]
-                      : [
-                    AppColors.primary.withOpacity(0.8),
-                    AppColors.primary,
-                  ],
-                  stops: [0.12, 1.0],
-                ),
-                color: isDisabled ? AppColors.primaryBGHover : null,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            // Stroke ขาวจาง 12%
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.12),
-                  width: 2,
-                ),
-              ),
-            ),
+            // // Stroke
+            // Container(
+            //   decoration: BoxDecoration(
+            //     borderRadius: BorderRadius.circular(widget.borderRadius),
+            //     border: Border.all(
+            //       color: Colors.white.withOpacity(0.12),
+            //       width: 2,
+            //     ),
+            //   ),
+            // ),
+
             // Text
-            Center(
-              child: Text(
-                widget.text,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDisabled ? AppColors.primaryBorder: Colors.white,
-                ),
+            Text(
+              widget.text,
+              style: TextStyle(
+                fontSize: widget.fontSize, // ← fontSize จากผู้ใช้
+                color:
+                isDisabled ? AppColors.primaryBorder : Colors.white,
               ),
             ),
           ],

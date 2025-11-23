@@ -23,13 +23,15 @@ List<HistoryService> mockHistoryServices = [
     status: "เสร็จสิ้น",
     price: 1500,
     quantity: 1,
+    image: "assets/image/electic.png",
   ),
   HistoryService(
     id: 2,
     serviceName: "ซ่อมไฟฟ้า",
-    status: "รอดำเนินการ",
+    status: "กำลังดำเนินการ",
     price: 800,
     quantity: 1,
+    image: "assets/image/electic.png",
   ),
   HistoryService(
     id: 3,
@@ -37,6 +39,7 @@ List<HistoryService> mockHistoryServices = [
     status: "ยกเลิก",
     price: 1200,
     quantity: 2,
+    image: "assets/image/aircondition.png",
   ),
   HistoryService(
     id: 4,
@@ -44,12 +47,14 @@ List<HistoryService> mockHistoryServices = [
     status: "เสร็จสิ้น",
     price: 3000,
     quantity: 1,
+    image: "assets/image/electic2.png",
   ),
   HistoryService(
     id: 5,
     serviceName: "ทำความสะอาดบ้าน",
-    status: "รอดำเนินการ",
+    status: "กำลังดำเนินการ",
     price: 2000,
     quantity: 1,
+    image: "assets/image/electic.png",
   ),
 ];
