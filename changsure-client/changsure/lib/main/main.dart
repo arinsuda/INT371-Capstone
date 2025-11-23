@@ -25,6 +25,13 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BottomBarState()),
 
         Provider<AuthRepository>.value(value: authRepo),
+
+        ChangeNotifierProxyProvider<AuthRepository, AuthState>(
+          create: (_) => AuthState(),
+          update: (_, repo, authState) {
+            return authState!..loadToken();
+          },
+        ),
       ],
       child: const MyApp(),
     ),
