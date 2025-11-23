@@ -25,13 +25,14 @@ class _EditProfileState extends State<EditProfile> {
   final TextEditingController phoneController = TextEditingController(
     text: '099-999-9999',
   );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
             Row(
@@ -97,12 +98,23 @@ class _EditProfileState extends State<EditProfile> {
             const SizedBox(height: 24),
 
             // ---------- Form Fields ----------
-            _buildTextField("ชื่อ", nameController),
-            _buildTextField("นามสกุล", lastNameController),
-            _buildTextField("อีเมล", emailController),
-            _buildTextField("เบอร์โทร", phoneController),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  _buildTextField("ชื่อ", nameController),
+                  _buildTextField("นามสกุล", lastNameController),
+                  _buildTextField("อีเมล", emailController),
+                  _buildTextField("เบอร์โทร", phoneController),
+                ],
+              ),
+            ),
 
-            PrimaryButton(text: "บันทึกการแก้ไข", onPressed: () {}),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              child: PrimaryButton(text: "บันทึกการแก้ไข", onPressed: () {}),
+            ),
           ],
         ),
       ),

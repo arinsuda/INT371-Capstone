@@ -7,6 +7,7 @@ import '../../../state/bottomBarState.dart';
 import 'package:changsure/core/profile/profileCardSection.dart';
 import 'package:changsure/module/profile/user/editProfile.dart';
 import './addressPage.dart';
+import 'historyServicePage.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -87,6 +88,10 @@ class _ProfileState extends State<UserProfile> {
                                 ).setSubPage(const AddressPage());
                               } else if (item['label'] == 'ประวัติการรับบริการ') {
                                 // ทำอย่างอื่น ถ้ามี
+                                Provider.of<BottomBarState>(
+                                  context,
+                                  listen: false,
+                                ).setSubPage(const HistoryServicePage());
                               }
                             },
                             child: Padding(
