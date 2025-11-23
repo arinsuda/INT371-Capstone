@@ -17,7 +17,7 @@ class ProfileState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      profile = await repo.getMe();
+      profile = await repo.getProfile();
     } catch (e) {
       error = e.toString();
     } finally {

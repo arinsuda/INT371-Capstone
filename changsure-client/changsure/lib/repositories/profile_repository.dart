@@ -5,7 +5,7 @@ class ProfileRepository {
   final ApiClient client;
   ProfileRepository(this.client);
 
-  Future<Profile> getMe() async {
+  Future<Profile> getProfile() async {
     final res = await client.dio.get("/customers/profile");
 
     final body = res.data as Map<String, dynamic>;
