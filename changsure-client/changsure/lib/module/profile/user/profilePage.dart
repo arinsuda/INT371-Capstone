@@ -31,7 +31,6 @@ class _ProfileState extends State<UserProfile> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Consumer<ProfileState>(
-          // ⬅️ใช้ Store (เหมือน Pinia)
           builder: (context, state, child) {
             if (state.loading) {
               return const Center(child: CircularProgressIndicator());

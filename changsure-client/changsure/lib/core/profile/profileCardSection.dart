@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
-import '../../../../models/profile.dart'; // ✅ ใช้ model จริงจาก API
+import '../../../../models/profile.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class ProfileSection extends StatelessWidget {
-  final Profile profile; // ✅ รับข้อมูลจริงเป็น object
+  final Profile profile;
   final VoidCallback onEdit;
 
-  // ตอนนี้ BE ยังไม่มีฟิลด์รูปกับเบอร์ → ทำ optional ไว้ก่อน
-  final String? profileImageUrl; // ✅ URL รูปจาก BE (ถ้ามี)
-  final String? phone; // ✅ เบอร์จาก BE (ถ้ามี)
+  final String? profileImageUrl;
+  final String? phone;
 
   const ProfileSection({
     super.key,
@@ -24,7 +23,7 @@ class ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fullName = profile.fullName; // getter ที่ทำ fallback ให้แล้วใน model
+    final fullName = profile.fullName;
     final email = profile.email;
     final showPhone = (phone != null && phone!.trim().isNotEmpty)
         ? phone!
@@ -35,7 +34,6 @@ class ProfileSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ✅ รูปโปรไฟล์ (ถ้ามี url ใช้ NetworkImage / ถ้าไม่มีใช้รูป default)
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.grey.shade300,
@@ -48,12 +46,10 @@ class ProfileSection extends StatelessWidget {
 
           const SizedBox(width: 16),
 
-          // ชื่อ อีเมล เบอร์
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ชื่อเต็ม
                 Text(
                   "คุณ $fullName",
                   style: const TextStyle(
@@ -63,7 +59,6 @@ class ProfileSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
 
-                // แถวเดียว: Email + Phone
                 Row(
                   children: [
                     const Icon(Icons.email, size: 14, color: Color(0xFF9B9B9B)),
@@ -99,7 +94,6 @@ class ProfileSection extends StatelessWidget {
             ),
           ),
 
-          // ปุ่ม Edit
           IconButton(
             onPressed: onEdit,
             icon: SvgPicture.asset(
