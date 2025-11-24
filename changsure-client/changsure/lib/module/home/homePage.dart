@@ -13,12 +13,28 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final buttons = [
-      {'label': 'ทาสี', 'icon': 'assets/icons/painted.png'},
-      {'label': 'การประปา', 'icon': 'assets/icons/waterWork.png'},
+      {
+        'label': 'ทาสี',
+        'icon': 'assets/icons/painted.png',
+        'categoryName': 'งานทาสี',
+      },
+      {
+        'label': 'การประปา',
+        'icon': 'assets/icons/waterWork.png',
+        'categoryName': 'งานประปา',
+      },
       // Asset
-      {'label': 'การไฟฟ้า', 'icon': 'assets/icons/powerSupply.png'},
+      {
+        'label': 'การไฟฟ้า',
+        'icon': 'assets/icons/powerSupply.png',
+        'categoryName': 'งานไฟฟ้า',
+      },
       // Asset
-      {'label': 'เครื่องใช้ไฟฟ้า', 'icon': 'assets/icons/electric.png'},
+      {
+        'label': 'เครื่องใช้ไฟฟ้า',
+        'icon': 'assets/icons/electric.png',
+        'categoryName': 'ซ่อมเครื่องใช้ไฟฟ้า',
+      },
       // Asset
     ];
 
@@ -50,11 +66,20 @@ class HomePage extends StatelessWidget {
 
                     return GestureDetector(
                       onTap: () {
-                        if (button['label'] == 'ทาสี') {}
-                        if (button['label'] == 'การประปา') {}
-                        if (button['label'] == 'การไฟฟ้า') {}
-                        if (button['label'] == 'เครื่องใช้ไฟฟ้า') {}
+                        final selectedCategory = mockServiceCategories
+                            .firstWhere(
+                              (cat) => cat.name == button['categoryName'],
+                              orElse: () => mockServiceCategories[0],
+                            );
+
+                        Provider.of<BottomBarState>(
+                          context,
+                          listen: false,
+                        ).setSubPage(
+                          ServiceCategoryPage(category: selectedCategory),
+                        );
                       },
+
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

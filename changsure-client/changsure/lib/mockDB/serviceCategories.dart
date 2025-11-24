@@ -29,7 +29,7 @@ class ServiceCategories {
 
 final List<ServiceCategories> mockServiceCategories = [
   ServiceCategories(
-    name: "ช่างทาสี",
+    name: "งานทาสี",
     subServices: [
       SubServiceDetail(
           category: "ทาสีภายในอาคาร",
@@ -64,7 +64,7 @@ final List<ServiceCategories> mockServiceCategories = [
     ],
   ),
   ServiceCategories(
-    name: "ช่างประปา",
+    name: "งานประปา",
     subServices: [
       SubServiceDetail(
           category: "ซ่อมท่อน้ำรั่ว / ท่อแตก",
@@ -93,7 +93,7 @@ final List<ServiceCategories> mockServiceCategories = [
     ],
   ),
   ServiceCategories(
-    name: "ช่างไฟฟ้า",
+    name: "งานไฟฟ้า",
     subServices: [
       SubServiceDetail(
           category: "ติดตั้งปลั๊กไฟ / สวิตช์ไฟ",
@@ -110,7 +110,7 @@ final List<ServiceCategories> mockServiceCategories = [
     ],
   ),
   ServiceCategories(
-    name: "ช่างซ่อมเครื่องใช้ไฟฟ้า",
+    name: "งานซ่อมเครื่องใช้ไฟฟ้า",
     subServices: [
       SubServiceDetail(
           category: "ติดตั้งปลั๊กไฟ / สวิตช์ไฟ",
