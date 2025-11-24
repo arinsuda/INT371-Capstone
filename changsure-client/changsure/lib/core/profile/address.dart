@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -33,10 +35,51 @@ class _AddressState extends State<Address> {
   LatLng? currentPosition;
   final mapController = MapController();
 
+  // controllers
+  late TextEditingController houseNumberController;
+  late TextEditingController subDistrictController;
+  late TextEditingController districtController;
+  late TextEditingController provinceController;
+  late TextEditingController postCodeController;
+
+  // track if anything changed
+  bool hasChanged = false;
+
   @override
   void initState() {
     super.initState();
     getLocation();
+
+    // init controllers
+    houseNumberController = TextEditingController(text: widget.houseNumber);
+    subDistrictController = TextEditingController(text: widget.subDistrict);
+    districtController = TextEditingController(text: widget.district);
+    provinceController = TextEditingController(text: widget.province);
+    postCodeController = TextEditingController(
+      text: widget.postCode.toString(),
+    );
+
+    // add listener เพื่อเช็คการเปลี่ยนแปลง
+    houseNumberController.addListener(_checkChanged);
+    subDistrictController.addListener(_checkChanged);
+    districtController.addListener(_checkChanged);
+    provinceController.addListener(_checkChanged);
+    postCodeController.addListener(_checkChanged);
+  }
+
+  void _checkChanged() {
+    final changed =
+        houseNumberController.text != widget.houseNumber ||
+        subDistrictController.text != widget.subDistrict ||
+        districtController.text != widget.district ||
+        provinceController.text != widget.province ||
+        postCodeController.text != widget.postCode.toString();
+
+    if (changed != hasChanged) {
+      setState(() {
+        hasChanged = changed;
+      });
+    }
   }
 
   Future<void> getLocation() async {
@@ -49,52 +92,24 @@ class _AddressState extends State<Address> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final houseNumberController = TextEditingController(
-      text: widget.houseNumber,
-    );
-    final subDistrictController = TextEditingController(
-      text: widget.subDistrict,
-    );
-    final districtController = TextEditingController(text: widget.district);
-    final provinceController = TextEditingController(text: widget.province);
-    final postCodeController = TextEditingController(
-      text: widget.postCode.toString(),
-    );
+  void dispose() {
+    houseNumberController.dispose();
+    subDistrictController.dispose();
+    districtController.dispose();
+    provinceController.dispose();
+    postCodeController.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage(),
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "ดูที่อยู่ของฉัน",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
+            Header(header: "ดูที่อยู่ของฉัน"),
             const SizedBox(height: 16),
 
             // Container(
@@ -158,6 +173,19 @@ class _AddressState extends State<Address> {
                 ],
               ),
             ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: PrimaryButton(
+                text: "ยืนยัน",
+                onPressed: hasChanged
+                    ? () {
+                        // ทำงานตอนกด
+                      }
+                    : null, // null = disabled
+              ),
+            ),
+            const SizedBox(height: 24,)
           ],
         ),
       ),

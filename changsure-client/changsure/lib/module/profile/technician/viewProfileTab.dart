@@ -1,3 +1,4 @@
+import 'package:changsure/core/header.dart';
 import 'package:changsure/module/profile/technician/viewProfile/reviewContent.dart';
 import 'package:flutter/material.dart';
 import './viewProfile/viewProfileContent.dart';
@@ -18,36 +19,9 @@ class ViewProfilePage extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              // Header
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: () {
-                        Provider.of<BottomBarState>(
-                          context,
-                          listen: false,
-                        ).closeSubPage();
-                      },
-                    ),
-                    const Expanded(
-                      child: Center(
-                        child: Text(
-                          "ดูโปรไฟล์ช่าง",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF004AAD),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Header(header: "ดูโปรไฟล์"),
               ),
 
               // TabBar
@@ -64,10 +38,7 @@ class ViewProfilePage extends StatelessWidget {
               // TabBarView
               Expanded(
                 child: TabBarView(
-                  children: const [
-                    ViewProfileContent(),
-                    ReviewContent(),
-                  ],
+                  children: const [ViewProfileContent(), ReviewContent()],
                 ),
               ),
             ],
