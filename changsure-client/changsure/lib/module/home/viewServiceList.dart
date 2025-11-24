@@ -1,7 +1,10 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/module/home/homePage.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../mockDB/serviceCategories.dart';
+import '../../state/bottomBarState.dart';
 import './homePage/serviceCard.dart';
 
 class ServiceCategoryPage extends StatelessWidget {
@@ -15,7 +18,12 @@ class ServiceCategoryPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            Header(header: category.name),
+            Header(
+              header: category.name,
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -39,4 +47,3 @@ class ServiceCategoryPage extends StatelessWidget {
     );
   }
 }
-

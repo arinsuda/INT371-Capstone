@@ -135,11 +135,11 @@ class HomePage extends StatelessWidget {
                                   color: AppColors.primary,
                                 ),
                                 onPressed: () {
-                                  Provider.of<BottomBarState>(
+                                  Navigator.push(
                                     context,
-                                    listen: false,
-                                  ).setSubPage(
-                                    ServiceCategoryPage(category: mainCategory),
+                                    MaterialPageRoute(
+                                      builder: (context) => ServiceCategoryPage(category: mainCategory),
+                                    ),
                                   );
                                 },
                               ),
