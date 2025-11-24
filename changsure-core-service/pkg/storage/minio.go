@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/url"
 	"time"
+	"net/http"
+	"net"
 
 	"changsure-core-service/internal/config"
 
@@ -29,21 +31,39 @@ type MinioStorage struct {
 }
 
 func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   3 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   3 * time.Second,
+		ResponseHeaderTimeout: 3 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+		MaxIdleConnsPerHost:   10,
+	}
+
 	c, err := minio.New(opt.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(opt.AccessKey, opt.SecretKey, ""),
-		Secure: opt.UseSSL,
-		Region: opt.Region,
+		Creds:     credentials.NewStaticV4(opt.AccessKey, opt.SecretKey, ""),
+		Secure:    opt.UseSSL,
+		Region:    opt.Region,
+		Transport: transport,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("minio new client: %w", err)
 	}
+
 	s := &MinioStorage{c: c, bucket: opt.Bucket}
-	if err := s.ensureBucket(context.Background()); err != nil {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := s.ensureBucket(ctx); err != nil {
 		return nil, err
 	}
+
 	return s, nil
 }
-
 func NewMinioFromConfig(c config.MinioConfig) (*MinioStorage, error) {
 	s, err := NewMinioStorage(MinioOptions{
 		Endpoint:  c.Endpoint,

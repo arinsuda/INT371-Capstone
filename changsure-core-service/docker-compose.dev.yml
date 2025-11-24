@@ -41,7 +41,7 @@ services:
       MYSQL_PASSWORD: changSure@sit.65
       TZ: Asia/Bangkok
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -85,6 +85,9 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       - changsure-net
 

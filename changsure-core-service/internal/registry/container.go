@@ -2,6 +2,10 @@ package registry
 
 import (
 	"fmt"
+	"log"
+
+	"os"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -121,10 +125,18 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 }
 
 func (c *Container) initStorage(cfg *config.Config) error {
+	if strings.ToLower(os.Getenv("MINIO_ENABLED")) == "false" {
+		log.Println("container: MinIO disabled by MINIO_ENABLED=false")
+		return nil
+	}
+
+	log.Println("container: initStorage START")
 	store, err := storage.NewMinioFromConfig(cfg.Minio)
 	if err != nil {
 		return fmt.Errorf("init minio storage: %w", err)
 	}
+	log.Println("container: initStorage OK")
+
 	c.Storage = store
 	return nil
 }
@@ -143,16 +155,9 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 }
 
 func (c *Container) initOCRModule(cfg *config.Config) {
-	// อ่าน base URL จาก config
 	ocrCfg := cfg.OCR
-
-	// สร้าง client ยิงไป OCR VM
 	client := ocrinfra.NewOCRClient(ocrCfg.BaseURL)
-
-	// service
 	c.OCRService = ocrservice.NewOCRService(client)
-
-	// handler (Fiber v3)
 	c.OCRHandler = ocrhandler.NewOCRHandler(c.OCRService)
 }
 

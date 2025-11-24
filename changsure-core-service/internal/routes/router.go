@@ -2,6 +2,7 @@ package routes
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -14,17 +15,24 @@ import (
 )
 
 func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) {
+	log.Println(">>> ENTER routes.Setup")
+
 	middleware.SetupMiddleware(app, cfg)
 
+	log.Println("setup: create container")
 	container, err := registry.NewContainer(db, cfg)
 	if err != nil {
 		panic(fmt.Errorf("failed to create container: %w", err))
 	}
 
+	log.Println("setup: setup public routes")
 	setupPublicRoutes(app, db, cfg)
+
+	log.Println("setup: setup protected routes")
 	setupAPIv1Routes(app, cfg, container)
 	setup404Handler(app)
 	logRegisteredRoutes(app)
+	log.Println("<<< EXIT routes.Setup")
 }
 
 func setupPublicRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
