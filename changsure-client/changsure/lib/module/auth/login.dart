@@ -6,7 +6,7 @@ import '../../core/button/primary_button.dart';
 import '../../core/theme.dart';
 import '../../repositories/auth_repository.dart';
 
-import '../../models/login_request.dart';
+import '../../models/auth/login_request.dart';
 import '../../state/auth_state.dart';
 
 double toLogicalPx(BuildContext context, double px) =>

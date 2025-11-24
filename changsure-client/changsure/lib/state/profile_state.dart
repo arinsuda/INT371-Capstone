@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/profile.dart';
+import '../models/customers/customer_profile.dart';
 import '../repositories/profile_repository.dart';
 
 class ProfileState extends ChangeNotifier {

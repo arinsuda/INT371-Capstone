@@ -1,5 +1,5 @@
 import '../api/api_client.dart';
-import '../models/profile.dart';
+import '../models/customers/customer_profile.dart';
 
 class ProfileRepository {
   final ApiClient client;

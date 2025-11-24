@@ -1,7 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
-import '../models/login_request.dart';
-import '../models/login_response.dart';
+import '../models/auth/login_request.dart';
+import '../models/auth/login_response.dart';
 
 class AuthRepository {
   final ApiClient client;
