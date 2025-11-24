@@ -5,6 +5,6 @@
 .env.production
 .env.staging
 minio_data/
-tmp.*
+tmp/
 main tmp
 .DS_Store
