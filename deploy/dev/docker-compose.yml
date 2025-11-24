@@ -1,7 +1,7 @@
 services:
   database:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: mysql:${MYSQL_VERSION:-8.0}
     container_name: changsure-database-dev
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
 
   minio:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: minio/minio:${MINIO_VERSION:-latest}
     container_name: changsure-minio-dev
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
 
   redis:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: redis:${REDIS_VERSION:-7-alpine}
     container_name: changsure-redis-dev
     restart: unless-stopped
@@ -80,7 +80,7 @@ services:
 
   ocr:
     env_file:
-      - ./.env.docker
+      - ./.env
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
@@ -102,7 +102,7 @@ services:
 
   core-service:
     env_file:
-      - ./.env.docker
+      - ./.env
     build:
       context: ../../changsure-core-service
       dockerfile: Dockerfile

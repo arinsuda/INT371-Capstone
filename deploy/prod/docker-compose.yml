@@ -1,7 +1,7 @@
 services:
   database:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: mysql:${MYSQL_VERSION:-8.0}
     container_name: changsure-database-prod
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
 
   minio:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: minio/minio:${MINIO_VERSION:-latest}
     container_name: changsure-minio-prod
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
 
   redis:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: redis:${REDIS_VERSION:-7-alpine}
     container_name: changsure-redis-prod
     restart: unless-stopped
@@ -83,7 +83,7 @@ services:
   # ถ้าคุณ push image ขึ้น DockerHub แล้ว ให้สลับเป็น image ได้
   ocr:
     env_file:
-      - ./.env.docker
+      - ./.env
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
@@ -106,7 +106,7 @@ services:
 
   core-service:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: ${REGISTRY:-docker.io}/${DOCKERHUB_USERNAME:-arynx}/changsure-core-service:${IMAGE_TAG:-latest}
     container_name: changsure-core-service-prod
     restart: unless-stopped
@@ -132,7 +132,7 @@ services:
 
   client:
     env_file:
-      - ./.env.docker
+      - ./.env
     image: ${REGISTRY:-docker.io}/${DOCKERHUB_USERNAME:-arynx}/changsure-client:${IMAGE_TAG:-latest}
     container_name: changsure-client-prod
     restart: unless-stopped
