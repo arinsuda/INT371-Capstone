@@ -21,28 +21,34 @@ import (
 )
 
 func main() {
+	log.Println("=== STEP 1: Starting application ===")
 
 	if err := validation.Init("th"); err != nil {
 		log.Fatalf("Failed to initialize validation: %v", err)
 	}
+	log.Println("=== STEP 2: Validation initialized ===")
 
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️  No .env file found, using environment variables")
 	}
+	log.Println("=== STEP 3: Environment loaded ===")
 
 	cfg := config.LoadConfig()
+	log.Println("=== STEP 4: Config loaded ===")
 
 	db, err := database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
 	defer db.Close()
+	log.Println("=== STEP 5: Database connected ===")
 
 	if shouldRunMigrations(cfg) {
 		log.Println("🔄 Running database migrations...")
 		if err := db.MigrateWithExtras(); err != nil {
 			log.Fatalf("❌ Migration failed: %v", err)
 		}
+		log.Println("=== STEP 6: Migrations completed ===")
 	} else {
 		log.Println("⊘ Skipping migrations (production mode)")
 	}
@@ -52,10 +58,12 @@ func main() {
 		if err := db.Seed(); err != nil {
 			log.Fatalf("❌ Seeding failed: %v", err)
 		}
+		log.Println("=== STEP 7: Seeding completed ===")
 	} else {
 		log.Println("⊘ Skipping seeders")
 	}
 
+	log.Println("=== STEP 8: Creating Fiber app ===")
 	app := fiber.New(fiber.Config{
 		AppName:      "Chang Sure API",
 		ServerHeader: "Chang Sure",
@@ -68,16 +76,24 @@ func main() {
 	app.Use(recovermw.New(recovermw.Config{
 		EnableStackTrace: true,
 	}))
+	log.Println("=== STEP 9: Middleware configured ===")
 
 	routes.Setup(app, cfg, db.Gorm())
+	log.Println("=== STEP 10: Routes setup completed ===")
 
 	printStartupInfo(cfg)
+	log.Println("=== STEP 11: Starting server goroutine ===")
 
 	serverErrors := make(chan error, 1)
 	go func() {
 		addr := ":" + cfg.App.Port
-		serverErrors <- app.Listen(addr)
+		log.Printf("👂 Attempting to listen on %s", addr)
+		err := app.Listen(addr)
+		log.Printf("⚠️ app.Listen returned: %v", err)
+		serverErrors <- err
 	}()
+
+	log.Println("=== STEP 12: Waiting for signals ===")
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
