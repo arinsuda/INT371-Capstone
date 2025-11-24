@@ -15,6 +15,7 @@ services:
       --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
     volumes:
       - mysql_prod:/var/lib/mysql
     ports:
@@ -30,6 +31,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   minio:
     env_file:
@@ -49,15 +55,40 @@ services:
       - "9001:9001"
     networks:
       - changsure-network
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://localhost:9000/minio/health/live >/dev/null 2>&1 || exit 1",
-        ]
-      interval: 30s
-      timeout: 20s
-      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio-init:
+    env_file:
+      - ./.env
+    image: minio/mc:latest
+    container_name: changsure-minio-init-prod
+    depends_on:
+      - minio
+    networks:
+      - changsure-network
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        sleep 2;
+      done;
+      echo 'Creating bucket if not exists...';
+      mc mb -p local/${MINIO_BUCKET:-changsure-prod} || true;
+      mc anonymous set download local/${MINIO_BUCKET:-changsure-prod} || true;
+      mc ls local;
+      echo 'MinIO init done.';
+      exit 0;
+      "
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     env_file:
@@ -77,32 +108,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # OCR Service (prod)
-  # ใช้ build จากโฟลเดอร์ใน VM เพื่อแก้ปัญหา image not found
-  # ถ้าคุณ push image ขึ้น DockerHub แล้ว ให้สลับเป็น image ได้
   ocr:
     env_file:
       - ./.env
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
-    # image: ${REGISTRY:-docker.io}/${DOCKERHUB_USERNAME:-arynx}/ocr-service:${IMAGE_TAG:-latest}
     container_name: changsure-ocr-prod
     restart: unless-stopped
     ports:
       - "8000:8000"
     networks:
       - changsure-network
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://localhost:8000/health >/dev/null 2>&1 || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   core-service:
     env_file:
@@ -115,20 +143,19 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      minio:
-        condition: service_healthy
       redis:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
       ocr:
         condition: service_started
     networks:
       - changsure-network
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   client:
     env_file:
@@ -139,16 +166,15 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - core-service
+      core-service:
+        condition: service_started
     networks:
       - changsure-network
-    healthcheck:
-      test:
-        ["CMD-SHELL", "wget -qO- http://localhost:80 >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   changsure-network:
