@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
+import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -17,12 +19,21 @@ class PostActivity extends StatefulWidget {
 class _PostActivityState extends State<PostActivity> {
   // ค่า Dropdown
   String? selectedCategory;
+  String? initialCategory;
 
   // เก็บรูปที่เลือก
   final List<File> selectedImages = [];
+  List<File> initialImages = [];
 
   // Picker
   final ImagePicker picker = ImagePicker();
+
+  // Text controller สำหรับคำอธิบาย
+  final TextEditingController descriptionController = TextEditingController();
+
+  bool hasChanged = false;
+  bool _isPressed = false;
+  bool _isCancelPressed = false;
 
   // สีตามหมวด
   final Map<String, Map<String, Color>> colorMap = {
@@ -48,17 +59,58 @@ class _PostActivityState extends State<PostActivity> {
     },
   };
 
+  @override
+  void initState() {
+    super.initState();
+
+    // listener สำหรับ TextField
+    descriptionController.addListener(_checkChanged);
+
+    // เก็บค่าเริ่มต้น (ตอนเปิดหน้าครั้งแรก)
+    initialCategory = selectedCategory;
+    initialImages = List<File>.from(selectedImages);
+  }
+
+  void _checkChanged() {
+    bool changed = false;
+
+    // 1. ตรวจ Dropdown
+    changed |= (selectedCategory != null && selectedCategory!.isNotEmpty);
+
+    // 2. ตรวจ TextField
+    changed |= (descriptionController.text.isNotEmpty);
+
+    // 3. ตรวจรูปภาพ
+    changed |= (selectedImages.isNotEmpty);
+
+    bool allFilled =
+        (selectedCategory != null &&
+        selectedCategory!.isNotEmpty &&
+        descriptionController.text.isNotEmpty &&
+        selectedImages.isNotEmpty);
+
+    if (hasChanged != allFilled) {
+      setState(() {
+        hasChanged = allFilled;
+      });
+    }
+  }
+
   Future<void> pickImage() async {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
         selectedImages.add(File(image.path));
+        _checkChanged();
       });
     }
   }
 
-  bool _isPressed = false;
-  bool _isCancelPressed = false;
+  @override
+  void dispose() {
+    descriptionController.dispose();
+    super.dispose();
+  }
 
   Widget buildCategoryDropdown() {
     final colors = selectedCategory != null ? colorMap[selectedCategory] : null;
@@ -75,9 +127,7 @@ class _PostActivityState extends State<PostActivity> {
             return SafeArea(
               child: Padding(
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(
-                    context,
-                  ).viewInsets.bottom, // ถ้ามี keyboard
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -93,6 +143,7 @@ class _PostActivityState extends State<PostActivity> {
                       onTap: () {
                         setState(() => selectedCategory = categoryName);
                         Navigator.pop(context);
+                        _checkChanged();
                       },
                     );
                   }).toList(),
@@ -120,11 +171,15 @@ class _PostActivityState extends State<PostActivity> {
               style: TextStyle(
                 color: colors?["text"] ?? Colors.black54,
                 fontWeight: FontWeight.w500,
-                fontSize: 12
+                fontSize: 12,
               ),
             ),
             const SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down, color: colors?["text"] ?? Colors.black54, size: 20),
+            Icon(
+              Icons.arrow_drop_down,
+              color: colors?["text"] ?? Colors.black54,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -137,41 +192,24 @@ class _PostActivityState extends State<PostActivity> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage();
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "ลงผลงาน",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
+            Header(
+              header: "เพิ่มผลงาน",
+              onPressed: () {
+                Provider.of<BottomBarState>(
+                  context,
+                  listen: false,
+                ).setSubPage(const ViewActivities());
+              },
             ),
+
             const SizedBox(height: 16),
 
             // ---------- Profile Section ----------
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0),
+              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -182,7 +220,6 @@ class _PostActivityState extends State<PostActivity> {
                     ),
                   ),
                   const SizedBox(width: 16),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +231,6 @@ class _PostActivityState extends State<PostActivity> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         const SizedBox(height: 4),
                         buildCategoryDropdown(),
                       ],
@@ -203,152 +239,157 @@ class _PostActivityState extends State<PostActivity> {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
 
             // ---------------- TEXTAREA ----------------
-            Container(
-              height: 200,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.colorStroke),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const TextField(
-                maxLines: null,
-                expands: true,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: "กรอกคำอธิบายผลงาน...",
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              child: Container(
+                height: 200,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.colorStroke),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextField(
+                  controller: descriptionController,
+                  maxLines: null,
+                  expands: true,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: "กรอกคำอธิบายผลงาน...",
+                  ),
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
 
             // ---------------- IMAGE UPLOAD ----------------
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ...selectedImages.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final img = entry.value;
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ...selectedImages.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final img = entry.value;
 
-                  return Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          img,
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            img,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
-
-                      // ปุ่มลบ
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedImages.removeAt(index);
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: Colors.white,
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selectedImages.removeAt(index);
+                                _checkChanged();
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-
-                // ปุ่มเพิ่มรูป
-                GestureDetector(
-                  onTap: pickImage,
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.colorStroke),
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      color: AppColors.primaryBorder,
-                      size: 30,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                // ปุ่มยกเลิก
-                Expanded(
-                  child: GestureDetector(
-                    onTapDown: (_) {
-                      setState(() => _isCancelPressed = true);
-                    },
-                    onTapUp: (_) {
-                      setState(() => _isCancelPressed = false);
-                      Provider.of<BottomBarState>(
-                        context,
-                        listen: false,
-                      ).closeSubPage();
-                    },
-                    onTapCancel: () {
-                      setState(() => _isCancelPressed = false);
-                    },
+                      ],
+                    );
+                  }).toList(),
+                  GestureDetector(
+                    onTap: pickImage,
                     child: Container(
-                      height: 50,
+                      width: 70,
+                      height: 70,
                       decoration: BoxDecoration(
-                        color: _isCancelPressed
-                            ? AppColors.colorStroke
-                            : AppColors.primaryBG,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.secondary),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.colorStroke),
                       ),
-                      child: Center(
-                        child: Text(
-                          "ยกเลิก",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: AppColors.secondary,
+                      child: const Icon(
+                        Icons.add,
+                        color: AppColors.primaryBorder,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ---------------- BUTTONS ----------------
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              child: Row(
+                children: [
+                  // ปุ่มยกเลิก
+                  Expanded(
+                    child: GestureDetector(
+                      onTapDown: (_) => setState(() => _isCancelPressed = true),
+                      onTapUp: (_) {
+                        setState(() => _isCancelPressed = false);
+                        Provider.of<BottomBarState>(
+                          context,
+                          listen: false,
+                        ).setSubPage(const ViewActivities());
+                      },
+                      onTapCancel: () =>
+                          setState(() => _isCancelPressed = false),
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: _isCancelPressed
+                              ? AppColors.colorStroke
+                              : AppColors.primaryBG,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.primaryBorder),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "ยกเลิก",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.primaryText,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // ปุ่มบันทึก
-                Expanded(
-                  child: PrimaryButton(
-                    text: "บันทึก",
-                    onPressed: () {
-                      Provider.of<BottomBarState>(
-                        context,
-                        listen: false,
-                      ).closeSubPage();
-                    },
+                  const SizedBox(width: 12),
+                  // ปุ่มบันทึก
+                  Expanded(
+                    child: PrimaryButton(
+                      text: "บันทึก",
+                      onPressed: hasChanged
+                          ? () {
+                              Provider.of<BottomBarState>(
+                                context,
+                                listen: false,
+                              ).setSubPage(const ViewActivities());
+                            }
+                          : null,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
           ],

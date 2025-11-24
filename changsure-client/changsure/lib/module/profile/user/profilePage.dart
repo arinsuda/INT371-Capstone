@@ -8,6 +8,8 @@ import '../../../state/bottomBarState.dart';
 import '../../../state/profile_state.dart';
 import 'package:changsure/core/profile/profileCardSection.dart';
 import 'package:changsure/module/profile/user/editProfile.dart';
+import './addressPage.dart';
+import 'historyServicePage.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
