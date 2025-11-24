@@ -1,3 +1,4 @@
+import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -152,33 +153,16 @@ class ViewActivityById extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () {
-                      Provider.of<BottomBarState>(
-                        context,
-                        listen: false,
-                      ).setSubPage(const ViewActivities());
-                    },
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        "ดูผลงาน",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF004AAD),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
+              Header(
+                header: "ดูผลงาน",
+                onPressed: () {
+                  Provider.of<BottomBarState>(
+                    context,
+                    listen: false,
+                  ).setSubPage(const ViewActivities());
+                },
               ),
+
               const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(

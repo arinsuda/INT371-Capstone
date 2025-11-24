@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
@@ -82,7 +83,8 @@ class _PostActivityState extends State<PostActivity> {
     // 3. ตรวจรูปภาพ
     changed |= (selectedImages.isNotEmpty);
 
-    bool allFilled = (selectedCategory != null &&
+    bool allFilled =
+        (selectedCategory != null &&
         selectedCategory!.isNotEmpty &&
         descriptionController.text.isNotEmpty &&
         selectedImages.isNotEmpty);
@@ -193,33 +195,16 @@ class _PostActivityState extends State<PostActivity> {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).setSubPage(const ViewActivities());
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "เพิ่มผลงาน",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
+            Header(
+              header: "เพิ่มผลงาน",
+              onPressed: () {
+                Provider.of<BottomBarState>(
+                  context,
+                  listen: false,
+                ).setSubPage(const ViewActivities());
+              },
             ),
+
             const SizedBox(height: 16),
 
             // ---------- Profile Section ----------
@@ -365,7 +350,8 @@ class _PostActivityState extends State<PostActivity> {
                           listen: false,
                         ).setSubPage(const ViewActivities());
                       },
-                      onTapCancel: () => setState(() => _isCancelPressed = false),
+                      onTapCancel: () =>
+                          setState(() => _isCancelPressed = false),
                       child: Container(
                         height: 50,
                         decoration: BoxDecoration(
@@ -394,11 +380,11 @@ class _PostActivityState extends State<PostActivity> {
                       text: "บันทึก",
                       onPressed: hasChanged
                           ? () {
-                        Provider.of<BottomBarState>(
-                          context,
-                          listen: false,
-                        ).setSubPage(const ViewActivities());
-                      }
+                              Provider.of<BottomBarState>(
+                                context,
+                                listen: false,
+                              ).setSubPage(const ViewActivities());
+                            }
                           : null,
                     ),
                   ),

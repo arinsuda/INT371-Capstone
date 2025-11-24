@@ -181,7 +181,17 @@ class _EditActivityState extends State<EditActivityById> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            Header(header: "แก้ไขผลงาน"),
+            // ---------- Header ----------
+            Header(
+              header: "แก้ไขผลงาน",
+              onPressed: () {
+                Provider.of<BottomBarState>(
+                  context,
+                  listen: false,
+                ).setSubPage(ViewActivityById(id: widget.id));
+              },
+            ),
+
             const SizedBox(height: 16),
 
             // ---------- Profile Section ----------
