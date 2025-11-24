@@ -1,3 +1,4 @@
+import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
@@ -25,33 +26,7 @@ class _ViewActivitiesState extends State<ViewActivities> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage();
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "ลงผลงาน",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
+            Header(header: "ลงผลงาน"),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.only(right: 10),
@@ -61,7 +36,10 @@ class _ViewActivitiesState extends State<ViewActivities> {
                   onTapDown: (_) => setState(() => _isPressed = true),
                   onTapUp: (_) {
                     setState(() => _isPressed = false);
-                    Provider.of<BottomBarState>(context, listen: false).setSubPage(const PostActivity());
+                    Provider.of<BottomBarState>(
+                      context,
+                      listen: false,
+                    ).setSubPage(const PostActivity());
                   },
                   onTapCancel: () => setState(() => _isPressed = false),
                   child: Container(

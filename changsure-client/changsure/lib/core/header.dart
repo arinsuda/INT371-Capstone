@@ -4,8 +4,13 @@ import '../state/bottomBarState.dart';
 
 class Header extends StatelessWidget {
   final String header;
+  final VoidCallback? onPressed; // 👈 เพิ่ม callback
 
-  const Header({super.key, required this.header});
+  const Header({
+    super.key,
+    required this.header,
+    this.onPressed, // 👈 optional
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,12 +21,14 @@ class Header extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () {
-              Provider.of<BottomBarState>(
-                context,
-                listen: false,
-              ).closeSubPage();
-            },
+            onPressed: onPressed ??
+                    () {
+                  // 👈 ถ้าไม่ส่ง onPressed มา → ใช้ default
+                  Provider.of<BottomBarState>(
+                    context,
+                    listen: false,
+                  ).closeSubPage();
+                },
           ),
           Expanded(
             child: Center(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -108,33 +109,7 @@ class _AddressState extends State<Address> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage(),
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "ดูที่อยู่ของฉัน",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
+            Header(header: "ดูที่อยู่ของฉัน"),
             const SizedBox(height: 16),
 
             // Container(

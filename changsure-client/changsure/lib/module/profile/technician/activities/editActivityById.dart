@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/activities/viewActivityById.dart';
 import 'package:changsure/module/profile/technician/activities/viewActivityById.dart';
@@ -26,6 +27,7 @@ class _EditActivityState extends State<EditActivityById> {
 
   // รูป default จาก activity
   List<String> assetImages = [];
+
   // รูปใหม่จาก gallery
   List<File> pickedImages = [];
 
@@ -34,22 +36,22 @@ class _EditActivityState extends State<EditActivityById> {
     "ช่างทาสี": {
       "text": Color(0xFFEB2F96),
       "background": Color(0xFFFFF0F6),
-      "border": Color(0xFFFFADD2)
+      "border": Color(0xFFFFADD2),
     },
     "ช่างประปา": {
       "text": Color(0xFF36CFC9),
       "background": Color(0xFFE6FFFB),
-      "border": Color(0xFF87E8DE)
+      "border": Color(0xFF87E8DE),
     },
     "ช่างไฟฟ้า": {
       "text": Color(0xFFFAAD14),
       "background": Color(0xFFFFFBE6),
-      "border": Color(0xFFFFE58F)
+      "border": Color(0xFFFFE58F),
     },
     "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
       "text": Color(0xFF722ED1),
       "background": Color(0xFFF9F0FF),
-      "border": Color(0xFFD3ADF7)
+      "border": Color(0xFFD3ADF7),
     },
   };
 
@@ -179,31 +181,7 @@ class _EditActivityState extends State<EditActivityById> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            // ---------- Header ----------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () {
-                    Provider.of<BottomBarState>(context, listen: false)
-                        .setSubPage(ViewActivityById(id: widget.id));
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "แก้ไขผลงาน",
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF004AAD)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
+            Header(header: "แก้ไขผลงาน"),
             const SizedBox(height: 16),
 
             // ---------- Profile Section ----------
@@ -214,8 +192,9 @@ class _EditActivityState extends State<EditActivityById> {
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundImage:
-                    const AssetImage('assets/image/Technician.png'),
+                    backgroundImage: const AssetImage(
+                      'assets/image/Technician.png',
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -225,7 +204,9 @@ class _EditActivityState extends State<EditActivityById> {
                         const Text(
                           "คุณ สมชาย รักชาติ",
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         buildCategoryDropdown(),
@@ -277,8 +258,12 @@ class _EditActivityState extends State<EditActivityById> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(path,
-                              width: 70, height: 70, fit: BoxFit.cover),
+                          child: Image.asset(
+                            path,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                         Positioned(
                           top: 0,
@@ -295,8 +280,11 @@ class _EditActivityState extends State<EditActivityById> {
                                 color: Colors.black.withOpacity(0.6),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close,
-                                  size: 14, color: Colors.white),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -311,8 +299,12 @@ class _EditActivityState extends State<EditActivityById> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(img,
-                              width: 70, height: 70, fit: BoxFit.cover),
+                          child: Image.file(
+                            img,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                         Positioned(
                           top: 0,
@@ -329,8 +321,11 @@ class _EditActivityState extends State<EditActivityById> {
                                 color: Colors.black.withOpacity(0.6),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close,
-                                  size: 14, color: Colors.white),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -347,8 +342,11 @@ class _EditActivityState extends State<EditActivityById> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.colorStroke),
                       ),
-                      child: const Icon(Icons.add,
-                          color: AppColors.primaryBorder, size: 30),
+                      child: const Icon(
+                        Icons.add,
+                        color: AppColors.primaryBorder,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ],
@@ -363,8 +361,10 @@ class _EditActivityState extends State<EditActivityById> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        Provider.of<BottomBarState>(context, listen: false)
-                            .setSubPage(ViewActivityById(id: widget.id));
+                        Provider.of<BottomBarState>(
+                          context,
+                          listen: false,
+                        ).setSubPage(ViewActivityById(id: widget.id));
                       },
                       child: Container(
                         height: 50,
@@ -376,7 +376,10 @@ class _EditActivityState extends State<EditActivityById> {
                         child: const Center(
                           child: Text(
                             "ยกเลิก",
-                            style: TextStyle(fontSize: 16, color: AppColors.primaryText),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.primaryText,
+                            ),
                           ),
                         ),
                       ),
@@ -389,12 +392,13 @@ class _EditActivityState extends State<EditActivityById> {
                       text: "บันทึก",
                       onPressed: isChanged
                           ? () {
-                        // ทำการบันทึก
-                        Provider.of<BottomBarState>(context, listen: false)
-                            .setSubPage(ViewActivityById(id: widget.id));
-                      }
+                              // ทำการบันทึก
+                              Provider.of<BottomBarState>(
+                                context,
+                                listen: false,
+                              ).setSubPage(ViewActivityById(id: widget.id));
+                            }
                           : null, // disabled ถ้าไม่มีการแก้ไข
-
                     ),
                   ),
                 ],
@@ -403,8 +407,6 @@ class _EditActivityState extends State<EditActivityById> {
           ],
         ),
       ),
-
-
     );
   }
 }
