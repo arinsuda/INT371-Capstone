@@ -1,10 +1,8 @@
-import 'package:changsure/module/home/homePage.dart';
-import 'package:changsure/module/profile/user/profilePage.dart';
 import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
-import '../../module/profile/technician/editProfile.dart';
+import '../../module/home/homePage.dart';
 import '../../module/profile/technician/profilePage.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '';
 import '../../../mockDB/historyService.dart';
 import '../../../state/bottomBarState.dart';
-import 'historyService/serviceCard.dart';
+import 'historyService/historyServiceCard.dart';
 
 class HistoryServicePage extends StatelessWidget {
   const HistoryServicePage({super.key});
