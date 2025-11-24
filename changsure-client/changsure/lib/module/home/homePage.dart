@@ -12,29 +12,20 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttonToCategory = {
+      'ทาสี': 'งานทาสี',
+      'การประปา': 'งานประปา',
+      'การไฟฟ้า': 'งานไฟฟ้า',
+      'เครื่องใช้ไฟฟ้า': 'ซ่อมเครื่องใช้ไฟฟ้า',
+    };
+
     final buttons = [
-      {
-        'label': 'ทาสี',
-        'icon': 'assets/icons/painted.png',
-        'categoryName': 'งานทาสี',
-      },
-      {
-        'label': 'การประปา',
-        'icon': 'assets/icons/waterWork.png',
-        'categoryName': 'งานประปา',
-      },
+      {'label': 'ทาสี', 'icon': 'assets/icons/painted.png'},
+      {'label': 'การประปา', 'icon': 'assets/icons/waterWork.png'},
       // Asset
-      {
-        'label': 'การไฟฟ้า',
-        'icon': 'assets/icons/powerSupply.png',
-        'categoryName': 'งานไฟฟ้า',
-      },
+      {'label': 'การไฟฟ้า', 'icon': 'assets/icons/powerSupply.png'},
       // Asset
-      {
-        'label': 'เครื่องใช้ไฟฟ้า',
-        'icon': 'assets/icons/electric.png',
-        'categoryName': 'ซ่อมเครื่องใช้ไฟฟ้า',
-      },
+      {'label': 'เครื่องใช้ไฟฟ้า', 'icon': 'assets/icons/electric.png'},
       // Asset
     ];
 
@@ -66,11 +57,13 @@ class HomePage extends StatelessWidget {
 
                     return GestureDetector(
                       onTap: () {
-                        final selectedCategory = mockServiceCategories
-                            .firstWhere(
-                              (cat) => cat.name == button['categoryName'],
-                              orElse: () => mockServiceCategories[0],
-                            );
+                        final categoryName = buttonToCategory[button['label']];
+                        if (categoryName == null) return;
+
+                        final selectedCategory = mockServiceCategories.firstWhere(
+                              (cat) => cat.name == categoryName,
+                          orElse: () => mockServiceCategories[0], // fallback หมวดแรก
+                        );
 
                         Provider.of<BottomBarState>(
                           context,
