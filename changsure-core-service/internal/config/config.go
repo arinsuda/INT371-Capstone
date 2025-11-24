@@ -21,6 +21,7 @@ type Config struct {
 	JWT      JWTConfig
 	Redis    RedisConfig
 	Minio    MinioConfig
+	OCR      OCRConfig `mapstructure:"ocr"`
 }
 
 type AppConfig struct {
@@ -73,6 +74,10 @@ type MinioConfig struct {
 	AllowMIMESet     map[string]struct{}
 
 	EnableVirusScan bool
+}
+
+type OCRConfig struct {
+	BaseURL string `mapstructure:"base_url" json:"base_url"`
 }
 
 var GlobalConfig *Config
@@ -132,6 +137,9 @@ func LoadConfig() *Config {
 			AllowDocTypesSet:   sliceToSet(allowDocTypes),
 			AllowMIMESet:       sliceToSet(allowMIME),
 			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN"),
+		},
+		OCR: OCRConfig{
+			BaseURL: getEnv("OCR_BASE_URL"),
 		},
 	}
 

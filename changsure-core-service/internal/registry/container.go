@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -10,8 +9,9 @@ import (
 	"changsure-core-service/internal/modules/badge"
 	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
 	"changsure-core-service/internal/modules/customers"
-	ocrmod "changsure-core-service/internal/modules/ocr"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
+	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
+	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/provinces"
 	"changsure-core-service/internal/modules/service_categories"
 	"changsure-core-service/internal/modules/services"
@@ -26,18 +26,6 @@ import (
 )
 
 type ContainerOption func(*Container) error
-
-func WithOCRModule(setup func() (*ocrmod.OCRModule, error)) ContainerOption {
-	return func(c *Container) error {
-		mod, err := setup()
-		if err != nil {
-			return fmt.Errorf("init OCR module: %w", err)
-		}
-		c.ocrModule = mod
-		c.OCRHandler = mod.Handler
-		return nil
-	}
-}
 
 type Container struct {
 	DB      *gorm.DB
@@ -89,9 +77,8 @@ type Container struct {
 	TechnicianWorkService techworks.Service
 	TechnicianWorkHandler *techworks.Handler
 
+	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
-
-	ocrModule *ocrmod.OCRModule
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Container, error) {
@@ -115,16 +102,14 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 
 	c.initAuthModule(cfg)
 
+	c.initOCRModule(cfg)
+
 	c.initTechnicianServiceModule()
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
 	c.initBadgeModule()
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
-
-	if err := c.initOCRModule(); err != nil {
-		return nil, err
-	}
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -155,6 +140,20 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)
+}
+
+func (c *Container) initOCRModule(cfg *config.Config) {
+	// อ่าน base URL จาก config
+	ocrCfg := cfg.OCR
+
+	// สร้าง client ยิงไป OCR VM
+	client := ocrinfra.NewOCRClient(ocrCfg.BaseURL)
+
+	// service
+	c.OCRService = ocrservice.NewOCRService(client)
+
+	// handler (Fiber v3)
+	c.OCRHandler = ocrhandler.NewOCRHandler(c.OCRService)
 }
 
 func (c *Container) initCustomerModule() {
@@ -211,13 +210,6 @@ func (c *Container) initServiceModule() {
 	c.ServiceHandler = services.NewHandler(c.ServiceService)
 }
 
-func (c *Container) initOCRModule() error {
-	defaultOCR := func() (*ocrmod.OCRModule, error) {
-		return ocrmod.NewOCRModule()
-	}
-	return WithOCRModule(defaultOCR)(c)
-}
-
 func (c *Container) initBadgeModule() {
 	c.BadgeRepo = badge.NewRepository(c.DB)
 	c.BadgeService = badge.NewService(c.BadgeRepo)
@@ -239,15 +231,6 @@ func (c *Container) initTechnicianWorkModule() {
 	c.TechnicianWorkRepo = techworks.NewRepository(c.DB)
 	c.TechnicianWorkService = techworks.NewService(c.TechnicianWorkRepo)
 	c.TechnicianWorkHandler = techworks.NewHandler(c.TechnicianWorkService)
-}
-
-func (c *Container) Close(ctx context.Context) error {
-	if c.ocrModule != nil {
-		if err := c.ocrModule.Close(); err != nil {
-			return fmt.Errorf("close OCR module: %w", err)
-		}
-	}
-	return nil
 }
 
 func AllModels() []interface{} {
