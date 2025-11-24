@@ -1,0 +1,138 @@
+services:
+  database:
+    env_file:
+      - ./.env.docker
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: changsure-database-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Bangkok
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_dev:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    env_file:
+      - ./.env.docker
+    image: minio/minio:${MINIO_VERSION:-latest}
+    container_name: changsure-minio-dev
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Bangkok
+    volumes:
+      - minio_dev:/data
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:9000/minio/health/live >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+
+  redis:
+    env_file:
+      - ./.env.docker
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: changsure-redis-dev
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_dev:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ocr:
+    env_file:
+      - ./.env.docker
+    build:
+      context: ../../ocr-service
+      dockerfile: Dockerfile
+    container_name: changsure-ocr-dev
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8000/health >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  core-service:
+    env_file:
+      - ./.env.docker
+    build:
+      context: ../../changsure-core-service
+      dockerfile: Dockerfile
+    container_name: changsure-core-service-dev
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  changsure-network:
+    driver: bridge
+
+volumes:
+  mysql_dev:
+  minio_dev:
+  redis_dev:
