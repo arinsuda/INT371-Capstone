@@ -1,3 +1,4 @@
+import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
@@ -117,35 +118,8 @@ class _EditProfileState extends State<EditProfile> {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).closeSubPage(),
-                  },
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      "แก้ไขโปรไฟล์",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004AAD),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
+            Header(header: "แก้ไขโปรไฟล์"),
             const SizedBox(height: 16),
-
             // ---------- Avatar ----------
             Center(
               child: Stack(
