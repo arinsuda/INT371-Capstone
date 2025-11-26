@@ -307,6 +307,7 @@ class SystemChoose extends StatelessWidget {
                                   ).setSubPage(const ViewProfilePage());
                                 },
                                 padding: EdgeInsets.symmetric(vertical: 5),
+                                fontSize: 14,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -315,7 +316,7 @@ class SystemChoose extends StatelessWidget {
                                 text: "จองช่าง",
                                 onPressed: () {},
                                 padding: EdgeInsets.symmetric(vertical: 5),
-
+                                fontSize: 14,
                               ),
                             ),
                           ],
