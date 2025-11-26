@@ -37,6 +37,7 @@ class HomePage extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: [
               HomeBanner(),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -60,16 +61,18 @@ class HomePage extends StatelessWidget {
                         final categoryName = buttonToCategory[button['label']];
                         if (categoryName == null) return;
 
-                        final selectedCategory = mockServiceCategories.firstWhere(
+                        final selectedCategory = mockServiceCategories
+                            .firstWhere(
                               (cat) => cat.name == categoryName,
-                          orElse: () => mockServiceCategories[0], // fallback หมวดแรก
-                        );
-
-                        Provider.of<BottomBarState>(
+                              orElse: () =>
+                                  mockServiceCategories[0], // fallback หมวดแรก
+                            );
+                        Navigator.push(
                           context,
-                          listen: false,
-                        ).setSubPage(
-                          ServiceCategoryPage(category: selectedCategory),
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ServiceCategoryPage(category: selectedCategory),
+                          ),
                         );
                       },
 
@@ -138,7 +141,9 @@ class HomePage extends StatelessWidget {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => ServiceCategoryPage(category: mainCategory),
+                                      builder: (context) => ServiceCategoryPage(
+                                        category: mainCategory,
+                                      ),
                                     ),
                                   );
                                 },
