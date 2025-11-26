@@ -1,3 +1,4 @@
+import 'package:changsure/module/home/service/systemChoose.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../core/button/primaryButton.dart';
@@ -5,6 +6,7 @@ import '../../../core/button/tertiaryButton.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/serviceCategories.dart';
 import '../homePage/serviceCard.dart';
+import 'customerChoose.dart';
 
 class ServiceDetail extends StatelessWidget {
   final int id;
@@ -453,17 +455,51 @@ class ServiceDetail extends StatelessWidget {
                                             onPressed: () {
                                               Navigator.pop(context);
                                             },
-                                            padding: EdgeInsets.symmetric(vertical: 8),
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 12),
                                         // ปุ่มบันทึก
                                         Expanded(
                                           child: PrimaryButton(
-                                            text: "บันทึก",
-                                            onPressed: () {},
-                                            padding: EdgeInsets.symmetric(vertical: 8),
-
+                                            text: "ยืนยัน",
+                                            onPressed: () {
+                                              if (selectedIndex == -1)
+                                                return; // ยังไม่ได้เลือก อาจแจ้งเตือนก็ได้
+                                              Navigator.pop(
+                                                context,
+                                              ); // ปิด modal ก่อน
+                                              if (selectedIndex == 0) {
+                                                // ระบบเลือกช่างให้อัตโนมัติ
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        SystemChoose(
+                                                          serviceName:
+                                                              data.name,  category: 'ทาสี'
+                                                        ),
+                                                  ),
+                                                );
+                                              } else if (selectedIndex == 1) {
+                                                // เลือกช่างด้วยตนเอง
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        CustomerChoose(
+                                                          serviceName:
+                                                              data.name, category: 'ทาสี',
+                                                        ),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -481,7 +517,6 @@ class ServiceDetail extends StatelessWidget {
               },
             );
           },
-
           padding: EdgeInsets.symmetric(vertical: 10),
         ),
       ),

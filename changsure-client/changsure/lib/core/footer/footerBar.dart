@@ -22,8 +22,7 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
 
   final List<Widget> _pages = [
     HomePage(),
-    // const Center(child: Text('ติดตามสถานะ')),
-    SystemChoose(serviceName: "บริการ"),
+    const Center(child: Text('ติดตามสถานะ')),
     const Center(child: Text('แชท')),
     TechnicianProfile(),
     //UserProfile()
