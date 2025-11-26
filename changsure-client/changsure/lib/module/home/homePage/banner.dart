@@ -61,7 +61,8 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return
+      SizedBox(
       height: 320, // ความสูงรวม Banner + Search bar
       child: Stack(
         clipBehavior: Clip.none,
