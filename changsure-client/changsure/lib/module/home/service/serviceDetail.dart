@@ -227,9 +227,11 @@ class ServiceDetail extends StatelessWidget {
               ),
 
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
+                padding: const EdgeInsets.only(
+                  top: 16,
+                  bottom: 8,
+                  left: 24,
+                  right: 24,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -243,28 +245,35 @@ class ServiceDetail extends StatelessWidget {
                         color: AppColors.primaryText,
                       ),
                     ),
-
-                    SizedBox(height: 4),
-
-                    SizedBox(
-                      height: 220, // สูงเท่ากับ ServiceCard
-                      child: relatedServices.isEmpty
-                          ? const Center(child: Text("ไม่มีบริการแนะนำ"))
-                          : ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: relatedServices.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final subService = relatedServices[index];
-                                return SizedBox(
-                                  width: 160, // กำหนดความกว้างการ์ด
-                                  child: ServiceCard(data: subService),
-                                );
-                              },
-                            ),
-                    ),
                   ],
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: 18,
+                  right: 0,
+                  top: 0,
+                  bottom: 16,
+                ),
+                child: SizedBox(
+                  height: 220, // สูงเท่ากับ ServiceCard
+                  child: relatedServices.isEmpty
+                      ? const Center(child: Text("ไม่มีบริการแนะนำ"))
+                      : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(left: 0, right: 18),
+                          itemCount: relatedServices.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 4),
+                          itemBuilder: (context, index) {
+                            final subService = relatedServices[index];
+                            return SizedBox(
+                              width: 160, // กำหนดความกว้างการ์ด
+                              child: ServiceCard(data: subService),
+                            );
+                          },
+                        ),
                 ),
               ),
             ],
@@ -289,7 +298,11 @@ class ServiceDetail extends StatelessWidget {
             ),
           ],
         ),
-        child: PrimaryButton(text: "จองบริการ", onPressed: () {}, padding: EdgeInsets.symmetric(vertical: 10),),
+        child: PrimaryButton(
+          text: "จองบริการ",
+          onPressed: () {},
+          padding: EdgeInsets.symmetric(vertical: 10),
+        ),
       ),
     );
   }
