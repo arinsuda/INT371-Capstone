@@ -6,7 +6,7 @@ import '../../../../mockDB/historyService.dart'; // ไฟล์ที่คุ�
 class ServiceCard extends StatelessWidget {
   final HistoryService service;
 
-  const ServiceCard({super.key, required this.service});
+  const ServiceCard({super.key, required this.service, });
 
   Color getStatusColor(String status) {
     switch (status) {
