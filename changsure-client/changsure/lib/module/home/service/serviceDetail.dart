@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../core/button/primaryButton.dart';
+import '../../../core/button/tertiaryButton.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/serviceCategories.dart';
 import '../homePage/serviceCard.dart';
@@ -264,8 +265,7 @@ class ServiceDetail extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.only(left: 0, right: 18),
                           itemCount: relatedServices.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 4),
+                          separatorBuilder: (_, __) => const SizedBox(width: 4),
                           itemBuilder: (context, index) {
                             final subService = relatedServices[index];
                             return SizedBox(
@@ -299,8 +299,189 @@ class ServiceDetail extends StatelessWidget {
           ],
         ),
         child: PrimaryButton(
-          text: "จองบริการ",
-          onPressed: () {},
+          text: "จองคิว",
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              // ให้ด้านหลังเป็นสีดำ opacity
+              isScrollControlled: true,
+              builder: (context) {
+                return GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5), // background ด้านหลัง
+                    child: GestureDetector(
+                      onTap: () {}, // กันไม่ให้ tap ด้านใน dismiss
+                      child: DraggableScrollableSheet(
+                        initialChildSize: 0.53, // ความสูงเริ่มต้นของ modal
+                        maxChildSize: 0.53,
+                        minChildSize: 0.3,
+                        builder: (context, scrollController) {
+                          int selectedIndex = -1; // สถานะเลือก
+
+                          return StatefulBuilder(
+                            builder: (context, setState) {
+                              final options = [
+                                "ระบบเลือกช่างให้อัตโนมัติ",
+                                "เลือกช่างด้วยตนเอง",
+                              ];
+
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(16),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 16,
+                                ),
+                                child: ListView(
+                                  controller: scrollController,
+                                  children: [
+                                    Center(
+                                      child: Container(
+                                        width: 50,
+                                        height: 5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[300],
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      "เลือกวิธีการจองช่าง",
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryText,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      "คุณต้องการเลือกช่างแบบไหน?",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: AppColors.colorTertiaryText,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    ...List.generate(options.length, (index) {
+                                      final isSelected = selectedIndex == index;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            selectedIndex = index;
+                                          });
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 24,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? AppColors.primaryBGHover
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? AppColors.secondary
+                                                  : Color(0xFFD6D6D6),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                options[index],
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color(0xFF0F53BA),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Radio<int>(
+                                                value: index,
+                                                groupValue: selectedIndex,
+                                                fillColor:
+                                                    MaterialStateProperty.resolveWith<
+                                                      Color
+                                                    >((states) {
+                                                      if (states.contains(
+                                                        MaterialState.selected,
+                                                      )) {
+                                                        return Color(
+                                                          0xFF0F53BA,
+                                                        ); // สีเมื่อเลือกแล้ว
+                                                      }
+                                                      return Color(
+                                                        0xFFD6D6D6,
+                                                      ); // สีเมื่อยังไม่ได้เลือก
+                                                    }),
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    selectedIndex = val!;
+                                                  });
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                    const SizedBox(height: 16),
+
+                                    Row(
+                                      children: [
+                                        // ปุ่มยกเลิก
+                                        Expanded(
+                                          child: TertiaryButton(
+                                            text: "ยกเลิก",
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            padding: EdgeInsets.symmetric(vertical: 8),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        // ปุ่มบันทึก
+                                        Expanded(
+                                          child: PrimaryButton(
+                                            text: "บันทึก",
+                                            onPressed: () {},
+                                            padding: EdgeInsets.symmetric(vertical: 8),
+
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+
           padding: EdgeInsets.symmetric(vertical: 10),
         ),
       ),

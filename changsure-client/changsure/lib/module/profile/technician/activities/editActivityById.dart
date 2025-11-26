@@ -366,7 +366,8 @@ class _EditActivityState extends State<EditActivityById> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-              child: Row(
+              child:
+              Row(
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
