@@ -224,13 +224,17 @@ class SystemChoose extends StatelessWidget {
 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: const [
-                            Icon(
-                              Icons.star_rate_rounded,
-                              color: Colors.orange,
-                              size: 16,
+                            Baseline(
+                              baseline: 12, // ปรับค่าได้ 14–18 ตามระยะที่ต้องการ
+                              baselineType: TextBaseline.alphabetic,
+                              child: Icon(
+                                Icons.star_rate_rounded,
+                                color: Color(0xFFFFC53D),
+                              ),
                             ),
-                            SizedBox(width: 4),
+                            SizedBox(width: 2),
                             Text(
                               "4.9",
                               style: TextStyle(
