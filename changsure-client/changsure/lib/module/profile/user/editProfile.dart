@@ -2,7 +2,7 @@ import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/button/primary_button.dart';
+import '../../../core/button/primaryButton.dart';
 import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
 

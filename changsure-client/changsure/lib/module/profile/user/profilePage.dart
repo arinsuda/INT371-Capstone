@@ -1,4 +1,4 @@
-import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/primaryButton.dart';
 import 'package:changsure/core/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

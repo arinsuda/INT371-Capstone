@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/primaryButton.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/activities/viewActivityById.dart';
@@ -8,6 +8,7 @@ import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/button/tertiaryButton.dart';
 import '../../../../mockDB/activities.dart';
 import '../../../../state/bottomBarState.dart';
 
@@ -365,34 +366,19 @@ class _EditActivityState extends State<EditActivityById> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-              child: Row(
+              child:
+              Row(
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () {
+                    child: TertiaryButton(
+                      text: "ยกเลิก",
+                      onPressed: () {
                         Provider.of<BottomBarState>(
                           context,
                           listen: false,
                         ).setSubPage(ViewActivityById(id: widget.id));
                       },
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryBG,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.primaryBorder),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            "ยกเลิก",
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.primaryText,
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
