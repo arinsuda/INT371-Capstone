@@ -1,4 +1,5 @@
 import 'package:changsure/module/home/service/serviceDetails/ctm_TechnicianCard.dart';
+import 'package:changsure/module/home/service/serviceDetails/filterList.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/header.dart';
@@ -61,7 +62,63 @@ class CustomerChoose extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+
+            const SizedBox(height: 16),
+
+            Padding(
+              padding: EdgeInsets.only(right: 18),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final result = await showModalBottomSheet<Map<String, dynamic>>(
+                        context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                        ),
+                        builder: (_) => const FilterList(),
+                      );
+
+                      if (result != null) {
+                        print("ผลลัพธ์ฟิลเตอร์: $result");
+                        // TODO: นำ result ไปลุยกรอง technician ได้เลย
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBGHover,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "ตัวกรอง",
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.filter_list_rounded,
+                            color: AppColors.primary,
+                            size: 14,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

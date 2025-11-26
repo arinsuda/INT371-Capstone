@@ -24,7 +24,11 @@ class SystemChoose extends StatelessWidget {
   final String serviceName;
   final String category;
 
-  const SystemChoose({super.key, required this.serviceName, required this.category});
+  const SystemChoose({
+    super.key,
+    required this.serviceName,
+    required this.category,
+  });
 
   Widget _buildTag(String imagePath, String text) {
     return Container(
@@ -304,7 +308,7 @@ class SystemChoose extends StatelessWidget {
                                   Provider.of<BottomBarState>(
                                     context,
                                     listen: false,
-                                  ).setSubPage(const ViewProfilePage());
+                                  ).setSubPage(ViewProfilePage());
                                 },
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 5,
