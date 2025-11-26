@@ -3,6 +3,7 @@ import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/button/tertiaryButton.dart';
 import '../../../../mockDB/activities.dart';
 import '../../../../state/bottomBarState.dart';
 import '../viewActivities.dart';
@@ -77,27 +78,14 @@ class ViewActivityById extends StatelessWidget {
                   children: [
                     // ปุ่มยกเลิก
                     Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                            color: AppColors.primaryBorder,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                      child: TertiaryButton(
+                        text: "ยกเลิก",
                         onPressed: () {
-                          Navigator.of(context).pop(); // ปิด modal
+                          Navigator.of(context).pop();
                         },
-                        child: const Text(
-                          "ยกเลิก",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        padding: EdgeInsets.symmetric(vertical: 11),
+                        fontSize: 14,
+                        borderRadius: 8,
                       ),
                     ),
                     const SizedBox(width: 12),

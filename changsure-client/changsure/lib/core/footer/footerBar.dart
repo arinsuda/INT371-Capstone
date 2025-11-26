@@ -1,3 +1,4 @@
+import 'package:changsure/module/home/service/systemChoose.dart';
 import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
@@ -21,7 +22,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
 
   final List<Widget> _pages = [
     HomePage(),
-    const Center(child: Text('ติดตามสถานะ')),
+    // const Center(child: Text('ติดตามสถานะ')),
+    SystemChoose(serviceName: "บริการ"),
     const Center(child: Text('แชท')),
     TechnicianProfile(),
     //UserProfile()
