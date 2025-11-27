@@ -2,7 +2,7 @@ import 'package:changsure/core/footer/footerBar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/button/primary_button.dart';
+import '../../core/button/primaryButton.dart';
 import '../../core/theme.dart';
 import '../../repositories/auth_repository.dart';
 

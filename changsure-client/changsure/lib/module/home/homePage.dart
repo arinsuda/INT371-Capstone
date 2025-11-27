@@ -2,30 +2,13 @@ import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/home/viewServiceList.dart';
 import 'package:flutter/material.dart' hide Banner;
 import 'package:provider/provider.dart';
-
 import '../../mockDB/serviceCategories.dart';
 import '../../state/bottomBarState.dart';
-import '../../repositories/auth_repository.dart';
-
 import './homePage/serviceCard.dart';
 import './homePage/banner.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  void _onStartPressed() {
-    final authRepo = Provider.of<AuthRepository>(context, listen: false);
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen(authRepo: authRepo)),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
