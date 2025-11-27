@@ -1,18 +1,20 @@
-class Profile {
+class CustomerProfile {
   final int id;
   final String firstname;
   final String lastname;
-  final String email;
-  final String phone;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String? email;
+  final String? phone;
+  final String? avatarUrl;
+  final String createdAt;
+  final String updatedAt;
 
-  Profile({
+  CustomerProfile({
     required this.id,
     required this.firstname,
     required this.lastname,
     required this.email,
     required this.phone,
+    required this.avatarUrl,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -24,15 +26,16 @@ class Profile {
     return name.isEmpty ? '-' : name;
   }
 
-  factory Profile.fromJson(Map<String, dynamic> json) {
-    return Profile(
+  factory CustomerProfile.fromJson(Map<String, dynamic> json) {
+    return CustomerProfile(
       id: json['id'] ?? 0,
       firstname: json['firstname'] ?? '',
       lastname: json['lastname'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      avatarUrl: json['avatar_url'] ?? '',
+      createdAt: json["created_at"] ?? "",
+      updatedAt: json["updated_at"] ?? "",
     );
   }
 }

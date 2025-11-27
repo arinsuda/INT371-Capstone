@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/footer/footerBar.dart';
 import '../state/bottomBarState.dart';
@@ -15,13 +14,19 @@ import '../state/auth_state.dart';
 
 import '../repositories/profile_repository.dart';
 import '../state/profile_state.dart';
+import '../repositories/province_repository.dart';
+import '../state/province_state.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final apiClient = ApiClient(AppConfig.baseUrl);
+  final apiClient = ApiClient(AppConfig.baseUrl, navigatorKey: navigatorKey);
+
   final authRepo = AuthRepository(apiClient);
   final profileRepo = ProfileRepository(apiClient);
+  final provinceRepo = ProvinceRepository(apiClient);
 
   runApp(
     MultiProvider(
@@ -30,13 +35,20 @@ void main() async {
 
         Provider<AuthRepository>.value(value: authRepo),
         Provider<ProfileRepository>.value(value: profileRepo),
+        Provider<ProvinceRepository>.value(value: provinceRepo),
 
         ChangeNotifierProvider<AuthState>(
           create: (_) => AuthState()..loadToken(),
         ),
 
         ChangeNotifierProvider<ProfileState>(
-          create: (_) => ProfileState(profileRepo)..loadProfile(),
+          create: (ctx) =>
+              ProfileState(ctx.read<ProfileRepository>(), ctx.read<AuthState>())
+                ..loadProfile(),
+        ),
+
+        ChangeNotifierProvider<ProvinceState>(
+          create: (_) => ProvinceState(provinceRepo),
         ),
       ],
       child: const MyApp(),
@@ -51,6 +63,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Changsure App',
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
@@ -64,19 +77,27 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: Consumer<AuthState>(
-        builder: (context, auth, child) {
-          if (!auth.isLoggedIn) {
-            final authRepo = Provider.of<AuthRepository>(
-              context,
-              listen: false,
-            );
-            return LoginScreen(authRepo: authRepo);
-          }
 
-          return const FooterBarTemplate();
+      initialRoute: '/',
+      routes: {
+        '/': (context) => Consumer<AuthState>(
+          builder: (context, auth, child) {
+            if (!auth.isLoggedIn) {
+              final authRepo = Provider.of<AuthRepository>(
+                context,
+                listen: false,
+              );
+              return LoginScreen(authRepo: authRepo);
+            }
+            return const FooterBarTemplate();
+          },
+        ),
+        '/login': (context) {
+          final authRepo = Provider.of<AuthRepository>(context, listen: false);
+          return LoginScreen(authRepo: authRepo);
         },
-      ),
+        '/home': (context) => const FooterBarTemplate(),
+      },
     );
   }
 }

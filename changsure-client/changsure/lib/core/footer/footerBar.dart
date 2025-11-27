@@ -1,12 +1,14 @@
-import 'package:changsure/module/home/service/systemChoose.dart';
 import 'package:flutter/material.dart';
-import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
+
 import '../../module/home/homePage.dart';
 import '../../module/profile/technician/profilePage.dart';
 import '../../module/profile/user/profilePage.dart';
+
 import '../../state/bottomBarState.dart';
+import '../../state/auth_state.dart';
+import '../../state/profile_state.dart';
 import '../theme.dart';
 
 class FooterBarTemplate extends StatefulWidget {
@@ -19,22 +21,14 @@ class FooterBarTemplate extends StatefulWidget {
 class _FooterBarTemplateState extends State<FooterBarTemplate>
     with TickerProviderStateMixin {
   late final MotionTabBarController _motionController;
-  int _focusedIndex = -1; // เก็บว่าปุ่มไหนกำลัง focus
-
-  final List<Widget> _pages = [
-    HomePage(),
-    const Center(child: Text('ติดตามสถานะ')),
-    const Center(child: Text('แชท')),
-    // TechnicianProfile(),
-    UserProfile()
-  ];
+  int _focusedIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _motionController = MotionTabBarController(
       initialIndex: 0,
-      length: _pages.length,
+      length: 4,
       vsync: this,
     );
   }
@@ -45,7 +39,16 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
     super.dispose();
   }
 
-  // ฟังก์ชันสร้าง icon ของแต่ละ tab
+  List<Widget> _getPages(AuthState authState) {
+    final bool isTechnician = authState.role == 'technician';
+    return [
+      const HomePage(),
+      const Center(child: Text('ติดตามสถานะ')),
+      const Center(child: Text('แชท')),
+      isTechnician ? const TechnicianProfile() : const UserProfile(),
+    ];
+  }
+
   Widget _assetIcon(
     String inactivePath,
     String activePath,
@@ -55,16 +58,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
     final bool isActive = selectedIndex == tabIndex;
     final bool isFocused = _focusedIndex == tabIndex;
 
-    String path;
-    if (isFocused) {
-      path = activePath; // focus ใช้ icon แบบ active
-    } else if (isActive) {
-      path = activePath;
-    } else {
-      path = inactivePath;
-    }
+    final String path = (isFocused || isActive) ? activePath : inactivePath;
 
-    // Tabs อื่น active → วงกลมฟ้า + icon ขาว
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: isActive
@@ -101,21 +96,22 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BottomBarState>(
-      builder: (context, bottomBarState, child) {
-        final selectedIndex = bottomBarState.selectedIndex;
+    return Consumer2<BottomBarState, AuthState>(
+      builder: (context, bottomBarState, authState, child) {
+        final int selectedIndex = bottomBarState.selectedIndex;
+        final pages = _getPages(authState);
 
         return Scaffold(
           body: Stack(
             children: [
-              IndexedStack(index: selectedIndex, children: _pages),
+              IndexedStack(index: selectedIndex, children: pages),
               if (bottomBarState.currentSubPage != null)
                 bottomBarState.currentSubPage!,
             ],
           ),
           bottomNavigationBar: Container(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom + 8, // ใช้ค่าจากระบบ
+              bottom: MediaQuery.of(context).padding.bottom + 8,
             ),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -130,14 +126,14 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(4, (index) {
-                final labels = ["หน้าหลัก", "ติดตามสถานะ", "แชท", "โปรไฟล์"];
-                final inactivePaths = [
+                const labels = ["หน้าหลัก", "ติดตามสถานะ", "แชท", "โปรไฟล์"];
+                const inactivePaths = [
                   'assets/icons/home.png',
                   'assets/icons/status.png',
                   'assets/icons/chat.png',
                   'assets/icons/profile.png',
                 ];
-                final activePaths = [
+                const activePaths = [
                   'assets/icons/home_active.png',
                   'assets/icons/status_active.png',
                   'assets/icons/chat_active.png',
@@ -150,12 +146,17 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
                       _focusedIndex = index;
                     });
                   },
-                  onTapUp: (_) {
+                  onTapUp: (_) async {
                     setState(() {
                       _focusedIndex = -1;
                     });
-                    Provider.of<BottomBarState>(context, listen: false).setIndex(index);
+
+                    bottomBarState.setIndex(index);
                     _motionController.index = index;
+
+                    if (index == 3) {
+                      await context.read<ProfileState>().loadProfile();
+                    }
                   },
                   onTapCancel: () {
                     setState(() {
@@ -169,12 +170,12 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
                         inactivePaths[index],
                         activePaths[index],
                         index,
-                        Provider.of<BottomBarState>(context).selectedIndex,
+                        selectedIndex,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         labels[index],
-                        style: _tabTextStyle(index, Provider.of<BottomBarState>(context).selectedIndex),
+                        style: _tabTextStyle(index, selectedIndex),
                       ),
                     ],
                   ),
@@ -182,7 +183,6 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
               }),
             ),
           ),
-
         );
       },
     );

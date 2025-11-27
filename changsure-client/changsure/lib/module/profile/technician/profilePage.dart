@@ -12,6 +12,13 @@ import 'actionButtonSection.dart';
 import 'package:changsure/module/profile/technician/editProfile.dart';
 import 'viewProfileTab.dart';
 
+import '../../../state/auth_state.dart';
+import '../../../repositories/auth_repository.dart';
+import 'package:changsure/module/auth/login.dart';
+
+// 👇 เอา model customer profile มาใช้เป็น header adapter
+import '../../../models/customers/customer_profile.dart';
+
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
@@ -38,11 +45,23 @@ class _ProfileState extends State<TechnicianProfile> {
               return Center(child: Text("โหลดข้อมูลล้มเหลว: ${state.error}"));
             }
 
-            if (state.profile == null) {
+            if (state.technicianProfile == null) {
               return const Center(child: Text("ไม่พบข้อมูลผู้ใช้"));
             }
 
-            final profile = state.profile!;
+            final techProfile = state.technicianProfile!;
+            final t = techProfile.technician;
+
+            final headerProfile = CustomerProfile(
+              id: t.id,
+              firstname: t.firstname,
+              lastname: t.lastname,
+              email: t.email,
+              phone: t.phone,
+              avatarUrl: t.avatarUrl,
+              createdAt: t.createdAt,
+              updatedAt: t.updatedAt,
+            );
 
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 0),
@@ -50,7 +69,7 @@ class _ProfileState extends State<TechnicianProfile> {
                 Center(
                   child: Text(
                     "โปรไฟล์",
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -60,31 +79,47 @@ class _ProfileState extends State<TechnicianProfile> {
                 const SizedBox(height: 12),
 
                 ProfileSection(
-                  profile: profile,
+                  profile: headerProfile,
                   profileImageUrl: null,
                   phone: null,
                   onEdit: () {
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).setSubPage(const EditProfile());
+                    context.read<BottomBarState>().setSubPage(
+                      const EditProfile(),
+                    );
                   },
                 ),
 
-                ActionButtonSection(),
+                const ActionButtonSection(),
 
                 const ViewProfilePage(),
 
-                // recommended services
-                RecommendedServiceSection(),
+                const RecommendedServiceSection(),
 
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: PrimaryButton(
                     text: "ออกจากระบบ",
-                    onPressed: () {
-                      // TODO: ผูก logout จริงกับ AuthState ได้
+                    onPressed: () async {
+                      final auth = context.read<AuthState>();
+                      final profileState = context.read<ProfileState>();
+                      final bottomBar = context.read<BottomBarState>();
+
+                      await auth.logout();
+                      profileState.clear();
+                      bottomBar.setIndex(0);
+
+                      if (!mounted) return;
+
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) {
+                            final authRepo = context.read<AuthRepository>();
+                            return LoginScreen(authRepo: authRepo);
+                          },
+                        ),
+                        (route) => false,
+                      );
                     },
                   ),
                 ),

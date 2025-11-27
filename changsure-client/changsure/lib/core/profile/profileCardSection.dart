@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme.dart';
+
 import '../../models/customers/customer_profile.dart';
+import '../../models/technicians/technician_profile.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class ProfileSection extends StatelessWidget {
-  final Profile profile;
+  final dynamic profile;
   final VoidCallback onEdit;
-
   final String? profileImageUrl;
   final String? phone;
 
@@ -23,11 +24,46 @@ class ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fullName = profile.fullName;
-    final email = profile.email;
-    final showPhone = (phone != null && phone!.trim().isNotEmpty)
-        ? phone!
-        : "-";
+    String fullName = "-";
+    String email = "-";
+    String phoneNumber = "-";
+    String avatarUrl = "";
+
+    if (profile is CustomerProfile) {
+      final p = profile as CustomerProfile;
+
+      fullName = p.fullName;
+
+      email = (p.email ?? "").trim().isNotEmpty ? p.email! : "-";
+
+      phoneNumber = ((phone ?? p.phone ?? "").trim().isNotEmpty)
+          ? (phone ?? p.phone ?? "-")
+          : "-";
+
+      avatarUrl = (profileImageUrl?.trim().isNotEmpty == true)
+          ? profileImageUrl!
+          : (p.avatarUrl ?? "");
+    } else if (profile is TechnicianProfile) {
+      final t = (profile as TechnicianProfile).technician;
+
+      fullName = "${t.firstname ?? ''} ${t.lastname ?? ''}".trim().isNotEmpty
+          ? "${t.firstname ?? ''} ${t.lastname ?? ''}"
+          : "-";
+
+      email = (t.email ?? "").trim().isNotEmpty ? t.email! : "-";
+
+      phoneNumber = ((phone ?? t.phone ?? "").trim().isNotEmpty)
+          ? (phone ?? t.phone ?? "-")
+          : "-";
+
+      avatarUrl = (profileImageUrl?.trim().isNotEmpty == true)
+          ? profileImageUrl!
+          : (t.avatarUrl ?? "");
+    }
+
+    final ImageProvider avatarProvider = avatarUrl.isNotEmpty
+        ? NetworkImage(avatarUrl)
+        : const AssetImage("assets/image/default_profile.png");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
@@ -37,15 +73,9 @@ class ProfileSection extends StatelessWidget {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.grey.shade300,
-            backgroundImage:
-                (profileImageUrl != null && profileImageUrl!.isNotEmpty)
-                ? NetworkImage(profileImageUrl!)
-                : const AssetImage("assets/image/default_profile.png")
-                      as ImageProvider,
+            backgroundImage: avatarProvider,
           ),
-
           const SizedBox(width: 16),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,7 +88,6 @@ class ProfileSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-
                 Row(
                   children: [
                     const Icon(Icons.email, size: 14, color: Color(0xFF9B9B9B)),
@@ -73,14 +102,12 @@ class ProfileSection extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-
                     SizedBox(width: toLogicalPx(context, 16)),
-
                     const Icon(Icons.phone, size: 14, color: Color(0xFF9B9B9B)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        showPhone,
+                        phoneNumber,
                         style: const TextStyle(
                           fontSize: 10,
                           color: Color(0xFF545454),
@@ -93,7 +120,6 @@ class ProfileSection extends StatelessWidget {
               ],
             ),
           ),
-
           IconButton(
             onPressed: onEdit,
             icon: SvgPicture.asset(

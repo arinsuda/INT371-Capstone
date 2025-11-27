@@ -2,14 +2,16 @@ import 'package:changsure/core/button/primaryButton.dart';
 import 'package:changsure/core/profile/servicesSection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:changsure/core/profile/profileCardSection.dart';
+import 'package:changsure/module/profile/user/editProfile.dart';
 
 import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
 import '../../../state/profile_state.dart';
-import 'package:changsure/core/profile/profileCardSection.dart';
-import 'package:changsure/module/profile/user/editProfile.dart';
-import './addressPage.dart';
-import 'historyServicePage.dart';
+
+import '../../../repositories/auth_repository.dart';
+import '../../../state/auth_state.dart';
+import '../../auth/login.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -42,11 +44,11 @@ class _ProfileState extends State<UserProfile> {
               return Center(child: Text("โหลดข้อมูลล้มเหลว: ${state.error}"));
             }
 
-            if (state.profile == null) {
+            if (state.customerProfile == null) {
               return const Center(child: Text("ไม่พบข้อมูลผู้ใช้"));
             }
 
-            final profile = state.profile!;
+            final profile = state.customerProfile!;
 
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 0),
@@ -146,7 +148,25 @@ class _ProfileState extends State<UserProfile> {
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: PrimaryButton(text: "ออกจากระบบ", onPressed: () {}),
+                  child: PrimaryButton(
+                    text: "ออกจากระบบ",
+                    onPressed: () async {
+                      final auth = context.read<AuthState>();
+                      await auth.logout();
+
+                      if (!mounted) return;
+
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) {
+                            final authRepo = context.read<AuthRepository>();
+                            return LoginScreen(authRepo: authRepo);
+                          },
+                        ),
+                        (route) => false,
+                      );
+                    },
+                  ),
                 ),
               ],
             );
