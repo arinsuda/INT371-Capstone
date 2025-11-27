@@ -1,10 +1,8 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '';
 import '../../../mockDB/historyService.dart';
 import '../../../state/bottomBarState.dart';
-import 'historyService/serviceCard.dart';
+import 'historyService/historyServiceCard.dart';
 
 class HistoryServicePage extends StatelessWidget {
   const HistoryServicePage({super.key});
@@ -23,7 +21,7 @@ class HistoryServicePage extends StatelessWidget {
 
             Column(
               children: mockHistoryServices.map((service) {
-                return ServiceCard(service: service);
+                return ServiceCard(service: service,);
               }).toList(),
             ),
           ],

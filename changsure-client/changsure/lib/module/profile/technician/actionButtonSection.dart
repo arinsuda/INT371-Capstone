@@ -22,7 +22,8 @@ class ActionButtonSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: buttons.map((button) {
+        children:
+        buttons.map((button) {
           final icon = button['icon'];
 
           Widget iconWidget;

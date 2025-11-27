@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
 import 'activitySection.dart';
 import 'technicianBadge.dart';
@@ -49,6 +50,69 @@ class ViewProfileContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center, // กึ่งกลางแนวนอน
+                children: [
+                  // ชื่อ + icon verify
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center, // ให้ Row กว้างเท่าข้อความ
+                    children: [
+                      Text(
+                        "คุณ สมชาย ใจดี",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Image.asset(
+                        'assets/icons/verify.png',
+                        width: 24,
+                        height: 24,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Email
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.email, size: 14, color: Color(0xFF9B9B9B)),
+                      SizedBox(width: 4),
+                      Text(
+                        'somchai@gmail.com',
+                        style: TextStyle(fontSize: 10, color: Color(0xFF545454)),
+                      ),
+                      SizedBox(width: 16),
+                      Icon(Icons.phone, size: 14, color: Color(0xFF9B9B9B)),
+                      SizedBox(width: 4),
+                      Text(
+                        '081-234-5678',
+                        style: TextStyle(fontSize: 10, color: Color(0xFF545454)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/icons/bag_work.svg',
+                        width: 14,
+                        height: 14,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'จำนวนงานที่รับ: 34',
+                        style: TextStyle(fontSize: 10, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: TechnicianBadge(),

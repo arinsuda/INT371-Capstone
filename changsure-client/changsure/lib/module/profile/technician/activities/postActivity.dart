@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/tertiaryButton.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/viewActivities.dart';
@@ -341,36 +342,14 @@ class _PostActivityState extends State<PostActivity> {
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
-                    child: GestureDetector(
-                      onTapDown: (_) => setState(() => _isCancelPressed = true),
-                      onTapUp: (_) {
-                        setState(() => _isCancelPressed = false);
+                    child: TertiaryButton(
+                      text: "ยกเลิก",
+                      onPressed: () {
                         Provider.of<BottomBarState>(
                           context,
                           listen: false,
                         ).setSubPage(const ViewActivities());
                       },
-                      onTapCancel: () =>
-                          setState(() => _isCancelPressed = false),
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: _isCancelPressed
-                              ? AppColors.colorStroke
-                              : AppColors.primaryBG,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.primaryBorder),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            "ยกเลิก",
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.primaryText,
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

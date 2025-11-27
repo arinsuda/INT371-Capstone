@@ -55,13 +55,17 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               AppColors.secondary,
             ]
                 : [
-              AppColors.primary.withOpacity(0.8),
-              AppColors.primary,
+              Color(0xFF003EB3).withOpacity(0.8),
+              Color(0xFF003EB3),
             ],
             stops: const [0.12, 1.0],
           ),
-          color: isDisabled ? AppColors.primaryBGHover : null,
+          color: isDisabled ? AppColors.primaryBGHover : AppColors.primaryBGHover,
           borderRadius: BorderRadius.circular(widget.borderRadius),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.5,
+          ),
         ),
         child: Stack(
           alignment: Alignment.center,
