@@ -3,17 +3,17 @@ import '../models/customers/customer_profile.dart';
 import '../models/technicians/technician_profile.dart';
 
 class ProfileRepository {
-  final ApiClient client;
+  final ApiClient api;
 
-  ProfileRepository(this.client);
+  ProfileRepository(this.api);
 
   Future<CustomerProfile> getCustomerProfile() async {
-    final res = await client.dio.get("/customers/profile");
-    return CustomerProfile.fromJson(res.data["data"]);
+    final response = await api.dio.get("/customers/profile");
+    return CustomerProfile.fromJson(response.data['data']);
   }
 
   Future<TechnicianProfile> getTechnicianProfile() async {
-    final res = await client.dio.get("/technicians/profile");
-    return TechnicianProfile.fromJson(res.data["data"]);
+    final response = await api.dio.get("/technicians/profile");
+    return TechnicianProfile.fromJson(response.data);
   }
 }

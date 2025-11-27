@@ -7,7 +7,6 @@ import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
 import '../../../state/profile_state.dart';
 import 'package:changsure/core/profile/profileCardSection.dart';
-
 import 'actionButtonSection.dart';
 import 'package:changsure/module/profile/technician/editProfile.dart';
 import 'viewProfileTab.dart';
@@ -16,20 +15,23 @@ import '../../../state/auth_state.dart';
 import '../../../repositories/auth_repository.dart';
 import 'package:changsure/module/auth/login.dart';
 
-// 👇 เอา model customer profile มาใช้เป็น header adapter
-import '../../../models/customers/customer_profile.dart';
-
-double toLogicalPx(BuildContext context, double px) =>
-    px / MediaQuery.of(context).devicePixelRatio;
-
 class TechnicianProfile extends StatefulWidget {
   const TechnicianProfile({super.key});
 
   @override
-  State<TechnicianProfile> createState() => _ProfileState();
+  State<TechnicianProfile> createState() => _TechnicianProfileState();
 }
 
-class _ProfileState extends State<TechnicianProfile> {
+class _TechnicianProfileState extends State<TechnicianProfile> {
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() {
+      context.read<ProfileState>().loadProfile();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,23 +47,12 @@ class _ProfileState extends State<TechnicianProfile> {
               return Center(child: Text("โหลดข้อมูลล้มเหลว: ${state.error}"));
             }
 
-            if (state.technicianProfile == null) {
+            final profile = state.technicianProfile;
+            if (profile == null) {
               return const Center(child: Text("ไม่พบข้อมูลผู้ใช้"));
             }
 
-            final techProfile = state.technicianProfile!;
-            final t = techProfile.technician;
-
-            final headerProfile = CustomerProfile(
-              id: t.id,
-              firstname: t.firstname,
-              lastname: t.lastname,
-              email: t.email,
-              phone: t.phone,
-              avatarUrl: t.avatarUrl,
-              createdAt: t.createdAt,
-              updatedAt: t.updatedAt,
-            );
+            final tech = profile.technician;
 
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 0),
@@ -79,9 +70,9 @@ class _ProfileState extends State<TechnicianProfile> {
                 const SizedBox(height: 12),
 
                 ProfileSection(
-                  profile: headerProfile,
-                  profileImageUrl: null,
-                  phone: null,
+                  profile: profile,
+                  profileImageUrl: tech.avatarUrl,
+                  phone: tech.phone,
                   onEdit: () {
                     context.read<BottomBarState>().setSubPage(
                       const EditProfile(),
@@ -90,9 +81,7 @@ class _ProfileState extends State<TechnicianProfile> {
                 ),
 
                 const ActionButtonSection(),
-
                 const ViewProfilePage(),
-
                 const RecommendedServiceSection(),
 
                 const SizedBox(height: 12),

@@ -1,13 +1,11 @@
 import 'technician.dart';
 import 'tech_service.dart';
 import 'tech_service_summary.dart';
-
-import '../provinces/province.dart'; 
+import '../provinces/province.dart';
 import '../badges/badge.dart';
 
 class TechnicianProfile {
   final Technician technician;
-
   final List<ProvinceResponse> provinces;
   final List<TechServiceResponse> services;
   final List<TechServiceSummary> serviceSummary;
@@ -22,19 +20,21 @@ class TechnicianProfile {
   });
 
   factory TechnicianProfile.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] ?? {};
+
     return TechnicianProfile(
-      technician: Technician.fromJson(json),
-      provinces: (json["provinces"] as List? ?? [])
-          .map((e) => ProvinceResponse.fromJson(e as Map<String, dynamic>))
+      technician: Technician.fromJson(data),
+      provinces: (data['provinces'] as List? ?? [])
+          .map((e) => ProvinceResponse.fromJson(e))
           .toList(),
-      services: (json["services"] as List? ?? [])
-          .map((e) => TechServiceResponse.fromJson(e as Map<String, dynamic>))
+      services: (data['services'] as List? ?? [])
+          .map((e) => TechServiceResponse.fromJson(e))
           .toList(),
-      serviceSummary: (json["service_summary"] as List? ?? [])
-          .map((e) => TechServiceSummary.fromJson(e as Map<String, dynamic>))
+      serviceSummary: (data['service_summary'] as List? ?? [])
+          .map((e) => TechServiceSummary.fromJson(e))
           .toList(),
-      badges: (json["badges"] as List? ?? [])
-          .map((e) => BadgeResponse.fromJson(e as Map<String, dynamic>))
+      badges: (data['badges'] as List? ?? [])
+          .map((e) => BadgeResponse.fromJson(e))
           .toList(),
     );
   }

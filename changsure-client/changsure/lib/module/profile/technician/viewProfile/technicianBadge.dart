@@ -1,31 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme.dart';
+import '../../../../models/badges/badge.dart'; // ✅ เพิ่ม import model
 
 class TechnicianBadge extends StatelessWidget {
-  const TechnicianBadge({super.key});
+  final List<BadgeResponse> badges; // ✅ รับ badges จาก API
+
+  const TechnicianBadge({super.key, required this.badges});
 
   @override
   Widget build(BuildContext context) {
-    final buttons = [
-      {
-        'label': 'Top Service Technician',
-        'icon': 'assets/icons/top_service.png',
-      },
-      {
-        'label': 'ChangSure Recommend',
-        'icon': 'assets/icons/changSure_rec.png',
-      },
-      {
-        'label': 'High-Rating Technician',
-        'icon': 'assets/icons/high_rating.png',
-      },
-      {
-        'label': 'Fast Response Technician',
-        'icon': 'assets/icons/fast_response.png',
-      },
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -34,17 +18,11 @@ class TechnicianBadge extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 0, left: 4, top: 24),
           child: Row(
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    'assets/icons/badge.svg',
-                    width: 14,
-                    height: 14,
-                    color: Colors.black,
-                  ),
-                ],
+              SvgPicture.asset(
+                'assets/icons/badge.svg',
+                width: 14,
+                height: 14,
+                color: Colors.black,
               ),
               const SizedBox(width: 6),
               const Text(
@@ -62,49 +40,79 @@ class TechnicianBadge extends StatelessWidget {
         // ---------- ป้าย Badge ----------
         Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 8),
-          child: Row(
-            children: buttons.map((button) {
-              final iconPath = button['icon'] as String;
+          child: badges.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    "ยังไม่มีป้ายสัญลักษณ์",
+                    style: TextStyle(fontSize: 13, color: Color(0xFF9B9B9B)),
+                  ),
+                )
+              : SizedBox(
+                  height: 110,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: badges.length,
+                    separatorBuilder: (context, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final badge = badges[index];
+                      final imageUrl = badge.iconUrl.isNotEmpty
+                          ? badge.iconUrl
+                          : 'assets/icons/default_badge.png';
+                      final name = badge.name;
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 70,
-                        height: 70,
-                        child: Center(
-                          child: Image.asset(
-                            iconPath,
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
                             width: 70,
                             height: 70,
-                            fit: BoxFit.contain,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey.shade100,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: imageUrl.startsWith('http')
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.error,
+                                                color: Colors.redAccent,
+                                              ),
+                                    )
+                                  : Image.asset(imageUrl, fit: BoxFit.contain),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          button['label'] as String,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primary,
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primary,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
-              );
-            }).toList(),
-          ),
         ),
       ],
     );

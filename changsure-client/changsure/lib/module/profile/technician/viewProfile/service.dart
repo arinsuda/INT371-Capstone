@@ -1,75 +1,55 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../models/technicians/tech_service.dart';
 import '../../../../core/theme.dart';
-import '../../../../mockDB/servicesCategories.dart';
 
 class ServiceTag extends StatelessWidget {
-  const ServiceTag({super.key});
+  final List<TechServiceResponse> services; // ✅ รับจาก API
+
+  const ServiceTag({super.key, required this.services});
 
   @override
   Widget build(BuildContext context) {
-    // สีตามหมวดบริการ
-    final Map<String, Map<String, Color>> colorMap = {
-      "ช่างทาสี": {
-        "text": const Color(0xFFEB2F96),
-        "background": const Color(0xFFFFF0F6),
-        "border": const Color(0xFFFFADD2),
-      },
-      "ช่างประปา": {
-        "text": const Color(0xFF36CFC9),
-        "background": const Color(0xFFE6FFFB),
-        "border": const Color(0xFF87E8DE),
-      },
-      "ช่างไฟฟ้า": {
-        "text": const Color(0xFFFAAD14),
-        "background": const Color(0xFFFFFBE6),
-        "border": const Color(0xFFFFE58F),
-      },
-      "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
-        "text": const Color(0xFF722ED1),
-        "background": const Color(0xFFF9F0FF),
-        "border": const Color(0xFFD3ADF7),
-      },
-    };
+    if (services.isEmpty) {
+      return const Text(
+        "ยังไม่มีบริการที่เปิดรับ",
+        style: TextStyle(fontSize: 13, color: Color(0xFF9B9B9B)),
+      );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "ประเภทงานที่รับบริการ",
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: services.map((s) {
+        final priceLabel = s.pricingType == 'FIXED'
+            ? "${s.priceFixed} บาท"
+            : "${s.priceMin}-${s.priceMax} บาท";
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.05),
+            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: mockServiceCategories.map((category) {
-            final colors = colorMap[category.name]!;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: colors["background"],
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: colors["border"]!,
-                  width: 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                s.serviceName,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
               ),
-              child: Text(
-                category.name,
-                style: TextStyle(
-                  color: colors["text"],
-                  fontSize: 12,
-                ),
+              Text(
+                priceLabel,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF545454)),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

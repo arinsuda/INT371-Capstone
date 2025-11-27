@@ -26,11 +26,9 @@ class ProfileState extends ChangeNotifier {
 
     try {
       if (isTechnician) {
-        // 👉 สำหรับช่าง ยิง /technicians/profile
         technicianProfile = await repo.getTechnicianProfile();
         customerProfile = null;
       } else {
-        // 👉 สำหรับลูกค้า ยิง /customers/profile
         customerProfile = await repo.getCustomerProfile();
         technicianProfile = null;
       }
