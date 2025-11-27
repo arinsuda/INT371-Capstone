@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:changsure/core/button/primaryButton.dart';
-import '../../core/theme.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/button/primaryButton.dart';
+import '../../repositories/auth_repository.dart';
+
 import 'login.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
@@ -15,9 +18,11 @@ class StartPage extends StatefulWidget {
 
 class _StartPageState extends State<StartPage> {
   void _onStartPressed() {
+    final authRepo = context.read<AuthRepository>();
+
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (context) => LoginScreen(authRepo: authRepo)),
     );
   }
 

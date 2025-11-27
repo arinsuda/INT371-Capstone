@@ -31,14 +31,12 @@ void main() async {
         Provider<AuthRepository>.value(value: authRepo),
         Provider<ProfileRepository>.value(value: profileRepo),
 
-        ChangeNotifierProxyProvider<AuthRepository, AuthState>(
-          create: (_) => AuthState(),
-          update: (_, repo, authState) {
-            return authState!..loadToken();
-          },
+        ChangeNotifierProvider<AuthState>(
+          create: (_) => AuthState()..loadToken(),
         ),
-        ChangeNotifierProvider(
-          create: (ctx) => ProfileState(profileRepo)..loadProfile(),
+
+        ChangeNotifierProvider<ProfileState>(
+          create: (_) => ProfileState(profileRepo)..loadProfile(),
         ),
       ],
       child: const MyApp(),
@@ -48,12 +46,6 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  Future<bool> _checkLogin() async {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: "token");
-    return token != null && token.isNotEmpty;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +64,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-
       home: Consumer<AuthState>(
         builder: (context, auth, child) {
           if (!auth.isLoggedIn) {
