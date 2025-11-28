@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
 import '../../../state/province_state.dart';
+import '../../../state/profile_state.dart';
 
 class HomeBanner extends StatefulWidget {
   const HomeBanner({super.key});
@@ -12,17 +13,26 @@ class HomeBanner extends StatefulWidget {
 }
 
 class _HomeBannerState extends State<HomeBanner> {
-  String selectedProvince = "กรุงเทพมหานคร";
-
   @override
   void initState() {
     super.initState();
+
     Future.microtask(() {
       context.read<ProvinceState>().loadProvinces();
+      context.read<ProfileState>().loadProfile();
     });
   }
 
   void _openProvinceSelector() {
+    final profileState = context.read<ProfileState>();
+    final provinceState = context.read<ProvinceState>();
+
+    if (!profileState.isTechnician) return;
+
+    List<int> selectedIds = List.from(
+      profileState.technicianProfile?.provinces.map((p) => p.id).toList() ?? [],
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -31,70 +41,90 @@ class _HomeBannerState extends State<HomeBanner> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Consumer<ProvinceState>(
-          builder: (context, provinceState, child) {
-            if (provinceState.loading) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            if (provinceState.loading || profileState.loading) {
+              return const SizedBox(
+                height: 200,
                 child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            if (provinceState.error != null) {
-              return Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Text(
-                    "โหลดจังหวัดล้มเหลว: ${provinceState.error}",
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
               );
             }
 
             final provinces = provinceState.provinces ?? [];
 
+            final sortedProvinces = [...provinces];
+
+            sortedProvinces.sort((a, b) {
+              final aSel = selectedIds.contains(a.id);
+              final bSel = selectedIds.contains(b.id);
+
+              if (aSel && !bSel) return -1;
+              if (!aSel && bSel) return 1;
+
+              if (aSel && bSel) {
+                return a.id.compareTo(b.id);
+              }
+
+              return (a.nameTh ?? "").compareTo(b.nameTh ?? "");
+            });
+
             return SizedBox(
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: MediaQuery.of(context).size.height * 0.75,
               child: Column(
                 children: [
+                  const SizedBox(height: 14),
+                  const Text(
+                    "พื้นที่ให้บริการของคุณ",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 12),
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      "เลือกจังหวัดที่ต้องการรับบริการ",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
 
                   Expanded(
                     child: ListView.builder(
-                      itemCount: provinces.length,
+                      itemCount: sortedProvinces.length,
                       itemBuilder: (context, index) {
-                        final p = provinces[index];
-                        return ListTile(
-                          title: Text(p),
-                          onTap: () {
-                            setState(() => selectedProvince = p);
-                            Navigator.pop(context);
+                        final p = sortedProvinces[index];
+                        final bool isChecked = selectedIds.contains(p.id);
+
+                        return CheckboxListTile(
+                          title: Text(
+                            p.nameTh ?? "-",
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          value: isChecked,
+                          activeColor: AppColors.primary,
+                          onChanged: (val) {
+                            if (val == true) {
+                              selectedIds.add(p.id);
+                            } else {
+                              selectedIds.remove(p.id);
+                            }
+
+                            setModalState(() {});
                           },
                         );
                       },
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      onPressed: () async {
+                        final ok = await profileState.updateTechnicianProvinces(
+                          selectedIds,
+                        );
+
+                        if (ok && mounted) Navigator.pop(context);
+                      },
+                      child: const Text(
+                        "บันทึกพื้นที่ให้บริการ",
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
                 ],
@@ -108,10 +138,20 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final profileState = context.watch<ProfileState>();
+
+    String displayProvince = "เลือกพื้นที่บริการ";
+
+    if (profileState.isTechnician &&
+        profileState.technicianProfile?.provinces.isNotEmpty == true) {
+      displayProvince =
+          profileState.technicianProfile!.provinces.first.nameTh ??
+          displayProvince;
+    }
+
     return SizedBox(
       height: 320,
       child: Stack(
-        clipBehavior: Clip.none,
         children: [
           Container(
             height: 270,
@@ -122,6 +162,7 @@ class _HomeBannerState extends State<HomeBanner> {
               ),
             ),
           ),
+
           Container(
             height: 270,
             decoration: BoxDecoration(
@@ -142,54 +183,45 @@ class _HomeBannerState extends State<HomeBanner> {
             top: 50,
             left: 16,
             right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: _openProvinceSelector,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 5),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Color(0xFF3071C7),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          selectedProvince,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF3071C7),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Color(0xFF3071C7),
-                          size: 16,
-                        ),
-                      ],
-                    ),
-                  ),
+            child: GestureDetector(
+              onTap: _openProvinceSelector,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  child: const Icon(Icons.notifications, color: Colors.white),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 5),
+                  ],
                 ),
-              ],
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 18,
+                      color: Color(0xFF3071C7),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        displayProvince,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF3071C7),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Color(0xFF3071C7),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
 

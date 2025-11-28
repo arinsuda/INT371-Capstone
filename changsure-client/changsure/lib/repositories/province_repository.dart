@@ -1,11 +1,12 @@
 import '../api/api_client.dart';
 import 'package:flutter/foundation.dart';
+import '../models/provinces/province.dart';
 
 class ProvinceRepository {
   final ApiClient client;
   ProvinceRepository(this.client);
 
-  Future<List<String>> getProvinces() async {
+  Future<List<ProvinceResponse>> getProvinces() async {
     final res = await client.dio.get("/provinces");
 
     debugPrint("GET /provinces -> status=${res.statusCode}");
@@ -25,11 +26,11 @@ class ProvinceRepository {
       }
 
       if (body["data"] is List) {
-        rawList = body["data"] as List;
+        rawList = body["data"];
       } else if (body["provinces"] is List) {
-        rawList = body["provinces"] as List;
+        rawList = body["provinces"];
       } else {
-        throw Exception("Unexpected provinces format");
+        throw Exception("Unexpected 'provinces' response structure");
       }
     } else if (body is List) {
       rawList = body;
@@ -37,20 +38,10 @@ class ProvinceRepository {
       throw Exception("Unexpected provinces response type");
     }
 
-    final names = rawList
-        .map((e) {
-          if (e is String) {
-            return e;
-          } else if (e is Map<String, dynamic>) {
-            return (e["name_th"] ?? e["nameTH"] ?? e["name"] ?? "").toString();
-          } else {
-            return e.toString();
-          }
-        })
-        .where((name) => name.isNotEmpty)
+    final provinces = rawList
+        .map((e) => ProvinceResponse.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    names.sort();
-    return names;
+    return provinces;
   }
 }

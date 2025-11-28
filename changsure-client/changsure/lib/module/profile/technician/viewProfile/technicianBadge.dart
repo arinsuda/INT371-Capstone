@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme.dart';
-import '../../../../models/badges/badge.dart'; // ✅ เพิ่ม import model
+import '../../../../models/badges/badge.dart';
+
+const String minioBaseUrl =
+    "http://cp25ssa1.sit.kmutt.ac.th:9011/changsure-dev";
 
 class TechnicianBadge extends StatelessWidget {
-  final List<BadgeResponse> badges; // ✅ รับ badges จาก API
+  final List<BadgeResponse> badges;
 
   const TechnicianBadge({super.key, required this.badges});
 
@@ -13,7 +16,6 @@ class TechnicianBadge extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ---------- หัวข้อ Section ----------
         Padding(
           padding: const EdgeInsets.only(bottom: 0, left: 4, top: 24),
           child: Row(
@@ -37,7 +39,6 @@ class TechnicianBadge extends StatelessWidget {
           ),
         ),
 
-        // ---------- ป้าย Badge ----------
         Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 8),
           child: badges.isEmpty
@@ -56,10 +57,12 @@ class TechnicianBadge extends StatelessWidget {
                     separatorBuilder: (context, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final badge = badges[index];
+
                       final imageUrl = badge.iconUrl.isNotEmpty
-                          ? badge.iconUrl
-                          : 'assets/icons/default_badge.png';
-                      final name = badge.name;
+                          ? "$minioBaseUrl/${badge.iconUrl}"
+                          : "assets/icons/default_badge.png";
+
+                      final isSvg = imageUrl.toLowerCase().endsWith(".svg");
 
                       return Column(
                         mainAxisSize: MainAxisSize.min,
@@ -79,17 +82,46 @@ class TechnicianBadge extends StatelessWidget {
                               ],
                             ),
                             child: ClipOval(
-                              child: imageUrl.startsWith('http')
-                                  ? Image.network(
-                                      imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const Icon(
-                                                Icons.error,
-                                                color: Colors.redAccent,
-                                              ),
-                                    )
+                              child: imageUrl.startsWith("http")
+                                  ? (isSvg
+                                        ? SvgPicture.network(
+                                            imageUrl,
+                                            fit: BoxFit.contain,
+                                            height: 70,
+                                            width: 70,
+                                            placeholderBuilder: (context) =>
+                                                const Center(
+                                                  child: SizedBox(
+                                                    height: 24,
+                                                    width: 24,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  ),
+                                                ),
+                                            // ถ้าโหลดไม่สำเร็จให้ fallback เป็น icon error
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  debugPrint(
+                                                    "❌ SVG load error: $error",
+                                                  );
+                                                  return const Icon(
+                                                    Icons.error,
+                                                    color: Colors.redAccent,
+                                                  );
+                                                },
+                                          )
+                                        : Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    const Icon(
+                                                      Icons.error,
+                                                      color: Colors.redAccent,
+                                                    ),
+                                          ))
                                   : Image.asset(imageUrl, fit: BoxFit.contain),
                             ),
                           ),
@@ -97,7 +129,7 @@ class TechnicianBadge extends StatelessWidget {
                           SizedBox(
                             width: 80,
                             child: Text(
-                              name,
+                              badge.name,
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,

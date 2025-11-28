@@ -69,10 +69,10 @@ class _ProfileState extends State<UserProfile> {
                   profile: profile,
                   profileImageUrl: null,
                   onEdit: () {
-                    Provider.of<BottomBarState>(
+                    Navigator.push(
                       context,
-                      listen: false,
-                    ).setSubPage(const EditProfile());
+                      MaterialPageRoute(builder: (_) => const EditProfile()),
+                    );
                   },
                 ),
 

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/button/primaryButton.dart';
 import '../../../core/theme.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/profile_state.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -14,32 +14,49 @@ class EditProfile extends StatefulWidget {
 }
 
 class _EditProfileState extends State<EditProfile> {
-  final TextEditingController nameController = TextEditingController(
-    text: 'สมศักดิ์',
-  );
-  final TextEditingController lastNameController = TextEditingController(
-    text: 'หนวดเยิ้ม',
-  );
-  final TextEditingController emailController = TextEditingController(
-    text: 'somsuk@gmail.com',
-  );
-  final TextEditingController phoneController = TextEditingController(
-    text: '099-999-9999',
-  );
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final profileState = context.read<ProfileState>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (profileState.isTechnician) {
+        final p = profileState.technicianProfile;
+
+        nameController.text = p?.firstname ?? "";
+        lastNameController.text = p?.lastname ?? "";
+        emailController.text = p?.email ?? "";
+        phoneController.text = p?.phone ?? "";
+      } else {
+        final p = profileState.customerProfile;
+
+        nameController.text = p?.firstname ?? "";
+        lastNameController.text = p?.lastname ?? "";
+        emailController.text = p?.email ?? "";
+        phoneController.text = p?.phone ?? "";
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final profileState = context.watch<ProfileState>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            // ---------- Header ----------
             Header(header: "แก้ไขโปรไฟล์"),
             const SizedBox(height: 16),
 
-            // ---------- Avatar ----------
+            // Avatar
             Center(
               child: Stack(
                 children: [
@@ -72,7 +89,7 @@ class _EditProfileState extends State<EditProfile> {
             ),
             const SizedBox(height: 24),
 
-            // ---------- Form Fields ----------
+            // Form
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
               child: Column(
@@ -88,7 +105,33 @@ class _EditProfileState extends State<EditProfile> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              child: PrimaryButton(text: "บันทึกการแก้ไข", onPressed: () {}),
+              child: PrimaryButton(
+                text: profileState.loading
+                    ? "กำลังบันทึก..."
+                    : "บันทึกการแก้ไข",
+                onPressed: profileState.loading
+                    ? null
+                    : () async {
+                        final success = await profileState.updateProfile(
+                          firstname: nameController.text,
+                          lastname: lastNameController.text,
+                          email: emailController.text,
+                          phone: phoneController.text,
+                        );
+
+                        if (success && mounted) {
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "เกิดข้อผิดพลาด: ${profileState.error}",
+                              ),
+                            ),
+                          );
+                        }
+                      },
+              ),
             ),
           ],
         ),

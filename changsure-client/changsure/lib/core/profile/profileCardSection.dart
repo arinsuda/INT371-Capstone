@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme.dart';
+import '../../models/technicians/technician_profile.dart';
 
 import '../../models/customers/customer_profile.dart';
 import '../../models/technicians/technician_profile.dart';
@@ -34,36 +35,39 @@ class ProfileSection extends StatelessWidget {
 
       fullName = p.fullName;
 
-      email = (p.email ?? "").trim().isNotEmpty ? p.email! : "-";
+      final safeEmail = p.email?.trim() ?? "";
+      email = safeEmail.isNotEmpty ? safeEmail : "-";
 
-      phoneNumber = ((phone ?? p.phone ?? "").trim().isNotEmpty)
-          ? (phone ?? p.phone ?? "-")
-          : "-";
+      final rawPhone = phone ?? p.phone ?? "";
+      final safePhone = rawPhone.trim();
+      phoneNumber = safePhone.isNotEmpty ? safePhone : "-";
 
-      avatarUrl = (profileImageUrl?.trim().isNotEmpty == true)
-          ? profileImageUrl!
-          : (p.avatarUrl ?? "");
+      final safeAvatar = (profileImageUrl?.trim() ?? "").isNotEmpty
+          ? profileImageUrl!.trim()
+          : (p.avatarUrl?.trim() ?? "");
+
+      avatarUrl = safeAvatar.isNotEmpty ? safeAvatar : "";
     } else if (profile is TechnicianProfile) {
-      final t = (profile as TechnicianProfile).technician;
+      final t = profile;
 
-      fullName = "${t.firstname ?? ''} ${t.lastname ?? ''}".trim().isNotEmpty
-          ? "${t.firstname ?? ''} ${t.lastname ?? ''}"
+      fullName = "${t.firstname} ${t.lastname}".trim().isNotEmpty
+          ? "${t.firstname} ${t.lastname}"
           : "-";
 
-      email = (t.email ?? "").trim().isNotEmpty ? t.email! : "-";
+      email = (t.email.trim().isNotEmpty) ? t.email : "-";
 
-      phoneNumber = ((phone ?? t.phone ?? "").trim().isNotEmpty)
-          ? (phone ?? t.phone ?? "-")
+      phoneNumber = ((phone ?? t.phone).trim().isNotEmpty)
+          ? (phone ?? t.phone)
           : "-";
 
       avatarUrl = (profileImageUrl?.trim().isNotEmpty == true)
           ? profileImageUrl!
-          : (t.avatarUrl ?? "");
+          : (t.avatarUrl);
     }
 
     final ImageProvider avatarProvider = avatarUrl.isNotEmpty
         ? NetworkImage(avatarUrl)
-        : const AssetImage("assets/image/default_profile.png");
+        : const AssetImage("assets/image/Technician.png");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../repositories/province_repository.dart';
+import '../models/provinces/province.dart';
 
 class ProvinceState extends ChangeNotifier {
   final ProvinceRepository repo;
 
   ProvinceState(this.repo);
 
-  List<String>? provinces;
+  List<ProvinceResponse>? provinces;
   bool loading = false;
   String? error;
 

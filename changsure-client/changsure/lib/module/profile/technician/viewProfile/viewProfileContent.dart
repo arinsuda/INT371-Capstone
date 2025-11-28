@@ -28,7 +28,7 @@ class ViewProfileContent extends StatelessWidget {
         }
 
         final techProfile = state.technicianProfile!;
-        final t = techProfile.technician;
+        final t = techProfile;
 
         final avatarUrl = (t.avatarUrl?.isNotEmpty == true)
             ? t.avatarUrl!

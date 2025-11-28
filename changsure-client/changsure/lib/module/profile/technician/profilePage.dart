@@ -52,7 +52,7 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
               return const Center(child: Text("ไม่พบข้อมูลผู้ใช้"));
             }
 
-            final tech = profile.technician;
+            final tech = profile;
 
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 0),
@@ -74,8 +74,9 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
                   profileImageUrl: tech.avatarUrl,
                   phone: tech.phone,
                   onEdit: () {
-                    context.read<BottomBarState>().setSubPage(
-                      const EditProfile(),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const EditProfile()),
                     );
                   },
                 ),
