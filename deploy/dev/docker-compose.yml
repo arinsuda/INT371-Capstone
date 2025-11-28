@@ -1,0 +1,170 @@
+services:
+  database:
+    env_file:
+      - ./.env
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: changsure-database-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Bangkok
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+    volumes:
+      - mysql_dev:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio:
+    env_file:
+      - ./.env
+    image: minio/minio:${MINIO_VERSION:-latest}
+    container_name: changsure-minio-dev
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Bangkok
+    volumes:
+      - minio_dev:/data
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # init bucket + เช็คว่า minio ใช้งานได้จริง
+  minio-init:
+    env_file:
+      - ./.env
+    image: minio/mc:latest
+    container_name: changsure-minio-init-dev
+    depends_on:
+      - minio
+    networks:
+      - changsure-network
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        sleep 2;
+      done;
+      echo 'Creating bucket if not exists...';
+      mc mb -p local/${MINIO_BUCKET:-changsure} || true;
+      mc anonymous set download local/${MINIO_BUCKET:-changsure} || true;
+      mc ls local;
+      echo 'MinIO init done.';
+      exit 0;
+      "
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    env_file:
+      - ./.env
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: changsure-redis-dev
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_dev:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ocr:
+    env_file:
+      - ./.env
+    build:
+      context: ../../ocr-service
+      dockerfile: Dockerfile
+    container_name: changsure-ocr-dev
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  core-service:
+    env_file:
+      - ./.env
+    build:
+      context: ../../changsure-core-service
+      dockerfile: Dockerfile
+    container_name: changsure-core-service-dev
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  changsure-network:
+    driver: bridge
+
+volumes:
+  mysql_dev:
+  minio_dev:
+  redis_dev:
