@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
@@ -44,6 +44,9 @@ class _AddressState extends State<Address> {
 
   // track if anything changed
   bool hasChanged = false;
+  bool allValid = false;
+
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -60,14 +63,14 @@ class _AddressState extends State<Address> {
     );
 
     // add listener เพื่อเช็คการเปลี่ยนแปลง
-    houseNumberController.addListener(_checkChanged);
-    subDistrictController.addListener(_checkChanged);
-    districtController.addListener(_checkChanged);
-    provinceController.addListener(_checkChanged);
-    postCodeController.addListener(_checkChanged);
+    houseNumberController.addListener(_checkForm);
+    subDistrictController.addListener(_checkForm);
+    districtController.addListener(_checkForm);
+    provinceController.addListener(_checkForm);
+    postCodeController.addListener(_checkForm);
   }
 
-  void _checkChanged() {
+  void _checkForm() {
     final changed =
         houseNumberController.text != widget.houseNumber ||
         subDistrictController.text != widget.subDistrict ||
@@ -75,9 +78,12 @@ class _AddressState extends State<Address> {
         provinceController.text != widget.province ||
         postCodeController.text != widget.postCode.toString();
 
-    if (changed != hasChanged) {
+    bool valid = _formKey.currentState?.validate() ?? false;
+
+    if (changed != hasChanged || valid != allValid) {
       setState(() {
         hasChanged = changed;
+        allValid = valid;
       });
     }
   }
@@ -106,94 +112,108 @@ class _AddressState extends State<Address> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-          children: [
-            Header(header: "ดูที่อยู่ของฉัน"),
-            const SizedBox(height: 16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            children: [
+              Header(header: "ดูที่อยู่ของฉัน"),
+              const SizedBox(height: 16),
 
-            // Container(
-            //   height: 250,
-            //   width: double.infinity,
-            //   decoration: BoxDecoration(
-            //     borderRadius: BorderRadius.circular(12),
-            //     border: Border.all(color: AppColors.colorStroke),
-            //   ),
-            //   child: currentPosition == null
-            //       ? const Center(child: CircularProgressIndicator())
-            //       : ClipRRect(
-            //           borderRadius: BorderRadius.circular(12),
-            //           child: FlutterMap(
-            //             mapController: mapController,
-            //             options: MapOptions(
-            //               initialCenter: currentPosition!,
-            //               initialZoom: 16,
-            //               interactionOptions: const InteractionOptions(
-            //                 flags:
-            //                     InteractiveFlag.all & ~InteractiveFlag.rotate,
-            //               ),
-            //             ),
-            //             children: [
-            //               TileLayer(
-            //                 urlTemplate:
-            //                     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            //               ),
-            //               MarkerLayer(
-            //                 markers: [
-            //                   Marker(
-            //                     point: currentPosition!,
-            //                     width: 40,
-            //                     height: 40,
-            //                     child: const Icon(
-            //                       Icons.location_pin,
-            //                       color: AppColors.primary,
-            //                       size: 40,
-            //                     ),
-            //                   ),
-            //                 ],
-            //               ),
-            //             ],
-            //           ),
-            //         ),
-            // ),
-            // const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              // ปรับ horizontal เป็น 6
-              child: Column(
-                children: [
-                  _buildTextArea(
-                    "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-                    houseNumberController,
-                  ),
-                  _buildTextField("แขวง/ตำบล", subDistrictController),
-                  _buildTextField("เขต/อำเภอ", districtController),
-                  _buildTextField("จังหวัด", provinceController),
-                  _buildTextField("รหัสไปรษณี", postCodeController),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 0,
+                ),
+                child: Column(
+                  children: [
+                    _buildTextArea(
+                      "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
+                      houseNumberController,
+                      validator: (v) {
+                        if (v == null || v.isEmpty)
+                          return "กรุณากรอกบ้านเลขที่";
+                        if (v.length > 500)
+                          return "บ้านเลขที่ต้องไม่เกิน 500 ตัวอักษร";
+                        return null;
+                      },
+                    ),
+                    _buildTextField(
+                      "แขวง/ตำบล",
+                      subDistrictController,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "กรุณากรอกแขวง/ตำบล";
+                        return null;
+                      },
+                    ),
+                    _buildTextField(
+                      "เขต/อำเภอ",
+                      districtController,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "กรุณากรอกเขต/อำเภอ";
+                        return null;
+                      },
+                    ),
+                    _buildTextField(
+                      "จังหวัด",
+                      provinceController,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "กรุณากรอกจังหวัด";
+                        return null;
+                      },
+                    ),
+                    _buildTextField(
+                      "รหัสไปรษณีย์",
+                      postCodeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(5),
+                      ],
+                      validator: (v) {
+                        if (v == null || v.isEmpty)
+                          return "กรุณากรอกรหัสไปรษณีย์";
+                        if (!RegExp(r"^[1-9][0-9]{4}$").hasMatch(v)) {
+                          return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: PrimaryButton(
-                text: "ยืนยัน",
-                onPressed: hasChanged
-                    ? () {
-                        // ทำงานตอนกด
-                      }
-                    : null, // null = disabled
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: PrimaryButton(
+                  text: "ยืนยัน",
+                  onPressed: hasChanged && allValid
+                      ? () {
+                          // ทำงานตอนกด
+                          print(
+                            "ข้อมูลถูกต้องและมีการเปลี่ยนแปลง สามารถส่งข้อมูลได้",
+                          );
+                        }
+                      : null,
+                ),
               ),
-            ),
-            const SizedBox(height: 24,)
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-Widget _buildTextField(String label, TextEditingController controller) {
+// ---------- Widgets ----------
+Widget _buildTextField(
+  String label,
+  TextEditingController controller, {
+  String? Function(String?)? validator,
+  TextInputType? keyboardType,
+  List<TextInputFormatter>? inputFormatters,
+}) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 16),
     child: Column(
@@ -208,16 +228,31 @@ Widget _buildTextField(String label, TextEditingController controller) {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(
+        TextFormField(
           controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 10,
             ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.colorStroke),
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: AppColors.colorStroke),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppColors.colorError,
+                width: 1,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -226,6 +261,17 @@ Widget _buildTextField(String label, TextEditingController controller) {
                 width: 2,
               ),
             ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppColors.colorError,
+                width: 1.5,
+              ),
+            ),
+            errorStyle: const TextStyle(
+              color: AppColors.colorError,
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -233,7 +279,11 @@ Widget _buildTextField(String label, TextEditingController controller) {
   );
 }
 
-Widget _buildTextArea(String label, TextEditingController controller) {
+Widget _buildTextArea(
+  String label,
+  TextEditingController controller, {
+  String? Function(String?)? validator,
+}) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 16),
     child: Column(
@@ -248,10 +298,13 @@ Widget _buildTextArea(String label, TextEditingController controller) {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(
+        TextFormField(
           controller: controller,
-          maxLines: 5, // หรือใช้ null ถ้าอยากให้ขยายอัตโนมัติ
+          validator: validator,
+          maxLength: 500,
+          maxLines: 5,
           textAlignVertical: TextAlignVertical.top,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
             hintText: 'เขียนรายละเอียดเกี่ยวกับตัวคุณ...',
             hintStyle: const TextStyle(color: Color(0xFFAAAAAA)),
