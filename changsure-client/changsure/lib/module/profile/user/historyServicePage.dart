@@ -16,7 +16,7 @@ class HistoryServicePage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
-            Header(header: "ประวัติการเับบริการ"),
+            Header(header: "ประวัติการรับบริการ"),
             const SizedBox(height: 16),
 
             Column(
