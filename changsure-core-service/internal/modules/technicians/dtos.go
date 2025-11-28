@@ -60,9 +60,15 @@ type AddTechServiceReq struct {
 	PriceMax    *float64 `json:"price_max,omitempty"`
 }
 
-type TechServiceSummary struct {
+type TechServiceSummaryItem struct {
 	ServiceID   uint   `json:"service_id"`
 	ServiceName string `json:"service_name"`
+}
+
+type TechServiceSummary struct {
+	ServiceCategoryID   uint                     `json:"service_category_id"`
+	ServiceCategoryName string                   `json:"service_category_name"`
+	Services            []TechServiceSummaryItem `json:"services"`
 }
 
 type RemoveTechServiceReq struct {

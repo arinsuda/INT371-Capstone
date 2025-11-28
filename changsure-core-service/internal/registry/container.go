@@ -15,7 +15,7 @@ import (
 	"changsure-core-service/internal/modules/provinces"
 	"changsure-core-service/internal/modules/service_categories"
 	"changsure-core-service/internal/modules/services"
-	"changsure-core-service/internal/modules/technician_addresses"
+	"changsure-core-service/internal/modules/technician_service_area"
 	"changsure-core-service/internal/modules/technician_badges"
 	"changsure-core-service/internal/modules/technician_services"
 	techworks "changsure-core-service/internal/modules/technician_works"

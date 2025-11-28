@@ -7,7 +7,7 @@ import (
 
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/provinces"
-	addr "changsure-core-service/internal/modules/technician_addresses"
+	addr "changsure-core-service/internal/modules/technician_service_area"
 	tsvc "changsure-core-service/internal/modules/technician_services"
 
 	"gorm.io/gorm"
@@ -146,17 +146,43 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	summaryMap := make(map[uint]string)
-	for _, s := range servicesRes {
-		summaryMap[s.ServiceID] = s.ServiceName
+	summaryGroups := make(map[uint]*TechServiceSummary)
+
+	for _, ts := range tech.Services {
+		svc := ts.Service
+		if svc.ID == 0 {
+			continue
+		}
+
+		catID := svc.CategoryID
+
+		var catName string
+		if svc.Category != nil {
+			catName = svc.Category.CatName
+		} else {
+			catName = "Unknown"
+		}
+
+		if summaryGroups[catID] == nil {
+			summaryGroups[catID] = &TechServiceSummary{
+				ServiceCategoryID:   catID,
+				ServiceCategoryName: catName,
+				Services:            []TechServiceSummaryItem{},
+			}
+		}
+
+		summaryGroups[catID].Services = append(
+			summaryGroups[catID].Services,
+			TechServiceSummaryItem{
+				ServiceID:   svc.ID,
+				ServiceName: svc.SerName,
+			},
+		)
 	}
 
-	serviceSummary := make([]TechServiceSummary, 0, len(summaryMap))
-	for id, name := range summaryMap {
-		serviceSummary = append(serviceSummary, TechServiceSummary{
-			ServiceID:   id,
-			ServiceName: name,
-		})
+	serviceSummary := make([]TechServiceSummary, 0, len(summaryGroups))
+	for _, v := range summaryGroups {
+		serviceSummary = append(serviceSummary, *v)
 	}
 
 	res := &TechnicianProfileRes{
