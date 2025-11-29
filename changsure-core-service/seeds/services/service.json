@@ -507,8 +507,8 @@
     ],
     "working_duration": ["ระยะเวลาในการทำงาน: 1–2 ชั่วโมง"],
     "image_urls": [
-      "services/electricity/install_circuit_breaker /install_circuit_breaker_1.png",
-      "services/electricity/install_circuit_breaker /install_circuit_breaker_2.png"
+      "services/electricity/install_circuit_breaker/install_circuit_breaker_1.png",
+      "services/electricity/install_circuit_breaker/install_circuit_breaker_2.png"
     ]
   },
   {
