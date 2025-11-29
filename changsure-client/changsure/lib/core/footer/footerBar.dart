@@ -5,6 +5,7 @@ import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
 import '../../module/home/homePage.dart';
 import '../../module/profile/technician/profilePage.dart';
+import '../../module/profile/user/profilePage.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
 
@@ -24,8 +25,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
     HomePage(),
     const Center(child: Text('ติดตามสถานะ')),
     const Center(child: Text('แชท')),
-    TechnicianProfile(),
-    //UserProfile()
+    // TechnicianProfile(),
+    UserProfile()
   ];
 
   @override
