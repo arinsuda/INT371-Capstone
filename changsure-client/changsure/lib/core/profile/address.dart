@@ -14,9 +14,9 @@ import '../theme.dart';
 class _PostCodeFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final text = newValue.text;
 
     if (text.isEmpty) {
@@ -82,12 +82,6 @@ class _AddressState extends State<Address> {
       text: widget.postCode.toString(),
     );
 
-    // add listener เพื่อเช็คการเปลี่ยนแปลง
-    houseNumberController.addListener(_checkForm);
-    subDistrictController.addListener(_checkForm);
-    districtController.addListener(_checkForm);
-    provinceController.addListener(_checkForm);
-    postCodeController.addListener(_checkForm);
   }
 
   void _checkForm() {
@@ -125,6 +119,80 @@ class _AddressState extends State<Address> {
     provinceController.dispose();
     postCodeController.dispose();
     super.dispose();
+  }
+
+  // ---------- Widgets ----------
+  Widget _buildTextField(
+      String label,
+      TextEditingController controller, {
+        String? Function(String?)? validator,
+        TextInputType? keyboardType,
+        List<TextInputFormatter>? inputFormatters,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: AppColors.colorTertiaryText,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: controller,
+            validator: validator,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            onChanged: (_) => _checkForm(),
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.colorError,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.primaryBorder,
+                  width: 2,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.colorError,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                color: AppColors.colorError,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -189,7 +257,7 @@ class _AddressState extends State<Address> {
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(5),
-                        _PostCodeFormatter()
+                        _PostCodeFormatter(),
                       ],
                       validator: (v) {
                         if (v == null || v.isEmpty)
@@ -208,14 +276,7 @@ class _AddressState extends State<Address> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: PrimaryButton(
                   text: "ยืนยัน",
-                  onPressed: hasChanged && allValid
-                      ? () {
-                          // ทำงานตอนกด
-                          print(
-                            "ข้อมูลถูกต้องและมีการเปลี่ยนแปลง สามารถส่งข้อมูลได้",
-                          );
-                        }
-                      : null,
+                  onPressed: hasChanged && allValid ? () {} : null,
                 ),
               ),
               const SizedBox(height: 24),
@@ -227,78 +288,7 @@ class _AddressState extends State<Address> {
   }
 }
 
-// ---------- Widgets ----------
-Widget _buildTextField(
-  String label,
-  TextEditingController controller, {
-  String? Function(String?)? validator,
-  TextInputType? keyboardType,
-  List<TextInputFormatter>? inputFormatters,
-}) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.colorTertiaryText,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          validator: validator,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.colorStroke),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.colorStroke),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                color: AppColors.colorError,
-                width: 1,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                color: AppColors.primaryBorder,
-                width: 2,
-              ),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                color: AppColors.colorError,
-                width: 1.5,
-              ),
-            ),
-            errorStyle: const TextStyle(
-              color: AppColors.colorError,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+
 
 Widget _buildTextArea(
   String label,
