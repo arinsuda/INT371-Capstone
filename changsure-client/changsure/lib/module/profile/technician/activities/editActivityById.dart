@@ -13,7 +13,7 @@ import '../../../../mockDB/activities.dart';
 import '../../../../state/bottomBarState.dart';
 
 class EditActivityById extends StatefulWidget {
-  final int id; // รับไอดีมาด้วย
+  final int id;
 
   const EditActivityById({super.key, required this.id});
 
@@ -26,13 +26,13 @@ class _EditActivityState extends State<EditActivityById> {
   final TextEditingController descriptionController = TextEditingController();
   final ImagePicker picker = ImagePicker();
 
-  // รูป default จาก activity
   List<String> assetImages = [];
-
-  // รูปใหม่จาก gallery
   List<File> pickedImages = [];
 
-  // สีตามหมวด
+  // ตัวแปร error
+  String? descriptionError;
+  String? imageError;
+
   final Map<String, Map<String, Color>> colorMap = {
     "ช่างทาสี": {
       "text": Color(0xFFEB2F96),
@@ -56,7 +56,6 @@ class _EditActivityState extends State<EditActivityById> {
     },
   };
 
-  // Original data สำหรับเช็คว่ามีการแก้ไขหรือไม่
   String? originalCategory;
   String? originalDescription;
   List<String> originalImages = [];
@@ -66,6 +65,28 @@ class _EditActivityState extends State<EditActivityById> {
         descriptionController.text != (originalDescription ?? '') ||
         pickedImages.isNotEmpty ||
         assetImages.length != originalImages.length;
+  }
+  
+  bool get hasError {
+    return descriptionError != null || imageError != null;
+  }
+
+  void _validateFields() {
+    setState(() {
+      // Validate description
+      if (descriptionController.text.trim().isEmpty) {
+        descriptionError = "กรุณากรอกข้อมูลให้ครบถ้วน";
+      } else {
+        descriptionError = null;
+      }
+
+      // Validate images
+      if (assetImages.isEmpty && pickedImages.isEmpty) {
+        imageError = "กรุณาเพิ่มรูปภาพ";
+      } else {
+        imageError = null;
+      }
+    });
   }
 
   @override
@@ -82,7 +103,7 @@ class _EditActivityState extends State<EditActivityById> {
     originalImages = List<String>.from(activity.images);
 
     descriptionController.addListener(() {
-      setState(() {}); // เพื่อให้ isChanged ประเมินใหม่
+      _validateFields();
     });
   }
 
@@ -97,6 +118,7 @@ class _EditActivityState extends State<EditActivityById> {
     if (image != null) {
       setState(() {
         pickedImages.add(File(image.path));
+        _validateFields();
       });
     }
   }
@@ -182,7 +204,6 @@ class _EditActivityState extends State<EditActivityById> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            // ---------- Header ----------
             Header(
               header: "แก้ไขผลงาน",
               onPressed: () {
@@ -195,7 +216,6 @@ class _EditActivityState extends State<EditActivityById> {
 
             const SizedBox(height: 16),
 
-            // ---------- Profile Section ----------
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
               child: Row(
@@ -233,22 +253,43 @@ class _EditActivityState extends State<EditActivityById> {
             // ---------------- TEXTAREA ----------------
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-              child: Container(
-                height: 200,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.colorStroke),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TextField(
-                  controller: descriptionController,
-                  maxLines: null,
-                  expands: true,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: "กรอกคำอธิบายผลงาน...",
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 200,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: descriptionError != null
+                            ? AppColors.colorError
+                            : AppColors.colorStroke,
+                        width: descriptionError != null ? 1.5 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextField(
+                      controller: descriptionController,
+                      maxLines: null,
+                      expands: true,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "กรอกคำอธิบายผลงาน...",
+                      ),
+                    ),
                   ),
-                ),
+                  if (descriptionError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        descriptionError!,
+                        style: const TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
@@ -257,117 +298,140 @@ class _EditActivityState extends State<EditActivityById> {
             // ---------------- IMAGE UPLOAD ----------------
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // รูปจาก activity (asset)
-                  ...assetImages.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final path = entry.value;
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            path,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                assetImages.removeAt(index);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 14,
-                                color: Colors.white,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...assetImages.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final path = entry.value;
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.asset(
+                                path,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                  // รูปจาก gallery
-                  ...pickedImages.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final img = entry.value;
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            img,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                pickedImages.removeAt(index);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 14,
-                                color: Colors.white,
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    assetImages.removeAt(index);
+                                    _validateFields();
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ),
+                          ],
+                        );
+                      }),
+                      // รูปจาก gallery
+                      ...pickedImages.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final img = entry.value;
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                img,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    pickedImages.removeAt(index);
+                                    _validateFields();
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                      // ปุ่มเพิ่มรูป
+                      GestureDetector(
+                        onTap: pickImage,
+                        child: Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: imageError != null
+                                  ? AppColors.colorError
+                                  : AppColors.colorStroke,
+                              width: imageError != null ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add,
+                            color: imageError != null
+                                ? AppColors.colorError
+                                : AppColors.primaryBorder,
+                            size: 30,
                           ),
                         ),
-                      ],
-                    );
-                  }),
-                  // ปุ่มเพิ่มรูป
-                  GestureDetector(
-                    onTap: pickImage,
-                    child: Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.colorStroke),
                       ),
-                      child: const Icon(
-                        Icons.add,
-                        color: AppColors.primaryBorder,
-                        size: 30,
+                    ],
+                  ),
+                  if (imageError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        imageError!,
+                        style: const TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-              child:
-              Row(
+              child: Row(
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
@@ -386,15 +450,14 @@ class _EditActivityState extends State<EditActivityById> {
                   Expanded(
                     child: PrimaryButton(
                       text: "บันทึก",
-                      onPressed: isChanged
+                      onPressed: (isChanged && !hasError)
                           ? () {
-                              // ทำการบันทึก
-                              Provider.of<BottomBarState>(
-                                context,
-                                listen: false,
-                              ).setSubPage(ViewActivityById(id: widget.id));
-                            }
-                          : null, // disabled ถ้าไม่มีการแก้ไข
+                        Provider.of<BottomBarState>(
+                          context,
+                          listen: false,
+                        ).setSubPage(ViewActivityById(id: widget.id));
+                      }
+                          : null,
                     ),
                   ),
                 ],
