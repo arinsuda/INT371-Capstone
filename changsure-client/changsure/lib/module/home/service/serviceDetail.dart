@@ -288,15 +288,15 @@ class ServiceDetail extends StatelessWidget {
           right: 16,
           left: 16,
           top: 24,
-          bottom: MediaQuery.of(context).padding.bottom + 24, // ใช้ค่าจากระบบ
+          bottom: MediaQuery.of(context).padding.bottom + 24,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1), // shadow เบา
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 5,
-              offset: const Offset(0, -2), // ขึ้นด้านบนเล็กน้อย
+              offset: const Offset(0, -2),
             ),
           ],
         ),
@@ -306,21 +306,21 @@ class ServiceDetail extends StatelessWidget {
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
-              // ให้ด้านหลังเป็นสีดำ opacity
               isScrollControlled: true,
               builder: (context) {
                 return GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
-                    color: Colors.black.withOpacity(0.5), // background ด้านหลัง
+                    color: Colors.black.withOpacity(0.5),
                     child: GestureDetector(
-                      onTap: () {}, // กันไม่ให้ tap ด้านใน dismiss
+                      onTap: () {},
                       child: DraggableScrollableSheet(
-                        initialChildSize: 0.53, // ความสูงเริ่มต้นของ modal
+                        initialChildSize: 0.53,
                         maxChildSize: 0.53,
                         minChildSize: 0.3,
                         builder: (context, scrollController) {
-                          int selectedIndex = -1; // สถานะเลือก
+                          int selectedIndex =
+                              -1; // เริ่มต้นเป็น -1 (ไม่ได้เลือก)
 
                           return StatefulBuilder(
                             builder: (context, setState) {
@@ -427,11 +427,9 @@ class ServiceDetail extends StatelessWidget {
                                                       )) {
                                                         return Color(
                                                           0xFF0F53BA,
-                                                        ); // สีเมื่อเลือกแล้ว
+                                                        );
                                                       }
-                                                      return Color(
-                                                        0xFFD6D6D6,
-                                                      ); // สีเมื่อยังไม่ได้เลือก
+                                                      return Color(0xFFD6D6D6);
                                                     }),
                                                 onChanged: (val) {
                                                   setState(() {
@@ -461,42 +459,44 @@ class ServiceDetail extends StatelessWidget {
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        // ปุ่มบันทึก
+                                        // ปุ่มยืนยัน
                                         Expanded(
                                           child: PrimaryButton(
                                             text: "ยืนยัน",
-                                            onPressed: () {
-                                              if (selectedIndex == -1)
-                                                return; // ยังไม่ได้เลือก อาจแจ้งเตือนก็ได้
-                                              Navigator.pop(
-                                                context,
-                                              ); // ปิด modal ก่อน
-                                              if (selectedIndex == 0) {
-                                                // ระบบเลือกช่างให้อัตโนมัติ
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        SystemChoose(
-                                                          serviceName:
-                                                              data.name,  category: 'ทาสี'
+                                            // disable ถ้ายังไม่ได้เลือก
+                                            onPressed: selectedIndex != -1
+                                                ? () {
+                                                    Navigator.pop(context);
+                                                    if (selectedIndex == 0) {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              SystemChoose(
+                                                                serviceName:
+                                                                    data.name,
+                                                                category:
+                                                                    'ทาสี',
+                                                              ),
                                                         ),
-                                                  ),
-                                                );
-                                              } else if (selectedIndex == 1) {
-                                                // เลือกช่างด้วยตนเอง
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        CustomerChoose(
-                                                          serviceName:
-                                                              data.name, category: 'ทาสี',
+                                                      );
+                                                    } else if (selectedIndex ==
+                                                        1) {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              CustomerChoose(
+                                                                serviceName:
+                                                                    data.name,
+                                                                category:
+                                                                    'ทาสี',
+                                                              ),
                                                         ),
-                                                  ),
-                                                );
-                                              }
-                                            },
+                                                      );
+                                                    }
+                                                  }
+                                                : null,
                                             padding: EdgeInsets.symmetric(
                                               vertical: 8,
                                             ),
