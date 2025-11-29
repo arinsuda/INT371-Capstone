@@ -1,14 +1,14 @@
 import 'dart:io';
-import 'package:changsure/core/button/primaryButton.dart';
-import 'package:changsure/core/button/tertiaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/module/profile/technician/viewActivities.dart';
+import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../state/bottomBarState.dart';
+import '../../../../state/bottom_bar_state.dart';
 
 class PostActivity extends StatefulWidget {
   const PostActivity({super.key});

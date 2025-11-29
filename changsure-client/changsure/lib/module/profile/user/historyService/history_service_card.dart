@@ -1,7 +1,7 @@
-import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme.dart';
-import '../../../../mockDB/historyService.dart'; // ไฟล์ที่คุณเก็บ model ไว้
+import '../../../../mockDB/history_service.dart'; // ไฟล์ที่คุณเก็บ model ไว้
 
 class ServiceCard extends StatelessWidget {
   final HistoryService service;

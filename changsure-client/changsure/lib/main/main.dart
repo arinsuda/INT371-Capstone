@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:provider/provider.dart';
-import '../core/footer/footerBar.dart';
-import '../state/bottomBarState.dart';
+import '../core/footer/footer_bar.dart';
+import '../state/bottom_bar_state.dart';
 
 void main() {
   runApp(

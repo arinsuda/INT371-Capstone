@@ -2,9 +2,9 @@ import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-import '../../../core/button/primaryButton.dart';
+import '../../../core/button/primary_button.dart';
 import '../../../core/theme.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 
 class _PhoneNumberFormatter extends TextInputFormatter {
   @override

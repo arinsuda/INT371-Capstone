@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../module/profile/technician/activities/viewActivityById.dart';
-import '../../state/bottomBarState.dart';
+import '../../module/profile/technician/activities/view_activity_by_id.dart';
+import '../../state/bottom_bar_state.dart';
 import '../theme.dart';
 
 class TechnicianCard extends StatelessWidget {

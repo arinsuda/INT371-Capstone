@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 
-import '../../state/bottomBarState.dart';
+import '../../state/bottom_bar_state.dart';
 import '../theme.dart';
 
 class _PostCodeFormatter extends TextInputFormatter {

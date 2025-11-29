@@ -1,24 +1,24 @@
 import 'package:changsure/core/header.dart';
-import 'package:changsure/module/profile/technician/viewProfileTab.dart';
+import 'package:changsure/module/profile/technician/view_profile_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/button/primaryButton.dart';
-import '../../../core/button/secondaryButton.dart';
+import '../../../core/button/primary_button.dart';
+import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/servicesCategories.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../mockDB/services_categories.dart';
+import '../../../state/bottom_bar_state.dart';
 import '../../profile/technician/viewProfile/service.dart';
 
 import 'dart:math';
 import 'package:changsure/core/header.dart';
-import 'package:changsure/module/profile/technician/viewProfileTab.dart';
+import 'package:changsure/module/profile/technician/view_profile_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/button/primaryButton.dart';
-import '../../../core/button/secondaryButton.dart';
+import '../../../core/button/primary_button.dart';
+import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/technician.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 
 class SystemChoose extends StatelessWidget {
   final String serviceName;

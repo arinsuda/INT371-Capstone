@@ -1,10 +1,10 @@
 import 'package:changsure/core/header.dart';
-import 'package:changsure/module/profile/technician/viewProfile/reviewContent.dart';
+import 'package:changsure/module/profile/technician/viewProfile/review_content.dart';
 import 'package:flutter/material.dart';
-import './viewProfile/viewProfileContent.dart';
-import './viewProfile/reviewContent.dart';
+import './viewProfile/view_profile_content.dart';
+import './viewProfile/review_content.dart';
 import 'package:provider/provider.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 import '../../../core/theme.dart';
 
 class ViewProfilePage extends StatelessWidget {

@@ -3,11 +3,11 @@ import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/button/tertiaryButton.dart';
+import '../../../../core/button/tertiary_button.dart';
 import '../../../../mockDB/activities.dart';
-import '../../../../state/bottomBarState.dart';
-import '../viewActivities.dart';
-import 'editActivityById.dart';
+import '../../../../state/bottom_bar_state.dart';
+import '../view_activities.dart';
+import 'edit_activity_by_id.dart';
 
 class ViewActivityById extends StatelessWidget {
   final int id;

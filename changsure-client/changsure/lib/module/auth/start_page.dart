@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import '../../core/theme.dart';
 import 'login.dart';
 

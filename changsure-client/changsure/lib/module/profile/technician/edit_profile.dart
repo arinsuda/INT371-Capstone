@@ -1,11 +1,11 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
-import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:provider/provider.dart';
 import '../../../mockDB/province.dart';
-import '../../../mockDB/servicesCategories.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../mockDB/services_categories.dart';
+import '../../../state/bottom_bar_state.dart';
 import 'package:flutter/services.dart';
 
 class _PhoneNumberFormatter extends TextInputFormatter {
