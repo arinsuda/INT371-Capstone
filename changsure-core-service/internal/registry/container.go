@@ -8,6 +8,7 @@ import (
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
 	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
+	"changsure-core-service/internal/modules/customer_technicians"
 	"changsure-core-service/internal/modules/customers"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
@@ -43,6 +44,10 @@ type Container struct {
 	CustomerAddressRepo    customeraddresses.Repository
 	CustomerAddressService customeraddresses.Service
 	CustomerAddressHandler *customeraddresses.Handler
+
+	CustomerTechnicianRepo    customer_technicians.Repository
+	CustomerTechnicianService customer_technicians.Service
+	CustomerTechnicianHandler *customer_technicians.Handler
 
 	ProvinceRepo    provinces.Repository
 	ProvinceService provinces.Service
@@ -116,6 +121,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
 	c.initTechnicianAddressModule()
+	c.initCustomerTechnicianModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -178,6 +184,19 @@ func (c *Container) initCustomerAddressModule() {
 		c.CustomerRepo,
 	)
 	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
+}
+
+func (c *Container) initCustomerTechnicianModule() {
+	c.CustomerTechnicianRepo = customer_technicians.NewRepository(c.DB)
+	c.CustomerTechnicianService = customer_technicians.NewService(
+		c.CustomerTechnicianRepo,
+		c.TechnicianRepo,            
+		c.TechnicianServiceRepo,     
+		c.TechnicianServiceAreaRepo,
+	)
+	c.CustomerTechnicianHandler = customer_technicians.NewHandler(
+		c.CustomerTechnicianService,
+	)
 }
 
 func (c *Container) initTechnicianModule() {

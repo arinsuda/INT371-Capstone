@@ -52,6 +52,7 @@ func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Co
 	ocrroutes.RegisterOCRRoutes(authenticated, container.OCRHandler)
 
 	customer := authenticated.Group("/customers", middleware.CustomerOnly())
+	container.CustomerTechnicianHandler.RegisterRoutes(customer)
 	container.CustomerHandler.RegisterRoutes(customer)
 	container.CustomerAddressHandler.RegisterRoutes(customer)
 
