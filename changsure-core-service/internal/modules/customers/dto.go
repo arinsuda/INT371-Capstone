@@ -1,8 +1,6 @@
 package customers
 
 import (
-	"context"
-
 	"errors"
 	"regexp"
 	"strings"
@@ -102,22 +100,8 @@ type ProvinceResponse struct {
 func ToCustomerResponse(c *Customer) *CustomerResponse {
 	var avatar string
 
-	if c.AvatarURL != nil && *c.AvatarURL != "" {
-		if storage.GlobalMinio != nil {
-
-			avatar = storage.GlobalMinio.PublicURL(*c.AvatarURL)
-
-			if avatar == "" {
-				if url, err := storage.GlobalMinio.PresignGet(
-					context.Background(),
-					*c.AvatarURL,
-					time.Hour,
-					false,
-				); err == nil {
-					avatar = url
-				}
-			}
-		}
+	if c.AvatarURL != nil && *c.AvatarURL != "" && storage.GlobalMinio != nil {
+		avatar = storage.GlobalMinio.PublicURL(*c.AvatarURL)
 	}
 
 	resp := &CustomerResponse{
@@ -131,6 +115,7 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
 
+	// ----- Address -----
 	if len(c.Addresses) > 0 {
 		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
 		for _, a := range c.Addresses {

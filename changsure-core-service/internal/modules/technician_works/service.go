@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"changsure-core-service/pkg/storage"
-	"time"
 )
 
 var (
@@ -201,20 +200,7 @@ func mapToResponse(w *TechnicianWork) TechnicianWorkResponse {
 
 		url := ""
 		if im.ImageURL != "" && storage.GlobalMinio != nil {
-
 			url = storage.GlobalMinio.PublicURL(im.ImageURL)
-
-			if url == "" {
-				p, err := storage.GlobalMinio.PresignGet(
-					context.Background(),
-					im.ImageURL,
-					time.Hour,
-					false,
-				)
-				if err == nil {
-					url = p
-				}
-			}
 		}
 
 		imgs = append(imgs, TechnicianWorkImageResponse{

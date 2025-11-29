@@ -1,9 +1,6 @@
 package badge
 
 import (
-	"context"
-	"time"
-
 	"changsure-core-service/pkg/storage"
 	"github.com/gofiber/fiber/v3"
 )
@@ -12,21 +9,14 @@ func toResponse(b *Badge) fiber.Map {
 	iconURL := ""
 
 	if b.IconURL != "" && storage.GlobalMinio != nil {
-		if url, err := storage.GlobalMinio.PresignGet(
-			context.Background(),
-			b.IconURL,
-			time.Hour,
-			false,
-		); err == nil {
-			iconURL = url
-		}
+		iconURL = storage.GlobalMinio.PublicURL(b.IconURL)
 	}
 
 	return fiber.Map{
 		"id":          b.ID,
 		"name":        b.Name,
 		"description": b.Description,
-		"icon_url":    iconURL,
+		"icon_url":    iconURL,   
 		"icon_key":    b.IconURL,
 		"level":       b.Level,
 		"is_active":   b.IsActive,

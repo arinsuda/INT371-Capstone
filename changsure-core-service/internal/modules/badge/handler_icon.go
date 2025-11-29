@@ -67,22 +67,14 @@ func (h *IconHandler) UploadIcon(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	presigned, err := h.store.PresignGet(ctx, key, 24*time.Hour, false)
-	if err != nil {
-
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"id":       b.ID,
-			"icon_key": key,
-			"icon_url": "",
-			"message":  "uploaded, but presign failed (use separate endpoint to fetch URL)",
-		})
-	}
+	iconURL := storage.GlobalMinio.PublicURL(key)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"id":       b.ID,
 		"icon_key": key,
-		"icon_url": presigned,
+		"icon_url": iconURL,
 	})
+
 }
 
 func (h *IconHandler) GetIconURL(c fiber.Ctx) error {
@@ -102,12 +94,10 @@ func (h *IconHandler) GetIconURL(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "icon not set")
 	}
 
-	url, err := h.store.PresignGet(ctx, b.IconURL, 15*time.Minute, false)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "presign error: "+err.Error())
-	}
+	publicURL := storage.GlobalMinio.PublicURL(b.IconURL)
+
 	return c.JSON(fiber.Map{
 		"id":       b.ID,
-		"icon_url": url,
+		"icon_url": publicURL,
 	})
 }

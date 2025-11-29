@@ -2,7 +2,6 @@ package services
 
 import (
 	"changsure-core-service/pkg/storage"
-	"context"
 	"time"
 )
 
@@ -27,19 +26,13 @@ func MapServiceToResponse(m *Service) ServiceResponse {
 
 	imgs := make([]string, 0, len(m.ImageURLs))
 	for _, key := range m.ImageURLs {
-		if key == "" || storage.GlobalMinio == nil {
+		if key == "" {
 			continue
 		}
-		url, err := storage.GlobalMinio.PresignGet(
-			context.Background(),
-			key,
-			time.Hour,
-			false,
-		)
-		if err == nil {
-			imgs = append(imgs, url)
-		}
+		imgs = append(imgs, storage.GlobalMinio.PublicURL(key))
 	}
+	resp.ImageURLs = imgs
+
 	resp.ImageURLs = imgs
 
 	return resp
