@@ -305,10 +305,12 @@ class SystemChoose extends StatelessWidget {
                               child: SecondaryButton(
                                 text: "ดูโปรไฟล์",
                                 onPressed: () {
-                                  Provider.of<BottomBarState>(
+                                  Navigator.push(
                                     context,
-                                    listen: false,
-                                  ).setSubPage(ViewProfilePage());
+                                    MaterialPageRoute(
+                                      builder: (context) => const ViewProfilePage(),
+                                    ),
+                                  );
                                 },
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 5,
