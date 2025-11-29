@@ -66,7 +66,7 @@ class _EditActivityState extends State<EditActivityById> {
         pickedImages.isNotEmpty ||
         assetImages.length != originalImages.length;
   }
-  
+
   bool get hasError {
     return descriptionError != null || imageError != null;
   }

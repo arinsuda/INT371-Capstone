@@ -11,6 +11,26 @@ import 'package:flutter/services.dart';
 import '../../state/bottomBarState.dart';
 import '../theme.dart';
 
+class _PostCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final text = newValue.text;
+
+    if (text.isEmpty) {
+      return newValue;
+    }
+
+    if (text[0] == '0') {
+      return oldValue;
+    }
+
+    return newValue;
+  }
+}
+
 class Address extends StatefulWidget {
   final String houseNumber;
   final String subDistrict;
@@ -169,6 +189,7 @@ class _AddressState extends State<Address> {
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(5),
+                        _PostCodeFormatter()
                       ],
                       validator: (v) {
                         if (v == null || v.isEmpty)
