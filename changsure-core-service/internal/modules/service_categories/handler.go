@@ -28,7 +28,7 @@ func NewHandler(s Service, st *storage.MinioStorage, cfg *config.Config) *Handle
 	return &Handler{
 		svc:      s,
 		storage:  st,
-		endpoint: cfg.Minio.Endpoint,
+		endpoint: cfg.Minio.PublicBaseURL,
 		bucket:   cfg.Minio.Bucket,
 		public:   true,
 	}
@@ -95,7 +95,7 @@ func (h *Handler) UploadIcon(c fiber.Ctx) error {
 
 	var url string
 	if h.public {
-		url = fmt.Sprintf("http://%s/%s/%s", h.endpoint, h.bucket, key)
+		url = h.storage.PublicURL(key)
 	} else {
 		u, err := h.storage.PresignGet(c.Context(), key, 10*time.Minute, false)
 		if err != nil {
