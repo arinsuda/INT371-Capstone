@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
-import 'activitySection.dart';
-import 'technicianBadge.dart';
+import 'activity_section.dart';
+import 'technician_badge.dart';
 import 'service.dart';
 
 class ViewProfileContent extends StatelessWidget {

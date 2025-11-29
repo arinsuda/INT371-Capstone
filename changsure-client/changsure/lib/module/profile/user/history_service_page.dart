@@ -1,8 +1,8 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
-import '../../../mockDB/historyService.dart';
-import '../../../state/bottomBarState.dart';
-import 'historyService/historyServiceCard.dart';
+import '../../../mockDB/history_service.dart';
+import '../../../state/bottom_bar_state.dart';
+import 'historyService/history_service_card.dart';
 
 class HistoryServicePage extends StatelessWidget {
   const HistoryServicePage({super.key});
@@ -16,7 +16,7 @@ class HistoryServicePage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
             // ---------- Header ----------
-            Header(header: "ประวัติการเับบริการ"),
+            Header(header: "ประวัติการรับบริการ"),
             const SizedBox(height: 16),
 
             Column(

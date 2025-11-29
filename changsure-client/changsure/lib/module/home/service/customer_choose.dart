@@ -1,5 +1,5 @@
-import 'package:changsure/module/home/service/serviceDetails/ctm_TechnicianCard.dart';
-import 'package:changsure/module/home/service/serviceDetails/filterList.dart';
+import 'package:changsure/module/home/service/serviceDetails/technician_select_card.dart';
+import 'package:changsure/module/home/service/serviceDetails/filter_list.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/header.dart';

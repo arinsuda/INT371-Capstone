@@ -1,10 +1,10 @@
-import 'package:changsure/module/profile/technician/activities/postActivity.dart';
-import 'package:changsure/module/profile/technician/addressPage.dart';
-import 'package:changsure/module/profile/technician/viewActivities.dart';
+import 'package:changsure/module/profile/technician/activities/post_activity.dart';
+import 'package:changsure/module/profile/technician/address_page.dart';
+import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../state/bottomBarState.dart';
-import 'viewProfileTab.dart';
+import '../../../../state/bottom_bar_state.dart';
+import 'view_profile_tab.dart';
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});

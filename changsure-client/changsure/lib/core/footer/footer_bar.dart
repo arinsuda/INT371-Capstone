@@ -1,11 +1,12 @@
-import 'package:changsure/module/home/service/systemChoose.dart';
+import 'package:changsure/module/home/service/system_choose.dart';
 import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-bar.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
-import '../../module/home/homePage.dart';
-import '../../module/profile/technician/profilePage.dart';
-import '../../state/bottomBarState.dart';
+import '../../module/home/home_page.dart';
+import '../../module/profile/technician/profile_page.dart';
+import '../../module/profile/user/profile_page.dart';
+import '../../state/bottom_bar_state.dart';
 import '../theme.dart';
 
 class FooterBarTemplate extends StatefulWidget {
@@ -25,7 +26,7 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
     const Center(child: Text('ติดตามสถานะ')),
     const Center(child: Text('แชท')),
     TechnicianProfile(),
-    //UserProfile()
+    // UserProfile()
   ];
 
   @override

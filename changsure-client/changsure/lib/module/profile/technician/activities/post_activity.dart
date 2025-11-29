@@ -1,36 +1,40 @@
 import 'dart:io';
-import 'package:changsure/core/button/primaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/module/profile/technician/activities/viewActivityById.dart';
-import 'package:changsure/module/profile/technician/activities/viewActivityById.dart';
-import 'package:changsure/module/profile/technician/viewActivities.dart';
+import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/button/tertiaryButton.dart';
-import '../../../../mockDB/activities.dart';
-import '../../../../state/bottomBarState.dart';
 
-class EditActivityById extends StatefulWidget {
-  final int id; // รับไอดีมาด้วย
+import '../../../../state/bottom_bar_state.dart';
 
-  const EditActivityById({super.key, required this.id});
+class PostActivity extends StatefulWidget {
+  const PostActivity({super.key});
 
   @override
-  State<EditActivityById> createState() => _EditActivityState();
+  State<PostActivity> createState() => _PostActivityState();
 }
 
-class _EditActivityState extends State<EditActivityById> {
+class _PostActivityState extends State<PostActivity> {
+  // ค่า Dropdown
   String? selectedCategory;
-  final TextEditingController descriptionController = TextEditingController();
+  String? initialCategory;
+
+  // เก็บรูปที่เลือก
+  final List<File> selectedImages = [];
+  List<File> initialImages = [];
+
+  // Picker
   final ImagePicker picker = ImagePicker();
 
-  // รูป default จาก activity
-  List<String> assetImages = [];
+  // Text controller สำหรับคำอธิบาย
+  final TextEditingController descriptionController = TextEditingController();
 
-  // รูปใหม่จาก gallery
-  List<File> pickedImages = [];
+  bool hasChanged = false;
+  bool _isPressed = false;
+  bool _isCancelPressed = false;
 
   // สีตามหมวด
   final Map<String, Map<String, Color>> colorMap = {
@@ -56,49 +60,57 @@ class _EditActivityState extends State<EditActivityById> {
     },
   };
 
-  // Original data สำหรับเช็คว่ามีการแก้ไขหรือไม่
-  String? originalCategory;
-  String? originalDescription;
-  List<String> originalImages = [];
-
-  bool get isChanged {
-    return selectedCategory != originalCategory ||
-        descriptionController.text != (originalDescription ?? '') ||
-        pickedImages.isNotEmpty ||
-        assetImages.length != originalImages.length;
-  }
-
   @override
   void initState() {
     super.initState();
-    final activity = mockActivities.firstWhere((a) => a.id == widget.id);
 
-    selectedCategory = activity.serviceCategoryName;
-    descriptionController.text = activity.description;
-    assetImages = List<String>.from(activity.images);
+    // listener สำหรับ TextField
+    descriptionController.addListener(_checkChanged);
 
-    originalCategory = selectedCategory;
-    originalDescription = activity.description;
-    originalImages = List<String>.from(activity.images);
-
-    descriptionController.addListener(() {
-      setState(() {}); // เพื่อให้ isChanged ประเมินใหม่
-    });
+    // เก็บค่าเริ่มต้น (ตอนเปิดหน้าครั้งแรก)
+    initialCategory = selectedCategory;
+    initialImages = List<File>.from(selectedImages);
   }
 
-  @override
-  void dispose() {
-    descriptionController.dispose();
-    super.dispose();
+  void _checkChanged() {
+    bool changed = false;
+
+    // 1. ตรวจ Dropdown
+    changed |= (selectedCategory != null && selectedCategory!.isNotEmpty);
+
+    // 2. ตรวจ TextField
+    changed |= (descriptionController.text.isNotEmpty);
+
+    // 3. ตรวจรูปภาพ
+    changed |= (selectedImages.isNotEmpty);
+
+    bool allFilled =
+        (selectedCategory != null &&
+        selectedCategory!.isNotEmpty &&
+        descriptionController.text.isNotEmpty &&
+        selectedImages.isNotEmpty);
+
+    if (hasChanged != allFilled) {
+      setState(() {
+        hasChanged = allFilled;
+      });
+    }
   }
 
   Future<void> pickImage() async {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        pickedImages.add(File(image.path));
+        selectedImages.add(File(image.path));
+        _checkChanged();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    descriptionController.dispose();
+    super.dispose();
   }
 
   Widget buildCategoryDropdown() {
@@ -132,6 +144,7 @@ class _EditActivityState extends State<EditActivityById> {
                       onTap: () {
                         setState(() => selectedCategory = categoryName);
                         Navigator.pop(context);
+                        _checkChanged();
                       },
                     );
                   }).toList(),
@@ -184,12 +197,12 @@ class _EditActivityState extends State<EditActivityById> {
           children: [
             // ---------- Header ----------
             Header(
-              header: "แก้ไขผลงาน",
+              header: "เพิ่มผลงาน",
               onPressed: () {
                 Provider.of<BottomBarState>(
                   context,
                   listen: false,
-                ).setSubPage(ViewActivityById(id: widget.id));
+                ).setSubPage(const ViewActivities());
               },
             ),
 
@@ -227,7 +240,6 @@ class _EditActivityState extends State<EditActivityById> {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
 
             // ---------------- TEXTAREA ----------------
@@ -251,7 +263,6 @@ class _EditActivityState extends State<EditActivityById> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
 
             // ---------------- IMAGE UPLOAD ----------------
@@ -261,51 +272,10 @@ class _EditActivityState extends State<EditActivityById> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // รูปจาก activity (asset)
-                  ...assetImages.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final path = entry.value;
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            path,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                assetImages.removeAt(index);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                  // รูปจาก gallery
-                  ...pickedImages.asMap().entries.map((entry) {
+                  ...selectedImages.asMap().entries.map((entry) {
                     final index = entry.key;
                     final img = entry.value;
+
                     return Stack(
                       children: [
                         ClipRRect(
@@ -323,7 +293,8 @@ class _EditActivityState extends State<EditActivityById> {
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
-                                pickedImages.removeAt(index);
+                                selectedImages.removeAt(index);
+                                _checkChanged();
                               });
                             },
                             child: Container(
@@ -342,8 +313,7 @@ class _EditActivityState extends State<EditActivityById> {
                         ),
                       ],
                     );
-                  }),
-                  // ปุ่มเพิ่มรูป
+                  }).toList(),
                   GestureDetector(
                     onTap: pickImage,
                     child: Container(
@@ -363,11 +333,12 @@ class _EditActivityState extends State<EditActivityById> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
 
+            // ---------------- BUTTONS ----------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-              child:
-              Row(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              child: Row(
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
@@ -377,7 +348,7 @@ class _EditActivityState extends State<EditActivityById> {
                         Provider.of<BottomBarState>(
                           context,
                           listen: false,
-                        ).setSubPage(ViewActivityById(id: widget.id));
+                        ).setSubPage(const ViewActivities());
                       },
                     ),
                   ),
@@ -386,20 +357,20 @@ class _EditActivityState extends State<EditActivityById> {
                   Expanded(
                     child: PrimaryButton(
                       text: "บันทึก",
-                      onPressed: isChanged
+                      onPressed: hasChanged
                           ? () {
-                              // ทำการบันทึก
                               Provider.of<BottomBarState>(
                                 context,
                                 listen: false,
-                              ).setSubPage(ViewActivityById(id: widget.id));
+                              ).setSubPage(const ViewActivities());
                             }
-                          : null, // disabled ถ้าไม่มีการแก้ไข
+                          : null,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

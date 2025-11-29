@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-import '../../../../core/profile/technicianCard.dart';
+import '../../../../core/profile/technician_card.dart';
 import '../../../../core/theme.dart';
 import '../../../../mockDB/activities.dart';
 

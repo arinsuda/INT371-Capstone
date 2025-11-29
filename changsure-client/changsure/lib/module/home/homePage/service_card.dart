@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/serviceCategories.dart';
-import '../service/serviceDetail.dart';
+import '../../../mockDB/service_categories.dart';
+import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
   final SubServiceDetail data;

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/button/primaryButton.dart';
-import '../../../../core/button/secondaryButton.dart';
+import '../../../../core/button/primary_button.dart';
+import '../../../../core/button/secondary_button.dart';
 import '../../../../core/theme.dart';
 import '../../../../mockDB/technician.dart';
-import '../../../../state/bottomBarState.dart';
-import '../../../profile/technician/viewProfileTab.dart';
+import '../../../../state/bottom_bar_state.dart';
+import '../../../profile/technician/view_profile_tab.dart';
 
 class TechnicianCardCTM extends StatelessWidget {
   final Technician technician;
@@ -243,10 +243,12 @@ class TechnicianCardCTM extends StatelessWidget {
                     child: SecondaryButton(
                       text: "ดูโปรไฟล์",
                       onPressed: () {
-                        Provider.of<BottomBarState>(
+                        Navigator.push(
                           context,
-                          listen: false,
-                        ).setSubPage(const ViewProfilePage());
+                          MaterialPageRoute(
+                            builder: (context) => const ViewProfilePage(),
+                          ),
+                        );
                       },
                       padding: const EdgeInsets.symmetric(vertical: 5),
                       fontSize: 14,

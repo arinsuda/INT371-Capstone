@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../module/profile/technician/activities/viewActivityById.dart';
-import '../../state/bottomBarState.dart';
+import '../../module/profile/technician/activities/view_activity_by_id.dart';
+import '../../state/bottom_bar_state.dart';
 import '../theme.dart';
 
 class TechnicianCard extends StatelessWidget {
@@ -61,73 +61,108 @@ class TechnicianCard extends StatelessWidget {
           width: double.infinity,
           fit: BoxFit.cover,
         );
-      } else {
-        // 2 รูปขึ้นไป
-        int extraCount = images.length - 3;
+      }
+
+      if (images.length == 2) {
+        // ==== กรณี 2 รูป ซ้ายขวาเท่ากัน ====
         return Row(
           children: [
             Expanded(
-              flex: 2,
               child: ClipRRect(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                 ),
                 child: Image.asset(
                   images[0],
-                  height: 120, // ความสูงคงที่
+                  height: 120,
                   fit: BoxFit.cover,
                 ),
               ),
             ),
             const SizedBox(width: 4),
             Expanded(
-              flex: 1,
-              child: SizedBox(
-                height: 120, // ทำให้เท่ากับรูปใหญ่ด้านซ้าย
-                child: Column(
-                  children: List.generate(
-                    images.length - 1 > 2 ? 2 : images.length - 1,
-                    (index) {
-                      bool isLastWithExtra = index == 1 && extraCount > 0;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == 0 ? 4.0 : 0,
-                          ),
-                          child: Stack(
-                            children: [
-                              Image.asset(
-                                images[index + 1],
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                              if (isLastWithExtra)
-                                Container(
-                                  color: Colors.black.withOpacity(0.5),
-                                  child: Center(
-                                    child: Text(
-                                      '+$extraCount',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                ),
+                child: Image.asset(
+                  images[1],
+                  height: 120,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
           ],
         );
       }
+
+      // ==== กรณี 3 รูปขึ้นไป ====
+      int extraCount = images.length - 3;
+
+      return Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+              ),
+              child: Image.asset(
+                images[0],
+                height: 120,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 1,
+            child: SizedBox(
+              height: 120,
+              child: Column(
+                children: List.generate(
+                  images.length - 1 > 2 ? 2 : images.length - 1,
+                      (index) {
+                    bool isLastWithExtra = index == 1 && extraCount > 0;
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == 0 ? 4.0 : 0,
+                        ),
+                        child: Stack(
+                          children: [
+                            Image.asset(
+                              images[index + 1],
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                            if (isLastWithExtra)
+                              Container(
+                                color: Colors.black.withOpacity(0.5),
+                                child: Center(
+                                  child: Text(
+                                    '+$extraCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
     }
+
 
     return GestureDetector(
       onTap: () {

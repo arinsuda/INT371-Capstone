@@ -1,11 +1,11 @@
 import 'package:changsure/core/header.dart';
-import 'package:changsure/module/home/homePage.dart';
+import 'package:changsure/module/home/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../mockDB/serviceCategories.dart';
-import '../../state/bottomBarState.dart';
-import './homePage/serviceCard.dart';
+import '../../mockDB/service_categories.dart';
+import '../../state/bottom_bar_state.dart';
+import './homePage/service_card.dart';
 
 class ServiceCategoryPage extends StatelessWidget {
   final ServiceCategories category;

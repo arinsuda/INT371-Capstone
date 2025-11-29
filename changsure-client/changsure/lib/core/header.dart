@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../state/bottomBarState.dart';
+import '../state/bottom_bar_state.dart';
 
 class Header extends StatelessWidget {
   final String header;
@@ -23,11 +23,14 @@ class Header extends StatelessWidget {
             icon: const Icon(Icons.arrow_back, color: Colors.black),
             onPressed: onPressed ??
                     () {
-                  // 👈 ถ้าไม่ส่ง onPressed มา → ใช้ default
-                  Provider.of<BottomBarState>(
-                    context,
-                    listen: false,
-                  ).closeSubPage();
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // กลับด้วย Navigator
+                      } else {
+                        Provider.of<BottomBarState>(
+                          context,
+                          listen: false,
+                        ).closeSubPage(); // กลับด้วย BottomBarState
+                      }
                 },
           ),
           Expanded(
