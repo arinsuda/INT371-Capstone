@@ -74,6 +74,8 @@ type MinioConfig struct {
 	AllowMIMESet     map[string]struct{}
 
 	EnableVirusScan bool
+
+	PublicBaseURL string
 }
 
 type OCRConfig struct {
@@ -137,6 +139,7 @@ func LoadConfig() *Config {
 			AllowDocTypesSet:   sliceToSet(allowDocTypes),
 			AllowMIMESet:       sliceToSet(allowMIME),
 			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN"),
+			PublicBaseURL:      getEnv("MINIO_PUBLIC_URL"),
 		},
 		OCR: OCRConfig{
 			BaseURL: getEnv("OCR_BASE_URL"),

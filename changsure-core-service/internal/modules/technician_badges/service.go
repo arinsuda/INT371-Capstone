@@ -1,4 +1,3 @@
-// internal/modules/technician_badges/service.go
 package technician_badges
 
 import (
@@ -48,9 +47,15 @@ func (s *service) AssignBadge(ctx context.Context, technicianID, badgeID uint, e
 		TechnicianID: technicianID,
 		BadgeID:      badgeID,
 	}
+
 	if err := s.repo.Create(ctx, tb); err != nil {
 		return nil, err
 	}
+
+	if err := s.repo.PreloadBadge(ctx, tb); err != nil {
+		return nil, err
+	}
+
 	return tb, nil
 }
 

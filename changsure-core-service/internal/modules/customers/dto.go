@@ -1,6 +1,8 @@
 package customers
 
 import (
+	"context"
+
 	"errors"
 	"regexp"
 	"strings"
@@ -8,6 +10,8 @@ import (
 
 	customer_addresses "changsure-core-service/internal/modules/customer_addresses"
 	provinces "changsure-core-service/internal/modules/provinces"
+
+	"changsure-core-service/pkg/storage"
 )
 
 type CreateCustomerRequest struct {
@@ -79,14 +83,14 @@ func (r *UpdateCustomerRequest) Validate() error {
 }
 
 type CustomerResponse struct {
-	ID        uint                      `json:"id"`
-	FirstName string                    `json:"firstname"`
-	LastName  string                    `json:"lastname"`
-	Email     *string                   `json:"email,omitempty"`
-	Phone     *string                   `json:"phone,omitempty"`
-	AvatarURL *string                   `json:"avatar_url,omitempty"`
-	CreatedAt string                    `json:"created_at"`
-	UpdatedAt string                    `json:"updated_at"`
+	ID        uint                                         `json:"id"`
+	FirstName string                                       `json:"firstname"`
+	LastName  string                                       `json:"lastname"`
+	Email     *string                                      `json:"email,omitempty"`
+	Phone     *string                                      `json:"phone,omitempty"`
+	AvatarURL *string                                      `json:"avatar_url,omitempty"`
+	CreatedAt string                                       `json:"created_at"`
+	UpdatedAt string                                       `json:"updated_at"`
 	Addresses []customer_addresses.CustomerAddressResponse `json:"addresses,omitempty"`
 }
 
@@ -96,13 +100,33 @@ type ProvinceResponse struct {
 }
 
 func ToCustomerResponse(c *Customer) *CustomerResponse {
+	var avatar string
+
+	if c.AvatarURL != nil && *c.AvatarURL != "" {
+		if storage.GlobalMinio != nil {
+
+			avatar = storage.GlobalMinio.PublicURL(*c.AvatarURL)
+
+			if avatar == "" {
+				if url, err := storage.GlobalMinio.PresignGet(
+					context.Background(),
+					*c.AvatarURL,
+					time.Hour,
+					false,
+				); err == nil {
+					avatar = url
+				}
+			}
+		}
+	}
+
 	resp := &CustomerResponse{
 		ID:        c.ID,
 		FirstName: c.FirstName,
 		LastName:  c.LastName,
 		Email:     c.Email,
 		Phone:     c.Phone,
-		AvatarURL: c.AvatarURL,
+		AvatarURL: &avatar,
 		CreatedAt: c.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
@@ -134,6 +158,7 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 			resp.Addresses = append(resp.Addresses, item)
 		}
 	}
+
 	return resp
 }
 

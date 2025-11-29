@@ -7,10 +7,12 @@ import (
 
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/provinces"
-	addr "changsure-core-service/internal/modules/technician_addresses"
+	addr "changsure-core-service/internal/modules/technician_service_areas"
 	tsvc "changsure-core-service/internal/modules/technician_services"
 
 	"gorm.io/gorm"
+
+	"changsure-core-service/pkg/storage"
 )
 
 type Service interface {
@@ -96,10 +98,30 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		Preload("ServiceAreas.Province").
 		Preload("Services", "is_active = ?", true).
 		Preload("Services.Service").
+		Preload("Services.Service.Category").
 		Preload("Badges").
 		Preload("Badges.Badge").
 		First(&tech, techID).Error; err != nil {
 		return nil, err
+	}
+
+	var avatar string
+	if tech.AvatarURL != nil && *tech.AvatarURL != "" {
+		if storage.GlobalMinio != nil {
+
+			avatar = storage.GlobalMinio.PublicURL(*tech.AvatarURL)
+
+			if avatar == "" {
+				if url, err := storage.GlobalMinio.PresignGet(
+					context.Background(),
+					*tech.AvatarURL,
+					time.Hour,
+					false,
+				); err == nil {
+					avatar = url
+				}
+			}
+		}
 	}
 
 	badgesRes := make([]badge.BadgeResponse, 0, len(tech.Badges))
@@ -108,11 +130,22 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		if b.ID == 0 {
 			continue
 		}
+
+		icon := ""
+		if b.IconURL != "" && storage.GlobalMinio != nil {
+			icon = storage.GlobalMinio.PublicURL(b.IconURL)
+			if icon == "" {
+				if u, err := storage.GlobalMinio.PresignGet(context.Background(), b.IconURL, time.Hour, false); err == nil {
+					icon = u
+				}
+			}
+		}
+
 		badgesRes = append(badgesRes, badge.BadgeResponse{
 			ID:          b.ID,
 			Name:        b.Name,
 			Description: b.Description,
-			IconURL:     b.IconURL,
+			IconURL:     icon,
 			Level:       b.Level,
 			IsActive:    b.IsActive,
 			CreatedAt:   b.CreatedAt.Unix(),
@@ -131,7 +164,7 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	servicesRes := make([]TechServiceRes, 0, len(tech.ServiceAreas))
+	servicesRes := make([]TechServiceRes, 0, len(tech.Services))
 	for _, ts := range tech.Services {
 		if ts.Service.ID == 0 {
 			continue
@@ -146,17 +179,39 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	summaryMap := make(map[uint]string)
-	for _, s := range servicesRes {
-		summaryMap[s.ServiceID] = s.ServiceName
+	summaryGroups := make(map[uint]*TechServiceSummary)
+	for _, ts := range tech.Services {
+		svc := ts.Service
+		if svc.ID == 0 {
+			continue
+		}
+
+		catID := svc.CategoryID
+		catName := "Unknown"
+		if svc.Category != nil {
+			catName = svc.Category.CatName
+		}
+
+		if summaryGroups[catID] == nil {
+			summaryGroups[catID] = &TechServiceSummary{
+				ServiceCategoryID:   catID,
+				ServiceCategoryName: catName,
+				Services:            []TechServiceSummaryItem{},
+			}
+		}
+
+		summaryGroups[catID].Services = append(
+			summaryGroups[catID].Services,
+			TechServiceSummaryItem{
+				ServiceID:   svc.ID,
+				ServiceName: svc.SerName,
+			},
+		)
 	}
 
-	serviceSummary := make([]TechServiceSummary, 0, len(summaryMap))
-	for id, name := range summaryMap {
-		serviceSummary = append(serviceSummary, TechServiceSummary{
-			ServiceID:   id,
-			ServiceName: name,
-		})
+	serviceSummary := make([]TechServiceSummary, 0, len(summaryGroups))
+	for _, v := range summaryGroups {
+		serviceSummary = append(serviceSummary, *v)
 	}
 
 	res := &TechnicianProfileRes{
@@ -166,7 +221,7 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		Bio:            tech.Bio,
 		Phone:          tech.Phone,
 		Email:          tech.Email,
-		AvatarURL:      tech.AvatarURL,
+		AvatarURL:      &avatar,
 		RatingAvg:      tech.RatingAvg,
 		RatingCount:    tech.RatingCount,
 		TotalJobs:      tech.TotalJobs,

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Recommend",
+    "description": "ได้รับการแนะนำจากผู้ใช้จำนวนมาก",
+    "icon_url": "badges/1/icon_recommend.svg",
+    "level": 1,
+    "is_active": true
+  },
+  {
+    "name": "High Rating",
+    "description": "คะแนนรีวิวเฉลี่ยสูงตามเกณฑ์",
+    "icon_url": "badges/2/icon_high_rating.svg",
+    "level": 2,
+    "is_active": true
+  },
+  {
+    "name": "Fast",
+    "description": "ตอบกลับ/ปิดงานรวดเร็วกว่าเกณฑ์",
+    "icon_url": "badges/3/icon_fast.svg",
+    "level": 2,
+    "is_active": true
+  }
+]
