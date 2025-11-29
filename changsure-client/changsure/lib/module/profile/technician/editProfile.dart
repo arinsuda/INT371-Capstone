@@ -95,7 +95,7 @@ class _EditProfileState extends State<EditProfile> {
     changed |= phoneController.text != '088-888-8888';
     changed |=
         aboutController.text !=
-            'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน';
+        'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน';
 
     hasSelectedProvince = _selectedProvinces.values.any((v) => v);
     changed |= hasSelectedProvince;
@@ -123,35 +123,36 @@ class _EditProfileState extends State<EditProfile> {
       }
     }
 
+    bool validationPassed = _validateAll();
+
     bool shouldEnable =
         changed &&
-            hasSelectedProvince &&
-            hasSelectedServiceWithPrice &&
-            allPricesFilled;
+        hasSelectedProvince &&
+        hasSelectedServiceWithPrice &&
+        allPricesFilled &&
+        validationPassed;
 
     if (shouldEnable != hasChanged) {
       setState(() {
         hasChanged = shouldEnable;
       });
     }
-
-    // ทำการ validate ทุกครั้งที่มีการเปลี่ยนแปลง
-    _validateAll();
   }
 
-  // เพิ่มฟังก์ชัน validate ทั้งหมด
   bool _validateAll() {
     // Validate Province
-    _provinceError = _selectedProvinces.values.any((v) => v)
+    String? newProvinceError = _selectedProvinces.values.any((v) => v)
         ? null
         : "กรุณาเลือกข้อมูลให้ครบถ้วน";
 
     // Validate Services
     bool hasSelectedService = _selectedServices.values.any((v) => v);
-    _serviceError = hasSelectedService ? null : "กรุณาเลือกข้อมูลให้ครบถ้วน";
+    String? newServiceError = hasSelectedService
+        ? null
+        : "กรุณาเลือกข้อมูลให้ครบถ้วน";
 
     // Validate Prices
-    _priceErrors.clear();
+    Map<String, String?> newPriceErrors = {};
     for (var sub in _selectedServices.keys) {
       if (_selectedServices[sub] == true) {
         if (_priceType[sub] == "range") {
@@ -159,31 +160,46 @@ class _EditProfileState extends State<EditProfile> {
           final maxText = _maxPriceControllers[sub]?.text.trim() ?? '';
 
           if (minText.isEmpty || maxText.isEmpty) {
-            _priceErrors[sub] = "กรุณากรอกจำนวน Min และ Max ให้ครบถ้วน";
+            newPriceErrors[sub] = "กรุณากรอกจำนวน Min และ Max ให้ครบถ้วน";
           } else if (minText.startsWith('0') && minText.length > 1) {
-            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
           } else if (maxText.startsWith('0') && maxText.length > 1) {
-            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
           } else {
             final min = int.tryParse(minText) ?? 0;
             final max = int.tryParse(maxText) ?? 0;
             if (max < min) {
-              _priceErrors[sub] = "Max ต้องมากกว่าหรือเท่ากับ Min";
+              newPriceErrors[sub] = "Max ต้องมากกว่าหรือเท่ากับ Min";
             } else {
-              _priceErrors[sub] = null;
+              newPriceErrors[sub] = null;
             }
           }
         } else if (_priceType[sub] == "fix") {
           final fixText = _fixPriceControllers[sub]?.text.trim() ?? '';
           if (fixText.isEmpty) {
-            _priceErrors[sub] = "กรุณากรอกราคา";
+            newPriceErrors[sub] = "กรุณากรอกราคา";
           } else if (fixText.startsWith('0') && fixText.length > 1) {
-            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
           } else {
-            _priceErrors[sub] = null;
+            newPriceErrors[sub] = null;
           }
         }
       }
+    }
+
+    // Update state ถ้ามีการเปลี่ยนแปลง
+    if (_provinceError != newProvinceError ||
+        _serviceError != newServiceError ||
+        _priceErrors.toString() != newPriceErrors.toString()) {
+      setState(() {
+        _provinceError = newProvinceError;
+        _serviceError = newServiceError;
+        _priceErrors = newPriceErrors;
+      });
+    } else {
+      _provinceError = newProvinceError;
+      _serviceError = newServiceError;
+      _priceErrors = newPriceErrors;
     }
 
     // Return true ถ้าไม่มี error
@@ -403,9 +419,7 @@ class _EditProfileState extends State<EditProfile> {
                             print("INVALID! Province หรือ Services มีปัญหา");
                             return;
                           }
-
                           // ผ่านทั้งหมด
-                          print("VALID! พร้อมส่งข้อมูล");
                           Provider.of<BottomBarState>(
                             context,
                             listen: false,
@@ -715,6 +729,9 @@ class _EditProfileState extends State<EditProfile> {
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                             ],
+                            onChanged: (_) {
+                              _checkChanged();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -735,10 +752,7 @@ class _EditProfileState extends State<EditProfile> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (_) {
-                              // ⭐ เคลียร์ error เมื่อพิมพ์
-                              setState(() {
-                                _priceErrors[subService] = null;
-                              });
+                              _checkChanged();
                             },
                           ),
                         ),
