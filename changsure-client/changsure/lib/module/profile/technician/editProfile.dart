@@ -20,14 +20,12 @@ class _PhoneNumberFormatter extends TextInputFormatter {
       return newValue.copyWith(text: '');
     }
 
-    // ถ้าตัวแรกไม่ใช่ 0 ให้ reject
     if (text[0] != '0') {
-      return oldValue; // คืนค่าเดิม ไม่ให้พิมพ์
+      return oldValue;
     }
 
     String formatted = '';
 
-    // Format: xxx-xxx-xxxx
     for (int i = 0; i < text.length && i < 10; i++) {
       if (i == 3 || i == 6) {
         formatted += '-';
@@ -74,45 +72,44 @@ class _EditProfileState extends State<EditProfile> {
   String _searchText = '';
 
   Map<String, bool> _selectedServices = {};
-  Map<String, String> _priceType = {}; // "fix" หรือ "range"
+  Map<String, String> _priceType = {};
   Map<String, TextEditingController> _minPriceControllers = {};
   Map<String, TextEditingController> _maxPriceControllers = {};
   Map<String, TextEditingController> _fixPriceControllers = {};
   bool hasChanged = false;
 
-  // ---------- ฟังก์ชันเช็คการแก้ไข ----------
+  // ตัวแปรเก็บ error messages
+  String? _provinceError;
+  String? _serviceError;
+  Map<String, String?> _priceErrors = {};
+
   void _checkChanged() {
     bool changed = false;
     bool allPricesFilled = true;
     bool hasSelectedProvince = false;
     bool hasSelectedServiceWithPrice = false;
 
-    // 1. TextFields
     changed |= nameController.text != 'สมชาย';
     changed |= lastNameController.text != 'ใจดี';
     changed |= emailController.text != 'somchai@gmail.com';
     changed |= phoneController.text != '088-888-8888';
     changed |=
         aboutController.text !=
-        'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน';
+            'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน';
 
-    // 2. จังหวัด - เช็คว่ามีการเลือกอย่างน้อย 1 จังหวัด
     hasSelectedProvince = _selectedProvinces.values.any((v) => v);
     changed |= hasSelectedProvince;
 
-    // 3. Services + ราคาของ subService
     for (var sub in _selectedServices.keys) {
       if (_selectedServices[sub] == true) {
-        changed = true; // ถ้าเลือก service = มีการเปลี่ยนแปลง
+        changed = true;
 
-        // ตรวจสอบว่ากรอกราคาครบหรือยัง
         if (_priceType[sub] == "range") {
           final minText = _minPriceControllers[sub]?.text ?? '';
           final maxText = _maxPriceControllers[sub]?.text ?? '';
           if (minText.isEmpty || maxText.isEmpty) {
             allPricesFilled = false;
           } else {
-            // ถ้ากรอกครบ = มี service ที่พร้อมแล้ว
             hasSelectedServiceWithPrice = true;
           }
         } else if (_priceType[sub] == "fix") {
@@ -120,7 +117,6 @@ class _EditProfileState extends State<EditProfile> {
           if (fixText.isEmpty) {
             allPricesFilled = false;
           } else {
-            // ถ้ากรอกครบ = มี service ที่พร้อมแล้ว
             hasSelectedServiceWithPrice = true;
           }
         }
@@ -129,15 +125,71 @@ class _EditProfileState extends State<EditProfile> {
 
     bool shouldEnable =
         changed &&
-        hasSelectedProvince &&
-        hasSelectedServiceWithPrice &&
-        allPricesFilled;
+            hasSelectedProvince &&
+            hasSelectedServiceWithPrice &&
+            allPricesFilled;
 
     if (shouldEnable != hasChanged) {
       setState(() {
         hasChanged = shouldEnable;
       });
     }
+
+    // ทำการ validate ทุกครั้งที่มีการเปลี่ยนแปลง
+    _validateAll();
+  }
+
+  // เพิ่มฟังก์ชัน validate ทั้งหมด
+  bool _validateAll() {
+    // Validate Province
+    _provinceError = _selectedProvinces.values.any((v) => v)
+        ? null
+        : "กรุณาเลือกข้อมูลให้ครบถ้วน";
+
+    // Validate Services
+    bool hasSelectedService = _selectedServices.values.any((v) => v);
+    _serviceError = hasSelectedService ? null : "กรุณาเลือกข้อมูลให้ครบถ้วน";
+
+    // Validate Prices
+    _priceErrors.clear();
+    for (var sub in _selectedServices.keys) {
+      if (_selectedServices[sub] == true) {
+        if (_priceType[sub] == "range") {
+          final minText = _minPriceControllers[sub]?.text.trim() ?? '';
+          final maxText = _maxPriceControllers[sub]?.text.trim() ?? '';
+
+          if (minText.isEmpty || maxText.isEmpty) {
+            _priceErrors[sub] = "กรุณากรอกจำนวน Min และ Max ให้ครบถ้วน";
+          } else if (minText.startsWith('0') && minText.length > 1) {
+            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+          } else if (maxText.startsWith('0') && maxText.length > 1) {
+            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+          } else {
+            final min = int.tryParse(minText) ?? 0;
+            final max = int.tryParse(maxText) ?? 0;
+            if (max < min) {
+              _priceErrors[sub] = "Max ต้องมากกว่าหรือเท่ากับ Min";
+            } else {
+              _priceErrors[sub] = null;
+            }
+          }
+        } else if (_priceType[sub] == "fix") {
+          final fixText = _fixPriceControllers[sub]?.text.trim() ?? '';
+          if (fixText.isEmpty) {
+            _priceErrors[sub] = "กรุณากรอกราคา";
+          } else if (fixText.startsWith('0') && fixText.length > 1) {
+            _priceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
+          } else {
+            _priceErrors[sub] = null;
+          }
+        }
+      }
+    }
+
+    // Return true ถ้าไม่มี error
+    return _provinceError == null &&
+        _serviceError == null &&
+        !_priceErrors.values.any((error) => error != null);
   }
 
   @override
@@ -166,7 +218,6 @@ class _EditProfileState extends State<EditProfile> {
       }
     }
 
-    // Listener ฟิลด์หลัก
     nameController.addListener(_checkChanged);
     lastNameController.addListener(_checkChanged);
     emailController.addListener(_checkChanged);
@@ -184,10 +235,8 @@ class _EditProfileState extends State<EditProfile> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             children: [
-              // ---------- Header ----------
               Header(header: "แก้ไขโปรไฟล์"),
               const SizedBox(height: 16),
-              // ---------- Avatar ----------
               Center(
                 child: Stack(
                   children: [
@@ -222,7 +271,6 @@ class _EditProfileState extends State<EditProfile> {
               ),
               const SizedBox(height: 24),
 
-              // ---------- Form Fields ----------
               _buildTextField(
                 "ชื่อ",
                 nameController,
@@ -257,10 +305,10 @@ class _EditProfileState extends State<EditProfile> {
               _buildTextField(
                 "เบอร์โทร",
                 phoneController,
-                keyboardType: TextInputType.phone, // เพิ่ม keyboard type
+                keyboardType: TextInputType.phone,
                 inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly, //  รับเฉพาะตัวเลข
-                  LengthLimitingTextInputFormatter(10), //  จำกัด 10 ตัว
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
                   _PhoneNumberFormatter(),
                 ],
                 validator: (v) {
@@ -295,6 +343,18 @@ class _EditProfileState extends State<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: _buildProvinceCheckboxList(),
               ),
+              // แสดง error สำหรับ Province
+              if (_provinceError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 4),
+                  child: Text(
+                    _provinceError!,
+                    style: const TextStyle(
+                      color: AppColors.colorError,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
 
               const SizedBox(height: 16),
               const Padding(
@@ -312,6 +372,18 @@ class _EditProfileState extends State<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(children: _buildServiceCategories()),
               ),
+              // แสดง error สำหรับ Service
+              if (_serviceError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 4),
+                  child: Text(
+                    _serviceError!,
+                    style: const TextStyle(
+                      color: AppColors.colorError,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
 
               const SizedBox(height: 24),
               Padding(
@@ -320,16 +392,24 @@ class _EditProfileState extends State<EditProfile> {
                   text: "บันทึกการแก้ไข",
                   onPressed: hasChanged
                       ? () {
-                          if (_formKey.currentState!.validate()) {
-                            // ⭐ ผ่าน validation ทั้งหมด
-                            print("VALID! พร้อมส่งข้อมูล");
-                            Provider.of<BottomBarState>(
-                              context,
-                              listen: false,
-                            ).closeSubPage();
-                          } else {
-                            print("INVALID! มีบางช่องไม่ผ่าน");
+                          // เช็ค Form validation ก่อน
+                          if (!_formKey.currentState!.validate()) {
+                            print("INVALID! Form fields มีปัญหา");
+                            return;
                           }
+
+                          // เช็ค Province และ Services validation
+                          if (!_validateAll()) {
+                            print("INVALID! Province หรือ Services มีปัญหา");
+                            return;
+                          }
+
+                          // ผ่านทั้งหมด
+                          print("VALID! พร้อมส่งข้อมูล");
+                          Provider.of<BottomBarState>(
+                            context,
+                            listen: false,
+                          ).closeSubPage();
                         }
                       : null,
                 ),
@@ -342,7 +422,6 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 
-  // ---------- Widgets ----------
   Widget _buildTextField(
     String label,
     TextEditingController controller, {
@@ -548,7 +627,6 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 
-  // ---------- ส่วน Service ----------
   List<Widget> _buildServiceCategories() {
     return mockServiceCategories.asMap().entries.map((entry) {
       int index = entry.key;
@@ -588,6 +666,7 @@ class _EditProfileState extends State<EditProfile> {
 
   Widget _buildSubServiceItem(String subService) {
     bool selected = _selectedServices[subService] ?? false;
+    String? priceError = _priceErrors[subService];
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -619,50 +698,84 @@ class _EditProfileState extends State<EditProfile> {
           if (selected)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_priceType[subService] == "range") ...[
-                    Expanded(
-                      child: TextField(
-                        controller: _minPriceControllers[subService],
-                        decoration: _buildSmallPriceInputDecoration(
-                          "Min Price",
+                  Row(
+                    children: [
+                      if (_priceType[subService] == "range") ...[
+                        Expanded(
+                          child: TextField(
+                            controller: _minPriceControllers[subService],
+                            decoration: _buildSmallPriceInputDecoration(
+                              "Min Price",
+                              hasError: priceError != null,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                          ),
                         ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward,
-                      color: AppColors.primaryBorderHover,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxPriceControllers[subService],
-                        decoration: _buildSmallPriceInputDecoration(
-                          "Max Price",
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward,
+                          color: AppColors.primaryBorderHover,
                         ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (_priceType[subService] == "fix")
-                    Expanded(
-                      child: TextField(
-                        controller: _fixPriceControllers[subService],
-                        textAlign: TextAlign.right,
-                        decoration: _buildSmallPriceInputDecoration("Price"),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _maxPriceControllers[subService],
+                            decoration: _buildSmallPriceInputDecoration(
+                              "Max Price",
+                              hasError: priceError != null,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (_) {
+                              // ⭐ เคลียร์ error เมื่อพิมพ์
+                              setState(() {
+                                _priceErrors[subService] = null;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                      if (_priceType[subService] == "fix")
+                        Expanded(
+                          child: TextField(
+                            controller: _fixPriceControllers[subService],
+                            textAlign: TextAlign.right,
+                            decoration: _buildSmallPriceInputDecoration(
+                              "Price",
+                              hasError: priceError != null,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (_) {
+                              // ⭐ เคลียร์ error เมื่อพิมพ์
+                              setState(() {
+                                _priceErrors[subService] = null;
+                              });
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                  // ⭐ แสดง error สำหรับ price
+                  if (priceError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        priceError,
+                        style: const TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                 ],
@@ -685,23 +798,30 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 
-  InputDecoration _buildSmallPriceInputDecoration(String hint) {
+  InputDecoration _buildSmallPriceInputDecoration(
+    String hint, {
+    bool hasError = false,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: AppColors.primaryBorder, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: AppColors.primaryBorderHover),
+        borderSide: BorderSide(
+          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: AppColors.primaryBorderHover),
+        borderSide: BorderSide(
+          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(
-          color: AppColors.primaryBorderHover,
+        borderSide: BorderSide(
+          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
           width: 2,
         ),
       ),
@@ -724,6 +844,14 @@ class _EditProfileState extends State<EditProfile> {
       onSelected: (_) {
         setState(() {
           _priceType[subService] = type;
+          // ⭐ เคลียร์ราคาเมื่อเปลี่ยน type
+          if (type == "fix") {
+            _minPriceControllers[subService]?.clear();
+            _maxPriceControllers[subService]?.clear();
+          } else {
+            _fixPriceControllers[subService]?.clear();
+          }
+          _priceErrors[subService] = null;
           _checkChanged();
         });
       },
