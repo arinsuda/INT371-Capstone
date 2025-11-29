@@ -11,9 +11,6 @@ import (
 type StringArray []string
 
 func (sa StringArray) Value() (driver.Value, error) {
-	if sa == nil {
-		return json.Marshal([]string{})
-	}
 	return json.Marshal(sa)
 }
 
@@ -31,6 +28,26 @@ func (sa *StringArray) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, sa)
 }
 
+type JSONMap map[string]interface{}
+
+func (j JSONMap) Value() (driver.Value, error) {
+	return json.Marshal(j)
+}
+
+func (j *JSONMap) Scan(value interface{}) error {
+	if value == nil {
+		*j = JSONMap{}
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("failed to unmarshal JSONMap value")
+	}
+
+	return json.Unmarshal(bytes, j)
+}
+
 type Service struct {
 	ID              uint        `gorm:"primaryKey;autoIncrement" json:"id"`
 	SerName         string      `gorm:"column:ser_name;type:varchar(190);not null" json:"ser_name"`
@@ -38,12 +55,13 @@ type Service struct {
 	SerDetails      StringArray `gorm:"column:ser_details;type:json" json:"ser_details"`
 	AdditionalTerms StringArray `gorm:"column:additional_terms;type:json" json:"additional_terms"`
 	WorkingDuration StringArray `gorm:"column:working_duration;type:json" json:"working_duration"`
-	ImageURL        *string     `gorm:"type:varchar(500)" json:"image_url,omitempty"`
-	IsActive        bool        `gorm:"column:is_active;not null;default:true;index:idx_services_category_active,priority:2" json:"is_active"`
-	CreatedAt       time.Time   `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt       time.Time   `gorm:"autoUpdateTime" json:"updated_at"`
+	ImageURLs       StringArray `gorm:"column:image_urls;type:json" json:"image_urls"`
 
-	DefaultPrice DefaultPrice `gorm:"column:default_price;type:json" json:"default_price"`
+	IsActive  bool      `gorm:"column:is_active;not null;default:true;index:idx_services_category_active,priority:2" json:"is_active"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+
+	DefaultPrice JSONMap `gorm:"column:default_price;type:json" json:"default_price"`
 
 	CategoryID uint                                `gorm:"column:category_id;not null;index:idx_services_category_active,priority:1" json:"category_id"`
 	Category   *service_categories.ServiceCategory `gorm:"foreignKey:CategoryID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"category,omitempty"`

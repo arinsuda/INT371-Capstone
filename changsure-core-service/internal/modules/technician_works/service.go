@@ -3,6 +3,9 @@ package technician_works
 import (
 	"context"
 	"errors"
+
+	"changsure-core-service/pkg/storage"
+	"time"
 )
 
 var (
@@ -195,9 +198,28 @@ func mapToResponse(w *TechnicianWork) TechnicianWorkResponse {
 
 	imgs := make([]TechnicianWorkImageResponse, 0, len(w.Images))
 	for _, im := range w.Images {
+
+		url := ""
+		if im.ImageURL != "" && storage.GlobalMinio != nil {
+
+			url = storage.GlobalMinio.PublicURL(im.ImageURL)
+
+			if url == "" {
+				p, err := storage.GlobalMinio.PresignGet(
+					context.Background(),
+					im.ImageURL,
+					time.Hour,
+					false,
+				)
+				if err == nil {
+					url = p
+				}
+			}
+		}
+
 		imgs = append(imgs, TechnicianWorkImageResponse{
 			ID:       im.ID,
-			ImageURL: im.ImageURL,
+			ImageURL: url,
 			Order:    im.SortOrder,
 		})
 	}

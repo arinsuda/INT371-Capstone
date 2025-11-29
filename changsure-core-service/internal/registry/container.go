@@ -15,8 +15,9 @@ import (
 	"changsure-core-service/internal/modules/provinces"
 	"changsure-core-service/internal/modules/service_categories"
 	"changsure-core-service/internal/modules/services"
-	"changsure-core-service/internal/modules/technician_service_area"
+	"changsure-core-service/internal/modules/technician_addresses"
 	"changsure-core-service/internal/modules/technician_badges"
+	"changsure-core-service/internal/modules/technician_service_areas"
 	"changsure-core-service/internal/modules/technician_services"
 	techworks "changsure-core-service/internal/modules/technician_works"
 	"changsure-core-service/internal/modules/technicians"
@@ -55,7 +56,11 @@ type Container struct {
 	TechnicianServiceService technician_services.Service
 	TechnicianServiceHandler *technician_services.Handler
 
-	TechnicianAddressRepo technician_addresses.Repository
+	TechnicianAddressRepo    technician_addresses.Repository
+	TechnicianAddressService technician_addresses.Service
+	TechnicianAddressHandler *technician_addresses.Handler
+
+	TechnicianServiceAreaRepo technician_service_areas.Repository
 
 	ServiceCategoryRepo    service_categories.Repository
 	ServiceCategoryService service_categories.Service
@@ -110,6 +115,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initBadgeModule()
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
+	c.initTechnicianAddressModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -126,6 +132,9 @@ func (c *Container) initStorage(cfg *config.Config) error {
 		return fmt.Errorf("init minio storage: %w", err)
 	}
 	c.Storage = store
+
+	storage.GlobalMinio = store
+
 	return nil
 }
 
@@ -143,16 +152,10 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 }
 
 func (c *Container) initOCRModule(cfg *config.Config) {
-	// อ่าน base URL จาก config
 	ocrCfg := cfg.OCR
 
-	// สร้าง client ยิงไป OCR VM
 	client := ocrinfra.NewOCRClient(ocrCfg.BaseURL)
-
-	// service
 	c.OCRService = ocrservice.NewOCRService(client)
-
-	// handler (Fiber v3)
 	c.OCRHandler = ocrhandler.NewOCRHandler(c.OCRService)
 }
 
@@ -179,11 +182,11 @@ func (c *Container) initCustomerAddressModule() {
 
 func (c *Container) initTechnicianModule() {
 	c.TechnicianRepo = technicians.NewRepository(c.DB)
-	c.TechnicianAddressRepo = technician_addresses.NewRepository(c.DB)
+	c.TechnicianServiceAreaRepo = technician_service_areas.NewRepository(c.DB)
 	c.TechnicianService = technicians.NewService(
 		c.DB,
 		c.TechnicianRepo,
-		c.TechnicianAddressRepo,
+		c.TechnicianServiceAreaRepo,
 	)
 	c.TechnicianHandler = technicians.NewHandler(c.TechnicianService)
 }
@@ -233,6 +236,14 @@ func (c *Container) initTechnicianWorkModule() {
 	c.TechnicianWorkHandler = techworks.NewHandler(c.TechnicianWorkService)
 }
 
+func (c *Container) initTechnicianAddressModule() {
+	c.TechnicianAddressRepo = technician_addresses.NewRepository(c.DB)
+	c.TechnicianAddressService = technician_addresses.NewService(
+		c.TechnicianAddressRepo,
+	)
+	c.TechnicianAddressHandler = technician_addresses.NewHandler(c.TechnicianAddressService)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -245,12 +256,13 @@ func AllModels() []interface{} {
 	models = append(models, technicians.Models()...)
 
 	models = append(models, customeraddresses.Models()...)
-	models = append(models, technician_addresses.Models()...)
 	models = append(models, technician_services.Models()...)
+	models = append(models, technician_service_areas.Models()...)
 
 	models = append(models, badge.Models()...)
 	models = append(models, technician_badges.Models()...)
 	models = append(models, techworks.Models()...)
+	models = append(models, technician_addresses.Models()...)
 
 	return models
 }

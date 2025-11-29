@@ -11,6 +11,7 @@ type Repository interface {
 	FindByTechnician(ctx context.Context, technicianID uint) ([]TechnicianBadge, error)
 	DeleteByID(ctx context.Context, id uint) error
 	HardDeleteByID(ctx context.Context, id uint) error
+	PreloadBadge(ctx context.Context, tb *TechnicianBadge) error
 }
 
 type repository struct {
@@ -41,4 +42,10 @@ func (r *repository) DeleteByID(ctx context.Context, id uint) error {
 
 func (r *repository) HardDeleteByID(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(&TechnicianBadge{}, id).Error
+}
+
+func (r *repository) PreloadBadge(ctx context.Context, tb *TechnicianBadge) error {
+	return r.db.WithContext(ctx).
+		Preload("Badge").
+		First(tb, tb.ID).Error
 }

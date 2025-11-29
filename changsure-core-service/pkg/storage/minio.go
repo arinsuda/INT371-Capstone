@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	"changsure-core-service/internal/config"
@@ -27,6 +28,8 @@ type MinioStorage struct {
 	bucket string
 	cfg    *config.MinioConfig
 }
+
+var GlobalMinio *MinioStorage
 
 func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
 	c, err := minio.New(opt.Endpoint, &minio.Options{
@@ -154,4 +157,11 @@ func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error
 
 func (s *MinioStorage) Delete(ctx context.Context, key string) error {
 	return s.c.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+}
+
+func (s *MinioStorage) PublicURL(key string) string {
+	if s.cfg == nil || s.cfg.PublicBaseURL == "" {
+		return key
+	}
+	return fmt.Sprintf("%s/%s", s.cfg.PublicBaseURL, strings.TrimPrefix(key, "/"))
 }

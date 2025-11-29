@@ -63,7 +63,10 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 			JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"success": true, "data": m})
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    MapServiceToResponse(m),
+	})
 }
 
 func (h *Handler) List(c fiber.Ctx) error {
@@ -71,7 +74,6 @@ func (h *Handler) List(c fiber.Ctx) error {
 
 	q.Search = c.Query("search")
 
-	// category_id
 	if v := c.Query("category_id"); v != "" {
 		if id, err := toUint(v); err == nil && id > 0 {
 			tmp := uint(id)
@@ -79,20 +81,16 @@ func (h *Handler) List(c fiber.Ctx) error {
 		}
 	}
 
-	// is_active
 	if v := c.Query("is_active"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			q.IsActive = &b
 		}
 	}
 
-	// page
 	q.Page = toInt(c.Query("page"), 1)
 
-	// page_size
 	q.PageSize = toInt(c.Query("page_size"), 20)
 
-	// sort_by & sort_order
 	q.SortBy = strings.ToLower(c.Query("sort_by"))
 	q.SortOrder = strings.ToLower(c.Query("sort_order"))
 
@@ -102,12 +100,17 @@ func (h *Handler) List(c fiber.Ctx) error {
 			JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
+	list := make([]ServiceResponse, 0, len(items))
+	for _, it := range items {
+		list = append(list, MapServiceToResponse(&it))
+	}
+
 	return c.JSON(fiber.Map{
 		"success":   true,
 		"total":     total,
 		"page":      q.Page,
 		"page_size": q.PageSize,
-		"data":      items,
+		"data":      list,
 	})
 }
 

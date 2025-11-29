@@ -60,6 +60,7 @@ func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Co
 	container.TechnicianServiceHandler.RegisterRoutes(technician)
 	container.TechnicianWorkHandler.RegisterRoutes(technician)
 	container.TechnicianBadgeHandler.RegisterRoutes(technician)
+	container.TechnicianAddressHandler.RegisterRoutes(technician, cfg)
 
 	// admin := authenticated.Group("", middleware.AdminOnly())
 }

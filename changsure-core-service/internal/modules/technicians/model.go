@@ -3,7 +3,7 @@ package technicians
 import (
 	"time"
 
-	technician_addresses "changsure-core-service/internal/modules/technician_service_area"
+	technician_addresses "changsure-core-service/internal/modules/technician_service_areas"
 	technician_badges "changsure-core-service/internal/modules/technician_badges"
 	tsvc "changsure-core-service/internal/modules/technician_services"
 )

@@ -7,12 +7,13 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, m *TechnicianAddress) error
+	Create(ctx context.Context, m *TechnicianAddress) (uint, error)
 	Update(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	Get(ctx context.Context, id uint) (*TechnicianAddress, error)
 	ListByTechnician(ctx context.Context, technicianID uint) ([]TechnicianAddress, error)
 	FindNearby(ctx context.Context, q NearQuery) ([]TechnicianAddress, error)
+	ClearPrimary(ctx context.Context, techID uint) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -21,8 +22,11 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) Create(ctx context.Context, m *TechnicianAddress) error {
-	return r.db.WithContext(ctx).Create(m).Error
+func (r *repository) Create(ctx context.Context, m *TechnicianAddress) (uint, error) {
+	if err := r.db.WithContext(ctx).Create(m).Error; err != nil {
+		return 0, err
+	}
+	return m.ID, nil
 }
 
 func (r *repository) Update(ctx context.Context, id uint, fields map[string]any) error {
@@ -71,4 +75,11 @@ func (r *repository) FindNearby(ctx context.Context, q NearQuery) ([]TechnicianA
 	}
 
 	return items, nil
+}
+
+func (r *repository) ClearPrimary(ctx context.Context, techID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&TechnicianAddress{}).
+		Where("technician_id = ?", techID).
+		Update("is_primary", false).Error
 }

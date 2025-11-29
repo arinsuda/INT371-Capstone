@@ -22,8 +22,9 @@ func (s *service) Create(ctx context.Context, in CreateServiceRequest) (uint, er
 		SerDetails:      in.SerDetails,
 		AdditionalTerms: in.AdditionalTerms,
 		WorkingDuration: in.WorkingDuration,
-		ImageURL:        in.ImageURL,
+		ImageURLs:       in.ImageURLs,
 		IsActive:        true,
+		DefaultPrice:    in.DefaultPrice,
 	}
 
 	if in.IsActive != nil {
@@ -59,8 +60,8 @@ func (s *service) Update(ctx context.Context, id uint, in UpdateServiceRequest) 
 		fields["working_duration"] = *in.WorkingDuration
 	}
 
-	if in.ImageURL != nil {
-		fields["image_url"] = *in.ImageURL
+	if in.ImageURLs != nil {
+		fields["image_url"] = *in.ImageURLs
 	}
 	if in.IsActive != nil {
 		fields["is_active"] = *in.IsActive

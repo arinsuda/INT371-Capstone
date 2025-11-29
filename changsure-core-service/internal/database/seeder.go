@@ -18,7 +18,7 @@ const (
 	seedsDir       = "./seeds"
 	provincesFile  = seedsDir + "/provinces/province.json"
 	categoriesFile = seedsDir + "/categories/category.json"
-	servicesFile   = seedsDir + "/services/services.json"
+	servicesFile   = seedsDir + "/services/service.json"
 	badgesFile     = seedsDir + "/badges/badge.json"
 )
 
@@ -110,6 +110,8 @@ func (s *Seeder) seedServiceCategories() error {
 	return nil
 }
 
+/* -------------------- Services -------------------- */
+
 func (s *Seeder) seedServices() error {
 	if s.isAlreadySeeded(&services.Service{}, "Services") {
 		return nil
@@ -121,10 +123,14 @@ func (s *Seeder) seedServices() error {
 	}
 
 	type serviceData struct {
-		Category string  `json:"category"`
-		Name     string  `json:"name"`
-		Desc     *string `json:"description,omitempty"`
-		ImageURL *string `json:"image_url,omitempty"`
+		Category     string                 `json:"category"`
+		Name         string                 `json:"name"`
+		Desc         *string                `json:"description"`
+		ImageURLs    []string               `json:"image_urls"`
+		DefaultPrice map[string]interface{} `json:"default_price"`
+		Details      []string               `json:"ser_details"`
+		Terms        []string               `json:"additional_terms"`
+		Duration     []string               `json:"working_duration"`
 	}
 
 	var items []serviceData
@@ -139,13 +145,19 @@ func (s *Seeder) seedServices() error {
 			return fmt.Errorf("category %q not found, please seed categories first", item.Category)
 		}
 
-		data = append(data, services.Service{
-			SerName:        item.Name,
-			SerDescription: item.Desc,
-			ImageURL:       item.ImageURL,
-			IsActive:       true,
-			CategoryID:     categoryID,
-		})
+		svc := services.Service{
+			SerName:         item.Name,
+			SerDescription:  item.Desc,
+			ImageURLs:       services.StringArray(item.ImageURLs),
+			SerDetails:      services.StringArray(item.Details),
+			AdditionalTerms: services.StringArray(item.Terms),
+			WorkingDuration: services.StringArray(item.Duration),
+			DefaultPrice:    item.DefaultPrice,
+			IsActive:        true,
+			CategoryID:      categoryID,
+		}
+
+		data = append(data, svc)
 	}
 
 	if err := s.db.Create(&data).Error; err != nil {
@@ -233,9 +245,7 @@ func (s *Seeder) upsertBadge(name, description, iconURL string, level uint, isAc
 
 	switch {
 	case err == nil:
-
 		if existing.DeletedAt.Valid {
-
 			if err := s.db.Unscoped().
 				Model(&badge.Badge{}).
 				Where("id = ?", existing.ID).
