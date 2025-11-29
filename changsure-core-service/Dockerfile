@@ -15,6 +15,10 @@ COPY . .
 ENV CGO_ENABLED=1 GOOS=linux
 RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/api/main.go
 
+
+# ================================
+# FINAL IMAGE
+# ================================
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,6 +31,8 @@ ENV TZ=Asia/Bangkok
 WORKDIR /app
 
 COPY --from=builder /out/app /app/app
+
+COPY --from=builder /src/seeds /app/seeds
 
 RUN useradd -r -u 10001 appuser && chown -R appuser:appuser /app
 USER appuser
