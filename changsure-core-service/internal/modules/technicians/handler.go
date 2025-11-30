@@ -156,8 +156,8 @@ func (h *Handler) RemoveService(c fiber.Ctx) error {
 	if err := c.Bind().Body(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
 	}
-	if body.ProvinceID == 0 || body.ServiceID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "province_id and service_id are required")
+	if body.ServiceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "service_id is required")
 	}
 
 	if err := h.svc.RemoveService(c.Context(), techID, body); err != nil {

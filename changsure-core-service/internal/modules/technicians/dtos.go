@@ -72,6 +72,5 @@ type TechServiceSummary struct {
 }
 
 type RemoveTechServiceReq struct {
-	ProvinceID uint `json:"province_id"`
 	ServiceID  uint `json:"service_id"`
 }
