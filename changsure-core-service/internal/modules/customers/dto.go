@@ -7,7 +7,6 @@ import (
 	"time"
 
 	customer_addresses "changsure-core-service/internal/modules/customer_addresses"
-	provinces "changsure-core-service/internal/modules/provinces"
 
 	"changsure-core-service/pkg/storage"
 )
@@ -116,9 +115,11 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 	}
 
 	// ----- Address -----
+	// ----- Address -----
 	if len(c.Addresses) > 0 {
 		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
 		for _, a := range c.Addresses {
+
 			item := customer_addresses.CustomerAddressResponse{
 				ID:          a.ID,
 				HouseNumber: a.HouseNumber,
@@ -126,20 +127,19 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 				Moo:         a.Moo,
 				Soi:         a.Soi,
 				Road:        a.Road,
-				Subdistrict: a.Subdistrict,
+				SubDistrict: a.SubDistrict,
 				District:    a.District,
+				Province:    a.Province,   
+				ProvinceID:  a.ProvinceID,
 				PostalCode:  a.PostalCode,
 				Country:     a.Country,
 				Latitude:    a.Latitude,
 				Longitude:   a.Longitude,
+				IsPrimary:   a.IsPrimary,
 				CreatedAt:   a.CreatedAt.Format(time.RFC3339),
 				UpdatedAt:   a.UpdatedAt.Format(time.RFC3339),
 			}
-			if a.Province != nil {
-				item.Province = provinces.ProvinceResponse{ID: a.Province.ID, NameTH: a.Province.NameTH}
-			} else {
-				item.Province = provinces.ProvinceResponse{ID: a.ProvinceID}
-			}
+
 			resp.Addresses = append(resp.Addresses, item)
 		}
 	}
