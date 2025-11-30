@@ -107,7 +107,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 
 	c.initCustomerModule()
 	c.initProvinceModule()
-	c.initCustomerAddressModule()
 	c.initTechnicianModule()
 
 	c.initAuthModule(cfg)
@@ -121,6 +120,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
 	c.initTechnicianAddressModule()
+	c.initCustomerAddressModule()
 	c.initCustomerTechnicianModule()
 
 	for _, opt := range opts {
@@ -181,7 +181,7 @@ func (c *Container) initCustomerAddressModule() {
 	c.CustomerAddressRepo = customeraddresses.NewRepository(c.DB)
 	c.CustomerAddressService = customeraddresses.NewService(
 		c.CustomerAddressRepo,
-		c.CustomerRepo,
+		c.TechnicianAddressRepo,
 	)
 	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
 }
@@ -190,8 +190,8 @@ func (c *Container) initCustomerTechnicianModule() {
 	c.CustomerTechnicianRepo = customer_technicians.NewRepository(c.DB)
 	c.CustomerTechnicianService = customer_technicians.NewService(
 		c.CustomerTechnicianRepo,
-		c.TechnicianRepo,            
-		c.TechnicianServiceRepo,     
+		c.TechnicianRepo,
+		c.TechnicianServiceRepo,
 		c.TechnicianServiceAreaRepo,
 	)
 	c.CustomerTechnicianHandler = customer_technicians.NewHandler(

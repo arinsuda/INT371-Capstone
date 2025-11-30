@@ -53,8 +53,9 @@ func setupAPIv1Routes(app *fiber.App, cfg *config.Config, container *registry.Co
 
 	customer := authenticated.Group("/customers", middleware.CustomerOnly())
 	container.CustomerTechnicianHandler.RegisterRoutes(customer)
+	container.CustomerAddressHandler.RegisterRoutes(customer, cfg)
 	container.CustomerHandler.RegisterRoutes(customer)
-	container.CustomerAddressHandler.RegisterRoutes(customer)
+	container.TechnicianAddressHandler.RegisterRoutesPublic(customer, cfg)
 
 	technician := authenticated.Group("/technicians", middleware.TechnicianOnly())
 	container.TechnicianHandler.RegisterRoutes(technician)

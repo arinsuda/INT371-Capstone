@@ -3,16 +3,21 @@ package technician_addresses
 import (
 	"context"
 	"errors"
+
+	"changsure-core-service/internal/modules/address_shared"
 )
 
+var ErrAddressNotFound = errors.New("address not found")
+
 type Service interface {
-	AddAddress(ctx context.Context, techID uint, in CreateTechAddressReq) (uint, error)
-	UpdateAddress(ctx context.Context, id uint, in UpdateTechAddressReq) error
-	DeleteAddress(ctx context.Context, id uint) error
-	ListAddresses(ctx context.Context, techID uint) ([]TechnicianAddress, error)
-	FindNearby(ctx context.Context, q NearQuery) ([]TechnicianAddress, error)
-	GetAddress(ctx context.Context, id uint) (*TechnicianAddress, error)
-	SetPrimaryAddress(ctx context.Context, techID, addressID uint) error
+	Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddress, error)
+	Update(ctx context.Context, id uint, techID uint, req *UpdateTechnicianAddressRequest) (*TechnicianAddress, error)
+	Delete(ctx context.Context, id uint, techID uint) error
+	Get(ctx context.Context, id uint, techID uint) (*TechnicianAddress, error)
+	List(ctx context.Context, techID uint) ([]*TechnicianAddress, error)
+	SetPrimary(ctx context.Context, id uint, techID uint) error
+
+	FindNearby(ctx context.Context, q address_shared.NearbyQuery) ([]address_shared.NearbyTechnicianResult, error)
 }
 
 type service struct {
@@ -23,138 +28,123 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-/* --------------------------------------------------- */
-/*                     Add Address                     */
-/* --------------------------------------------------- */
-
-func (s *service) AddAddress(ctx context.Context, techID uint, in CreateTechAddressReq) (uint, error) {
-
-	// If user wants a new primary → repo clears old primary first
-	if in.IsPrimary != nil && *in.IsPrimary {
-		if err := s.repo.ClearPrimary(ctx, techID); err != nil {
-			return 0, err
-		}
-	}
-
-	m := &TechnicianAddress{
+func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddress, error) {
+	addr := &TechnicianAddress{
 		TechnicianID: techID,
-		AddressLine:  in.AddressLine,
-		SubDistrict:  in.SubDistrict,
-		District:     in.District,
-		Province:     in.Province,
-		PostalCode:   in.PostalCode,
-		Latitude:     in.Latitude,
-		Longitude:    in.Longitude,
-		IsPrimary:    false,
 	}
 
-	if in.IsPrimary != nil {
-		m.IsPrimary = *in.IsPrimary
+	addr.HouseNumber = req.HouseNumber
+	addr.Village = req.Village
+	addr.Moo = req.Moo
+	addr.Soi = req.Soi
+	addr.Road = req.Road
+	addr.SubDistrict = req.SubDistrict
+	addr.District = req.District
+	addr.Province = req.Province
+	addr.PostalCode = req.PostalCode
+	addr.Country = req.Country
+	addr.ProvinceID = req.ProvinceID
+	addr.Latitude = req.Latitude
+	addr.Longitude = req.Longitude
+
+	if req.IsPrimary != nil && *req.IsPrimary {
+		_ = s.repo.ClearPrimary(ctx, techID)
+		addr.IsPrimary = true
 	}
 
-	// Save via repo
-	return s.repo.Create(ctx, m)
+	if err := s.repo.Create(ctx, addr); err != nil {
+		return nil, err
+	}
+
+	return addr, nil
 }
 
-/* --------------------------------------------------- */
-/*                    Update Address                    */
-/* --------------------------------------------------- */
+func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateTechnicianAddressRequest) (*TechnicianAddress, error) {
 
-func (s *service) UpdateAddress(ctx context.Context, id uint, in UpdateTechAddressReq) error {
+	addr, err := s.repo.Get(ctx, id, techID)
+	if err != nil {
+		return nil, ErrAddressNotFound
+	}
 
-	// If making this primary → tell repo to clear others first
-	if in.IsPrimary != nil && *in.IsPrimary {
-		addr, err := s.repo.Get(ctx, id)
-		if err != nil {
-			return err
+	if req.HouseNumber != nil {
+		addr.HouseNumber = req.HouseNumber
+	}
+	if req.Village != nil {
+		addr.Village = req.Village
+	}
+	if req.Moo != nil {
+		addr.Moo = req.Moo
+	}
+	if req.Soi != nil {
+		addr.Soi = req.Soi
+	}
+	if req.Road != nil {
+		addr.Road = req.Road
+	}
+	if req.SubDistrict != nil {
+		addr.SubDistrict = req.SubDistrict
+	}
+	if req.District != nil {
+		addr.District = req.District
+	}
+	if req.Province != nil {
+		addr.Province = req.Province
+	}
+	if req.PostalCode != nil {
+		addr.PostalCode = req.PostalCode
+	}
+	if req.Country != nil {
+		addr.Country = req.Country
+	}
+	if req.ProvinceID != nil {
+		addr.ProvinceID = req.ProvinceID
+	}
+	if req.Latitude != nil {
+		addr.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		addr.Longitude = req.Longitude
+	}
+
+	if req.IsPrimary != nil {
+		if *req.IsPrimary {
+			_ = s.repo.ClearPrimary(ctx, techID)
 		}
-		if err := s.repo.ClearPrimary(ctx, addr.TechnicianID); err != nil {
-			return err
-		}
+		addr.IsPrimary = *req.IsPrimary
 	}
 
-	fields := map[string]any{}
-
-	if in.AddressLine != nil {
-		fields["address_line"] = *in.AddressLine
-	}
-	if in.SubDistrict != nil {
-		fields["sub_district"] = *in.SubDistrict
-	}
-	if in.District != nil {
-		fields["district"] = *in.District
-	}
-	if in.Province != nil {
-		fields["province"] = *in.Province
-	}
-	if in.PostalCode != nil {
-		fields["postal_code"] = *in.PostalCode
-	}
-	if in.Latitude != nil {
-		fields["latitude"] = *in.Latitude
-	}
-	if in.Longitude != nil {
-		fields["longitude"] = *in.Longitude
-	}
-	if in.IsPrimary != nil {
-		fields["is_primary"] = *in.IsPrimary
+	if err := s.repo.Update(ctx, addr); err != nil {
+		return nil, err
 	}
 
-	return s.repo.Update(ctx, id, fields)
+	return addr, nil
 }
 
-/* --------------------------------------------------- */
-/*                     Delete Address                   */
-/* --------------------------------------------------- */
-
-func (s *service) DeleteAddress(ctx context.Context, id uint) error {
-	return s.repo.Delete(ctx, id)
+func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
+	return s.repo.Delete(ctx, id, techID)
 }
 
-/* --------------------------------------------------- */
-/*                     List Addresses                   */
-/* --------------------------------------------------- */
+func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAddress, error) {
+	return s.repo.Get(ctx, id, techID)
+}
 
-func (s *service) ListAddresses(ctx context.Context, techID uint) ([]TechnicianAddress, error) {
+func (s *service) List(ctx context.Context, techID uint) ([]*TechnicianAddress, error) {
 	return s.repo.ListByTechnician(ctx, techID)
 }
 
-/* --------------------------------------------------- */
-/*                     Find Nearby                     */
-/* --------------------------------------------------- */
-
-func (s *service) FindNearby(ctx context.Context, q NearQuery) ([]TechnicianAddress, error) {
-	return s.repo.FindNearby(ctx, q)
-}
-
-/* --------------------------------------------------- */
-/*                     Get Address                     */
-/* --------------------------------------------------- */
-
-func (s *service) GetAddress(ctx context.Context, id uint) (*TechnicianAddress, error) {
-	return s.repo.Get(ctx, id)
-}
-
-/* --------------------------------------------------- */
-/*                 Set Primary Address                  */
-/* --------------------------------------------------- */
-
-func (s *service) SetPrimaryAddress(ctx context.Context, techID, addressID uint) error {
-
-	addr, err := s.repo.Get(ctx, addressID)
+func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
+	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
-		return errors.New("address not found")
-	}
-	if addr.TechnicianID != techID {
-		return errors.New("address does not belong to technician")
+		return ErrAddressNotFound
 	}
 
-	// Clear and set new primary via repo
-	if err := s.repo.ClearPrimary(ctx, techID); err != nil {
-		return err
-	}
+	_ = s.repo.ClearPrimary(ctx, techID)
 
-	return s.repo.Update(ctx, addressID, map[string]any{
-		"is_primary": true,
-	})
+	addr.IsPrimary = true
+
+	return s.repo.Update(ctx, addr)
+}
+
+func (s *service) FindNearby(ctx context.Context, q address_shared.NearbyQuery) ([]address_shared.NearbyTechnicianResult, error) {
+	return s.repo.FindNearby(ctx, q)
 }

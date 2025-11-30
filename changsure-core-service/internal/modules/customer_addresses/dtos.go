@@ -1,88 +1,109 @@
-package customeraddresses
+package customer_addresses
 
 import (
 	"time"
-
-	provinces "changsure-core-service/internal/modules/provinces"
 )
 
 type CreateCustomerAddressRequest struct {
-	ProvinceID  uint     `json:"province_id" validate:"required,min=1"`
-	HouseNumber *string  `json:"house_number" validate:"omitempty,max=20"`
-	Village     *string  `json:"village"      validate:"omitempty,max=100"`
-	Moo         *string  `json:"moo"          validate:"omitempty,max=10"`
-	Soi         *string  `json:"soi"          validate:"omitempty,max=100"`
-	Road        *string  `json:"road"         validate:"omitempty,max=100"`
-	Subdistrict *string  `json:"subdistrict"  validate:"omitempty,max=100"`
-	District    *string  `json:"district"     validate:"omitempty,max=100"`
-	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"`
-	Country     *string  `json:"country"      validate:"omitempty,max=100"`
-	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`
-	Longitude   *float64 `json:"longitude"    validate:"omitempty,lon"`
+	HouseNumber *string `json:"house_number"`
+	Village     *string `json:"village"`
+	Moo         *string `json:"moo"`
+	Soi         *string `json:"soi"`
+	Road        *string `json:"road"`
+
+	SubDistrict *string `json:"sub_district"`
+	District    *string `json:"district"`
+	Province    *string `json:"province"`
+
+	PostalCode *string `json:"postal_code"`
+	Country    *string `json:"country"`
+
+	ProvinceID *uint `json:"province_id"`
+
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+
+	IsPrimary *bool `json:"is_primary"`
 }
 
 type UpdateCustomerAddressRequest struct {
-	ProvinceID  *uint    `json:"province_id" validate:"omitempty,min=1"`
-	HouseNumber *string  `json:"house_number" validate:"omitempty,max=20"`
-	Village     *string  `json:"village"      validate:"omitempty,max=100"`
-	Moo         *string  `json:"moo"          validate:"omitempty,max=10"`
-	Soi         *string  `json:"soi"          validate:"omitempty,max=100"`
-	Road        *string  `json:"road"         validate:"omitempty,max=100"`
-	Subdistrict *string  `json:"subdistrict"  validate:"omitempty,max=100"`
-	District    *string  `json:"district"     validate:"omitempty,max=100"`
-	PostalCode  *string  `json:"postal_code"  validate:"omitempty,th_postal"`
-	Country     *string  `json:"country"      validate:"omitempty,max=100"`
-	Latitude    *float64 `json:"latitude"     validate:"omitempty,lat"`
-	Longitude   *float64 `json:"longitude"    validate:"omitempty,lon"`
+	HouseNumber *string `json:"house_number"`
+	Village     *string `json:"village"`
+	Moo         *string `json:"moo"`
+	Soi         *string `json:"soi"`
+	Road        *string `json:"road"`
+
+	SubDistrict *string `json:"sub_district"`
+	District    *string `json:"district"`
+	Province    *string `json:"province"`
+
+	PostalCode *string `json:"postal_code"`
+	Country    *string `json:"country"`
+
+	ProvinceID *uint `json:"province_id"`
+
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+
+	IsPrimary *bool `json:"is_primary"`
 }
 
 type CustomerAddressResponse struct {
-	ID          uint                       `json:"id"`
-	Province    provinces.ProvinceResponse `json:"province"`
-	HouseNumber *string                    `json:"house_number,omitempty"`
-	Village     *string                    `json:"village,omitempty"`
-	Moo         *string                    `json:"moo,omitempty"`
-	Soi         *string                    `json:"soi,omitempty"`
-	Road        *string                    `json:"road,omitempty"`
-	Subdistrict *string                    `json:"subdistrict,omitempty"`
-	District    *string                    `json:"district,omitempty"`
-	PostalCode  *string                    `json:"postal_code,omitempty"`
-	Country     *string                    `json:"country,omitempty"`
-	Latitude    *float64                   `json:"latitude,omitempty"`
-	Longitude   *float64                   `json:"longitude,omitempty"`
-	CreatedAt   string                     `json:"created_at"`
-	UpdatedAt   string                     `json:"updated_at"`
+	ID          uint    `json:"id"`
+	HouseNumber *string `json:"house_number"`
+	Village     *string `json:"village"`
+	Moo         *string `json:"moo"`
+	Soi         *string `json:"soi"`
+	Road        *string `json:"road"`
+
+	SubDistrict *string `json:"sub_district"`
+	District    *string `json:"district"`
+	Province    *string `json:"province"`
+
+	PostalCode *string `json:"postal_code"`
+	Country    *string `json:"country"`
+
+	ProvinceID *uint `json:"province_id"`
+
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+
+	IsPrimary bool `json:"is_primary"`
+
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 func ToResponse(a *CustomerAddress) CustomerAddressResponse {
-	resp := CustomerAddressResponse{
+	if a == nil {
+		return CustomerAddressResponse{}
+	}
+
+	return CustomerAddressResponse{
 		ID:          a.ID,
 		HouseNumber: a.HouseNumber,
 		Village:     a.Village,
 		Moo:         a.Moo,
 		Soi:         a.Soi,
 		Road:        a.Road,
-		Subdistrict: a.Subdistrict,
+		SubDistrict: a.SubDistrict,
 		District:    a.District,
+		Province:    a.Province,
 		PostalCode:  a.PostalCode,
 		Country:     a.Country,
+		ProvinceID:  a.ProvinceID,
 		Latitude:    a.Latitude,
 		Longitude:   a.Longitude,
+		IsPrimary:   a.IsPrimary,
 		CreatedAt:   a.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:   a.UpdatedAt.Format(time.RFC3339),
 	}
-	if a.Province != nil {
-		resp.Province = provinces.ProvinceResponse{ID: a.Province.ID, NameTH: a.Province.NameTH}
-	} else {
-		resp.Province = provinces.ProvinceResponse{ID: a.ProvinceID}
-	}
-	return resp
 }
 
-func ToResponseList(arr []*CustomerAddress) []CustomerAddressResponse {
-	out := make([]CustomerAddressResponse, 0, len(arr))
-	for _, a := range arr {
-		out = append(out, ToResponse(a))
+func ToResponseList(items []*CustomerAddress) []CustomerAddressResponse {
+	out := make([]CustomerAddressResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, ToResponse(item))
 	}
 	return out
 }

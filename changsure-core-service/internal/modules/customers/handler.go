@@ -123,7 +123,7 @@ func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Invalid customer ID 3",
+			"message": "Invalid customer ID",
 		})
 	}
 
