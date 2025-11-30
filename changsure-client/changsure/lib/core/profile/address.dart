@@ -36,7 +36,18 @@ class _AddressState extends State<Address> {
   void initState() {
     super.initState();
     _initializeControllers();
+    _populateFields(widget.primaryAddress);
     _requestLocationPermission();
+  }
+
+  @override
+  void didUpdateWidget(Address oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // ถ้า wrapper ส่งข้อมูลใหม่เข้ามา เช่นโหลดเสร็จ
+    if (oldWidget.primaryAddress != widget.primaryAddress) {
+      _populateFields(widget.primaryAddress);
+    }
   }
 
   @override
@@ -46,21 +57,12 @@ class _AddressState extends State<Address> {
   }
 
   void _initializeControllers() {
-    final address = widget.primaryAddress;
+    _houseNumberController = TextEditingController();
+    _subDistrictController = TextEditingController();
+    _districtController = TextEditingController();
+    _provinceController = TextEditingController();
+    _postalCodeController = TextEditingController();
 
-    _houseNumberController = TextEditingController(
-      text: address?.houseNumber ?? "",
-    );
-    _subDistrictController = TextEditingController(
-      text: address?.subDistrict ?? "",
-    );
-    _districtController = TextEditingController(text: address?.district ?? "");
-    _provinceController = TextEditingController(text: address?.province ?? "");
-    _postalCodeController = TextEditingController(
-      text: address?.postalCode ?? "",
-    );
-
-    // Add listeners to detect changes
     _houseNumberController.addListener(_onFieldChanged);
     _subDistrictController.addListener(_onFieldChanged);
     _districtController.addListener(_onFieldChanged);
@@ -76,126 +78,109 @@ class _AddressState extends State<Address> {
     _postalCodeController.dispose();
   }
 
+  void _populateFields(AddressModel? address) {
+    if (address == null) return;
+
+    _houseNumberController.text = address.houseNumber ?? "";
+    _subDistrictController.text = address.subDistrict ?? "";
+    _districtController.text = address.district ?? "";
+    _provinceController.text = address.province ?? "";
+    _postalCodeController.text = address.postalCode ?? "";
+
+    if (address.latitude != null && address.longitude != null) {
+      _currentPosition = LatLng(address.latitude!, address.longitude!);
+    }
+
+    setState(() => _hasChanged = false);
+  }
+
   void _onFieldChanged() {
-    final address = widget.primaryAddress;
+    final a = widget.primaryAddress;
 
-    final hasChanged =
-        _houseNumberController.text != (address?.houseNumber ?? "") ||
-        _subDistrictController.text != (address?.subDistrict ?? "") ||
-        _districtController.text != (address?.district ?? "") ||
-        _provinceController.text != (address?.province ?? "") ||
-        _postalCodeController.text != (address?.postalCode ?? "");
+    final changed =
+        _houseNumberController.text != (a?.houseNumber ?? "") ||
+        _subDistrictController.text != (a?.subDistrict ?? "") ||
+        _districtController.text != (a?.district ?? "") ||
+        _provinceController.text != (a?.province ?? "") ||
+        _postalCodeController.text != (a?.postalCode ?? "");
 
-    if (hasChanged != _hasChanged) {
-      setState(() => _hasChanged = hasChanged);
+    if (changed != _hasChanged) {
+      setState(() => _hasChanged = changed);
     }
   }
 
   Future<void> _requestLocationPermission() async {
     try {
       final permission = await Geolocator.requestPermission();
-
       if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          _showErrorSnackBar('กรุณาอนุญาตการเข้าถึงตำแหน่ง');
-        }
+          permission == LocationPermission.deniedForever)
         return;
-      }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      if (mounted) {
-        setState(() {
-          _currentPosition = LatLng(position.latitude, position.longitude);
-        });
-      }
-    } catch (e) {
-      debugPrint('Error getting location: $e');
-      if (mounted) {
-        _showErrorSnackBar('ไม่สามารถรับตำแหน่งได้');
-      }
-    }
+      final pos = await Geolocator.getCurrentPosition();
+      _currentPosition = LatLng(pos.latitude, pos.longitude);
+    } catch (_) {}
   }
 
-  bool _validateForm() {
-    if (_houseNumberController.text.trim().isEmpty) {
-      _showErrorSnackBar('กรุณากรอกบ้านเลขที่');
+  bool _validate() {
+    if (_houseNumberController.text.isEmpty) {
+      _error("กรุณากรอกบ้านเลขที่");
       return false;
     }
-    if (_subDistrictController.text.trim().isEmpty) {
-      _showErrorSnackBar('กรุณากรอกแขวง/ตำบล');
+    if (_subDistrictController.text.isEmpty) {
+      _error("กรุณากรอกแขวง/ตำบล");
       return false;
     }
-    if (_districtController.text.trim().isEmpty) {
-      _showErrorSnackBar('กรุณากรอกเขต/อำเภอ');
+    if (_districtController.text.isEmpty) {
+      _error("กรุณากรอกเขต/อำเภอ");
       return false;
     }
-    if (_provinceController.text.trim().isEmpty) {
-      _showErrorSnackBar('กรุณากรอกจังหวัด');
+    if (_provinceController.text.isEmpty) {
+      _error("กรุณากรอกจังหวัด");
       return false;
     }
-    if (_postalCodeController.text.trim().isEmpty) {
-      _showErrorSnackBar('กรุณากรอกรหัสไปรษณีย์');
+    if (_postalCodeController.text.isEmpty) {
+      _error("กรุณากรอกรหัสไปรษณีย์");
       return false;
     }
     return true;
   }
 
-  Future<void> _handleSubmit() async {
-    if (!_validateForm()) return;
+  Future<void> _submit() async {
+    if (!_validate()) return;
 
     setState(() => _isLoading = true);
 
+    final payload = {
+      "house_number": _houseNumberController.text.trim(),
+      "sub_district": _subDistrictController.text.trim(),
+      "district": _districtController.text.trim(),
+      "province": _provinceController.text.trim(),
+      "postal_code": _postalCodeController.text.trim(),
+      "latitude": _currentPosition?.latitude,
+      "longitude": _currentPosition?.longitude,
+    };
+
     try {
-      final payload = {
-        "house_number": _houseNumberController.text.trim(),
-        "sub_district": _subDistrictController.text.trim(),
-        "district": _districtController.text.trim(),
-        "province": _provinceController.text.trim(),
-        "postal_code": _postalCodeController.text.trim(),
-        "latitude": widget.primaryAddress?.latitude,
-        "longitude": widget.primaryAddress?.longitude,
-      };
-
       await widget.onSubmit(payload);
-
-      if (mounted) {
-        _showSuccessSnackBar('บันทึกสำเร็จ');
-        setState(() => _hasChanged = false);
-      }
-    } catch (e) {
-      debugPrint('Error submitting address: $e');
-      if (mounted) {
-        _showErrorSnackBar('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-      }
+      _success("บันทึกสำเร็จ");
+      setState(() => _hasChanged = false);
+    } catch (_) {
+      _error("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() => _isLoading = false);
     }
   }
 
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  void _success(String msg) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  void _error(String msg) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   @override
@@ -205,58 +190,7 @@ class _AddressState extends State<Address> {
       body: SafeArea(
         child: Stack(
           children: [
-            ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-              children: [
-                const Header(header: "ดูที่อยู่ของฉัน"),
-                const SizedBox(height: 16),
-
-                // Form Fields
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(
-                    children: [
-                      _AddressTextArea(
-                        label: "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-                        controller: _houseNumberController,
-                      ),
-                      _AddressTextField(
-                        label: "แขวง/ตำบล",
-                        controller: _subDistrictController,
-                      ),
-                      _AddressTextField(
-                        label: "เขต/อำเภอ",
-                        controller: _districtController,
-                      ),
-                      _AddressTextField(
-                        label: "จังหวัด",
-                        controller: _provinceController,
-                      ),
-                      _AddressTextField(
-                        label: "รหัสไปรษณีย์",
-                        controller: _postalCodeController,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Submit Button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: PrimaryButton(
-                    text: "ยืนยัน",
-                    onPressed: _hasChanged && !_isLoading
-                        ? _handleSubmit
-                        : null,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-              ],
-            ),
-
-            // Loading Overlay
+            _buildForm(),
             if (_isLoading)
               Container(
                 color: Colors.black26,
@@ -265,6 +199,55 @@ class _AddressState extends State<Address> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildForm() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      children: [
+        const Header(header: "ดูที่อยู่ของฉัน"),
+        const SizedBox(height: 16),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            children: [
+              _AddressTextArea(
+                label: "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
+                controller: _houseNumberController,
+              ),
+              _AddressTextField(
+                label: "แขวง/ตำบล",
+                controller: _subDistrictController,
+              ),
+              _AddressTextField(
+                label: "เขต/อำเภอ",
+                controller: _districtController,
+              ),
+              _AddressTextField(
+                label: "จังหวัด",
+                controller: _provinceController,
+              ),
+              _AddressTextField(
+                label: "รหัสไปรษณีย์",
+                controller: _postalCodeController,
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: PrimaryButton(
+            text: "ยืนยัน",
+            onPressed: _hasChanged && !_isLoading ? _submit : null,
+          ),
+        ),
+
+        const SizedBox(height: 24),
+      ],
     );
   }
 }
@@ -290,9 +273,9 @@ class _AddressTextField extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontWeight: FontWeight.w500,
               color: AppColors.colorTertiaryText,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 6),
@@ -339,9 +322,9 @@ class _AddressTextArea extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontWeight: FontWeight.w500,
               color: AppColors.colorTertiaryText,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 6),

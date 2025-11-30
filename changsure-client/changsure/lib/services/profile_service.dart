@@ -50,11 +50,24 @@ class ProfileService {
       options: Options(contentType: "multipart/form-data"),
     );
 
-    if (res.statusCode == 200 && res.data["success"] == true) {
-      return res.data["data"]["avatar_url"] as String;
-    } else {
-      throw Exception("อัปโหลดรูปโปรไฟล์ไม่สำเร็จ");
+    if (res.statusCode != 200) {
+      throw Exception("Upload failed with status ${res.statusCode}");
     }
+
+    final body = res.data;
+
+    if (body["url"] != null) {
+      return body["url"];
+    }
+
+    if (body["data"] != null && body["data"]["avatar_url"] != null) {
+      return body["data"]["avatar_url"];
+    }
+    if (body["avatar_url"] != null) {
+      return body["avatar_url"];
+    }
+
+    throw Exception("ไม่พบ URL รูปภาพใน response");
   }
 
   Future<void> updateTechnicianAvatarURL(String avatarUrl) async {

@@ -1,5 +1,5 @@
-import 'package:changsure/services/customer_address_service.dart';
-import 'package:changsure/state/customer_address_state.dart';
+import 'dart:developer';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,12 +16,18 @@ import 'package:changsure/services/auth_service.dart';
 import 'package:changsure/services/profile_service.dart';
 import 'package:changsure/services/province_service.dart';
 import 'package:changsure/services/technician_address_service.dart';
+import 'package:changsure/services/customer_address_service.dart';
+import 'package:changsure/services/service_category_service.dart';
+import 'package:changsure/services/service_service.dart';
 
 import 'package:changsure/state/auth_state.dart';
 import 'package:changsure/state/profile_state.dart';
 import 'package:changsure/state/province_state.dart';
 import 'package:changsure/state/technician_address_state.dart';
 import 'package:changsure/state/bottomBarState.dart';
+import 'package:changsure/state/customer_address_state.dart';
+import 'package:changsure/state/category_state.dart';
+import 'package:changsure/state/service_state.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -38,6 +44,8 @@ List<SingleChildWidget> _buildProviders() {
   final provinceService = ProvinceService(apiClient);
   final techAddressService = TechnicianAddressService(apiClient);
   final customerAddressService = CustomerAddressService(apiClient);
+  final serviceCategoryService = ServiceCategoryService(apiClient);
+  final serviceService = ServiceApi(apiClient);
 
   return [
     Provider<AuthService>.value(value: authService),
@@ -45,6 +53,8 @@ List<SingleChildWidget> _buildProviders() {
     Provider<ProvinceService>.value(value: provinceService),
     Provider<TechnicianAddressService>.value(value: techAddressService),
     Provider<CustomerAddressService>.value(value: customerAddressService),
+    Provider<ServiceCategoryService>.value(value: serviceCategoryService),
+    Provider<ServiceApi>.value(value: serviceService),
 
     ChangeNotifierProvider(create: (_) => BottomBarState()),
     ChangeNotifierProvider(create: (_) => AuthState()..loadToken()),
@@ -65,6 +75,14 @@ List<SingleChildWidget> _buildProviders() {
 
     ChangeNotifierProvider(
       create: (ctx) => CustomerAddressState(ctx.read<CustomerAddressService>()),
+    ),
+
+    ChangeNotifierProvider(
+      create: (ctx) => ServiceCategoryState(ctx.read<ServiceCategoryService>()),
+    ),
+
+    ChangeNotifierProvider(
+      create: (ctx) => ServiceState(api: ctx.read<ServiceApi>()),
     ),
   ];
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme.dart';
@@ -11,24 +12,37 @@ import 'service.dart';
 class ViewProfileContent extends StatelessWidget {
   const ViewProfileContent({super.key});
 
+  Future<void> _pickAvatar(BuildContext context) async {
+    final picker = ImagePicker();
+
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+
+    if (file == null) return;
+
+    await context.read<ProfileState>().changeAvatar(file.path);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ProfileState>(
       builder: (context, state, child) {
-        if (state.loading) {
+        final t = state.technicianProfile;
+
+        // เข้าหน้าโปรไฟล์ครั้งแรก → โหลดข้อมูล → loading
+        if (state.loading && t == null) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (state.error != null) {
-          return Center(child: Text("โหลดข้อมูลล้มเหลว: ${state.error}"));
-        }
-
-        if (state.technicianProfile == null) {
+        // ถ้าโหลดเสร็จแต่ข้อมูลยัง null → ป้องกันไม่ให้ค้าง
+        if (t == null) {
           return const Center(child: Text("ไม่พบข้อมูลโปรไฟล์ช่าง"));
         }
 
-        final techProfile = state.technicianProfile!;
-        final t = techProfile;
+        // ใช้ข้อมูลต่อไป
 
         final avatarUrl = (t.avatarUrl?.isNotEmpty == true)
             ? t.avatarUrl!
@@ -45,8 +59,8 @@ class ViewProfileContent extends StatelessWidget {
             ? t.bio!
             : "ยังไม่มีข้อมูลแนะนำตัว";
 
-        final totalJobs = techProfile.serviceSummary.isNotEmpty
-            ? techProfile.serviceSummary.fold<int>(
+        final totalJobs = t.serviceSummary.isNotEmpty
+            ? t.serviceSummary.fold<int>(
                 0,
                 (sum, e) => sum + ((e.total ?? 0).toInt()),
               )
@@ -59,6 +73,7 @@ class ViewProfileContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
+
                   Center(
                     child: Stack(
                       children: [
@@ -68,22 +83,26 @@ class ViewProfileContent extends StatelessWidget {
                               ? NetworkImage(avatarUrl)
                               : AssetImage(avatarUrl) as ImageProvider,
                         ),
+
                         Positioned(
                           bottom: 0,
                           right: 0,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: const CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Color(0xFFE8E8E8),
-                              child: Icon(
-                                Icons.camera_alt,
-                                color: Colors.black,
-                                size: 14,
+                          child: GestureDetector(
+                            onTap: () => _pickAvatar(context),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: const CircleAvatar(
+                                radius: 12,
+                                backgroundColor: Color(0xFFE8E8E8),
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.black,
+                                  size: 14,
+                                ),
                               ),
                             ),
                           ),
@@ -175,13 +194,13 @@ class ViewProfileContent extends StatelessWidget {
 
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: TechnicianBadge(badges: techProfile.badges),
+                    child: TechnicianBadge(badges: t.badges),
                   ),
 
                   const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: const Text(
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
                       "เกี่ยวกับ",
                       style: TextStyle(
                         fontSize: 16,
@@ -191,7 +210,6 @@ class ViewProfileContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
@@ -202,15 +220,17 @@ class ViewProfileContent extends StatelessWidget {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: ServiceTag(services: techProfile.services),
+                    child: ServiceTag(services: t.services),
                   ),
                   const SizedBox(height: 16),
                 ],
               ),
             ),
+
             const ActivitySection(),
           ],
         );

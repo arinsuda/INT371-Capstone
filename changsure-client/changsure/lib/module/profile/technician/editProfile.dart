@@ -31,6 +31,24 @@ class _EditProfileState extends State<EditProfile> {
     setState(() => hasChanged = true);
   }
 
+  ImageProvider _buildProfileImage(BuildContext context) {
+    final profile = context.read<ProfileState>();
+    final tech = profile.technicianProfile;
+
+    // 1) ไม่มีข้อมูลโปรไฟล์เลย → ใช้ default
+    if (tech == null || tech.avatarUrl == null || tech.avatarUrl!.isEmpty) {
+      return const AssetImage('assets/image/Technician.png');
+    }
+
+    // 2) มีรูป → โหลดตาม URL
+    try {
+      return NetworkImage(tech.avatarUrl!);
+    } catch (_) {
+      // 3) โหลดรูปไม่ได้ → ใช้ fallback
+      return const AssetImage('assets/image/Technician.png');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,13 +101,14 @@ class _EditProfileState extends State<EditProfile> {
             Header(header: "แก้ไขโปรไฟล์"),
             const SizedBox(height: 16),
 
-            
             Center(
               child: Stack(
-                children: const [
+                children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: AssetImage('assets/image/Technician.png'),
+                    backgroundColor: Colors.grey[200],
+                    backgroundImage: _buildProfileImage(context),
+                    onBackgroundImageError: (_, __) {},
                   ),
                 ],
               ),
@@ -178,8 +197,6 @@ class _EditProfileState extends State<EditProfile> {
       ),
     );
   }
-
-  
 
   Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
@@ -294,7 +311,6 @@ class _EditProfileState extends State<EditProfile> {
     final provinceState = context.watch<ProvinceState>();
     final all = provinceState.provinces ?? [];
 
-    
     List filtered = all
         .where(
           (p) => (p.nameTh ?? "").toLowerCase().contains(
@@ -303,7 +319,6 @@ class _EditProfileState extends State<EditProfile> {
         )
         .toList();
 
-    
     final checked =
         filtered.where((p) => _selectedProvinces[p.nameTh] == true).toList()
           ..sort((a, b) => a.id.compareTo(b.id));
@@ -349,7 +364,6 @@ class _EditProfileState extends State<EditProfile> {
   }
 }
 
-  
 //   List<Widget> _buildServiceCategories() {
 //     return mockServiceCategories.asMap().entries.map((entry) {
 //       int index = entry.key;

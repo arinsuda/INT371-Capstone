@@ -4,10 +4,24 @@ import 'package:changsure/module/profile/technician/viewActivities.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../state/bottomBarState.dart';
+import '../../../../state/technician_address_state.dart';
 import 'viewProfileTab.dart';
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});
+
+  Future<void> _navigateToAddressPage(BuildContext context) async {
+    // โหลด address ก่อนเปิดหน้า
+    final addressState = context.read<TechnicianAddressState>();
+    await addressState.load();
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddressPage()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,21 +30,25 @@ class ActionButtonSection extends StatelessWidget {
         'label': 'ที่อยู่ของฉัน',
         'icon': Icons.location_on,
         'page': const AddressPage(),
+        'onTap': () => _navigateToAddressPage(context),
       },
       {
         'label': 'ดูโปรไฟล์ช่าง',
         'icon': 'assets/icons/technicianIcon.png',
         'page': const ViewProfilePage(),
+        'onTap': null,
       },
       {
         'label': 'ลงผลงาน',
         'icon': 'assets/icons/postWork.png',
         'page': const ViewActivities(),
+        'onTap': null,
       },
       {
         'label': 'ปฏิทินช่าง',
         'icon': 'assets/icons/calendar.png',
-        'page': null, // ยังไม่มีหน้านี้
+        'page': null,
+        'onTap': null,
       },
     ];
 
@@ -57,9 +75,16 @@ class ActionButtonSection extends StatelessWidget {
 
           return GestureDetector(
             onTap: () {
+              // ถ้ามี custom onTap ให้ใช้อันนั้น
+              final customOnTap = button['onTap'] as Function?;
+              if (customOnTap != null) {
+                customOnTap();
+                return;
+              }
+
+              // ถ้าไม่มี ให้ใช้แบบปกติ
               final page = button['page'] as Widget?;
               if (page != null) {
-                // ใช้ Navigator.push แทน setSubPage
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => page),

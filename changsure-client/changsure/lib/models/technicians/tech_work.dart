@@ -1,4 +1,3 @@
-import '../services/service.dart';
 import '../provinces/province.dart';
 
 class TechnicianWork {
@@ -9,15 +8,15 @@ class TechnicianWork {
   final String? description;
 
   final int? serviceId;
+  final String? serviceName;
+
   final int? provinceId;
-  final String? workDate;
+  final String? provinceName;
+
+  final String? workDate; // Keep as string from BE
 
   final bool isPublished;
-  final String createdAt;
-  final String updatedAt;
-
-  final ServiceResponse? service;
-  final ProvinceResponse? province;
+  final int createdAt; // BE sends UNIX timestamp
 
   final List<TechnicianWorkImage> images;
 
@@ -27,13 +26,12 @@ class TechnicianWork {
     required this.title,
     this.description,
     this.serviceId,
+    this.serviceName,
     this.provinceId,
+    this.provinceName,
     this.workDate,
     required this.isPublished,
     required this.createdAt,
-    required this.updatedAt,
-    this.service,
-    this.province,
     required this.images,
   });
 
@@ -41,25 +39,23 @@ class TechnicianWork {
     return TechnicianWork(
       id: _jsonInt(json["id"]),
       technicianId: _jsonInt(json["technician_id"]),
+
       title: json["title"] ?? "",
       description: json["description"],
+
       serviceId: (json["service_id"] as num?)?.toInt(),
+      serviceName: json["service_name"],
+
       provinceId: (json["province_id"] as num?)?.toInt(),
+      provinceName: json["province_name"],
+
       workDate: json["work_date"],
 
       isPublished: json["is_published"] ?? true,
-      createdAt: json["created_at"] ?? "",
-      updatedAt: json["updated_at"] ?? "",
-
-      service: json["service"] != null
-          ? ServiceResponse.fromJson(json["service"] as Map<String, dynamic>)
-          : null,
-      province: json["province"] != null
-          ? ProvinceResponse.fromJson(json["province"] as Map<String, dynamic>)
-          : null,
+      createdAt: _jsonInt(json["created_at"]),
 
       images: (json["images"] as List? ?? [])
-          .map((e) => TechnicianWorkImage.fromJson(e as Map<String, dynamic>))
+          .map((e) => TechnicianWorkImage.fromJson(e))
           .toList(),
     );
   }
@@ -69,29 +65,20 @@ class TechnicianWork {
 
 class TechnicianWorkImage {
   final int id;
-  final int workId;
   final String imageUrl;
-  final int sortOrder;
-  final String createdAt;
-  final String updatedAt;
+  final int order;
 
   TechnicianWorkImage({
     required this.id,
-    required this.workId,
     required this.imageUrl,
-    required this.sortOrder,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.order,
   });
 
   factory TechnicianWorkImage.fromJson(Map<String, dynamic> json) {
     return TechnicianWorkImage(
       id: _jsonInt(json["id"]),
-      workId: _jsonInt(json["work_id"]),
       imageUrl: json["image_url"] ?? "",
-      sortOrder: _jsonInt(json["sort_order"]),
-      createdAt: json["created_at"] ?? "",
-      updatedAt: json["updated_at"] ?? "",
+      order: _jsonInt(json["order"]),
     );
   }
 

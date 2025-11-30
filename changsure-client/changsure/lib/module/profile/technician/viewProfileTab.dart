@@ -17,55 +17,62 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
   @override
   void initState() {
     super.initState();
-    // โหลดข้อมูลถ้ายังไม่มี
-    Future.microtask(() {
-      final profileState = context.read<ProfileState>();
-      if (profileState.technicianProfile == null) {
-        profileState.loadProfile();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProfileState>().loadProfile();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Consumer<ProfileState>(
-            builder: (context, state, child) {
-              // แสดง Loading
-              if (state.loading) {
-                return const Center(child: CircularProgressIndicator());
-              }
+    return Consumer<ProfileState>(
+      builder: (context, state, child) {
+        // โหลดข้อมูลอยู่ → ให้แสดงแค่ loading ป้องกัน TabBarView ถูกสร้าง
+        if (state.loading && state.technicianProfile == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-              // แสดง Error
-              if (state.error != null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("โหลดข้อมูลล้มเหลว: ${state.error}"),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => state.loadProfile(),
-                        child: const Text("ลองใหม่"),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // แสดงหน้าจริง
-              return Column(
+        // error และไม่มีข้อมูลเลย
+        if (state.error != null && state.technicianProfile == null) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text(state.error!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => state.loadProfile(),
+                    child: const Text("ลองใหม่"),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // ยังไม่ควรสร้าง UI จนกว่าจะมีข้อมูลจริง
+        if (state.technicianProfile == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // ✨ มีข้อมูลแล้ว → สร้างหน้าโปรไฟล์ได้
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
                     child: Header(header: "ดูโปรไฟล์"),
                   ),
-
-                  // TabBar
                   TabBar(
                     labelColor: AppColors.primary,
                     unselectedLabelColor: const Color(0xFF9B9B9B),
@@ -75,19 +82,29 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
                       Tab(text: "รีวิวช่าง"),
                     ],
                   ),
-
-                  // TabBarView
                   Expanded(
-                    child: TabBarView(
-                      children: const [ViewProfileContent(), ReviewContent()],
+                    child: Stack(
+                      children: [
+                        const TabBarView(
+                          children: [ViewProfileContent(), ReviewContent()],
+                        ),
+
+                        if (state.loading)
+                          Container(
+                            color: Colors.black12,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
-              );
-            },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
