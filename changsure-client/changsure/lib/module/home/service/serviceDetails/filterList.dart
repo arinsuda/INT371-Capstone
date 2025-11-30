@@ -12,12 +12,10 @@ class FilterList extends StatefulWidget {
 }
 
 class _FilterListState extends State<FilterList> {
-  /// เลือก Tag
   String selectedPrice = "";
   String selectedRating = "";
   String selectedDistance = "";
 
-  /// Badge filter
   bool topService = false;
   bool recommended = false;
   bool highRating = false;
@@ -341,7 +339,7 @@ class _FilterListState extends State<FilterList> {
           color: selected ? AppColors.primaryBGHover : const Color(0xFFF2F2F2),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppColors.primary : Color(0xFFF2F2F2)
+            color: selected ? AppColors.primary : Color(0xFFF2F2F2),
           ),
         ),
         child: Row(

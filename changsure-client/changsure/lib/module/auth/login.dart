@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/button/primaryButton.dart';
 import '../../core/theme.dart';
-import '../../repositories/auth_repository.dart';
+import '../../services/auth_service.dart';
 
 import '../../models/auth/login_request.dart';
 import '../../state/auth_state.dart';
@@ -13,7 +13,7 @@ double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class LoginScreen extends StatefulWidget {
-  final AuthRepository authRepo;
+  final AuthService authRepo;
 
   const LoginScreen({super.key, required this.authRepo});
 

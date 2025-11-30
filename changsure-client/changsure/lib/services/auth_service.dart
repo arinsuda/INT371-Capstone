@@ -1,13 +1,13 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../api/api_client.dart';
-import '../models/auth/login_request.dart';
-import '../models/auth/login_response.dart';
+import 'package:changsure/api/api_client.dart';
+import 'package:changsure/models/auth/login_request.dart';
+import 'package:changsure/models/auth/login_response.dart';
 
-class AuthRepository {
+class AuthService {
   final ApiClient client;
   final _storage = const FlutterSecureStorage();
 
-  AuthRepository(this.client);
+  AuthService(this.client);
 
   Future<LoginResponse> login(LoginRequest req) async {
     final res = await client.dio.post("/auth/login", data: req.toJson());

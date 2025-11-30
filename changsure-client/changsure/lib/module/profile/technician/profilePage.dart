@@ -2,28 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
-import '../../../state/bottomBarState.dart';
 import '../../../state/profile_state.dart';
 import '../../../state/auth_state.dart';
+import '../../../state/bottomBarState.dart';
+import '../../../services/auth_service.dart';
 
-import '../../../repositories/auth_repository.dart';
 import '../../../core/profile/profileCardSection.dart';
 import '../../../core/button/primaryButton.dart';
+import '../../../core/profile/servicesSection.dart';
 
 import 'actionButtonSection.dart';
 import 'viewProfileTab.dart';
-import 'package:changsure/core/profile/servicesSection.dart';
 import '../../auth/login.dart';
 import '../technician/editProfile.dart';
+
+double toLogicalPx(BuildContext context, double px) =>
+    px / MediaQuery.of(context).devicePixelRatio;
 
 class TechnicianProfile extends StatefulWidget {
   const TechnicianProfile({super.key});
 
   @override
-  State<TechnicianProfile> createState() => _TechnicianProfileState();
+  State<TechnicianProfile> createState() => _ProfileState();
 }
 
-class _TechnicianProfileState extends State<TechnicianProfile> {
+class _ProfileState extends State<TechnicianProfile> {
   @override
   void initState() {
     super.initState();
@@ -45,32 +48,40 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
             }
 
             if (state.error != null) {
-              return Center(child: Text("โหลดข้อมูลล้มเหลว: ${state.error}"));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("โหลดข้อมูลล้มเหลว: ${state.error}"),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => state.loadProfile(),
+                      child: const Text("ลองใหม่"),
+                    ),
+                  ],
+                ),
+              );
             }
 
-            final profile = state.technicianProfile;
-            if (profile == null) {
+            final tech = state.technicianProfile;
+            if (tech == null) {
               return const Center(child: Text("ไม่พบข้อมูลผู้ใช้"));
             }
 
-            final tech = profile;
-
             return ListView(
-              physics: const BouncingScrollPhysics(),
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 24),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 0),
               children: [
                 Center(
                   child: Text(
                     "โปรไฟล์",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 ProfileSection(
                   profile: tech,
@@ -84,20 +95,19 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
                   },
                 ),
 
-                /// 4 ปุ่มเมนู
-                const SizedBox(height: 16),
-                const ActionButtonSection(),
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: ActionButtonSection(),
+                ),
 
-                /// แท็บสรุปโปรไฟล์ (ถ้ามันไม่ fixed-height ต้อง wrap นี่เพิ่ม)
-                const SizedBox(height: 12),
-                const ViewProfilePage(),
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: RecommendedServiceSection(),
+                ),
 
-                /// งานแนะนำ
-                const SizedBox(height: 12),
-                const RecommendedServiceSection(),
-
-                /// LOGOUT BUTTON
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: PrimaryButton(
@@ -116,7 +126,7 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
                           builder: (_) => LoginScreen(
-                            authRepo: context.read<AuthRepository>(),
+                            authRepo: context.read<AuthService>(),
                           ),
                         ),
                         (route) => false,
@@ -124,7 +134,6 @@ class _TechnicianProfileState extends State<TechnicianProfile> {
                     },
                   ),
                 ),
-
                 const SizedBox(height: 40),
               ],
             );

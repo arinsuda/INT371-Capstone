@@ -4,14 +4,14 @@ import '../models/customers/customer_profile.dart';
 import '../models/customers/update_customer_request.dart';
 import '../models/technicians/technician_profile.dart';
 import '../models/technicians/update_technician_request.dart';
-import '../repositories/profile_repository.dart';
+import '../services/profile_service.dart';
 import '../state/auth_state.dart';
 
 class ProfileState extends ChangeNotifier {
-  final ProfileRepository repo;
+  final ProfileService service;
   final AuthState auth;
 
-  ProfileState(this.repo, this.auth);
+  ProfileState(this.service, this.auth);
 
   CustomerProfile? customerProfile;
   TechnicianProfile? technicianProfile;
@@ -28,10 +28,10 @@ class ProfileState extends ChangeNotifier {
 
     try {
       if (isTechnician) {
-        technicianProfile = await repo.getTechnicianProfile();
+        technicianProfile = await service.getTechnicianProfile();
         customerProfile = null;
       } else {
-        customerProfile = await repo.getCustomerProfile();
+        customerProfile = await service.getCustomerProfile();
         technicianProfile = null;
       }
     } catch (e) {
@@ -55,7 +55,7 @@ class ProfileState extends ChangeNotifier {
 
     try {
       if (isTechnician) {
-        await repo.updateTechnicianProfile(
+        await service.updateTechnicianProfile(
           TechnicianProfileRequest(
             firstname: firstname,
             lastname: lastname,
@@ -65,7 +65,7 @@ class ProfileState extends ChangeNotifier {
           ),
         );
       } else {
-        await repo.updateCustomerProfile(
+        await service.updateCustomerProfile(
           UpdateCustomerRequest(
             firstname: firstname,
             lastname: lastname,
@@ -91,7 +91,7 @@ class ProfileState extends ChangeNotifier {
       loading = true;
       notifyListeners();
 
-      await repo.updateTechnicianProvinces(provinceIds);
+      await service.updateTechnicianProvinces(provinceIds);
 
       await loadProfile();
 
@@ -101,6 +101,22 @@ class ProfileState extends ChangeNotifier {
       loading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> changeAvatar(String filePath) async {
+    try {
+      loading = true;
+      notifyListeners();
+
+      final url = await service.uploadTechnicianAvatar(filePath);
+
+      await service.updateTechnicianAvatarURL(url);
+
+      await loadProfile();
+    } finally {
+      loading = false;
+      notifyListeners();
     }
   }
 

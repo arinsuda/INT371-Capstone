@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../repositories/province_repository.dart';
+import '../services/province_service.dart';
 import '../models/provinces/province.dart';
 
 class ProvinceState extends ChangeNotifier {
-  final ProvinceRepository repo;
+  final ProvinceService repo;
 
   ProvinceState(this.repo);
 

@@ -20,6 +20,7 @@ class BadgeResponse {
   });
 
   factory BadgeResponse.fromJson(Map<String, dynamic> json) {
+    
     return BadgeResponse(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',

@@ -1,152 +1,165 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/theme.dart';
-import '../../../../models/badges/badge.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-const String minioBaseUrl =
-    "http://cp25ssa1.sit.kmutt.ac.th:9011/changsure-dev";
+import '../../../../core/theme.dart';
+import '../../../../config/app_config.dart';
+import '../../../../models/badges/badge.dart';
 
 class TechnicianBadge extends StatelessWidget {
   final List<BadgeResponse> badges;
 
   const TechnicianBadge({super.key, required this.badges});
 
+  static String _buildImageUrl(String iconUrl) {
+    if (iconUrl.isEmpty) return '';
+
+    if (iconUrl.startsWith('http://') || iconUrl.startsWith('https://')) {
+      return iconUrl;
+    }
+
+    final path = iconUrl.startsWith('/') ? iconUrl.substring(1) : iconUrl;
+    return '${AppConfig.minioBaseUrl}/$path';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 0, left: 4, top: 24),
-          child: Row(
-            children: [
-              SvgPicture.asset(
-                'assets/icons/badge.svg',
-                width: 14,
-                height: 14,
-                color: Colors.black,
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'ป้ายสัญลักษณ์ของช่าง',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-            ],
+      children: [_buildHeader(), _buildBadgeList()],
+    );
+  }
+
+  Widget _buildHeader() {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 0, left: 4, top: 24),
+      child: Row(
+        children: [
+          Icon(Icons.emoji_events, size: 16, color: Colors.black),
+          SizedBox(width: 6),
+          Text(
+            'ป้ายสัญลักษณ์ของช่าง',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
 
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12, top: 8),
-          child: badges.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    "ยังไม่มีป้ายสัญลักษณ์",
-                    style: TextStyle(fontSize: 13, color: Color(0xFF9B9B9B)),
-                  ),
-                )
-              : SizedBox(
-                  height: 110,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: badges.length,
-                    separatorBuilder: (context, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final badge = badges[index];
+  Widget _buildBadgeList() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      child: badges.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                "ยังไม่มีป้ายสัญลักษณ์",
+                style: TextStyle(fontSize: 13, color: Color(0xFF9B9B9B)),
+              ),
+            )
+          : SizedBox(
+              height: 110,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: badges.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  return _BadgeItem(badge: badges[index]);
+                },
+              ),
+            ),
+    );
+  }
+}
 
-                      final imageUrl = badge.iconUrl.isNotEmpty
-                          ? "$minioBaseUrl/${badge.iconUrl}"
-                          : "assets/icons/default_badge.png";
+class _BadgeItem extends StatelessWidget {
+  final BadgeResponse badge;
 
-                      final isSvg = imageUrl.toLowerCase().endsWith(".svg");
+  const _BadgeItem({required this.badge});
 
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey.shade100,
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 4,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: imageUrl.startsWith("http")
-                                  ? (isSvg
-                                        ? SvgPicture.network(
-                                            imageUrl,
-                                            fit: BoxFit.contain,
-                                            height: 70,
-                                            width: 70,
-                                            placeholderBuilder: (context) =>
-                                                const Center(
-                                                  child: SizedBox(
-                                                    height: 24,
-                                                    width: 24,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth: 2,
-                                                        ),
-                                                  ),
-                                                ),
-                                            // ถ้าโหลดไม่สำเร็จให้ fallback เป็น icon error
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                                  debugPrint(
-                                                    "❌ SVG load error: $error",
-                                                  );
-                                                  return const Icon(
-                                                    Icons.error,
-                                                    color: Colors.redAccent,
-                                                  );
-                                                },
-                                          )
-                                        : Image.network(
-                                            imageUrl,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    const Icon(
-                                                      Icons.error,
-                                                      color: Colors.redAccent,
-                                                    ),
-                                          ))
-                                  : Image.asset(imageUrl, fit: BoxFit.contain),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              badge.name,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-        ),
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = TechnicianBadge._buildImageUrl(badge.iconUrl);
+
+    debugPrint("🎯 Badge: ${badge.name}");
+    debugPrint("📍 URL: $imageUrl");
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildBadgeImage(imageUrl),
+        const SizedBox(height: 8),
+        _buildBadgeName(),
       ],
+    );
+  }
+
+  Widget _buildBadgeImage(String url) {
+    return SizedBox(
+      width: 70,
+      height: 70,
+      child: url.isEmpty
+          ? _buildPlaceholder()
+          : CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.contain,
+              placeholder: (_, __) => _buildLoading(),
+              errorWidget: (_, __, error) {
+                debugPrint("❌ Badge Error: $error");
+                return _buildError();
+              },
+              fadeInDuration: const Duration(milliseconds: 200),
+              maxHeightDiskCache: 200,
+              maxWidthDiskCache: 200,
+            ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Icon(Icons.badge_outlined, size: 35, color: Colors.grey.shade400);
+  }
+
+  Widget _buildLoading() {
+    return Center(
+      child: SizedBox(
+        height: 20,
+        width: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AppColors.primary.withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Icon(
+        Icons.broken_image_outlined,
+        size: 30,
+        color: Colors.grey.shade400,
+      ),
+    );
+  }
+
+  Widget _buildBadgeName() {
+    return SizedBox(
+      width: 80,
+      child: Text(
+        badge.name,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.primary,
+          height: 1.2,
+        ),
+      ),
     );
   }
 }

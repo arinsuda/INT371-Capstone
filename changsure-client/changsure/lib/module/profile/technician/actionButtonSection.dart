@@ -12,27 +12,38 @@ class ActionButtonSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final buttons = [
-      {'label': 'ที่อยู่ของฉัน', 'icon': Icons.location_on}, // IconData
-      {'label': 'ดูโปรไฟล์ช่าง', 'icon': 'assets/icons/technicianIcon.png'}, // Asset
-      {'label': 'ลงผลงาน', 'icon': 'assets/icons/postWork.png'}, // Asset
-      {'label': 'ปฏิทินช่าง', 'icon': 'assets/icons/calendar.png'}, // Asset
+      {
+        'label': 'ที่อยู่ของฉัน',
+        'icon': Icons.location_on,
+        'page': const AddressPage(),
+      },
+      {
+        'label': 'ดูโปรไฟล์ช่าง',
+        'icon': 'assets/icons/technicianIcon.png',
+        'page': const ViewProfilePage(),
+      },
+      {
+        'label': 'ลงผลงาน',
+        'icon': 'assets/icons/postWork.png',
+        'page': const ViewActivities(),
+      },
+      {
+        'label': 'ปฏิทินช่าง',
+        'icon': 'assets/icons/calendar.png',
+        'page': null, // ยังไม่มีหน้านี้
+      },
     ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children:
-        buttons.map((button) {
+        children: buttons.map((button) {
           final icon = button['icon'];
 
           Widget iconWidget;
           if (icon is IconData) {
-            iconWidget = Icon(
-              icon,
-              color: Colors.black,
-              size: 24,
-            );
+            iconWidget = Icon(icon, color: Colors.black, size: 24);
           } else if (icon is String) {
             iconWidget = Image.asset(
               icon,
@@ -46,17 +57,14 @@ class ActionButtonSection extends StatelessWidget {
 
           return GestureDetector(
             onTap: () {
-              // ตรวจสอบปุ่ม "ดูโปรไฟล์ช่าง"
-              if (button['label'] == 'ดูโปรไฟล์ช่าง') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfilePage());
+              final page = button['page'] as Widget?;
+              if (page != null) {
+                // ใช้ Navigator.push แทน setSubPage
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => page),
+                );
               }
-              if (button['label'] == 'ลงผลงาน') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
-              }
-              if (button['label'] == 'ที่อยู่ของฉัน') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const AddressPage());
-              }
-              // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -71,14 +79,19 @@ class ActionButtonSection extends StatelessWidget {
                   child: Center(child: iconWidget),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  button['label'] as String,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF737373),
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    button['label'] as String,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF737373),
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),

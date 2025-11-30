@@ -2,9 +2,9 @@ import '../api/api_client.dart';
 import 'package:flutter/foundation.dart';
 import '../models/provinces/province.dart';
 
-class ProvinceRepository {
+class ProvinceService {
   final ApiClient client;
-  ProvinceRepository(this.client);
+  ProvinceService(this.client);
 
   Future<List<ProvinceResponse>> getProvinces() async {
     final res = await client.dio.get("/provinces");

@@ -9,7 +9,7 @@ import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';
 import '../../../state/profile_state.dart';
 
-import '../../../repositories/auth_repository.dart';
+import '../../../services/auth_service.dart';
 import '../../../state/auth_state.dart';
 import '../../auth/login.dart';
 
@@ -159,7 +159,7 @@ class _ProfileState extends State<UserProfile> {
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
                           builder: (_) {
-                            final authRepo = context.read<AuthRepository>();
+                            final authRepo = context.read<AuthService>();
                             return LoginScreen(authRepo: authRepo);
                           },
                         ),
