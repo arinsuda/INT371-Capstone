@@ -240,12 +240,24 @@ func (s *service) normalizeAvatarURL(url *string) *string {
 }
 
 func (s *service) updateTechnicianFields(tech *Technician, req TechnicianProfileReq) {
-	tech.FirstName = req.FirstName
-	tech.LastName = req.LastName
-	tech.Phone = req.Phone
-	tech.Email = req.Email
-	tech.Bio = req.Bio
-	tech.AvatarURL = req.AvatarURL
+	if req.FirstName != "" {
+		tech.FirstName = req.FirstName
+	}
+	if req.LastName != "" {
+		tech.LastName = req.LastName
+	}
+	if req.Phone != nil {
+		tech.Phone = req.Phone
+	}
+	if req.Email != nil {
+		tech.Email = req.Email
+	}
+	if req.Bio != nil {
+		tech.Bio = req.Bio
+	}
+	if req.AvatarURL != nil {
+		tech.AvatarURL = req.AvatarURL
+	}
 }
 
 func (s *service) upsertProfileTransaction(ctx context.Context, tech *Technician, provinceIDs []uint) error {
