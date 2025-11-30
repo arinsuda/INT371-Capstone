@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"changsure-core-service/pkg/storage"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -166,5 +167,56 @@ func (h *Handler) RemoveService(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "service removed successfully",
+	})
+}
+
+func (h *Handler) UploadAvatar(c fiber.Ctx) error {
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"error":   "unauthorized",
+		})
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "file is required",
+		})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	defer src.Close()
+
+	if storage.GlobalMinio == nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "minio not ready")
+	}
+
+	key, err := storage.GlobalMinio.UploadFile(
+		c.Context(),
+		src,
+		file.Filename,
+		"avatars",
+		file.Size,
+		file.Header.Get("Content-Type"),
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	publicURL := storage.GlobalMinio.PublicURL(key)
+
+	if err := h.svc.UpdateAvatar(c.Context(), techID, key); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"url":     publicURL,
 	})
 }
