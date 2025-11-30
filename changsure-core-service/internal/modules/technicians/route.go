@@ -13,4 +13,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	technicians.Patch("/provinces", h.PatchProvinces)
 	technicians.Post("/:id/services", h.AddService)
 	technicians.Delete("/:id/services", h.RemoveService)
+	technicians.Post("/profile/avatar", h.UploadAvatar)
+
 }

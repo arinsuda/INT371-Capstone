@@ -21,6 +21,7 @@ type Service interface {
 	UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error
 	AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error)
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
+	UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error
 }
 
 type service struct {
@@ -105,17 +106,11 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		return nil, err
 	}
 
-	// --------------------------
-	// Avatar (ใช้ PublicURL เท่านั้น)
-	// --------------------------
 	var avatar string
 	if tech.AvatarURL != nil && *tech.AvatarURL != "" && storage.GlobalMinio != nil {
 		avatar = storage.GlobalMinio.PublicURL(*tech.AvatarURL)
 	}
 
-	// --------------------------
-	// Badges → ใช้ PublicURL เท่านั้น
-	// --------------------------
 	badgesRes := make([]badge.BadgeResponse, 0, len(tech.Badges))
 	for _, tb := range tech.Badges {
 		b := tb.Badge
@@ -140,9 +135,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	// --------------------------
-	// Provinces
-	// --------------------------
 	provincesRes := make([]provinces.ProvinceResponse, 0, len(tech.ServiceAreas))
 	for _, a := range tech.ServiceAreas {
 		p := a.Province
@@ -154,9 +146,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	// --------------------------
-	// Services
-	// --------------------------
 	servicesRes := make([]TechServiceRes, 0, len(tech.Services))
 	for _, ts := range tech.Services {
 		if ts.Service.ID == 0 {
@@ -172,9 +161,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		})
 	}
 
-	// --------------------------
-	// Service Summary by Category
-	// --------------------------
 	summaryGroups := make(map[uint]*TechServiceSummary)
 	for _, ts := range tech.Services {
 		svc := ts.Service
@@ -210,9 +196,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		serviceSummary = append(serviceSummary, *v)
 	}
 
-	// --------------------------
-	// Final Response
-	// --------------------------
 	res := &TechnicianProfileRes{
 		ID:             tech.ID,
 		FirstName:      tech.FirstName,
@@ -333,4 +316,10 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 		return tx.Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).
 			Delete(&tsvc.TechnicianService{}).Error
 	})
+}
+
+func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error {
+	return s.db.WithContext(ctx).Model(&Technician{}).
+		Where("id = ?", techID).
+		Update("avatar_url", avatarPath).Error
 }

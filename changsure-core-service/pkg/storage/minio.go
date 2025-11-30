@@ -165,3 +165,19 @@ func (s *MinioStorage) PublicURL(key string) string {
 	}
 	return fmt.Sprintf("%s/%s", s.cfg.PublicBaseURL, strings.TrimPrefix(key, "/"))
 }
+
+func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, folder string, size int64, contentType string) (string, error) {
+
+	if folder != "" && !strings.HasSuffix(folder, "/") {
+		folder += "/"
+	}
+
+	key := fmt.Sprintf("%s%d-%s", folder, time.Now().UnixNano(), filename)
+
+	_, err := s.Put(ctx, key, r, size, contentType)
+	if err != nil {
+		return "", err
+	}
+
+	return key, nil
+}
