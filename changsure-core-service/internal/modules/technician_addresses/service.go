@@ -29,23 +29,35 @@ func NewService(repo Repository) Service {
 }
 
 func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddress, error) {
+
 	addr := &TechnicianAddress{
 		TechnicianID: techID,
+		AddressFields: address_shared.AddressFields{
+			HouseNumber: req.HouseNumber,
+			Village:     req.Village,
+			Moo:         req.Moo,
+			Soi:         req.Soi,
+			Road:        req.Road,
+
+			SubDistrict: req.SubDistrict,
+			District:    req.District,
+			Province:    req.Province,
+
+			PostalCode: req.PostalCode,
+			Country:    req.Country,
+
+			ProvinceID: req.ProvinceID,
+			Latitude:   req.Latitude,
+			Longitude:  req.Longitude,
+
+			IsPrimary: false,
+		},
 	}
 
-	addr.HouseNumber = req.HouseNumber
-	addr.Village = req.Village
-	addr.Moo = req.Moo
-	addr.Soi = req.Soi
-	addr.Road = req.Road
-	addr.SubDistrict = req.SubDistrict
-	addr.District = req.District
-	addr.Province = req.Province
-	addr.PostalCode = req.PostalCode
-	addr.Country = req.Country
-	addr.ProvinceID = req.ProvinceID
-	addr.Latitude = req.Latitude
-	addr.Longitude = req.Longitude
+	existing, _ := s.repo.ListByTechnician(ctx, techID)
+	if len(existing) == 0 {
+		addr.IsPrimary = true
+	}
 
 	if req.IsPrimary != nil && *req.IsPrimary {
 		_ = s.repo.ClearPrimary(ctx, techID)
