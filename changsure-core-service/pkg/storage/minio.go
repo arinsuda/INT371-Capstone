@@ -160,9 +160,18 @@ func (s *MinioStorage) Delete(ctx context.Context, key string) error {
 }
 
 func (s *MinioStorage) PublicURL(key string) string {
+	if key == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(key, "http://") || strings.HasPrefix(key, "https://") {
+		return key
+	}
+
 	if s.cfg == nil || s.cfg.PublicBaseURL == "" {
 		return key
 	}
+
 	return fmt.Sprintf("%s/%s", s.cfg.PublicBaseURL, strings.TrimPrefix(key, "/"))
 }
 
@@ -180,4 +189,8 @@ func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, fo
 	}
 
 	return key, nil
+}
+
+func (s *MinioStorage) Config() *config.MinioConfig {
+	return s.cfg
 }
