@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:motion_tab_bar_v2/motion-tab-controller.dart';
 import 'package:provider/provider.dart';
 
+// Page imports
 import '../../module/home/home_page.dart';
 import '../../module/profile/technician/profile_page.dart';
 import '../../module/profile/user/profile_page.dart';
 
+// States
 import '../../state/bottom_bar_state.dart';
 import '../../state/auth_state.dart';
 import '../../state/profile_state.dart';
+
+// Theme
 import '../theme.dart';
 
 class FooterBarTemplate extends StatefulWidget {
@@ -105,6 +109,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
           body: Stack(
             children: [
               IndexedStack(index: selectedIndex, children: pages),
+
+              // ถ้ามี subpage ให้แสดงทับ
               if (bottomBarState.currentSubPage != null)
                 bottomBarState.currentSubPage!,
             ],
@@ -152,8 +158,8 @@ class _FooterBarTemplateState extends State<FooterBarTemplate>
                     });
 
                     bottomBarState.setIndex(index);
-                    _motionController.index = index;
 
+                    // โหลดโปรไฟล์เมื่อกด tab โปรไฟล์
                     if (index == 3) {
                       await context.read<ProfileState>().loadProfile();
                     }

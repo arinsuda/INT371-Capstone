@@ -1,4 +1,6 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/models/technicians/tech_service.dart';
+import 'package:changsure/state/profile_state.dart';
 import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
@@ -78,7 +80,6 @@ class _EditProfileState extends State<EditProfile> {
   Map<String, TextEditingController> _fixPriceControllers = {};
   bool hasChanged = false;
 
-  // ตัวแปรเก็บ error messages
   String? _provinceError;
   String? _serviceError;
   Map<String, String?> _priceErrors = {};
@@ -140,18 +141,15 @@ class _EditProfileState extends State<EditProfile> {
   }
 
   bool _validateAll() {
-    // Validate Province
     String? newProvinceError = _selectedProvinces.values.any((v) => v)
         ? null
         : "กรุณาเลือกข้อมูลให้ครบถ้วน";
 
-    // Validate Services
     bool hasSelectedService = _selectedServices.values.any((v) => v);
     String? newServiceError = hasSelectedService
         ? null
         : "กรุณาเลือกข้อมูลให้ครบถ้วน";
 
-    // Validate Prices
     Map<String, String?> newPriceErrors = {};
     for (var sub in _selectedServices.keys) {
       if (_selectedServices[sub] == true) {
@@ -187,7 +185,6 @@ class _EditProfileState extends State<EditProfile> {
       }
     }
 
-    // Update state ถ้ามีการเปลี่ยนแปลง
     if (_provinceError != newProvinceError ||
         _serviceError != newServiceError ||
         _priceErrors.toString() != newPriceErrors.toString()) {
@@ -202,7 +199,6 @@ class _EditProfileState extends State<EditProfile> {
       _priceErrors = newPriceErrors;
     }
 
-    // Return true ถ้าไม่มี error
     return _provinceError == null &&
         _serviceError == null &&
         !_priceErrors.values.any((error) => error != null);
@@ -212,25 +208,70 @@ class _EditProfileState extends State<EditProfile> {
   void initState() {
     super.initState();
 
-    _selectedProvinces = {for (var p in mockProvinces) p: false};
+    final profileState = Provider.of<ProfileState>(context, listen: false);
+    final tech = profileState.technicianProfile;
+
+    if (tech != null) {
+      nameController.text = tech.firstname;
+      lastNameController.text = tech.lastname;
+      emailController.text = tech.email;
+
+      if (tech.phone.length == 10) {
+        phoneController.text =
+            "${tech.phone.substring(0, 3)}-${tech.phone.substring(3, 6)}-${tech.phone.substring(6)}";
+      } else {
+        phoneController.text = tech.phone;
+      }
+
+      aboutController.text = tech.bio;
+
+      _selectedProvinces = {
+        for (var p in mockProvinces)
+          p: tech.provinces.any((tp) => tp.nameTh == p),
+      };
+
+      for (var category in mockServiceCategories) {
+        for (var sub in category.subServices) {
+          final apiService = tech.services.cast<TechServiceResponse?>().firstWhere(
+            (s) => s?.serviceName == sub,
+            orElse: () => null,
+          );
+
+          if (apiService != null) {
+            _selectedServices[sub] = true;
+
+            if (apiService.pricingType == "FIXED") {
+              _priceType[sub] = "fix";
+              _fixPriceControllers[sub]?.text =
+                  apiService.priceFixed?.toString() ?? "";
+            } else {
+              _priceType[sub] = "range";
+              _minPriceControllers[sub]?.text =
+                  apiService.priceMin?.toInt().toString() ?? "";
+              _maxPriceControllers[sub]?.text =
+                  apiService.priceMax?.toInt().toString() ?? "";
+            }
+          } else {
+            _selectedServices[sub] = false;
+            _priceType[sub] = "range";
+          }
+        }
+      }
+    }
 
     _searchController.addListener(() {
-      setState(() {
-        _searchText = _searchController.text.trim();
-      });
+      setState(() => _searchText = _searchController.text.trim());
     });
 
     for (var category in mockServiceCategories) {
       for (var sub in category.subServices) {
-        _selectedServices[sub] = false;
-        _priceType[sub] = "range";
-        _minPriceControllers[sub] = TextEditingController();
-        _maxPriceControllers[sub] = TextEditingController();
-        _fixPriceControllers[sub] = TextEditingController();
+        _minPriceControllers[sub] ??= TextEditingController();
+        _maxPriceControllers[sub] ??= TextEditingController();
+        _fixPriceControllers[sub] ??= TextEditingController();
 
-        _minPriceControllers[sub]?.addListener(_checkChanged);
-        _maxPriceControllers[sub]?.addListener(_checkChanged);
-        _fixPriceControllers[sub]?.addListener(_checkChanged);
+        _minPriceControllers[sub]!.addListener(_checkChanged);
+        _maxPriceControllers[sub]!.addListener(_checkChanged);
+        _fixPriceControllers[sub]!.addListener(_checkChanged);
       }
     }
 
@@ -359,7 +400,7 @@ class _EditProfileState extends State<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: _buildProvinceCheckboxList(),
               ),
-              // แสดง error สำหรับ Province
+
               if (_provinceError != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 4),
@@ -388,7 +429,7 @@ class _EditProfileState extends State<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(children: _buildServiceCategories()),
               ),
-              // แสดง error สำหรับ Service
+
               if (_serviceError != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 4),
@@ -408,18 +449,16 @@ class _EditProfileState extends State<EditProfile> {
                   text: "บันทึกการแก้ไข",
                   onPressed: hasChanged
                       ? () {
-                          // เช็ค Form validation ก่อน
                           if (!_formKey.currentState!.validate()) {
                             print("INVALID! Form fields มีปัญหา");
                             return;
                           }
 
-                          // เช็ค Province และ Services validation
                           if (!_validateAll()) {
                             print("INVALID! Province หรือ Services มีปัญหา");
                             return;
                           }
-                          // ผ่านทั้งหมด
+
                           Provider.of<BottomBarState>(
                             context,
                             listen: false,
@@ -771,7 +810,6 @@ class _EditProfileState extends State<EditProfile> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (_) {
-                              // ⭐ เคลียร์ error เมื่อพิมพ์
                               setState(() {
                                 _priceErrors[subService] = null;
                               });
@@ -780,7 +818,7 @@ class _EditProfileState extends State<EditProfile> {
                         ),
                     ],
                   ),
-                  // ⭐ แสดง error สำหรับ price
+
                   if (priceError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -858,7 +896,7 @@ class _EditProfileState extends State<EditProfile> {
       onSelected: (_) {
         setState(() {
           _priceType[subService] = type;
-          // ⭐ เคลียร์ราคาเมื่อเปลี่ยน type
+
           if (type == "fix") {
             _minPriceControllers[subService]?.clear();
             _maxPriceControllers[subService]?.clear();

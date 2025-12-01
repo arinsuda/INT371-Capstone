@@ -27,10 +27,22 @@ class Address extends StatefulWidget {
   final AddressModel? primaryAddress;
   final Future<void> Function(Map<String, dynamic>) onSubmit;
 
+  // ---> Added default fields (old UI)
+  final String? defaultHouseNumber;
+  final String? defaultSubDistrict;
+  final String? defaultDistrict;
+  final String? defaultProvince;
+  final String? defaultPostCode;
+
   const Address({
     super.key,
     required this.primaryAddress,
     required this.onSubmit,
+    this.defaultHouseNumber,
+    this.defaultSubDistrict,
+    this.defaultDistrict,
+    this.defaultProvince,
+    this.defaultPostCode,
   });
 
   @override
@@ -85,7 +97,6 @@ class _AddressState extends State<Address> {
     _provinceController = TextEditingController();
     _postalCodeController = TextEditingController();
 
-    // track change
     for (final c in [
       _houseNumberController,
       _subDistrictController,
@@ -97,20 +108,31 @@ class _AddressState extends State<Address> {
     }
   }
 
+  /// NEW: รองรับ default values ถ้า primaryAddress ยังไม่มีข้อมูล
   void _populateFields(AddressModel? address) {
-    if (address == null) return;
+    if (address != null) {
+      _houseNumberController.text = address.houseNumber ?? "";
+      _subDistrictController.text = address.subDistrict ?? "";
+      _districtController.text = address.district ?? "";
+      _provinceController.text = address.province ?? "";
+      _postalCodeController.text = address.postalCode ?? "";
 
-    _houseNumberController.text = address.houseNumber ?? "";
-    _subDistrictController.text = address.subDistrict ?? "";
-    _districtController.text = address.district ?? "";
-    _provinceController.text = address.province ?? "";
-    _postalCodeController.text = address.postalCode ?? "";
+      if (address.latitude != null && address.longitude != null) {
+        _currentPosition = LatLng(address.latitude!, address.longitude!);
+      }
 
-    if (address.latitude != null && address.longitude != null) {
-      _currentPosition = LatLng(address.latitude!, address.longitude!);
+      setState(() => _hasChanged = false);
+      return;
     }
 
-    setState(() => _hasChanged = false);
+    // → ใช้ default แบบ old UI
+    _houseNumberController.text = widget.defaultHouseNumber ?? "";
+    _subDistrictController.text = widget.defaultSubDistrict ?? "";
+    _districtController.text = widget.defaultDistrict ?? "";
+    _provinceController.text = widget.defaultProvince ?? "";
+    _postalCodeController.text = widget.defaultPostCode ?? "";
+
+    setState(() => _hasChanged = true);
   }
 
   void _onChanged() {
@@ -140,18 +162,12 @@ class _AddressState extends State<Address> {
     } catch (_) {}
   }
 
-  // ----------------------
-  // VALIDATE (แบบ old version)
-  // ----------------------
   bool _validateForm() {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return false;
     return true;
   }
 
-  // ----------------------
-  // SUBMIT
-  // ----------------------
   Future<void> _submit() async {
     if (!_validateForm()) return;
 
@@ -190,9 +206,6 @@ class _AddressState extends State<Address> {
     ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
-  // ----------------------
-  // UI
-  // ----------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -221,7 +234,6 @@ class _AddressState extends State<Address> {
           const Header(header: "ดูที่อยู่ของฉัน"),
           const SizedBox(height: 16),
 
-          // Area
           _buildTextArea(
             "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
             _houseNumberController,

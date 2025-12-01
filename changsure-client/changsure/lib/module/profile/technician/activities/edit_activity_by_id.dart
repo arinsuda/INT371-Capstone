@@ -3,14 +3,15 @@ import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart';
-import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart';
 import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/button/tertiary_button.dart';
-import '../../../../mockDB/activities.dart';
 import '../../../../state/bottom_bar_state.dart';
+import '../../../../state/ativity_state.dart';
+import '../../../../models/technicians/technician_activity.dart';
 
 class EditActivityById extends StatefulWidget {
   final int id;
@@ -26,62 +27,34 @@ class _EditActivityState extends State<EditActivityById> {
   final TextEditingController descriptionController = TextEditingController();
   final ImagePicker picker = ImagePicker();
 
-  List<String> assetImages = [];
+  List<String> existingImages = [];
   List<File> pickedImages = [];
 
-  // ตัวแปร error
+  // error
   String? descriptionError;
   String? imageError;
 
-  final Map<String, Map<String, Color>> colorMap = {
-    "ช่างทาสี": {
-      "text": Color(0xFFEB2F96),
-      "background": Color(0xFFFFF0F6),
-      "border": Color(0xFFFFADD2),
-    },
-    "ช่างประปา": {
-      "text": Color(0xFF36CFC9),
-      "background": Color(0xFFE6FFFB),
-      "border": Color(0xFF87E8DE),
-    },
-    "ช่างไฟฟ้า": {
-      "text": Color(0xFFFAAD14),
-      "background": Color(0xFFFFFBE6),
-      "border": Color(0xFFFFE58F),
-    },
-    "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
-      "text": Color(0xFF722ED1),
-      "background": Color(0xFFF9F0FF),
-      "border": Color(0xFFD3ADF7),
-    },
-  };
-
+  // เก็บค่าเดิม
   String? originalCategory;
   String? originalDescription;
   List<String> originalImages = [];
 
   bool get isChanged {
     return selectedCategory != originalCategory ||
-        descriptionController.text != (originalDescription ?? '') ||
+        descriptionController.text != (originalDescription ?? "") ||
         pickedImages.isNotEmpty ||
-        assetImages.length != originalImages.length;
+        existingImages.length != originalImages.length;
   }
 
-  bool get hasError {
-    return descriptionError != null || imageError != null;
-  }
+  bool get hasError => descriptionError != null || imageError != null;
 
   void _validateFields() {
     setState(() {
-      // Validate description
-      if (descriptionController.text.trim().isEmpty) {
-        descriptionError = "กรุณากรอกข้อมูลให้ครบถ้วน";
-      } else {
-        descriptionError = null;
-      }
+      descriptionError = descriptionController.text.trim().isEmpty
+          ? "กรุณากรอกข้อมูลให้ครบถ้วน"
+          : null;
 
-      // Validate images
-      if (assetImages.isEmpty && pickedImages.isEmpty) {
+      if (existingImages.isEmpty && pickedImages.isEmpty) {
         imageError = "กรุณาเพิ่มรูปภาพ";
       } else {
         imageError = null;
@@ -92,19 +65,29 @@ class _EditActivityState extends State<EditActivityById> {
   @override
   void initState() {
     super.initState();
-    final activity = mockActivities.firstWhere((a) => a.id == widget.id);
 
-    selectedCategory = activity.serviceCategoryName;
-    descriptionController.text = activity.description;
-    assetImages = List<String>.from(activity.images);
+    Future.microtask(() async {
+      final state = context.read<TechnicianWorkState>();
+      await state.loadWorkById(widget.id);
 
-    originalCategory = selectedCategory;
-    originalDescription = activity.description;
-    originalImages = List<String>.from(activity.images);
+      final work = state.currentWork;
+      if (work == null) return;
 
-    descriptionController.addListener(() {
+      // map ข้อมูลจาก API
+      selectedCategory = work.serviceName;
+      descriptionController.text = work.description ?? "";
+      existingImages = work.images.map((e) => e.imageUrl).toList();
+
+      // เก็บค่าเดิมไว้ตรวจว่าเปลี่ยนมั้ย
+      originalCategory = selectedCategory;
+      originalDescription = work.description;
+      originalImages = List<String>.from(existingImages);
+
       _validateFields();
+      setState(() {});
     });
+
+    descriptionController.addListener(_validateFields);
   }
 
   @override
@@ -114,90 +97,24 @@ class _EditActivityState extends State<EditActivityById> {
   }
 
   Future<void> pickImage() async {
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        pickedImages.add(File(image.path));
-        _validateFields();
-      });
+    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+    if (file != null) {
+      pickedImages.add(File(file.path));
+      _validateFields();
+      setState(() {});
     }
-  }
-
-  Widget buildCategoryDropdown() {
-    final colors = selectedCategory != null ? colorMap[selectedCategory] : null;
-
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (context) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: colorMap.keys.map((categoryName) {
-                    final itemColor = colorMap[categoryName] ?? {};
-                    return ListTile(
-                      title: Text(
-                        categoryName,
-                        style: TextStyle(
-                          color: itemColor["text"] ?? Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        setState(() => selectedCategory = categoryName);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            );
-          },
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: colors?["background"] ?? Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: colors?["border"] ?? Colors.grey.shade400,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selectedCategory ?? "เลือกหมวด",
-              style: TextStyle(
-                color: colors?["text"] ?? Colors.black54,
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.arrow_drop_down,
-              color: colors?["text"] ?? Colors.black54,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final workState = context.watch<TechnicianWorkState>();
+    final work = workState.currentWork;
+
+    // ------------------ Loading ------------------
+    if (workState.isLoading || work == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -207,40 +124,34 @@ class _EditActivityState extends State<EditActivityById> {
             Header(
               header: "แก้ไขผลงาน",
               onPressed: () {
-                Provider.of<BottomBarState>(
-                  context,
-                  listen: false,
-                ).setSubPage(ViewActivityById(id: widget.id));
+                context.read<BottomBarState>().setSubPage(
+                  ViewActivityById(id: widget.id),
+                );
               },
             ),
-
             const SizedBox(height: 16),
 
+            // ------------------ Profile + Category ------------------
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 40,
-                    backgroundImage: const AssetImage(
-                      'assets/image/Technician.png',
-                    ),
+                    backgroundImage: AssetImage('assets/image/Technician.png'),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "คุณ สมชาย รักชาติ",
-                          style: TextStyle(
+                        Text(
+                          work.serviceName ?? "ไม่ระบุหมวด",
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        buildCategoryDropdown(),
                       ],
                     ),
                   ),
@@ -250,11 +161,10 @@ class _EditActivityState extends State<EditActivityById> {
 
             const SizedBox(height: 20),
 
-            // ---------------- TEXTAREA ----------------
+            // ------------------ TEXTAREA ------------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     height: 200,
@@ -264,7 +174,6 @@ class _EditActivityState extends State<EditActivityById> {
                         color: descriptionError != null
                             ? AppColors.colorError
                             : AppColors.colorStroke,
-                        width: descriptionError != null ? 1.5 : 1,
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -280,7 +189,7 @@ class _EditActivityState extends State<EditActivityById> {
                   ),
                   if (descriptionError != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         descriptionError!,
                         style: const TextStyle(
@@ -295,9 +204,9 @@ class _EditActivityState extends State<EditActivityById> {
 
             const SizedBox(height: 20),
 
-            // ---------------- IMAGE UPLOAD ----------------
+            // ------------------ IMAGE PICKER ------------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -305,15 +214,16 @@ class _EditActivityState extends State<EditActivityById> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ...assetImages.asMap().entries.map((entry) {
+                      // รูปเดิมจาก API
+                      ...existingImages.asMap().entries.map((entry) {
                         final index = entry.key;
-                        final path = entry.value;
+                        final url = entry.value;
                         return Stack(
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                path,
+                              child: Image.network(
+                                url,
                                 width: 70,
                                 height: 70,
                                 fit: BoxFit.cover,
@@ -324,38 +234,27 @@ class _EditActivityState extends State<EditActivityById> {
                               right: 0,
                               child: GestureDetector(
                                 onTap: () {
-                                  setState(() {
-                                    assetImages.removeAt(index);
-                                    _validateFields();
-                                  });
+                                  existingImages.removeAt(index);
+                                  _validateFields();
+                                  setState(() {});
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                child: _deleteIcon(),
                               ),
                             ),
                           ],
                         );
                       }),
-                      // รูปจาก gallery
+
+                      // รูปใหม่ที่เลือก
                       ...pickedImages.asMap().entries.map((entry) {
                         final index = entry.key;
-                        final img = entry.value;
+                        final file = entry.value;
                         return Stack(
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.file(
-                                img,
+                                file,
                                 width: 70,
                                 height: 70,
                                 fit: BoxFit.cover,
@@ -366,28 +265,17 @@ class _EditActivityState extends State<EditActivityById> {
                               right: 0,
                               child: GestureDetector(
                                 onTap: () {
-                                  setState(() {
-                                    pickedImages.removeAt(index);
-                                    _validateFields();
-                                  });
+                                  pickedImages.removeAt(index);
+                                  _validateFields();
+                                  setState(() {});
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                child: _deleteIcon(),
                               ),
                             ),
                           ],
                         );
                       }),
+
                       // ปุ่มเพิ่มรูป
                       GestureDetector(
                         onTap: pickImage,
@@ -400,7 +288,6 @@ class _EditActivityState extends State<EditActivityById> {
                               color: imageError != null
                                   ? AppColors.colorError
                                   : AppColors.colorStroke,
-                              width: imageError != null ? 1.5 : 1,
                             ),
                           ),
                           child: Icon(
@@ -414,9 +301,10 @@ class _EditActivityState extends State<EditActivityById> {
                       ),
                     ],
                   ),
+
                   if (imageError != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         imageError!,
                         style: const TextStyle(
@@ -429,35 +317,55 @@ class _EditActivityState extends State<EditActivityById> {
               ),
             ),
 
+            const SizedBox(height: 20),
+
+            // ------------------ SAVE BUTTON ------------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(
                 children: [
-                  // ปุ่มยกเลิก
+                  // ยกเลิก
                   Expanded(
                     child: TertiaryButton(
                       text: "ยกเลิก",
                       onPressed: () {
-                        Provider.of<BottomBarState>(
-                          context,
-                          listen: false,
-                        ).setSubPage(ViewActivityById(id: widget.id));
+                        context.read<BottomBarState>().setSubPage(
+                          ViewActivityById(id: widget.id),
+                        );
                       },
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // ปุ่มบันทึก
+
+                  // บันทึก
                   Expanded(
                     child: PrimaryButton(
                       text: "บันทึก",
-                      onPressed: (isChanged && !hasError)
-                          ? () {
-                        Provider.of<BottomBarState>(
-                          context,
-                          listen: false,
-                        ).setSubPage(ViewActivityById(id: widget.id));
-                      }
-                          : null,
+                      onPressed: (!isChanged || hasError)
+                          ? null
+                          : () async {
+                              // TODO: จุดนี้ upload รูปใหม่ก่อน
+                              // final uploadedUrls = await uploadService.uploadFiles(pickedImages);
+
+                              final dto = UpdateTechnicianWorkDTO(
+                                description: descriptionController.text,
+                                imageUrls: [
+                                  ...existingImages,
+                                  // ...uploadedUrls,
+                                ],
+                              );
+
+                              final ok = await workState.updateWork(
+                                work.id,
+                                dto,
+                              );
+
+                              if (ok && mounted) {
+                                context.read<BottomBarState>().setSubPage(
+                                  ViewActivityById(id: widget.id),
+                                );
+                              }
+                            },
                     ),
                   ),
                 ],
@@ -466,6 +374,17 @@ class _EditActivityState extends State<EditActivityById> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _deleteIcon() {
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.close, size: 14, color: Colors.white),
     );
   }
 }

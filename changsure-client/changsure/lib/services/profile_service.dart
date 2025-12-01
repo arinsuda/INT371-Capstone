@@ -76,4 +76,10 @@ class ProfileService {
       data: {"avatar_url": avatarUrl},
     );
   }
+
+  Future<Map<String, dynamic>> getTechnicianProfileRaw() async {
+    final res = await api.dio.get("/technicians/profile");
+    print("TECH PROFILE RAW JSON = ${res.data}");
+    return res.data["data"];
+  }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:changsure/core/button/primary_button.dart';
-import '../../core/theme.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/button/primary_button.dart'; // ← แก้เป็นชื่อไฟล์ที่ถูกต้อง
+import '../../services/auth_service.dart'; // ← ใช้ auth service จริง
+
 import 'login.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
@@ -15,9 +18,11 @@ class StartPage extends StatefulWidget {
 
 class _StartPageState extends State<StartPage> {
   void _onStartPressed() {
+    final authRepo = context.read<AuthService>();
+
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => LoginScreen(authRepo: authRepo)),
     );
   }
 

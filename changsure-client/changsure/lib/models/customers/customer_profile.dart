@@ -1,10 +1,31 @@
+int safeInt(dynamic v) {
+  if (v == null) return 0;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? 0;
+  return 0;
+}
+
+double safeDouble(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is double) return v;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? 0.0;
+  return 0.0;
+}
+
+String safeString(dynamic v) {
+  if (v == null) return "";
+  return v.toString();
+}
+
 class CustomerProfile {
   final int id;
   final String firstname;
   final String lastname;
-  final String? email;
-  final String? phone;
-  final String? avatarUrl;
+  final String email;
+  final String phone;
+  final String avatarUrl;
   final String createdAt;
   final String updatedAt;
 
@@ -28,14 +49,14 @@ class CustomerProfile {
 
   factory CustomerProfile.fromJson(Map<String, dynamic> json) {
     return CustomerProfile(
-      id: json['id'] ?? 0,
-      firstname: json['firstname'] ?? '',
-      lastname: json['lastname'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      avatarUrl: json['avatar_url'] ?? '',
-      createdAt: json["created_at"] ?? "",
-      updatedAt: json["updated_at"] ?? "",
+      id: safeInt(json['id']),
+      firstname: safeString(json['firstname']),
+      lastname: safeString(json['lastname']),
+      email: safeString(json['email']),
+      phone: safeString(json['phone']),
+      avatarUrl: safeString(json['avatar_url']),
+      createdAt: safeString(json["created_at"]),
+      updatedAt: safeString(json["updated_at"]),
     );
   }
 }

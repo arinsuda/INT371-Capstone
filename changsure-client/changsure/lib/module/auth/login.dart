@@ -1,13 +1,23 @@
 import 'package:changsure/core/footer/footer_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/button/primary_button.dart';
 import '../../core/theme.dart';
+import '../../services/auth_service.dart';
+import '../../models/auth/login_request.dart';
+import '../../state/auth_state.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final AuthService? authRepo;
+
+  const LoginScreen({
+    super.key,
+    this.authRepo, // ← เปลี่ยนเป็น optional
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,9 +25,58 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   static const Color googleButtonColor = Colors.white;
+
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onLoginPressed() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      // 👉 ใช้ authRepo ถ้ามี หรือ fallback ไปใช้ Provider
+      final authService = widget.authRepo ?? context.read<AuthService>();
+
+      final req = LoginRequest(email: email, password: password);
+      final res = await authService.login(req);
+
+      final authState = context.read<AuthState>();
+      await authState.setToken(res.accessToken);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("เข้าสู่ระบบล้มเหลว: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     SizedBox(height: toLogicalPx(context, 32)),
+
                     _buildTextField(
                       label: 'ชื่อผู้ใช้',
                       controller: _usernameController,
@@ -60,6 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(height: toLogicalPx(context, 16)),
                     _buildPasswordField(),
                     SizedBox(height: toLogicalPx(context, 16)),
+
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
@@ -76,30 +137,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: toLogicalPx(context, 24)),
 
-                    // ✅ ปุ่มเข้าสู่ระบบ
                     Align(
                       alignment: Alignment.centerRight,
                       child: PrimaryButton(
-                        text: 'เข้าสู่ระบบ',
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
-                            );
-                          }
-
+                        text: _loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ',
+                        onPressed: _loading ? null : _onLoginPressed,
                       ),
                     ),
 
                     SizedBox(height: toLogicalPx(context, 24)),
                     Row(
                       children: const [
-                        Expanded(
-                          child: Divider(
-                            color: Color(0xFFE8E8E8),
-                            thickness: 1,
-                          ),
-                        ),
+                        Expanded(child: Divider(color: Color(0xFFE8E8E8))),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 10),
                           child: Text(
@@ -109,14 +158,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: Divider(
-                            color: Color(0xFFE8E8E8),
-                            thickness: 1,
-                          ),
-                        ),
+                        Expanded(child: Divider(color: Color(0xFFE8E8E8))),
                       ],
                     ),
+
                     SizedBox(height: toLogicalPx(context, 16)),
                     OutlinedButton(
                       onPressed: () {},
@@ -145,12 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Colors.black,
                             ),
                           ),
                         ],
                       ),
                     ),
+
                     SizedBox(height: toLogicalPx(context, 32)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -240,11 +285,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
                 color: Colors.grey,
               ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),

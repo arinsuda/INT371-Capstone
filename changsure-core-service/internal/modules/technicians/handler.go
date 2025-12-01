@@ -220,3 +220,30 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 		"url":     publicURL,
 	})
 }
+
+func (h *Handler) UpdateService(c fiber.Ctx) error {
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	serviceIDStr := c.Params("service_id")
+	serviceID, err := strconv.ParseUint(serviceIDStr, 10, 64)
+	if err != nil || serviceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid service_id")
+	}
+
+	var body UpdateTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+
+	if err := h.svc.UpdateService(c.Context(), techID, uint(serviceID), body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "service updated successfully",
+	})
+}

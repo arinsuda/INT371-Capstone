@@ -72,5 +72,12 @@ type TechServiceSummary struct {
 }
 
 type RemoveTechServiceReq struct {
-	ServiceID  uint `json:"service_id"`
+	ServiceID uint `json:"service_id"`
+}
+
+type UpdateTechServiceReq struct {
+	PricingType string   `json:"pricing_type" validate:"required,oneof=FIXED RANGE fixed range"`
+	PriceFixed  *float64 `json:"price_fixed,omitempty"`
+	PriceMin    *float64 `json:"price_min,omitempty"`
+	PriceMax    *float64 `json:"price_max,omitempty"`
 }

@@ -17,9 +17,9 @@ func NewHandler(svc Service) *Handler {
 }
 
 func (h *Handler) Create(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := utils.GetUserIDFromToken(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 	}
 
 	var body CreateTechnicianWorkDTO
@@ -45,10 +45,11 @@ func (h *Handler) Create(c fiber.Ctx) error {
 }
 
 func (h *Handler) Get(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := utils.GetUserIDFromToken(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 	}
+
 	workID, err := utils.ParseUintParam(c, "id")
 	if err != nil || workID == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid work id")
@@ -69,9 +70,9 @@ func (h *Handler) Get(c fiber.Ctx) error {
 }
 
 func (h *Handler) List(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := utils.GetUserIDFromToken(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 	}
 
 	var q ListTechnicianWorksQuery
@@ -105,10 +106,11 @@ func (h *Handler) List(c fiber.Ctx) error {
 }
 
 func (h *Handler) Update(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := utils.GetUserIDFromToken(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 	}
+
 	workID, err := utils.ParseUintParam(c, "id")
 	if err != nil || workID == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid work id")
@@ -134,10 +136,11 @@ func (h *Handler) Update(c fiber.Ctx) error {
 }
 
 func (h *Handler) Delete(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid technician id")
+	techID := utils.GetUserIDFromToken(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 	}
+
 	workID, err := utils.ParseUintParam(c, "id")
 	if err != nil || workID == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid work id")

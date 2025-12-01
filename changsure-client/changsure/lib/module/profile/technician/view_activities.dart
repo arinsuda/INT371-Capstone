@@ -2,10 +2,11 @@ import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/profile/technician_card.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/activities.dart';
 import '../../../state/bottom_bar_state.dart';
+import '../../../state/ativity_state.dart';
 import 'activities/post_activity.dart';
 
 class ViewActivities extends StatefulWidget {
@@ -19,7 +20,17 @@ class _ViewActivitiesState extends State<ViewActivities> {
   bool _isPressed = false;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      context.read<TechnicianWorkState>().loadWorks();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final workState = context.watch<TechnicianWorkState>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -28,6 +39,7 @@ class _ViewActivitiesState extends State<ViewActivities> {
           children: [
             Header(header: "ลงผลงาน"),
             const SizedBox(height: 16),
+
             Padding(
               padding: const EdgeInsets.only(right: 10),
               child: Align(
@@ -91,32 +103,67 @@ class _ViewActivitiesState extends State<ViewActivities> {
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.all(6),
-              child: GridView.builder(
-                shrinkWrap: true,
-                // ให้ GridView ขยายตามจำนวน item
-                physics: const NeverScrollableScrollPhysics(),
-                // ป้องกัน scroll ซ้อน
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 คอลัมน์
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: mockActivities.length,
-                itemBuilder: (context, index) {
-                  final activity = mockActivities[index];
-                  return TechnicianCard(
-                    id: activity.id,
-                    serviceCategoryName: activity.serviceCategoryName,
-                    description: activity.description,
-                    images: activity.images,
-                  );
-                },
+
+            if (workState.isLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ),
+
+            if (workState.errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    "เกิดข้อผิดพลาด: ${workState.errorMessage}",
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+
+            if (!workState.isLoading &&
+                workState.errorMessage == null &&
+                workState.works.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: Center(
+                  child: Text(
+                    "ยังไม่มีผลงานที่บันทึก",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.colorTertiaryText,
+                    ),
+                  ),
+                ),
+              ),
+
+            if (workState.works.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.8,
+                  ),
+                  itemCount: workState.works.length,
+                  itemBuilder: (context, index) {
+                    final w = workState.works[index];
+
+                    return TechnicianCard(
+                      id: w.id,
+                      serviceCategoryName: w.serviceName ?? "-",
+                      description: w.description ?? "",
+                      images: w.images.map((img) => img.imageUrl).toList(),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),

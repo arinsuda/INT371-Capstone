@@ -52,9 +52,11 @@ class TechnicianCard extends StatelessWidget {
           "border": Colors.purple.shade300,
         };
 
+    // -----------------------------
+    // Build Image Layout
+    // -----------------------------
     Widget buildImages() {
       if (images.length == 1) {
-        // รูปเดียว แสดงเต็ม
         return Image.asset(
           images[0],
           height: 120,
@@ -64,7 +66,6 @@ class TechnicianCard extends StatelessWidget {
       }
 
       if (images.length == 2) {
-        // ==== กรณี 2 รูป ซ้ายขวาเท่ากัน ====
         return Row(
           children: [
             Expanded(
@@ -72,11 +73,7 @@ class TechnicianCard extends StatelessWidget {
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                 ),
-                child: Image.asset(
-                  images[0],
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset(images[0], height: 120, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(width: 4),
@@ -85,18 +82,14 @@ class TechnicianCard extends StatelessWidget {
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(12),
                 ),
-                child: Image.asset(
-                  images[1],
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset(images[1], height: 120, fit: BoxFit.cover),
               ),
             ),
           ],
         );
       }
 
-      // ==== กรณี 3 รูปขึ้นไป ====
+      // 3 รูปขึ้นไป
       int extraCount = images.length - 3;
 
       return Row(
@@ -107,11 +100,7 @@ class TechnicianCard extends StatelessWidget {
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
               ),
-              child: Image.asset(
-                images[0],
-                height: 120,
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset(images[0], height: 120, fit: BoxFit.cover),
             ),
           ),
           const SizedBox(width: 4),
@@ -122,13 +111,11 @@ class TechnicianCard extends StatelessWidget {
               child: Column(
                 children: List.generate(
                   images.length - 1 > 2 ? 2 : images.length - 1,
-                      (index) {
-                    bool isLastWithExtra = index == 1 && extraCount > 0;
+                  (index) {
+                    bool isLast = index == 1 && extraCount > 0;
                     return Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index == 0 ? 4.0 : 0,
-                        ),
+                        padding: EdgeInsets.only(bottom: index == 0 ? 4 : 0),
                         child: Stack(
                           children: [
                             Image.asset(
@@ -137,7 +124,7 @@ class TechnicianCard extends StatelessWidget {
                               height: double.infinity,
                               fit: BoxFit.cover,
                             ),
-                            if (isLastWithExtra)
+                            if (isLast)
                               Container(
                                 color: Colors.black.withOpacity(0.5),
                                 child: Center(
@@ -146,6 +133,7 @@ class TechnicianCard extends StatelessWidget {
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
                                   ),
                                 ),
@@ -163,7 +151,9 @@ class TechnicianCard extends StatelessWidget {
       );
     }
 
-
+    // -----------------------------
+    // Main UI
+    // -----------------------------
     return GestureDetector(
       onTap: () {
         Provider.of<BottomBarState>(
@@ -177,12 +167,12 @@ class TechnicianCard extends StatelessWidget {
         elevation: 2,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Stack สำหรับรูป + label
+            // -------------------------
+            // รูปภาพ + Label
+            // -------------------------
             Stack(
               children: [
-                // รูปภาพ ชิดขอบบน + top corners โค้ง
                 ClipRRect(
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(12),
@@ -190,7 +180,6 @@ class TechnicianCard extends StatelessWidget {
                   ),
                   child: buildImages(),
                 ),
-                // Label serviceCategory ซ้อนบนซ้าย
                 Positioned(
                   top: 0,
                   left: 10,
@@ -201,10 +190,8 @@ class TechnicianCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: categoryColors["background"],
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(0),
+                      borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(10),
-                        topRight: Radius.circular(0),
                         bottomRight: Radius.circular(10),
                       ),
                     ),
@@ -222,9 +209,12 @@ class TechnicianCard extends StatelessWidget {
             ),
 
             const SizedBox(height: 8),
-            // Description (บังคับ 2 บรรทัด)
+
+            // -------------------------
+            // Description (max 2 lines)
+            // -------------------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: SizedBox(
                 height: 35,
                 child: Text(
@@ -239,10 +229,14 @@ class TechnicianCard extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 8),
+
+            // -------------------------
             // ดูรายละเอียดเพิ่มเติม
+            // -------------------------
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 "ดูรายละเอียดเพิ่มเติม",
                 style: TextStyle(
@@ -252,9 +246,10 @@ class TechnicianCard extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
           ],
         ),
-      ), // UI การ์ดเดิม
+      ),
     );
   }
 }

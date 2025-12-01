@@ -19,14 +19,12 @@ import (
 	"changsure-core-service/pkg/storage"
 )
 
-// Common errors
 var (
 	ErrUnauthorized      = errors.New("unauthorized: technician id missing from auth")
 	ErrAreaRepoNotWired  = errors.New("area repository not initialized")
 	ErrServiceIDRequired = errors.New("service_id is required")
 )
 
-// Service defines the interface for technician-related operations
 type Service interface {
 	UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error)
 	GetProfile(ctx context.Context, techID uint) (*TechnicianProfileRes, error)
@@ -34,6 +32,7 @@ type Service interface {
 	AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error)
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
 	UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error
+	UpdateService(ctx context.Context, techID uint, serviceID uint, req UpdateTechServiceReq) error
 }
 
 type service struct {
@@ -43,13 +42,11 @@ type service struct {
 	storage  *storage.MinioStorage
 }
 
-// AddedTechServiceResult represents the result of adding a service to a technician
 type AddedTechServiceResult struct {
 	TechnicianID uint             `json:"technician_id"`
 	Service      TechServiceBrief `json:"service"`
 }
 
-// TechServiceBrief contains brief information about a technician service
 type TechServiceBrief struct {
 	ID          uint     `json:"id"`
 	Name        string   `json:"name"`
@@ -59,7 +56,6 @@ type TechServiceBrief struct {
 	PriceMax    *float64 `json:"price_max,omitempty"`
 }
 
-// NewService creates a new technician service instance
 func NewService(db *gorm.DB, repo Repository, areaRepo addr.Repository) Service {
 	return &service{
 		db:       db,
@@ -69,7 +65,6 @@ func NewService(db *gorm.DB, repo Repository, areaRepo addr.Repository) Service 
 	}
 }
 
-// UpsertProfile creates or updates a technician profile
 func (s *service) UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error) {
 	if err := s.validateTechID(techID); err != nil {
 		return 0, err
@@ -95,7 +90,6 @@ func (s *service) UpsertProfile(ctx context.Context, techID uint, req Technician
 	return tech.ID, nil
 }
 
-// GetProfile retrieves a technician's complete profile
 func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfileRes, error) {
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
@@ -109,7 +103,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 	return s.buildProfileResponse(tech), nil
 }
 
-// UpdateProvinces updates the service areas (provinces) for a technician
 func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -124,7 +117,6 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 	})
 }
 
-// AddService adds a service to a technician's service list
 func (s *service) AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error) {
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
@@ -133,7 +125,7 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 	var result AddedTechServiceResult
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Check if service already exists
+
 		existing, err := s.findExistingService(tx, techID, req.ServiceID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("failed to check existing service: %w", err)
@@ -144,7 +136,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 			return nil
 		}
 
-		// Create new service
 		newService, err := s.createTechnicianService(tx, techID, req)
 		if err != nil {
 			return err
@@ -161,7 +152,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 	return &result, nil
 }
 
-// RemoveService removes a service from a technician's service list
 func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -183,7 +173,6 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 	})
 }
 
-// UpdateAvatar updates the avatar URL for a technician
 func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -200,8 +189,6 @@ func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath stri
 
 	return nil
 }
-
-// Private helper methods
 
 func (s *service) validateTechID(techID uint) error {
 	if techID == 0 {
@@ -483,4 +470,48 @@ func (s *service) buildServiceResult(techID uint, ts *tsvc.TechnicianService) Ad
 			PriceMax:    ts.PriceMax,
 		},
 	}
+}
+
+func (s *service) UpdateService(ctx context.Context, techID uint, serviceID uint, req UpdateTechServiceReq) error {
+	if techID == 0 {
+		return ErrUnauthorized
+	}
+
+	if serviceID == 0 {
+		return ErrServiceIDRequired
+	}
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing tsvc.TechnicianService
+
+		if err := tx.
+			Where("technician_id = ? AND service_id = ?", techID, serviceID).
+			First(&existing).Error; err != nil {
+
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("service not found for technician")
+			}
+			return err
+		}
+
+		existing.PricingType = strings.ToUpper(req.PricingType)
+
+		if existing.PricingType == "FIXED" {
+			existing.PriceFixed = req.PriceFixed
+			existing.PriceMin = nil
+			existing.PriceMax = nil
+		}
+
+		if existing.PricingType == "RANGE" {
+			existing.PriceMin = req.PriceMin
+			existing.PriceMax = req.PriceMax
+			existing.PriceFixed = nil
+		}
+
+		if err := tx.Save(&existing).Error; err != nil {
+			return fmt.Errorf("failed to update technician service: %w", err)
+		}
+
+		return nil
+	})
 }

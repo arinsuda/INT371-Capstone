@@ -3,118 +3,112 @@ import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/button/tertiary_button.dart';
-import '../../../../mockDB/activities.dart';
 import '../../../../state/bottom_bar_state.dart';
+import '../../../../state/ativity_state.dart';
 import '../view_activities.dart';
 import 'edit_activity_by_id.dart';
 
-class ViewActivityById extends StatelessWidget {
+class ViewActivityById extends StatefulWidget {
   final int id;
+
+  const ViewActivityById({super.key, required this.id});
+
+  @override
+  State<ViewActivityById> createState() => _ViewActivityByIdState();
+}
+
+class _ViewActivityByIdState extends State<ViewActivityById> {
   final Map<String, Map<String, Color>> colorMap = {
     "ช่างทาสี": {
-      "text": const Color(0xFFEB2F96),
-      "background": const Color(0xFFFFF0F6),
-      "border": const Color(0xFFFFADD2),
+      "text": Color(0xFFEB2F96),
+      "background": Color(0xFFFFF0F6),
+      "border": Color(0xFFFFADD2),
     },
     "ช่างประปา": {
-      "text": const Color(0xFF36CFC9),
-      "background": const Color(0xFFE6FFFB),
-      "border": const Color(0xFF87E8DE),
+      "text": Color(0xFF36CFC9),
+      "background": Color(0xFFE6FFFB),
+      "border": Color(0xFF87E8DE),
     },
     "ช่างไฟฟ้า": {
-      "text": const Color(0xFFFAAD14),
-      "background": const Color(0xFFFFFBE6),
-      "border": const Color(0xFFFFE58F),
+      "text": Color(0xFFFAAD14),
+      "background": Color(0xFFFFFBE6),
+      "border": Color(0xFFFFE58F),
     },
     "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
-      "text": const Color(0xFF722ED1),
-      "background": const Color(0xFFF9F0FF),
-      "border": const Color(0xFFD3ADF7),
+      "text": Color(0xFF722ED1),
+      "background": Color(0xFFF9F0FF),
+      "border": Color(0xFFD3ADF7),
     },
   };
 
-  ViewActivityById({super.key, required this.id});
+  @override
+  void initState() {
+    super.initState();
 
-  void _showDeleteModal(BuildContext context) {
+    Future.microtask(() {
+      context.read<TechnicianWorkState>().loadWorkById(widget.id);
+    });
+  }
+
+  void _showDeleteModal(BuildContext context, int id) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.6), // พื้นหลังดำโปร่งแสง
-      builder: (context) {
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (_) {
         return Dialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // หัวเรื่อง
                 const Text(
                   "ลบผลงาน",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-
-                // ข้อความรายละเอียด
                 const Text(
-                  "คุณแน่ใจหรือไม่ว่าต้องการลบผลงานนี้ออกจากหน้าโปรไฟล์ช่างของคุณ? ผลงานดังกล่าวจะถูกลบออกจากโปรไฟล์ของคุณอย่างถาวร",
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  "คุณแน่ใจหรือไม่ว่าต้องการลบผลงานนี้? การลบเป็นแบบถาวรและไม่สามารถกู้คืนได้",
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // ปุ่มด้านล่าง
                 Row(
                   children: [
-                    // ปุ่มยกเลิก
                     Expanded(
                       child: TertiaryButton(
                         text: "ยกเลิก",
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
+                        onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.symmetric(vertical: 11),
-                        fontSize: 14,
-                        borderRadius: 8,
                       ),
                     ),
                     const SizedBox(width: 12),
-
-                    // ปุ่มลบ
                     Expanded(
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFF5222D)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          foregroundColor: const Color(0xFFF5222D),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: Color(0xFFF5222D),
                         ),
-                        onPressed: () {
-                          // ทำการลบโพสต์จริง
-                          Navigator.of(context).pop();
-                          Provider.of<BottomBarState>(
-                            context,
-                            listen: false,
-                          ).setSubPage(const ViewActivities());
+                        onPressed: () async {
+                          Navigator.pop(context);
+
+                          final ok = await context
+                              .read<TechnicianWorkState>()
+                              .deleteWork(id);
+
+                          if (ok && mounted) {
+                            context.read<BottomBarState>().setSubPage(
+                              const ViewActivities(),
+                            );
+                          }
                         },
                         child: const Text(
                           "ลบ",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -130,8 +124,14 @@ class ViewActivityById extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activity = mockActivities.firstWhere((a) => a.id == id);
-    final categoryColor = colorMap[activity.serviceCategoryName];
+    final workState = context.watch<TechnicianWorkState>();
+    final work = workState.currentWork;
+
+    if (workState.isLoading || work == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final categoryColor = colorMap[work.serviceName ?? ""];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -144,26 +144,22 @@ class ViewActivityById extends StatelessWidget {
               Header(
                 header: "ดูผลงาน",
                 onPressed: () {
-                  Provider.of<BottomBarState>(
-                    context,
-                    listen: false,
-                  ).setSubPage(const ViewActivities());
+                  context.read<BottomBarState>().setSubPage(
+                    const ViewActivities(),
+                  );
                 },
               ),
 
               const SizedBox(height: 16),
+
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 40,
-                      backgroundImage: const AssetImage(
-                        'assets/image/Technician.png',
+                      backgroundImage: AssetImage(
+                        "assets/image/Technician.png",
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -181,7 +177,7 @@ class ViewActivityById extends StatelessWidget {
                           ),
 
                           const SizedBox(height: 4),
-                          //จะใส่ serviceCategoryName
+
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -197,7 +193,7 @@ class ViewActivityById extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              activity.serviceCategoryName,
+                              work.serviceName ?? "ไม่ระบุหมวด",
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -209,82 +205,56 @@ class ViewActivityById extends StatelessWidget {
                       ),
                     ),
 
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        PopupMenuButton<String>(
-                          elevation: 4,
-                          offset: const Offset(0, 40),
-                          // ให้เมนูเลื่อนลงมาด้านล่างปุ่ม
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    PopupMenuButton<String>(
+                      elevation: 4,
+                      offset: const Offset(0, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          context.read<BottomBarState>().setSubPage(
+                            EditActivityById(id: work.id),
+                          );
+                        } else if (value == 'delete') {
+                          _showDeleteModal(context, work.id);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.create_rounded,
+                                size: 20,
+                                color: AppColors.colorTertiaryText,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text("แก้ไขโพสต์"),
+                            ],
                           ),
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              // ทำอะไรเมื่อกดแก้ไขโพสต์
-                              Provider.of<BottomBarState>(
-                                context,
-                                listen: false,
-                              ).setSubPage(EditActivityById(id: activity.id));
-                            } else if (value == 'delete') {
-                              _showDeleteModal(context);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: AppColors.colorTertiaryText,
                               ),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.create_rounded,
-                                        size: 20,
-                                        color: AppColors.colorTertiaryText,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text("แก้ไขโพสต์"),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.delete,
-                                        size: 20,
-                                        color: AppColors.colorTertiaryText,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text("ลบโพสต์"),
-                                ],
-                              ),
-                            ),
-                          ],
-                          child: SvgPicture.asset(
-                            'assets/icons/optionIcon.svg',
-                            height: 20,
-                            width: 20,
+                              const SizedBox(width: 12),
+                              const Text("ลบโพสต์"),
+                            ],
                           ),
                         ),
                       ],
+                      child: SvgPicture.asset(
+                        'assets/icons/optionIcon.svg',
+                        height: 20,
+                        width: 20,
+                      ),
                     ),
                   ],
                 ),
@@ -293,33 +263,27 @@ class ViewActivityById extends StatelessWidget {
               const SizedBox(height: 24),
 
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
-                  activity.description,
+                  work.description ?? "",
                   style: const TextStyle(fontSize: 14),
                 ),
               ),
+
               const SizedBox(height: 16),
 
-              // รูปภาพทั้งหมด
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...activity.images.map(
-                      (img) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: ClipRRect(child: Image.asset(img)),
+                  children: work.images.map((img) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(img.imageUrl, fit: BoxFit.cover),
                       ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
               ),
             ],

@@ -5,9 +5,15 @@ class ProvinceResponse {
   ProvinceResponse({required this.id, this.nameTh});
 
   factory ProvinceResponse.fromJson(Map<String, dynamic> json) {
+    final rawId = json["id"];
+
     return ProvinceResponse(
-      id: (json["id"] as num).toInt(),
-      nameTh: json["name_th"],
+      id: (rawId is int)
+          ? rawId
+          : (rawId is num)
+          ? rawId.toInt()
+          : 0,
+      nameTh: json["name_th"] as String?,
     );
   }
 }

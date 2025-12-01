@@ -1,19 +1,32 @@
+import 'package:changsure/helpers/safe_types.dart';
+import 'tech_service.dart';
+
 class TechServiceSummary {
-  final int serviceId;
-  final String serviceName;
-  final int total;
+  final int serviceCategoryId;
+  final String serviceCategoryName;
+  final List<TechServiceResponse> services;
 
   TechServiceSummary({
-    required this.serviceId,
-    required this.serviceName,
-    required this.total,
+    required this.serviceCategoryId,
+    required this.serviceCategoryName,
+    required this.services,
   });
 
   factory TechServiceSummary.fromJson(Map<String, dynamic> json) {
     return TechServiceSummary(
-      serviceId: json["service_id"],
-      serviceName: json["service_name"],
-      total: json["total"] ?? 0,
+      serviceCategoryId: safeInt(
+        json["service_category_id"],
+        field: "service_category_id",
+      ),
+      serviceCategoryName: safeString(
+        json["service_category_name"],
+        field: "service_category_name",
+      ),
+      services: (json["services"] is List)
+          ? (json["services"] as List)
+                .map((e) => TechServiceResponse.fromJson(e))
+                .toList()
+          : [],
     );
   }
 }

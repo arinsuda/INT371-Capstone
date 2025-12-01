@@ -11,8 +11,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	technicians.Patch("/profile", h.UpdateProfile)
 
 	technicians.Patch("/provinces", h.PatchProvinces)
-	technicians.Post("/:id/services", h.AddService)
-	technicians.Delete("/:id/services", h.RemoveService)
+	technicians.Post("/services", h.AddService)
+	technicians.Delete("/services", h.RemoveService)
 	technicians.Post("/profile/avatar", h.UploadAvatar)
+	technicians.Put("/services/:service_id", h.UpdateService)
 
 }

@@ -24,11 +24,17 @@ class ProfileState extends ChangeNotifier {
   String? get avatarUrl =>
       isTechnician ? technicianProfile?.avatarUrl : customerProfile?.avatarUrl;
 
-  String? get displayName => isTechnician
-      ? '${technicianProfile?.firstname ?? ''} ${technicianProfile?.lastname ?? ''}'
-            .trim()
-      : '${customerProfile?.firstname ?? ''} ${customerProfile?.lastname ?? ''}'
-            .trim();
+  String? get displayName {
+    if (isTechnician) {
+      final tech = technicianProfile;
+      if (tech == null) return null;
+      return '${tech.firstname} ${tech.lastname}'.trim();
+    } else {
+      final customer = customerProfile;
+      if (customer == null) return null;
+      return '${customer.firstname} ${customer.lastname}'.trim();
+    }
+  }
 
   String? get email =>
       isTechnician ? technicianProfile?.email : customerProfile?.email;
@@ -36,26 +42,53 @@ class ProfileState extends ChangeNotifier {
   String? get phone =>
       isTechnician ? technicianProfile?.phone : customerProfile?.phone;
 
+  bool get hasProfile =>
+      isTechnician ? technicianProfile != null : customerProfile != null;
+
   Future<void> loadProfile() async {
-    loading = true;
-    error = null;
-    notifyListeners();
+    _setLoadingState(true);
 
     try {
       if (isTechnician) {
-        technicianProfile = await service.getTechnicianProfile();
-        customerProfile = null;
+        await _loadTechnicianProfile();
       } else {
-        customerProfile = await service.getCustomerProfile();
-        technicianProfile = null;
+        await _loadCustomerProfile();
       }
       error = null;
-    } catch (e) {
-      error = e.toString();
-      debugPrint('Error loading profile: $e');
+    } catch (e, stackTrace) {
+      _handleError('Error loading profile', e, stackTrace);
     } finally {
-      loading = false;
-      notifyListeners();
+      _setLoadingState(false);
+    }
+  }
+
+  Future<void> _loadTechnicianProfile() async {
+    try {
+      final response = await service.getTechnicianProfile();
+      debugPrint('✅ Technician profile loaded: ${response.id}');
+
+      technicianProfile = response;
+      customerProfile = null;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Failed to parse technician profile');
+      debugPrint('Error: $e');
+      debugPrint('StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  Future<void> _loadCustomerProfile() async {
+    try {
+      final response = await service.getCustomerProfile();
+      debugPrint('✅ Customer profile loaded: ${response.id}');
+
+      customerProfile = response;
+      technicianProfile = null;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Failed to parse customer profile');
+      debugPrint('Error: $e');
+      debugPrint('StackTrace: $stackTrace');
+      rethrow;
     }
   }
 
@@ -66,63 +99,83 @@ class ProfileState extends ChangeNotifier {
     required String phone,
     String? bio,
   }) async {
-    loading = true;
-    error = null;
-    notifyListeners();
+    _setLoadingState(true);
 
     try {
       if (isTechnician) {
-        await service.updateTechnicianProfile(
-          TechnicianProfileRequest(
-            firstname: firstname,
-            lastname: lastname,
-            email: email,
-            phone: phone,
-            bio: bio ?? technicianProfile?.bio ?? "",
-          ),
+        await _updateTechnicianProfile(
+          firstname: firstname,
+          lastname: lastname,
+          email: email,
+          phone: phone,
+          bio: bio,
         );
       } else {
-        await service.updateCustomerProfile(
-          UpdateCustomerRequest(
-            firstname: firstname,
-            lastname: lastname,
-            email: email,
-            phone: phone,
-          ),
+        await _updateCustomerProfile(
+          firstname: firstname,
+          lastname: lastname,
+          email: email,
+          phone: phone,
         );
       }
 
       await loadProfile();
       return true;
-    } catch (e) {
-      error = e.toString();
-      debugPrint('Error updating profile: $e');
-      loading = false;
-      notifyListeners();
+    } catch (e, stackTrace) {
+      _handleError('Error updating profile', e, stackTrace);
       return false;
     }
+  }
+
+  Future<void> _updateTechnicianProfile({
+    required String firstname,
+    required String lastname,
+    required String email,
+    required String phone,
+    String? bio,
+  }) async {
+    await service.updateTechnicianProfile(
+      TechnicianProfileRequest(
+        firstname: firstname,
+        lastname: lastname,
+        email: email,
+        phone: phone,
+        bio: bio ?? technicianProfile?.bio ?? '',
+      ),
+    );
+  }
+
+  Future<void> _updateCustomerProfile({
+    required String firstname,
+    required String lastname,
+    required String email,
+    required String phone,
+  }) async {
+    await service.updateCustomerProfile(
+      UpdateCustomerRequest(
+        firstname: firstname,
+        lastname: lastname,
+        email: email,
+        phone: phone,
+      ),
+    );
   }
 
   Future<bool> updateTechnicianProvinces(List<int> provinceIds) async {
     if (!isTechnician) {
       error = 'เฉพาะช่างเท่านั้นที่สามารถอัปเดตจังหวัดได้';
+      notifyListeners();
       return false;
     }
 
-    loading = true;
-    error = null;
-    notifyListeners();
+    _setLoadingState(true);
 
     try {
       await service.updateTechnicianProvinces(provinceIds);
-
       await loadProfile();
       return true;
-    } catch (e) {
-      error = e.toString();
-      debugPrint('Error updating provinces: $e');
-      loading = false;
-      notifyListeners();
+    } catch (e, stackTrace) {
+      _handleError('Error updating provinces', e, stackTrace);
       return false;
     }
   }
@@ -130,25 +183,19 @@ class ProfileState extends ChangeNotifier {
   Future<bool> changeAvatar(String filePath) async {
     if (!isTechnician) {
       error = 'เฉพาะช่างเท่านั้นที่สามารถเปลี่ยนรูปโปรไฟล์ได้';
+      notifyListeners();
       return false;
     }
 
-    loading = true;
-    error = null;
-    notifyListeners();
+    _setLoadingState(true);
 
     try {
       final url = await service.uploadTechnicianAvatar(filePath);
-
       await service.updateTechnicianAvatarURL(url);
-
       await loadProfile();
       return true;
-    } catch (e) {
-      error = e.toString();
-      debugPrint('Error changing avatar: $e');
-      loading = false;
-      notifyListeners();
+    } catch (e, stackTrace) {
+      _handleError('Error changing avatar', e, stackTrace);
       return false;
     }
   }
@@ -161,6 +208,31 @@ class ProfileState extends ChangeNotifier {
     customerProfile = null;
     technicianProfile = null;
     error = null;
+    loading = false;
+    notifyListeners();
+  }
+
+  void _setLoadingState(bool isLoading) {
+    loading = isLoading;
+    if (isLoading) {
+      error = null;
+    }
+    notifyListeners();
+  }
+
+  void _handleError(String context, Object error, StackTrace stackTrace) {
+    this.error = error.toString();
+
+    debugPrint('❌ $context: $error');
+    debugPrint('📍 StackTrace: $stackTrace');
+
+    if (error.toString().contains('type') &&
+        error.toString().contains('subtype')) {
+      debugPrint(
+        '⚠️  This looks like a type casting error. Check your model parsing.',
+      );
+    }
+
     loading = false;
     notifyListeners();
   }
