@@ -61,23 +61,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # init bucket + เช็คว่า minio ใช้งานได้จริง
   minio-init:
-    entrypoint: >
-      /bin/sh -c "
-      echo 'Waiting for MinIO...';
-      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
-        sleep 2;
-      done;
-      echo 'Creating bucket if not exists...';
-      mc mb -p local/${MINIO_BUCKET} || true;
+    env_file:
+      - ./.env
+    image: minio/mc:latest
+    container_name: changsure-minio-init-dev
+    depends_on:
+      - minio
+    networks:
+      - changsure-network
 
-      echo 'Disabling anonymous access...';
-      mc anonymous set none local/${MINIO_BUCKET};
-
-      echo 'MinIO Private Mode enabled.';
-      exit 0;
-      "
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for MinIO...";
+        until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+          sleep 2;
+        done;
+        echo "Creating bucket if not exists...";
+        mc mb -p local/${MINIO_BUCKET:-changsure} || true;
+        mc anonymous set download local/${MINIO_BUCKET:-changsure} || true;
+        mc ls local;
+        echo "MinIO init done.";
 
     restart: "no"
     logging:

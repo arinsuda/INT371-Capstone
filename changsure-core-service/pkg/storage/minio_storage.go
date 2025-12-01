@@ -178,12 +178,6 @@ func (s *MinioStorage) PresignPost(ctx context.Context, key, contentType string,
 // Stat
 // ============================================================================
 
-type ObjectStat struct {
-    Size     int64
-    ETag     string
-    MIMEType string
-}
-
 func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error) {
     st, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
     if err != nil {
