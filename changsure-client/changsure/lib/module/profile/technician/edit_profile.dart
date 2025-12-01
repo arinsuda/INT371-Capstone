@@ -2,10 +2,44 @@ import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../state/bottomBarState.dart';
 import '../../../state/province_state.dart';
 import '../../../state/profile_state.dart';
 import 'package:flutter/services.dart';
+
+class _PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text.replaceAll('-', '');
+
+    if (text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    if (text[0] != '0') {
+      return oldValue;
+    }
+
+    String formatted = '';
+
+    for (int i = 0; i < text.length && i < 10; i++) {
+      if (i == 3 || i == 6) {
+        formatted += '-';
+      }
+      formatted += text[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -15,6 +49,7 @@ class EditProfile extends StatefulWidget {
 }
 
 class _EditProfileState extends State<EditProfile> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -26,9 +61,67 @@ class _EditProfileState extends State<EditProfile> {
   String _searchText = '';
 
   bool hasChanged = false;
+  bool _avatarChanged = false;
+
+  String? _provinceError;
 
   void _checkChanged() {
-    setState(() => hasChanged = true);
+    bool changed = false;
+    bool hasSelectedProvince = false;
+
+    changed |= nameController.text != '';
+    changed |= lastNameController.text != '';
+    changed |= emailController.text != '';
+    changed |= phoneController.text != '';
+    changed |= aboutController.text != '';
+
+    hasSelectedProvince = _selectedProvinces.values.any((v) => v);
+    changed |= hasSelectedProvince;
+    changed |= _avatarChanged;
+
+    bool validationPassed = _validateAll();
+
+    bool shouldEnable =
+        changed && hasSelectedProvince;
+
+    if (shouldEnable != hasChanged) {
+      setState(() {
+        hasChanged = shouldEnable;
+      });
+    }
+  }
+
+  String formatPhoneNumber(String raw) {
+    // ลบทุกตัวอักษรที่ไม่ใช่ตัวเลขก่อน
+    String digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+
+    String formatted = '';
+    for (int i = 0; i < digits.length && i < 10; i++) {
+      if (i == 3 || i == 6) formatted += '-';
+      formatted += digits[i];
+    }
+    return formatted;
+  }
+
+
+  bool _validateAll() {
+    // Validate Province
+    String? newProvinceError = _selectedProvinces.values.any((v) => v)
+        ? null
+        : "กรุณาเลือกข้อมูลให้ครบถ้วน";
+
+    // Update state ถ้ามีการเปลี่ยนแปลง
+    if (_provinceError != newProvinceError) {
+      setState(() {
+        _provinceError = newProvinceError;
+      });
+    } else {
+      _provinceError = newProvinceError;
+    }
+
+    // Return true ถ้าไม่มี error
+    return _provinceError == null;
   }
 
   ImageProvider _buildProfileImage(BuildContext context) {
@@ -53,6 +146,12 @@ class _EditProfileState extends State<EditProfile> {
   void initState() {
     super.initState();
 
+    _searchController.addListener(() {
+      setState(() {
+        _searchText = _searchController.text.trim();
+      });
+    });
+
     Future.microtask(() async {
       final profile = context.read<ProfileState>();
       final provinces = context.read<ProvinceState>();
@@ -65,7 +164,7 @@ class _EditProfileState extends State<EditProfile> {
         nameController.text = tech.firstname;
         lastNameController.text = tech.lastname;
         emailController.text = tech.email;
-        phoneController.text = tech.phone;
+        phoneController.text = formatPhoneNumber(tech.phone ?? '');
         aboutController.text = tech.bio;
 
         for (var p in provinces.provinces ?? []) {
@@ -75,11 +174,36 @@ class _EditProfileState extends State<EditProfile> {
         }
       }
 
+      nameController.addListener(_checkChanged);
+      lastNameController.addListener(_checkChanged);
+      emailController.addListener(_checkChanged);
+      phoneController.addListener(_checkChanged);
+      aboutController.addListener(_checkChanged);
+
       setState(() {});
     });
 
     _searchController.addListener(() {
       setState(() => _searchText = _searchController.text.trim());
+    });
+  }
+
+  Future<void> _pickAvatar(BuildContext context) async {
+    final picker = ImagePicker();
+
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+
+    if (file == null) return;
+
+    await context.read<ProfileState>().changeAvatar(file.path);
+
+    setState(() {
+      _avatarChanged = true;
+      _checkChanged(); // update button state
     });
   }
 
@@ -95,110 +219,215 @@ class _EditProfileState extends State<EditProfile> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-          children: [
-            Header(header: "แก้ไขโปรไฟล์"),
-            const SizedBox(height: 16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            children: [
+              Header(header: "แก้ไขโปรไฟล์"),
+              const SizedBox(height: 16),
 
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: _buildProfileImage(context),
-                    onBackgroundImageError: (_, __) {},
-                  ),
-                ],
-              ),
-            ),
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: _buildProfileImage(context),
+                      onBackgroundImageError: (_, __) {},
+                    ),
 
-            const SizedBox(height: 24),
-
-            _buildTextField("ชื่อ", nameController),
-            _buildTextField("นามสกุล", lastNameController),
-            _buildTextField("อีเมล", emailController),
-            _buildTextField("เบอร์โทร", phoneController),
-            _buildTextArea("เกี่ยวกับ", aboutController),
-
-            const SizedBox(height: 12),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                "จังหวัดที่รับบริการ",
-                style: TextStyle(
-                  color: AppColors.colorTertiaryText,
-                  fontSize: 12,
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child:
+                      GestureDetector(
+                        onTap: () => _pickAvatar(context),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Color(0xFFE8E8E8),
+                            child: Icon(
+                              Icons.camera_alt,
+                              color: Colors.black,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
 
-            const SizedBox(height: 6),
+              const SizedBox(height: 24),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildProvinceSearchBar(),
-            ),
-
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildProvinceCheckboxList(),
-            ),
-
-            const SizedBox(height: 24),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: PrimaryButton(
-                text: hasChanged ? "บันทึกการแก้ไข" : "ไม่มีการเปลี่ยนแปลง",
-                onPressed: !hasChanged
-                    ? null
-                    : () async {
-                        final profile = context.read<ProfileState>();
-                        final provinceData = context.read<ProvinceState>();
-
-                        final selectedIds = _selectedProvinces.entries
-                            .where((e) => e.value)
-                            .map((e) {
-                              final match = provinceData.provinces!.firstWhere(
-                                (p) => p.nameTh == e.key,
-                              );
-                              return match.id;
-                            })
-                            .toList();
-
-                        await profile.updateProfile(
-                          firstname: nameController.text.trim(),
-                          lastname: lastNameController.text.trim(),
-                          email: emailController.text.trim(),
-                          phone: phoneController.text.trim(),
-                          bio: aboutController.text.trim(),
-                        );
-
-                        await profile.updateTechnicianProvinces(selectedIds);
-
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("บันทึกสำเร็จ")),
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
+              _buildTextField(
+                "ชื่อ",
+                nameController,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "กรุณากรอกชื่อ";
+                  if (v.length < 2) return "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร";
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 24),
-          ],
+              _buildTextField(
+                "นามสกุล",
+                lastNameController,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "กรุณากรอกนามสกุล";
+                  return null;
+                },
+              ),
+
+              _buildTextField(
+                "อีเมล",
+                emailController,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "กรุณากรอกอีเมล";
+                  if (!RegExp(r"^[\w\.-]+@[\w\.-]+\.\w+$").hasMatch(v)) {
+                    return "รูปแบบอีเมลไม่ถูกต้อง";
+                  }
+                  return null;
+                },
+              ),
+
+              _buildTextField(
+                "เบอร์โทร",
+                phoneController,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                  _PhoneNumberFormatter(),
+                ],
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "กรุณากรอกเบอร์โทร";
+                  if (!RegExp(r"^[0-9]{3}-[0-9]{3}-[0-9]{4}$").hasMatch(v)) {
+                    return "เบอร์โทรต้องมี 10 หลัก";
+                  }
+                  return null;
+                },
+              ),
+
+              _buildTextArea("เกี่ยวกับ", aboutController),
+
+              const SizedBox(height: 12),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  "จังหวัดที่รับบริการ",
+                  style: TextStyle(
+                    color: AppColors.colorTertiaryText,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _buildProvinceSearchBar(),
+              ),
+
+              const SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _buildProvinceCheckboxList(),
+              ),
+
+              if (_provinceError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 4),
+                  child: Text(
+                    _provinceError!,
+                    style: const TextStyle(
+                      color: AppColors.colorError,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 24),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: PrimaryButton(
+                  text: "บันทึกการแก้ไข",
+                  onPressed: hasChanged
+                      ? () async {
+                          final profile = context.read<ProfileState>();
+                          final provinceData = context.read<ProvinceState>();
+                          String rawPhone = phoneController.text.replaceAll('-', '');
+
+                          final selectedIds = _selectedProvinces.entries
+                              .where((e) => e.value)
+                              .map((e) {
+                                final match = provinceData.provinces!
+                                    .firstWhere((p) => p.nameTh == e.key);
+                                return match.id;
+                              })
+                              .toList();
+
+                          await profile.updateProfile(
+                            firstname: nameController.text.trim(),
+                            lastname: lastNameController.text.trim(),
+                            email: emailController.text.trim(),
+                            phone: rawPhone,
+                            bio: aboutController.text.trim(),
+                          );
+
+                          print("ชื่อ"+ nameController.text.trim());
+                          print("นามสกุล"+ lastNameController.text.trim(),);
+                          print("อีเมล"+ emailController.text.trim());
+                          print("โทร"+ phoneController.text.trim().replaceAll('-', ''));
+                          print("เกี่ยวกับ"+ aboutController.text.trim());
+
+                          await profile.updateTechnicianProvinces(selectedIds);
+
+                          setState(() {
+                            _avatarChanged = false;
+                            _checkChanged();
+                          });
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("บันทึกสำเร็จ")),
+                            );
+                            Provider.of<BottomBarState>(
+                              context,
+                              listen: false,
+                            ).closeSubPage();
+                          }
+                        }
+                      : null,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
       child: Column(
@@ -213,24 +442,49 @@ class _EditProfileState extends State<EditProfile> {
             ),
           ),
           const SizedBox(height: 6),
-          TextField(
+          TextFormField(
             controller: controller,
-            onChanged: (_) => _checkChanged(),
+            validator: validator,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
               ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppColors.colorStroke),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.colorError,
+                  width: 1,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(
                   color: AppColors.primaryBorder,
-                  width: 2,
+                  width: 1.5,
                 ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.colorError,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                color: AppColors.colorError,
+                fontSize: 12,
               ),
             ),
           ),
@@ -364,163 +618,3 @@ class _EditProfileState extends State<EditProfile> {
   }
 }
 
-//   List<Widget> _buildServiceCategories() {
-//     return mockServiceCategories.asMap().entries.map((entry) {
-//       int index = entry.key;
-//       ServiceCategory category = entry.value;
-//       BorderRadius radius = BorderRadius.zero;
-//       if (index == 0) radius = const BorderRadius.vertical(top: Radius.circular(8));
-//       if (index == mockServiceCategories.length - 1)
-//         radius = const BorderRadius.vertical(bottom: Radius.circular(8));
-
-//       return Container(
-//         margin: const EdgeInsets.only(bottom: 0),
-//         decoration: BoxDecoration(
-//           color: const Color(0xFFE1EFFA),
-//           borderRadius: radius,
-//         ),
-//         child: Theme(
-//           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-//           child: ExpansionTile(
-//             title: Text(category.name,
-//                 style:
-//                 const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-//             iconColor: AppColors.primaryHover,
-//             collapsedIconColor: AppColors.primaryHover,
-//             backgroundColor: Colors.transparent,
-//             childrenPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-//             children: category.subServices.map(_buildSubServiceItem).toList(),
-//           ),
-//         ),
-//       );
-//     }).toList();
-//   }
-
-//   Widget _buildSubServiceItem(String subService) {
-//     bool selected = _selectedServices[subService] ?? false;
-
-//     return Container(
-//       padding: const EdgeInsets.all(4),
-//       decoration: BoxDecoration(
-//         color: selected ? AppColors.primaryBGHover : AppColors.primaryBG,
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           CheckboxListTile(
-//             value: selected,
-//             onChanged: (val) {
-//               setState(() {
-//                 _selectedServices[subService] = val ?? false;
-//                 _checkChanged();
-//               });
-//             },
-//             title: Text(subService,
-//                 style:
-//                 const TextStyle(fontSize: 14, color: AppColors.colorTertiaryText)),
-//             controlAffinity: ListTileControlAffinity.trailing,
-//             activeColor: const Color(0xFF3071C7),
-//             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-//           ),
-//           if (selected)
-//             Padding(
-//               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-//               child: Row(
-//                 children: [
-//                   if (_priceType[subService] == "range") ...[
-//                     Expanded(
-//                       child: TextField(
-//                         controller: _minPriceControllers[subService],
-//                         decoration: _buildSmallPriceInputDecoration("Min Price"),
-//                         keyboardType: TextInputType.number,
-//                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-//                       ),
-//                     ),
-//                     const SizedBox(width: 8),
-//                     Icon(Icons.arrow_forward, color: AppColors.primaryBorderHover),
-//                     const SizedBox(width: 8),
-//                     Expanded(
-//                       child: TextField(
-//                         controller: _maxPriceControllers[subService],
-//                         decoration: _buildSmallPriceInputDecoration("Max Price"),
-//                         keyboardType: TextInputType.number,
-//                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-//                       ),
-//                     ),
-//                   ],
-//                   if (_priceType[subService] == "fix")
-//                     Expanded(
-//                       child: TextField(
-//                         controller: _fixPriceControllers[subService],
-//                         textAlign: TextAlign.right,
-//                         decoration: _buildSmallPriceInputDecoration("Price"),
-//                         keyboardType: TextInputType.number,
-//                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-//                       ),
-//                     ),
-//                 ],
-//               ),
-//             ),
-//           if (selected)
-//             Padding(
-//               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-//               child: Row(
-//                 children: [
-//                   const Spacer(),
-//                   _buildPriceTypeChip(subService, "range", "Range price"),
-//                   const SizedBox(width: 8),
-//                   _buildPriceTypeChip(subService, "fix", "Fix price"),
-//                 ],
-//               ),
-//             ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   InputDecoration _buildSmallPriceInputDecoration(String hint) {
-//     return InputDecoration(
-//       hintText: hint,
-//       hintStyle: const TextStyle(color: AppColors.primaryBorder, fontSize: 14),
-//       contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-//       border: OutlineInputBorder(
-//         borderRadius: BorderRadius.circular(6),
-//         borderSide: const BorderSide(color: AppColors.primaryBorderHover),
-//       ),
-//       enabledBorder: OutlineInputBorder(
-//         borderRadius: BorderRadius.circular(6),
-//         borderSide: const BorderSide(color: AppColors.primaryBorderHover),
-//       ),
-//       focusedBorder: OutlineInputBorder(
-//         borderRadius: BorderRadius.circular(6),
-//         borderSide: const BorderSide(color: AppColors.primaryBorderHover, width: 2),
-//       ),
-//     );
-//   }
-
-//   Widget _buildPriceTypeChip(String subService, String type, String label) {
-//     bool selected = _priceType[subService] == type;
-//     return ChoiceChip(
-//       label: Text(label,
-//           style: TextStyle(
-//               fontSize: 12,
-//               color: selected
-//                   ? AppColors.colorSecondaryText
-//                   : AppColors.primaryBorderHover)),
-//       selected: selected,
-//       onSelected: (_) {
-//         setState(() {
-//           _priceType[subService] = type;
-//           _checkChanged();
-//         });
-//       },
-//       backgroundColor: AppColors.colorSecondaryText,
-//       selectedColor: AppColors.primaryBorderHover,
-//       shape: RoundedRectangleBorder(
-//         side: BorderSide(color: AppColors.primarySecondaryBorder),
-//         borderRadius: BorderRadius.circular(6),
-//       ),
-//       showCheckmark: false,
-//     );
-//   }
-// }

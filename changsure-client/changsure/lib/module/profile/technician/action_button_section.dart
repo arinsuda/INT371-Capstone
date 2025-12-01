@@ -16,10 +16,7 @@ class ActionButtonSection extends StatelessWidget {
     await addressState.load();
 
     if (context.mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const AddressPage()),
-      );
+      Provider.of<BottomBarState>(context, listen: false).setSubPage(const AddressPage());
     }
   }
 

@@ -87,7 +87,8 @@ class ViewProfileContent extends StatelessWidget {
                         Positioned(
                           bottom: 0,
                           right: 0,
-                          child: GestureDetector(
+                          child:
+                          GestureDetector(
                             onTap: () => _pickAvatar(context),
                             child: Container(
                               decoration: const BoxDecoration(

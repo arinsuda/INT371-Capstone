@@ -88,10 +88,7 @@ class _ProfileState extends State<TechnicianProfile> {
                   profileImageUrl: tech.avatarUrl,
                   phone: tech.phone,
                   onEdit: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const EditProfile()),
-                    );
+                    Provider.of<BottomBarState>(context, listen: false).setSubPage(const EditProfile());
                   },
                 ),
 
