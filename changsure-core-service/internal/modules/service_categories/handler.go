@@ -99,7 +99,7 @@ func (h *Handler) UploadIcon(c fiber.Ctx) error {
 
 	key := fmt.Sprintf("service-categories/%d/icon-%d%s", id, time.Now().Unix(), ext)
 
-	_, err = h.storage.Put(c.Context(), key, file, fh.Size, mime)
+	err = h.storage.Put(c.Context(), key, file, fh.Size, mime)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
