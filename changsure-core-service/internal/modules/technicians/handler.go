@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	tsvc "changsure-core-service/internal/modules/technician_services"
 	"changsure-core-service/pkg/storage"
 	"github.com/gofiber/fiber/v3"
 )
@@ -226,5 +227,31 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"url":     publicURL,
+	})
+}
+
+func (h *Handler) UpdateService(c fiber.Ctx) error {
+	techID := techIDFromLocals(c)
+	if techID == 0 {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	var body tsvc.UpdateTechServiceReq
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+	if body.ServiceID == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "service_id is required")
+	}
+
+	result, err := h.svc.UpdateService(c.Context(), techID, body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "service updated successfully",
+		"data":    result,
 	})
 }

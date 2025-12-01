@@ -34,6 +34,7 @@ type Service interface {
 	GetProfile(ctx context.Context, techID uint) (*TechnicianProfileRes, error)
 	UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error
 	AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error)
+	UpdateService(ctx context.Context, techID uint, req tsvc.UpdateTechServiceReq) (*UpdatedTechServiceResult, error)
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
 	UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error
 }
@@ -51,6 +52,11 @@ type service struct {
 /* ---------------------- DTOs ---------------------- */
 
 type AddedTechServiceResult struct {
+	TechnicianID uint             `json:"technician_id"`
+	Service      TechServiceBrief `json:"service"`
+}
+
+type UpdatedTechServiceResult struct {
 	TechnicianID uint             `json:"technician_id"`
 	Service      TechServiceBrief `json:"service"`
 }
@@ -187,6 +193,70 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 
 		return nil
 	})
+}
+
+/* ---------------------- Update Service ---------------------- */
+
+func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.UpdateTechServiceReq) (*UpdatedTechServiceResult, error) {
+	if err := s.validateTechID(techID); err != nil {
+		return nil, err
+	}
+
+	if req.ServiceID == 0 {
+		return nil, ErrServiceIDRequired
+	}
+
+	var result UpdatedTechServiceResult
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// ค้นหา service ที่มีอยู่
+		var existing tsvc.TechnicianService
+		if err := tx.Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).
+			First(&existing).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("service not found for this technician")
+			}
+			return fmt.Errorf("failed to find service: %w", err)
+		}
+
+		// อัปเดตข้อมูล
+		if req.PricingType != "" {
+			existing.PricingType = req.PricingType
+		}
+		existing.PriceFixed = req.PriceFixed
+		existing.PriceMin = req.PriceMin
+		existing.PriceMax = req.PriceMax
+
+		// บันทึกการเปลี่ยนแปลง
+		if err := tx.Save(&existing).Error; err != nil {
+			return fmt.Errorf("failed to update service: %w", err)
+		}
+
+		// โหลด service detail
+		if err := tx.Model(&existing).Association("Service").Find(&existing.Service); err != nil {
+			return fmt.Errorf("failed to load service association: %w", err)
+		}
+
+		result = UpdatedTechServiceResult{
+			TechnicianID: techID,
+			Service: TechServiceBrief{
+				ID:          existing.Service.ID,
+				Name:        existing.Service.SerName,
+				PricingType: existing.PricingType,
+				PriceFixed:  existing.PriceFixed,
+				PriceMin:    existing.PriceMin,
+				PriceMax:    existing.PriceMax,
+			},
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 /* ---------------------- Update Avatar ---------------------- */
