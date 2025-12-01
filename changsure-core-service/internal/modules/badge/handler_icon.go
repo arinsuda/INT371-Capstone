@@ -54,7 +54,7 @@ func (h *IconHandler) UploadIcon(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if err := h.store.Put(ctx, key, f, fileHeader.Size, contentType); err != nil {
+	if _ ,err := h.store.Put(ctx, key, f, fileHeader.Size, contentType); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "upload error: "+err.Error())
 	}
 
