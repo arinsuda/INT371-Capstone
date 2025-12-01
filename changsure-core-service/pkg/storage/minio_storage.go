@@ -248,3 +248,21 @@ func (s *MinioStorage) GetPresignedURL(key string) string {
 func (s *MinioStorage) Config() *config.MinioConfig {
 	return s.cfg
 }
+
+// ==============================
+// Convert internal MinIO URL → Public URL
+// ==============================
+
+func (s *MinioStorage) PublicURL(key string) string {
+	if key == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(key, "http://") || strings.HasPrefix(key, "https://") {
+		return key
+	}
+
+	raw := fmt.Sprintf("http://%s/%s/%s", s.cfg.Endpoint, s.cfg.Bucket, strings.TrimPrefix(key, "/"))
+
+	return s.toPublicURL(raw)
+}
