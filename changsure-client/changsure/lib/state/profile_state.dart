@@ -236,4 +236,26 @@ class ProfileState extends ChangeNotifier {
     loading = false;
     notifyListeners();
   }
+
+  // เพิ่มใน ProfileState
+  Future<bool> updateTechnicianServices(
+    List<Map<String, dynamic>> servicesData,
+  ) async {
+    if (!isTechnician) {
+      error = 'เฉพาะช่างเท่านั้นที่สามารถอัปเดต Services ได้';
+      notifyListeners();
+      return false;
+    }
+
+    _setLoadingState(true);
+
+    try {
+      await service.updateTechnicianServices(servicesData);
+      await loadProfile(); // ⭐ โหลดข้อมูลใหม่
+      return true;
+    } catch (e, stackTrace) {
+      _handleError('Error updating services', e, stackTrace);
+      return false;
+    }
+  }
 }

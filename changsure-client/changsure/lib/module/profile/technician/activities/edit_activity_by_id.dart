@@ -10,7 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/button/tertiary_button.dart';
 import '../../../../state/bottom_bar_state.dart';
-import '../../../../state/ativity_state.dart';
+import '../../../../state/activity_state.dart';
 import '../../../../models/technicians/technician_activity.dart';
 
 class EditActivityById extends StatefulWidget {

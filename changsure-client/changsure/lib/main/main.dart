@@ -31,7 +31,7 @@ import 'package:changsure/state/bottom_bar_state.dart';
 import 'package:changsure/state/customer_address_state.dart';
 import 'package:changsure/state/category_state.dart';
 import 'package:changsure/state/service_state.dart';
-import 'package:changsure/state/ativity_state.dart';
+import 'package:changsure/state/activity_state.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 

@@ -82,4 +82,16 @@ class ProfileService {
     print("TECH PROFILE RAW JSON = ${res.data}");
     return res.data["data"];
   }
+
+  // ในไฟล์ profile_service.dart
+  Future<void> updateTechnicianServices(
+    List<Map<String, dynamic>> servicesData,
+  ) async {
+    final res = await api.dio.post(
+      '/technician/services', // ⬅️ ปรับ endpoint ตามที่ backend กำหนด
+      data: {'services': servicesData},
+    );
+
+    return res.data["data"];
+  }
 }

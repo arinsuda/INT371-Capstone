@@ -44,6 +44,7 @@ class TechnicianProfile {
   final String phone;
   final String email;
   final String avatarUrl;
+  final List<TechServiceResponse> services;
 
   final double ratingAvg;
   final int ratingCount;
@@ -53,7 +54,6 @@ class TechnicianProfile {
   final bool isVerified;
 
   final List<ProvinceResponse> provinces;
-  final List<TechServiceResponse> services;
   final List<TechServiceSummary> serviceSummary;
   final List<BadgeResponse> badges;
 

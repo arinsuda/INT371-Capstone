@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/profile/technician_card.dart';
 import '../../../core/theme.dart';
 import '../../../state/bottom_bar_state.dart';
-import '../../../state/ativity_state.dart';
+import '../../../state/activity_state.dart';
 import 'activities/post_activity.dart';
 
 class ViewActivities extends StatefulWidget {

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/models/services/service.dart';
 import 'package:changsure/models/services/service_detail_ui.dart';
-
 import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
