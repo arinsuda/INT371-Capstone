@@ -28,3 +28,11 @@ type TechnicianServicePatchReq struct {
 	PriceMin    *float64 `json:"price_min,omitempty"`
 	PriceMax    *float64 `json:"price_max,omitempty"`
 }
+
+type UpdateTechServiceReq struct {
+	ServiceID   uint     `json:"service_id" validate:"required"`
+	PricingType string   `json:"pricing_type,omitempty"`
+	PriceFixed  *float64 `json:"price_fixed,omitempty"`
+	PriceMin    *float64 `json:"price_min,omitempty"`
+	PriceMax    *float64 `json:"price_max,omitempty"`
+}
