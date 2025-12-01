@@ -86,6 +86,7 @@ func (s *Seeder) seedServiceCategories() error {
 	type categoryData struct {
 		CatName string `json:"cat_name"`
 		CatDesc string `json:"cat_desc"`
+		IconURL string `json:"icon_url"`
 	}
 
 	var items []categoryData
@@ -96,9 +97,13 @@ func (s *Seeder) seedServiceCategories() error {
 	data := make([]service_categories.ServiceCategory, 0, len(items))
 	for _, item := range items {
 		desc := item.CatDesc
+		icon := item.IconURL
+
 		data = append(data, service_categories.ServiceCategory{
-			CatName: item.CatName,
-			CatDesc: &desc,
+			CatName:  item.CatName,
+			CatDesc:  &desc,
+			IconURL:  &icon,
+			IsActive: true,
 		})
 	}
 

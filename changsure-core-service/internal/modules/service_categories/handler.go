@@ -30,7 +30,7 @@ func NewHandler(s Service, st *storage.MinioStorage, cfg *config.Config) *Handle
 		storage:  st,
 		endpoint: cfg.Minio.PublicBaseURL,
 		bucket:   cfg.Minio.Bucket,
-		public:   true,
+		public:   false, // ❗ bucket เป็น private เสมอ ต้องเป็น false
 	}
 }
 
@@ -39,7 +39,13 @@ func (h *Handler) List(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
-	return c.JSON(fiber.Map{"success": true, "data": items})
+
+	resp := make([]CategoryResponse, 0, len(items))
+	for _, it := range items {
+		resp = append(resp, MapCategoryToResponse(&it))
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
 func (h *Handler) GetByID(c fiber.Ctx) error {
@@ -47,11 +53,13 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 	if err != nil || id == 0 {
 		return badRequest(c, "invalid id")
 	}
+
 	m, err := h.svc.Get(c.Context(), uint(id))
 	if err != nil {
 		return notFound(c, err.Error())
 	}
-	return c.JSON(fiber.Map{"success": true, "data": m})
+
+	return c.JSON(fiber.Map{"success": true, "data": MapCategoryToResponse(m)})
 }
 
 func (h *Handler) UploadIcon(c fiber.Ctx) error {
@@ -79,6 +87,7 @@ func (h *Handler) UploadIcon(c fiber.Ctx) error {
 	if _, ok := allowedMIME[mime]; !ok {
 		return badRequest(c, "only image/jpeg,image/png,image/webp")
 	}
+
 	if _, err := file.(multipart.File).Seek(0, io.SeekStart); err != nil {
 		return badRequest(c, "failed to rewind file")
 	}
@@ -89,25 +98,29 @@ func (h *Handler) UploadIcon(c fiber.Ctx) error {
 	}
 
 	key := fmt.Sprintf("service-categories/%d/icon-%d%s", id, time.Now().Unix(), ext)
-	if _, err := h.storage.Put(c.Context(), key, file, fh.Size, mime); err != nil {
+
+	_, err = h.storage.Put(c.Context(), key, file, fh.Size, mime)
+	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
-	var url string
-	if h.public {
-		url = h.storage.PublicURL(key)
-	} else {
-		u, err := h.storage.PresignGet(c.Context(), key, 10*time.Minute, false)
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
-		}
-		url = u
-	}
-
-	if err := h.svc.UpdateImageURL(c.Context(), id, url); err != nil {
+	// ❗ Update: บันทึก "key" ลง DB ไม่ใช่ URL
+	if err := h.svc.UpdateImageURL(c.Context(), id, key); err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
-	return c.Status(http.StatusCreated).JSON(fiber.Map{"success": true, "data": fiber.Map{"icon_url": url}})
+
+	// ❗ ส่ง Presigned URL กลับไปให้ FE
+	presignedURL, err := h.storage.PresignGet(c.Context(), key, 1*time.Hour, false)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"icon_url": presignedURL,
+		},
+	})
 }
 
 var allowedMIME = map[string]struct{}{
@@ -119,6 +132,7 @@ func sniffMIME(r io.Reader) string {
 	n, _ := io.ReadFull(r, buf)
 	return http.DetectContentType(buf[:n])
 }
+
 func guessExt(m string) string {
 	switch m {
 	case "image/jpeg":
@@ -131,11 +145,15 @@ func guessExt(m string) string {
 		return ".bin"
 	}
 }
+
 func toUint(s string) (uint64, error) { return strconv.ParseUint(s, 10, 64) }
 
 func badRequest(c fiber.Ctx, msg string) error {
-	return c.Status(http.StatusBadRequest).JSON(fiber.Map{"success": false, "error": msg})
+	return c.Status(http.StatusBadRequest).
+		JSON(fiber.Map{"success": false, "error": msg})
 }
+
 func notFound(c fiber.Ctx, msg string) error {
-	return c.Status(http.StatusNotFound).JSON(fiber.Map{"success": false, "error": msg})
+	return c.Status(http.StatusNotFound).
+		JSON(fiber.Map{"success": false, "error": msg})
 }

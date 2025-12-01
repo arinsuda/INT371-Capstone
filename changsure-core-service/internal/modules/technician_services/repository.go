@@ -2,6 +2,7 @@ package technician_services
 
 import (
 	"errors"
+	"fmt"
 	"gorm.io/gorm"
 )
 
@@ -18,6 +19,7 @@ type SearchTechnician struct {
 type Repository interface {
 	Upsert(p *TechnicianService) error
 	Search(q SearchTechniciansQuery) ([]SearchTechnician, int64, error)
+	ReplaceAllWithPricing(tx *gorm.DB, techID uint, items []TechnicianServicePatchReq) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -92,4 +94,40 @@ func (r *repository) Search(q SearchTechniciansQuery) ([]SearchTechnician, int64
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+func (r *repository) ReplaceAllWithPricing(
+	tx *gorm.DB,
+	techID uint,
+	items []TechnicianServicePatchReq,
+) error {
+	if tx == nil {
+		tx = r.db
+	}
+
+	if err := tx.Where("technician_id = ?", techID).
+		Delete(&TechnicianService{}).Error; err != nil {
+		return fmt.Errorf("failed to clear existing services: %w", err)
+	}
+
+	for _, item := range items {
+		rec := TechnicianService{
+			TechnicianID: techID,
+			ServiceID:    item.ServiceID,
+			PricingType:  item.PricingType,
+			PriceFixed:   item.PriceFixed,
+			PriceMin:     item.PriceMin,
+			PriceMax:     item.PriceMax,
+			IsActive:     true,
+		}
+
+		if err := tx.Create(&rec).Error; err != nil {
+			return fmt.Errorf(
+				"failed to insert service_id=%d: %w",
+				item.ServiceID, err,
+			)
+		}
+	}
+
+	return nil
 }

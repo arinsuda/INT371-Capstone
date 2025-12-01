@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	utils "changsure-core-service/pkg/utils"
 )
 
 type Repository interface {
@@ -188,20 +189,17 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Customer, error) {
 }
 
 func (r *repository) FindByEmail(ctx context.Context, email string) (*Customer, error) {
+	email = utils.NormalizeEmail(email)
+
 	var customer Customer
 	err := r.db.WithContext(ctx).
-		Where("email = ?", email).
-		Preload("Addresses").
-		Preload("Addresses.Province").
+		Where("LOWER(email) = ?", email).
 		First(&customer).Error
 
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
-	return &customer, nil
+	return &customer, err
 }
 
 func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
