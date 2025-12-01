@@ -107,13 +107,13 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 
 	c.initCustomerModule()
 	c.initProvinceModule()
+
+	c.initTechnicianServiceModule()
 	c.initTechnicianModule()
 
 	c.initAuthModule(cfg)
-
 	c.initOCRModule(cfg)
 
-	c.initTechnicianServiceModule()
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
 	c.initBadgeModule()
@@ -206,6 +206,7 @@ func (c *Container) initTechnicianModule() {
 		c.DB,
 		c.TechnicianRepo,
 		c.TechnicianServiceAreaRepo,
+		c.TechnicianServiceRepo,
 	)
 	c.TechnicianHandler = technicians.NewHandler(c.TechnicianService)
 }

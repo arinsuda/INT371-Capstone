@@ -194,3 +194,16 @@ func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, fo
 func (s *MinioStorage) Config() *config.MinioConfig {
 	return s.cfg
 }
+
+func (s *MinioStorage) GetPresignedURL(key string) string {
+	if key == "" {
+		return ""
+	}
+
+	url, err := s.PresignGet(context.Background(), key, time.Hour*1, false)
+	if err != nil {
+		return ""
+	}
+
+	return url
+}

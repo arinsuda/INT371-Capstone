@@ -2,6 +2,7 @@ package utils
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -25,4 +26,8 @@ func QueryBool(c fiber.Ctx, key string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }

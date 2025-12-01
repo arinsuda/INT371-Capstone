@@ -12,11 +12,19 @@ type TechnicianPricingReq struct {
 
 type SearchTechniciansQuery struct {
 	ProvinceID *uint    `query:"province_id"`
-	ServiceID uint     `query:"service_id"  validate:"required"`
-	PriceMin  *float64 `query:"price_min"`
-	PriceMax  *float64 `query:"price_max"`
-	RatingMin *float64 `query:"rating_min"`
-	Sort      string   `query:"sort"`
-	Page      int      `query:"page"`
-	PageSize  int      `query:"page_size"`
+	ServiceID  uint     `query:"service_id"  validate:"required"`
+	PriceMin   *float64 `query:"price_min"`
+	PriceMax   *float64 `query:"price_max"`
+	RatingMin  *float64 `query:"rating_min"`
+	Sort       string   `query:"sort"`
+	Page       int      `query:"page"`
+	PageSize   int      `query:"page_size"`
+}
+
+type TechnicianServicePatchReq struct {
+	ServiceID   uint     `json:"service_id"`
+	PricingType string   `json:"pricing_type"`
+	PriceFixed  *float64 `json:"price_fixed,omitempty"`
+	PriceMin    *float64 `json:"price_min,omitempty"`
+	PriceMax    *float64 `json:"price_max,omitempty"`
 }

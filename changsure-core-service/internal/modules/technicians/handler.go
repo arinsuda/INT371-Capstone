@@ -50,23 +50,27 @@ func techIDFromLocals(c fiber.Ctx) uint {
 
 func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	var req TechnicianProfileReq
+
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
 	techID := techIDFromLocals(c)
 	if techID == 0 {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false, "error": "unauthorized",
+			"success": false,
+			"error":   "unauthorized",
 		})
 	}
 
 	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -102,22 +106,26 @@ func (h *Handler) GetProfile(c fiber.Ctx) error {
 
 func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 	var req TechnicianProvincesPatchReq
+
 	if err := c.Bind().Body(&req); err != nil || len(req.ProvinceIDs) == 0 {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": "invalid body: province_ids required",
+			"success": false,
+			"error":   "invalid body: province_ids required",
 		})
 	}
 
 	techID := techIDFromLocals(c)
 	if techID == 0 {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false, "error": "unauthorized",
+			"success": false,
+			"error":   "unauthorized",
 		})
 	}
 
 	if err := h.svc.UpdateProvinces(c.Context(), techID, req.ProvinceIDs); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"success": true})
