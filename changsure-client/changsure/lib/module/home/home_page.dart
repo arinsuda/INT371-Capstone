@@ -19,7 +19,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
 
+  void _loadData() {
     Future.microtask(() {
       context.read<ServiceCategoryState>().loadCategories();
       context.read<ServiceState>().loadServices();
@@ -28,24 +31,38 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    try {
+      return _buildContent(context);
+    } catch (e, stack) {
+      debugPrint("=== HOME UI ERROR ===");
+      debugPrint("Error: $e");
+      debugPrint("Stack:\n$stack");
+
+      return Scaffold(
+        body: Center(
+          child: SelectableText(
+            "UI Error:\n$e\n\nStack:\n$stack",
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildContent(BuildContext context) {
     final categoryState = context.watch<ServiceCategoryState>();
     final serviceState = context.watch<ServiceState>();
 
-    // ===========================
-    // Loading
-    // ===========================
     if (categoryState.loading || serviceState.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // ===========================
-    // Error Handling
-    // ===========================
     if (categoryState.errorMessage != null || serviceState.error != null) {
       return Scaffold(
         body: Center(
-          child: Text(
-            "เกิดข้อผิดพลาด: \n${categoryState.errorMessage ?? ""}\n${serviceState.error ?? ""}",
+          child: SelectableText(
+            "เกิดข้อผิดพลาดจาก API:\n${serviceState.error}\n\nStack:\n${serviceState.errorStack}",
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.red),
           ),
@@ -53,9 +70,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // ===========================
-    // Safe data (ป้องกัน null)
-    // ===========================
     final categories = categoryState.categories ?? [];
     final services = serviceState.services ?? [];
 
@@ -64,153 +78,153 @@ class _HomePageState extends State<HomePage> {
         padding: EdgeInsets.zero,
         children: [
           const HomeBanner(),
+          _buildCategoryShortcuts(categories),
+          const SizedBox(height: 20),
+          ..._buildCategoryServiceSections(categories, services),
+        ],
+      ),
+    );
+  }
 
-          // ----------------------------
-          // Shortcuts / ปุ่มลัดหมวดหมู่
-          // ----------------------------
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: categories.take(4).map((cat) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ServiceCategoryPage(
-                          categoryId: cat.id,
-                          categoryName: cat.catName,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primaryBGHover,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child:
-                              (cat.iconUrl != null && cat.iconUrl!.isNotEmpty)
-                              ? Image.network(
-                                  cat.iconUrl!,
-                                  width: 30,
-                                  height: 30,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.broken_image,
-                                    size: 30,
-                                    color: Colors.grey,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.category,
-                                  size: 30,
-                                  color: Colors.grey,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        cat.catName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF737373),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+  // -----------------------------------------------------
+  //  ปุ่มลัด 4 หมวดหมู่แรก
+  // -----------------------------------------------------
+  Widget _buildCategoryShortcuts(List categories) {
+    final shortcuts = categories.take(4).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: shortcuts.map((cat) {
+          return GestureDetector(
+            onTap: () => _navigateToCategory(cat.id, cat.catName),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryBGHover,
+                    shape: BoxShape.circle,
                   ),
-                );
-              }).toList(),
+                  child: Center(
+                    child: (cat.iconUrl != null && cat.iconUrl!.isNotEmpty)
+                        ? Image.network(
+                            cat.iconUrl!,
+                            width: 30,
+                            height: 30,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              size: 30,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.category,
+                            size: 30,
+                            color: Colors.grey,
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  cat.catName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF737373),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // -----------------------------------------------------
+  //  Section แยกตามหมวดหมู่
+  // -----------------------------------------------------
+  List<Widget> _buildCategoryServiceSections(List categories, List services) {
+    return categories.map((cat) {
+      final items = services
+          .where((s) => s.categoryId != null && s.categoryId == cat.id)
+          .toList();
+
+      if (items.isEmpty) return const SizedBox();
+
+      final showItems = items.take(2).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCategoryHeader(cat),
+          _buildServiceRow(showItems),
+          const SizedBox(height: 20),
+        ],
+      );
+    }).toList();
+  }
+
+  // Header หมวดหมู่
+  Widget _buildCategoryHeader(cat) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            cat.catName,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // ----------------------------
-          // แสดงบริการแยกตามหมวด
-          // ----------------------------
-          ...categories.map((cat) {
-            final items = services
-                .where((s) => s.categoryId == cat.id)
-                .toList();
-
-            if (items.isEmpty) return const SizedBox();
-
-            final showItems = items.take(2).toList();
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header หมวดหมู่
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        cat.catName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primary,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ServiceCategoryPage(
-                                categoryId: cat.id,
-                                categoryName: cat.catName,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // การ์ดบริการ 2 อัน
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: List.generate(
-                      showItems.length,
-                      (index) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: SizedBox(
-                            height: 220,
-                            child: ServiceCard(data: showItems[index]),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-              ],
-            );
-          }).toList(),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, color: AppColors.primary),
+            onPressed: () => _navigateToCategory(cat.id, cat.catName),
+          ),
         ],
+      ),
+    );
+  }
+
+  // การ์ด 2 อัน
+  Widget _buildServiceRow(List showItems) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        children: List.generate(showItems.length, (i) {
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: SizedBox(
+                height: 220,
+                child: ServiceCard(data: showItems[i]),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // -----------------------------------------------------
+  // Navigation
+  // -----------------------------------------------------
+  void _navigateToCategory(int categoryId, String categoryName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ServiceCategoryPage(
+          categoryId: categoryId,
+          categoryName: categoryName,
+        ),
       ),
     );
   }

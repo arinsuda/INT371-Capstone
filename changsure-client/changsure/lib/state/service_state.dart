@@ -8,6 +8,7 @@ class ServiceState extends ChangeNotifier {
   List<ServiceModel> services = [];
   bool loading = false;
   String? error;
+  StackTrace? errorStack;
 
   ServiceState({required this.api});
 
@@ -16,20 +17,28 @@ class ServiceState extends ChangeNotifier {
     int? categoryId,
     bool? isActive,
   }) async {
-    try {
-      loading = true;
-      notifyListeners();
+    loading = true;
+    error = null;
+    errorStack = null;
+    notifyListeners();
 
+    try {
       final result = await api.listServices(
         search: search,
         categoryId: categoryId,
         isActive: isActive,
       );
 
-      services = result;
-      error = null;
-    } catch (e) {
-      error = e.toString();
+      // ป้องกัน API คืน null
+      services = (result ?? []);
+    } catch (e, stack) {
+      error = "Service Error: $e";
+      errorStack = stack;
+
+      debugPrint("=== [ServiceState] loadServices ERROR ===");
+      debugPrint("Error: $e");
+      debugPrint("Stack: $stack");
+
       services = [];
     } finally {
       loading = false;
@@ -44,7 +53,10 @@ class ServiceState extends ChangeNotifier {
   Future<ServiceModel?> getById(int id) async {
     try {
       return await api.getService(id);
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint("=== [ServiceState] getById ERROR ===");
+      debugPrint("Error: $e");
+      debugPrint("Stack: $stack");
       return null;
     }
   }

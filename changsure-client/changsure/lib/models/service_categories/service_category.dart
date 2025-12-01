@@ -15,14 +15,17 @@ class ServiceCategoryModel {
 
   factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) {
     return ServiceCategoryModel(
-      id: (json["ID"] ?? 0) is int
-          ? json["ID"]
-          : int.tryParse(json["ID"].toString()) ?? 0,
-
-      catName: json["CatName"] ?? "-",
-      catDesc: json["CatDesc"],
-      iconUrl: json["IconURL"],
-      isActive: json["IsActive"] ?? true,
+      id: _parseInt(json["id"]),
+      catName: json["cat_name"] ?? "-",
+      catDesc: json["cat_desc"],
+      iconUrl: json["icon_url"],
+      isActive: json["is_active"] ?? true,
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }

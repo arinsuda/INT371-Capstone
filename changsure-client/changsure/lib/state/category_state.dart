@@ -10,16 +10,28 @@ class ServiceCategoryState extends ChangeNotifier {
   bool loading = false;
   List<ServiceCategoryModel>? categories;
   String? errorMessage;
+  StackTrace? errorStack;
 
   Future<void> loadCategories() async {
-    try {
-      loading = true;
-      notifyListeners();
+    loading = true;
+    errorMessage = null;
+    errorStack = null;
+    notifyListeners();
 
-      categories = await api.fetchCategories();
+    try {
+      final result = await api.fetchCategories();
+
+      categories = result ?? [];
       errorMessage = null;
-    } catch (e) {
-      errorMessage = e.toString();
+    } catch (e, stack) {
+      errorMessage = "Category Error: $e";
+      errorStack = stack;
+
+      debugPrint("=== [CategoryState] loadCategories ERROR ===");
+      debugPrint("Error: $e");
+      debugPrint("Stack: $stack");
+
+      categories = [];
     } finally {
       loading = false;
       notifyListeners();
