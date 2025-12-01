@@ -98,7 +98,8 @@ func sanitizeKey(key string) string {
 // - changes ONLY host (and scheme if provided)
 // - keeps path + query AS-IS
 func (s *MinioStorage) toPublicURL(raw string) string {
-	if s.publicBase == nil {
+	public := s.cfg.PublicBaseURL
+	if public == "" {
 		return raw
 	}
 
@@ -107,11 +108,14 @@ func (s *MinioStorage) toPublicURL(raw string) string {
 		return raw
 	}
 
-	// Replace only host + scheme (optional)
-	u.Host = s.publicBase.Host
-	if s.publicBase.Scheme != "" {
-		u.Scheme = s.publicBase.Scheme
+	p, _ := url.Parse(public)
+	if p.Scheme == "" {
+		p.Scheme = "http"
 	}
+
+	// Only replace host:port
+	u.Host = p.Host
+	u.Scheme = p.Scheme
 
 	return u.String()
 }
