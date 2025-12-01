@@ -1,11 +1,11 @@
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/module/home/viewServiceList.dart';
+import 'package:changsure/module/home/view_service_list.dart';
 import 'package:flutter/material.dart' hide Banner;
 import 'package:provider/provider.dart';
 
 import 'package:changsure/state/category_state.dart';
 import '../../state/service_state.dart';
-import './homePage/serviceCard.dart';
+import './homePage/service_card.dart';
 import './homePage/banner.dart';
 
 class HomePage extends StatefulWidget {

@@ -7,14 +7,14 @@ import '../../../state/auth_state.dart';
 import '../../../state/bottomBarState.dart';
 import '../../../services/auth_service.dart';
 
-import '../../../core/profile/profileCardSection.dart';
-import '../../../core/button/primaryButton.dart';
-import '../../../core/profile/servicesSection.dart';
+import '../../../core/profile/profile_card_section.dart';
+import '../../../core/button/primary_button.dart';
+import '../../../core/profile/services_section.dart';
 
-import 'actionButtonSection.dart';
-import 'viewProfileTab.dart';
+import 'action_button_section.dart';
+import 'view_profile_tab.dart';
 import '../../auth/login.dart';
-import '../technician/editProfile.dart';
+import '../technician/edit_profile.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -95,19 +95,19 @@ class _ProfileState extends State<TechnicianProfile> {
                   },
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 0),
                   child: ActionButtonSection(),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 0),
                   child: RecommendedServiceSection(),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: PrimaryButton(

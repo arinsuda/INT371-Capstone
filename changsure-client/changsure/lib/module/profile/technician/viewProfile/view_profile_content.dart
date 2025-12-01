@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/theme.dart';
 import '../../../../state/profile_state.dart';
-import 'activitySection.dart';
-import 'technicianBadge.dart';
+import 'activity_section.dart';
+import 'technician_badge.dart';
 import 'service.dart';
 
 class ViewProfileContent extends StatelessWidget {

@@ -1,16 +1,16 @@
 import 'package:changsure/models/services/service.dart';
 import 'package:changsure/models/services/service_detail_ui.dart';
 import 'package:changsure/state/service_state.dart';
-import 'package:changsure/module/home/service/systemChoose.dart';
+import 'package:changsure/module/home/service/system_choose.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/button/primaryButton.dart';
-import '../../../core/button/tertiaryButton.dart';
+import '../../../core/button/primary_button.dart';
+import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
-import '../homePage/serviceCard.dart';
-import 'customerChoose.dart';
+import '../homePage/service_card.dart';
+import 'customer_choose.dart';
 
 class ServiceDetail extends StatefulWidget {
   final int id;

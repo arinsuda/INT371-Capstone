@@ -1,40 +1,36 @@
 import 'dart:io';
-import 'package:changsure/core/button/primaryButton.dart';
-import 'package:changsure/core/button/tertiaryButton.dart';
+import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/module/profile/technician/viewActivities.dart';
+import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart';
+import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart';
+import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-
+import '../../../../core/button/tertiary_button.dart';
+import '../../../../mockDB/activities.dart';
 import '../../../../state/bottomBarState.dart';
 
-class PostActivity extends StatefulWidget {
-  const PostActivity({super.key});
+class EditActivityById extends StatefulWidget {
+  final int id; // รับไอดีมาด้วย
+
+  const EditActivityById({super.key, required this.id});
 
   @override
-  State<PostActivity> createState() => _PostActivityState();
+  State<EditActivityById> createState() => _EditActivityState();
 }
 
-class _PostActivityState extends State<PostActivity> {
-  // ค่า Dropdown
+class _EditActivityState extends State<EditActivityById> {
   String? selectedCategory;
-  String? initialCategory;
-
-  // เก็บรูปที่เลือก
-  final List<File> selectedImages = [];
-  List<File> initialImages = [];
-
-  // Picker
+  final TextEditingController descriptionController = TextEditingController();
   final ImagePicker picker = ImagePicker();
 
-  // Text controller สำหรับคำอธิบาย
-  final TextEditingController descriptionController = TextEditingController();
+  // รูป default จาก activity
+  List<String> assetImages = [];
 
-  bool hasChanged = false;
-  bool _isPressed = false;
-  bool _isCancelPressed = false;
+  // รูปใหม่จาก gallery
+  List<File> pickedImages = [];
 
   // สีตามหมวด
   final Map<String, Map<String, Color>> colorMap = {
@@ -60,57 +56,49 @@ class _PostActivityState extends State<PostActivity> {
     },
   };
 
+  // Original data สำหรับเช็คว่ามีการแก้ไขหรือไม่
+  String? originalCategory;
+  String? originalDescription;
+  List<String> originalImages = [];
+
+  bool get isChanged {
+    return selectedCategory != originalCategory ||
+        descriptionController.text != (originalDescription ?? '') ||
+        pickedImages.isNotEmpty ||
+        assetImages.length != originalImages.length;
+  }
+
   @override
   void initState() {
     super.initState();
+    final activity = mockActivities.firstWhere((a) => a.id == widget.id);
 
-    // listener สำหรับ TextField
-    descriptionController.addListener(_checkChanged);
+    selectedCategory = activity.serviceCategoryName;
+    descriptionController.text = activity.description;
+    assetImages = List<String>.from(activity.images);
 
-    // เก็บค่าเริ่มต้น (ตอนเปิดหน้าครั้งแรก)
-    initialCategory = selectedCategory;
-    initialImages = List<File>.from(selectedImages);
-  }
+    originalCategory = selectedCategory;
+    originalDescription = activity.description;
+    originalImages = List<String>.from(activity.images);
 
-  void _checkChanged() {
-    bool changed = false;
-
-    // 1. ตรวจ Dropdown
-    changed |= (selectedCategory != null && selectedCategory!.isNotEmpty);
-
-    // 2. ตรวจ TextField
-    changed |= (descriptionController.text.isNotEmpty);
-
-    // 3. ตรวจรูปภาพ
-    changed |= (selectedImages.isNotEmpty);
-
-    bool allFilled =
-        (selectedCategory != null &&
-        selectedCategory!.isNotEmpty &&
-        descriptionController.text.isNotEmpty &&
-        selectedImages.isNotEmpty);
-
-    if (hasChanged != allFilled) {
-      setState(() {
-        hasChanged = allFilled;
-      });
-    }
-  }
-
-  Future<void> pickImage() async {
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        selectedImages.add(File(image.path));
-        _checkChanged();
-      });
-    }
+    descriptionController.addListener(() {
+      setState(() {}); // เพื่อให้ isChanged ประเมินใหม่
+    });
   }
 
   @override
   void dispose() {
     descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> pickImage() async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        pickedImages.add(File(image.path));
+      });
+    }
   }
 
   Widget buildCategoryDropdown() {
@@ -144,7 +132,6 @@ class _PostActivityState extends State<PostActivity> {
                       onTap: () {
                         setState(() => selectedCategory = categoryName);
                         Navigator.pop(context);
-                        _checkChanged();
                       },
                     );
                   }).toList(),
@@ -197,12 +184,12 @@ class _PostActivityState extends State<PostActivity> {
           children: [
             // ---------- Header ----------
             Header(
-              header: "เพิ่มผลงาน",
+              header: "แก้ไขผลงาน",
               onPressed: () {
                 Provider.of<BottomBarState>(
                   context,
                   listen: false,
-                ).setSubPage(const ViewActivities());
+                ).setSubPage(ViewActivityById(id: widget.id));
               },
             ),
 
@@ -240,6 +227,7 @@ class _PostActivityState extends State<PostActivity> {
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
 
             // ---------------- TEXTAREA ----------------
@@ -263,6 +251,7 @@ class _PostActivityState extends State<PostActivity> {
                 ),
               ),
             ),
+
             const SizedBox(height: 20),
 
             // ---------------- IMAGE UPLOAD ----------------
@@ -272,16 +261,16 @@ class _PostActivityState extends State<PostActivity> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ...selectedImages.asMap().entries.map((entry) {
+                  // รูปจาก activity (asset)
+                  ...assetImages.asMap().entries.map((entry) {
                     final index = entry.key;
-                    final img = entry.value;
-
+                    final path = entry.value;
                     return Stack(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            img,
+                          child: Image.asset(
+                            path,
                             width: 70,
                             height: 70,
                             fit: BoxFit.cover,
@@ -293,8 +282,7 @@ class _PostActivityState extends State<PostActivity> {
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
-                                selectedImages.removeAt(index);
-                                _checkChanged();
+                                assetImages.removeAt(index);
                               });
                             },
                             child: Container(
@@ -313,7 +301,49 @@ class _PostActivityState extends State<PostActivity> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
+                  // รูปจาก gallery
+                  ...pickedImages.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final img = entry.value;
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            img,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                pickedImages.removeAt(index);
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  // ปุ่มเพิ่มรูป
                   GestureDetector(
                     onTap: pickImage,
                     child: Container(
@@ -333,12 +363,11 @@ class _PostActivityState extends State<PostActivity> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
 
-            // ---------------- BUTTONS ----------------
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+              child:
+              Row(
                 children: [
                   // ปุ่มยกเลิก
                   Expanded(
@@ -348,7 +377,7 @@ class _PostActivityState extends State<PostActivity> {
                         Provider.of<BottomBarState>(
                           context,
                           listen: false,
-                        ).setSubPage(const ViewActivities());
+                        ).setSubPage(ViewActivityById(id: widget.id));
                       },
                     ),
                   ),
@@ -357,20 +386,20 @@ class _PostActivityState extends State<PostActivity> {
                   Expanded(
                     child: PrimaryButton(
                       text: "บันทึก",
-                      onPressed: hasChanged
+                      onPressed: isChanged
                           ? () {
+                              // ทำการบันทึก
                               Provider.of<BottomBarState>(
                                 context,
                                 listen: false,
-                              ).setSubPage(const ViewActivities());
+                              ).setSubPage(ViewActivityById(id: widget.id));
                             }
-                          : null,
+                          : null, // disabled ถ้าไม่มีการแก้ไข
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
           ],
         ),
       ),

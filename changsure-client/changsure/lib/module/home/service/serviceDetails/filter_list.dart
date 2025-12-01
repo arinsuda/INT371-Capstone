@@ -1,7 +1,7 @@
-import 'package:changsure/core/button/tertiaryButton.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/button/primaryButton.dart';
+import '../../../../core/button/primary_button.dart';
 import '../../../../core/theme.dart';
 
 class FilterList extends StatefulWidget {

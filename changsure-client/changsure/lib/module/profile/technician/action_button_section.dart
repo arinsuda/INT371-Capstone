@@ -1,11 +1,11 @@
-import 'package:changsure/module/profile/technician/activities/postActivity.dart';
-import 'package:changsure/module/profile/technician/addressPage.dart';
-import 'package:changsure/module/profile/technician/viewActivities.dart';
+import 'package:changsure/module/profile/technician/activities/post_activity.dart';
+import 'package:changsure/module/profile/technician/address_page.dart';
+import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../state/bottomBarState.dart';
 import '../../../../state/technician_address_state.dart';
-import 'viewProfileTab.dart';
+import 'view_profile_tab.dart';
 
 class ActionButtonSection extends StatelessWidget {
   const ActionButtonSection({super.key});
@@ -53,7 +53,7 @@ class ActionButtonSection extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: buttons.map((button) {

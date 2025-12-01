@@ -1,5 +1,4 @@
 import 'dart:developer';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +7,7 @@ import 'package:provider/single_child_widget.dart';
 
 import 'package:changsure/module/auth/login.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/core/footer/footerBar.dart';
+import 'package:changsure/core/footer/footer_bar.dart';
 import 'package:changsure/config/app_config.dart';
 
 import 'package:changsure/api/api_client.dart';

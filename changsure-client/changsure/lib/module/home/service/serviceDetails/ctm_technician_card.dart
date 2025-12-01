@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/button/primaryButton.dart';
-import '../../../../core/button/secondaryButton.dart';
+import '../../../../core/button/primary_button.dart';
+import '../../../../core/button/secondary_button.dart';
 import '../../../../core/theme.dart';
 import '../../../../mockDB/technician.dart';
 import '../../../../state/bottomBarState.dart';
-import '../../../profile/technician/viewProfileTab.dart';
+import '../../../profile/technician/view_profile_tab.dart';
 
 class TechnicianCardCTM extends StatelessWidget {
   final Technician technician;

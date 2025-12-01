@@ -4,7 +4,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../models/address/address_model.dart';
 import '../theme.dart';
-import '../button/primaryButton.dart';
+import '../button/primary_button.dart';
 import '../header.dart';
 
 class Address extends StatefulWidget {

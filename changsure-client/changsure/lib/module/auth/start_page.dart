@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/button/primaryButton.dart';
+import '../../core/button/primary_button.dart';
 import '../../services/auth_service.dart';
 
 import 'login.dart';

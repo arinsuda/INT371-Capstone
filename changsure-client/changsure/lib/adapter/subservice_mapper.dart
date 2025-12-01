@@ -1,5 +1,5 @@
 import 'package:changsure/models/services/service.dart';
-import 'package:changsure/mockDB/serviceCategories.dart';
+import 'package:changsure/mockDB/service_categories.dart';
 
 SubServiceDetail convertToSubServiceDetail(ServiceModel m) {
   return SubServiceDetail(

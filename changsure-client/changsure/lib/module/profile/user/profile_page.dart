@@ -1,9 +1,9 @@
-import 'package:changsure/core/button/primaryButton.dart';
-import 'package:changsure/core/profile/servicesSection.dart';
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/profile/services_section.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:changsure/core/profile/profileCardSection.dart';
-import 'package:changsure/module/profile/user/editProfile.dart';
+import 'package:changsure/core/profile/profile_card_section.dart';
+import 'package:changsure/module/profile/user/edit_profile.dart';
 
 import '../../../core/theme.dart';
 import '../../../state/bottomBarState.dart';

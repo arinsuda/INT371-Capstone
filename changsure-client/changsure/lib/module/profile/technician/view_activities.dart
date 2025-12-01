@@ -2,11 +2,11 @@ import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
-import '../../../core/profile/technicianCard.dart';
+import '../../../core/profile/technician_card.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/activities.dart';
 import '../../../state/bottomBarState.dart';
-import 'activities/postActivity.dart';
+import 'activities/post_activity.dart';
 
 class ViewActivities extends StatefulWidget {
   const ViewActivities({super.key});

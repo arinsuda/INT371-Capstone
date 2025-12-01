@@ -1,4 +1,4 @@
-import 'package:changsure/mockDB/servicesCategories.dart';
+import 'package:changsure/mockDB/services_categories.dart';
 
 class Activity {
   final int id;

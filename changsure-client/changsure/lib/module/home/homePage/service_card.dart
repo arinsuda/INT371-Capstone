@@ -4,7 +4,7 @@ import 'package:changsure/models/services/service.dart';
 import 'package:changsure/models/services/service_detail_ui.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../service/serviceDetail.dart';
+import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
   final ServiceModel data;

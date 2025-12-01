@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:changsure/state/service_state.dart';
-import './homePage/serviceCard.dart';
+import './homePage/service_card.dart';
 
 class ServiceCategoryPage extends StatefulWidget {
   final int categoryId;

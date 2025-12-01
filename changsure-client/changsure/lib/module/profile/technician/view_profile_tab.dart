@@ -1,8 +1,8 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import './viewProfile/viewProfileContent.dart';
-import './viewProfile/reviewContent.dart';
+import './viewProfile/view_profile_content.dart';
+import './viewProfile/review_content.dart';
 import '../../../state/profile_state.dart';
 import '../../../core/theme.dart';
 
