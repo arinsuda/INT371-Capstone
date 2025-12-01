@@ -16,18 +16,33 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-
+// Common errors
 var (
 	ErrEmptyKey        = errors.New("storage: empty key provided")
 	ErrInvalidURL      = errors.New("storage: invalid URL")
 	ErrBucketOperation = errors.New("storage: bucket operation failed")
 )
 
+// ObjectStat represents object metadata
+type ObjectStat struct {
+	Size     int64
+	ETag     string
+	MIMEType string
+}
 
+// Storage defines the interface for object storage operations
+type Storage interface {
+	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
+	PresignPut(ctx context.Context, key, contentType string, ttl time.Duration) (string, error)
+	PresignGet(ctx context.Context, key string, ttl time.Duration, asAttachment bool) (string, error)
+	PresignGetWithFilename(ctx context.Context, key string, ttl time.Duration, filename string) (string, error)
+	Stat(ctx context.Context, key string) (*ObjectStat, error)
+	Delete(ctx context.Context, key string) error
+	UploadFile(ctx context.Context, r io.Reader, filename, folder string, size int64, contentType string) (string, error)
+	PublicURL(key string) string
+}
 
-
-
-
+// MinioStorage implements Storage interface for MinIO
 type MinioStorage struct {
 	client       *minio.Client
 	bucket       string
@@ -36,10 +51,10 @@ type MinioStorage struct {
 	publicBase   string
 }
 
-
+// Global instance (consider using dependency injection instead)
 var GlobalMinio *MinioStorage
 
-
+// NewMinioFromConfig creates a new MinIO storage instance
 func NewMinioFromConfig(cfg config.MinioConfig) (*MinioStorage, error) {
 	if err := validateConfig(&cfg); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
@@ -72,7 +87,7 @@ func NewMinioFromConfig(cfg config.MinioConfig) (*MinioStorage, error) {
 	return s, nil
 }
 
-
+// validateConfig validates MinIO configuration
 func validateConfig(cfg *config.MinioConfig) error {
 	if cfg.Endpoint == "" {
 		return errors.New("endpoint is required")
@@ -86,16 +101,16 @@ func validateConfig(cfg *config.MinioConfig) error {
 	return nil
 }
 
-
+// buildInternalBaseURL constructs the internal base URL
 func buildInternalBaseURL(endpoint, bucket string, useSSL bool) string {
 	scheme := "http"
 	if useSSL {
 		scheme = "https"
 	}
-	return fmt.Sprintf("%s:
+	return fmt.Sprintf("%s://%s/%s", scheme, endpoint, bucket)
 }
 
-
+// ensureBucketExists checks and creates bucket if needed
 func (s *MinioStorage) ensureBucketExists(ctx context.Context) error {
 	exists, err := s.client.BucketExists(ctx, s.bucket)
 	if err != nil {
@@ -114,7 +129,7 @@ func (s *MinioStorage) ensureBucketExists(ctx context.Context) error {
 	return nil
 }
 
-
+// toPublicURL converts internal MinIO URL to public URL
 func (s *MinioStorage) toPublicURL(rawURL string) string {
 	if s.publicBase == "" {
 		return rawURL
@@ -122,12 +137,12 @@ func (s *MinioStorage) toPublicURL(rawURL string) string {
 	return strings.Replace(rawURL, s.internalBase, s.publicBase, 1)
 }
 
-
+// sanitizeKey normalizes the object key
 func sanitizeKey(key string) string {
 	return strings.TrimPrefix(path.Clean(key), "/")
 }
 
-
+// Put uploads an object to storage
 func (s *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	if key == "" {
 		return ErrEmptyKey
@@ -147,7 +162,7 @@ func (s *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size in
 	return nil
 }
 
-
+// PresignPut generates a presigned URL for uploading
 func (s *MinioStorage) PresignPut(ctx context.Context, key, contentType string, ttl time.Duration) (string, error) {
 	if key == "" {
 		return "", ErrEmptyKey
@@ -163,7 +178,7 @@ func (s *MinioStorage) PresignPut(ctx context.Context, key, contentType string, 
 	return s.toPublicURL(u.String()), nil
 }
 
-
+// PresignGet generates a presigned URL for downloading
 func (s *MinioStorage) PresignGet(ctx context.Context, key string, ttl time.Duration, asAttachment bool) (string, error) {
 	if key == "" {
 		return "", ErrEmptyKey
@@ -184,7 +199,7 @@ func (s *MinioStorage) PresignGet(ctx context.Context, key string, ttl time.Dura
 	return s.toPublicURL(u.String()), nil
 }
 
-
+// PresignGetWithFilename generates a presigned URL with custom filename
 func (s *MinioStorage) PresignGetWithFilename(ctx context.Context, key string, ttl time.Duration, filename string) (string, error) {
 	if key == "" {
 		return "", ErrEmptyKey
@@ -194,7 +209,7 @@ func (s *MinioStorage) PresignGetWithFilename(ctx context.Context, key string, t
 
 	params := url.Values{}
 	if filename != "" {
-		
+		// Properly escape filename for Content-Disposition header
 		disposition := fmt.Sprintf(`attachment; filename="%s"`, escapeQuotes(filename))
 		params.Set("response-content-disposition", disposition)
 	}
@@ -207,12 +222,12 @@ func (s *MinioStorage) PresignGetWithFilename(ctx context.Context, key string, t
 	return s.toPublicURL(u.String()), nil
 }
 
-
+// escapeQuotes escapes double quotes in filename
 func escapeQuotes(s string) string {
 	return strings.ReplaceAll(s, `"`, `\"`)
 }
 
-
+// PresignPost generates presigned POST policy
 func (s *MinioStorage) PresignPost(ctx context.Context, key, contentType string, maxBytes int64, ttl time.Duration) (*url.URL, map[string]string, error) {
 	if key == "" {
 		return nil, nil, ErrEmptyKey
@@ -251,7 +266,7 @@ func (s *MinioStorage) PresignPost(ctx context.Context, key, contentType string,
 	return publicURL, formData, nil
 }
 
-
+// Stat retrieves object metadata
 func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error) {
 	if key == "" {
 		return nil, ErrEmptyKey
@@ -271,7 +286,7 @@ func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error
 	}, nil
 }
 
-
+// Delete removes an object from storage
 func (s *MinioStorage) Delete(ctx context.Context, key string) error {
 	if key == "" {
 		return ErrEmptyKey
@@ -287,18 +302,18 @@ func (s *MinioStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-
+// UploadFile uploads a file with automatic key generation
 func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, folder string, size int64, contentType string) (string, error) {
 	if filename == "" {
 		return "", errors.New("filename is required")
 	}
 
-	
+	// Normalize folder path
 	if folder != "" {
 		folder = strings.Trim(folder, "/") + "/"
 	}
 
-	
+	// Generate unique key with timestamp
 	key := fmt.Sprintf("%s%d-%s", folder, time.Now().UnixNano(), filename)
 
 	if err := s.Put(ctx, key, r, size, contentType); err != nil {
@@ -308,8 +323,8 @@ func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, fo
 	return key, nil
 }
 
-
-
+// GetPresignedURL is a convenience method for generating presigned GET URLs
+// Deprecated: Use PresignGet instead
 func (s *MinioStorage) GetPresignedURL(key string) string {
 	if key == "" {
 		return ""
@@ -326,14 +341,14 @@ func (s *MinioStorage) GetPresignedURL(key string) string {
 	return url
 }
 
-
+// PublicURL constructs a public URL for the given key
 func (s *MinioStorage) PublicURL(key string) string {
 	if key == "" {
 		return ""
 	}
 
-	
-	if strings.HasPrefix(key, "http:
+	// If already a full URL, return as-is
+	if strings.HasPrefix(key, "http://") || strings.HasPrefix(key, "https://") {
 		return key
 	}
 
@@ -344,12 +359,12 @@ func (s *MinioStorage) PublicURL(key string) string {
 		scheme = "https"
 	}
 
-	rawURL := fmt.Sprintf("%s:
+	rawURL := fmt.Sprintf("%s://%s/%s/%s", scheme, s.cfg.Endpoint, s.bucket, key)
 
 	return s.toPublicURL(rawURL)
 }
 
-
+// Config returns the MinIO configuration
 func (s *MinioStorage) Config() *config.MinioConfig {
 	return s.cfg
 }
