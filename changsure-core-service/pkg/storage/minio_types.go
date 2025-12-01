@@ -14,8 +14,8 @@ type MinioOptions struct {
 	PublicBaseURL string
 }
 
-type MinioStorage struct {
-	client *minio.Client
-	bucket string
-	cfg    *config.MinioConfig
+type ObjectStat struct {
+	Size     int64
+	ETag     string
+	MIMEType string
 }

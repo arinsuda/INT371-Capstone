@@ -14,6 +14,12 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+type MinioStorage struct {
+	client *minio.Client
+	bucket string
+	cfg    *config.MinioConfig
+}
+
 var GlobalMinio *MinioStorage
 
 // ==============================
@@ -178,12 +184,6 @@ func (s *MinioStorage) PresignPost(ctx context.Context, key, contentType string,
 // ==============================
 // Stat
 // ==============================
-
-type ObjectStat struct {
-	Size     int64
-	ETag     string
-	MIMEType string
-}
 
 func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error) {
 	st, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
