@@ -1,336 +1,243 @@
 package storage
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"io"
-	"net/url"
-	"path"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "io"
+    "net/url"
+    "strings"
+    "time"
 
-	"changsure-core-service/internal/config"
+    "changsure-core-service/internal/config"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+    "github.com/minio/minio-go/v7"
+    "github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-var (
-	ErrEmptyKey = errors.New("storage: key cannot be empty")
-)
+// ============================================================================
+// Minio Storage Structure
+// ============================================================================
 
 type MinioStorage struct {
-	client     *minio.Client
-	bucket     string
-	cfg        *config.MinioConfig
-	publicBase *url.URL
+    client *minio.Client
+    bucket string
+    cfg    *config.MinioConfig
 }
 
 var GlobalMinio *MinioStorage
 
-// ======================================================
+// ============================================================================
 // Constructor
-// ======================================================
+// ============================================================================
 
 func NewMinioFromConfig(cfg config.MinioConfig) (*MinioStorage, error) {
-	if cfg.Endpoint == "" {
-		return nil, errors.New("minio endpoint required")
-	}
-	if cfg.AccessKey == "" || cfg.SecretKey == "" {
-		return nil, errors.New("minio credentials required")
-	}
-	if cfg.Bucket == "" {
-		return nil, errors.New("minio bucket required")
-	}
+    client, err := minio.New(cfg.Endpoint, &minio.Options{
+        Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+        Secure: cfg.UseSSL,
+        Region: cfg.Region,
+    })
 
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
-		Region: cfg.Region,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("minio client init: %w", err)
-	}
+    if err != nil {
+        return nil, fmt.Errorf("minio new client: %w", err)
+    }
 
-	var publicBase *url.URL
-	if cfg.PublicBaseURL != "" {
-		publicBase, err = url.Parse(cfg.PublicBaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid public base url: %w", err)
-		}
-	}
+    s := &MinioStorage{
+        client: client,
+        bucket: cfg.Bucket,
+        cfg:    &cfg,
+    }
 
-	s := &MinioStorage{
-		client:     client,
-		bucket:     cfg.Bucket,
-		cfg:        &cfg,
-		publicBase: publicBase,
-	}
+    if err := s.ensureBucketExists(context.Background()); err != nil {
+        return nil, err
+    }
 
-	// Ensure bucket
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	exists, err := s.client.BucketExists(ctx, cfg.Bucket)
-	if err != nil {
-		return nil, fmt.Errorf("check bucket: %w", err)
-	}
-	if !exists {
-		if err := s.client.MakeBucket(ctx, cfg.Bucket, minio.MakeBucketOptions{}); err != nil {
-			return nil, fmt.Errorf("make bucket: %w", err)
-		}
-	}
-
-	return s, nil
+    return s, nil
 }
 
-// ======================================================
-// Utility
-// ======================================================
+// ============================================================================
+// Bucket Ensure
+// ============================================================================
 
-// sanitize key to avoid "//" and root traversal
-func sanitizeKey(key string) string {
-	return strings.TrimPrefix(path.Clean("/"+key), "/")
+func (s *MinioStorage) ensureBucketExists(ctx context.Context) error {
+    exists, err := s.client.BucketExists(ctx, s.bucket)
+    if err != nil {
+        return fmt.Errorf("check bucket: %w", err)
+    }
+
+    if !exists {
+        if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
+            return fmt.Errorf("make bucket: %w", err)
+        }
+    }
+
+    return nil
 }
 
-// Convert MinIO internal presigned URL to public URL
-// - changes ONLY host (and scheme if provided)
-// - keeps path + query AS-IS
-func (s *MinioStorage) toPublicURL(raw string) string {
-	public := s.cfg.PublicBaseURL
-	if public == "" {
-		return raw
-	}
+// ============================================================================
+// PRIVATE MODE — INTERNAL PRESIGNED → EXTERNAL HOST (Safe Host Rewrite)
+// ============================================================================
 
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
+func (s *MinioStorage) ToExternalURL(raw string) string {
+    if raw == "" {
+        return ""
+    }
 
-	p, _ := url.Parse(public)
-	if p.Scheme == "" {
-		p.Scheme = "http"
-	}
+    u, err := url.Parse(raw)
+    if err != nil {
+        return raw
+    }
 
-	// Only replace host:port
-	u.Host = p.Host
-	u.Scheme = p.Scheme
+    // Change only host + scheme
+    // NEVER touch path or query → prevents signature mismatch
+    external := s.cfg.ExternalHost // ex: "cp25ssa1.sit.kmutt.ac.th:9010"
+    if external == "" {
+        return raw
+    }
 
-	return u.String()
+    u.Scheme = "http"
+    u.Host = external
+
+    return u.String()
 }
 
-// ======================================================
-// Upload
-// ======================================================
-
-func (s *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
-	if key == "" {
-		return ErrEmptyKey
-	}
-
-	key = sanitizeKey(key)
-
-	_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
-	if err != nil {
-		return fmt.Errorf("put object %q: %w", key, err)
-	}
-
-	return nil
-}
-
-// ======================================================
+// ============================================================================
 // Presigned PUT
-// ======================================================
+// ============================================================================
 
 func (s *MinioStorage) PresignPut(ctx context.Context, key, contentType string, ttl time.Duration) (string, error) {
-	if key == "" {
-		return "", ErrEmptyKey
-	}
-
-	key = sanitizeKey(key)
-
-	u, err := s.client.PresignedPutObject(ctx, s.bucket, key, ttl)
-	if err != nil {
-		return "", fmt.Errorf("presigned put: %w", err)
-	}
-
-	return s.toPublicURL(u.String()), nil
+    u, err := s.client.PresignedPutObject(ctx, s.bucket, key, ttl)
+    if err != nil {
+        return "", err
+    }
+    return s.ToExternalURL(u.String()), nil
 }
 
-// ======================================================
-// Presigned GET (with optional attachment)
-// ======================================================
+// ============================================================================
+// Presigned GET (Download)
+// ============================================================================
 
 func (s *MinioStorage) PresignGet(ctx context.Context, key string, ttl time.Duration, asAttachment bool) (string, error) {
-	if key == "" {
-		return "", ErrEmptyKey
-	}
+    q := url.Values{}
+    if asAttachment {
+        q.Set("response-content-disposition", "attachment")
+    }
 
-	key = sanitizeKey(key)
+    raw, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, q)
+    if err != nil {
+        return "", err
+    }
 
-	params := url.Values{}
-	if asAttachment {
-		params.Set("response-content-disposition", "attachment")
-	}
-
-	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, params)
-	if err != nil {
-		return "", fmt.Errorf("presigned get: %w", err)
-	}
-
-	return s.toPublicURL(u.String()), nil
+    return s.ToExternalURL(raw.String()), nil
 }
 
-// GET with filename
+// ============================================================================
+// Presigned GET with Filename
+// ============================================================================
+
 func (s *MinioStorage) PresignGetWithFilename(ctx context.Context, key string, ttl time.Duration, filename string) (string, error) {
-	if key == "" {
-		return "", ErrEmptyKey
-	}
-	key = sanitizeKey(key)
+    q := url.Values{}
+    if filename != "" {
+        q.Set("response-content-disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+    }
 
-	params := url.Values{}
-	if filename != "" {
-		params.Set("response-content-disposition",
-			fmt.Sprintf(`attachment; filename="%s"`, strings.ReplaceAll(filename, `"`, `\"`)))
-	}
+    raw, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, q)
+    if err != nil {
+        return "", err
+    }
 
-	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, params)
-	if err != nil {
-		return "", fmt.Errorf("presigned get filename: %w", err)
-	}
-
-	return s.toPublicURL(u.String()), nil
+    return s.ToExternalURL(raw.String()), nil
 }
 
-// ======================================================
-// Presigned POST
-// ======================================================
+// ============================================================================
+// Presigned POST Upload Policy
+// ============================================================================
 
 func (s *MinioStorage) PresignPost(ctx context.Context, key, contentType string, maxBytes int64, ttl time.Duration) (*url.URL, map[string]string, error) {
-	if key == "" {
-		return nil, nil, ErrEmptyKey
-	}
+    policy := minio.NewPostPolicy()
+    policy.SetBucket(s.bucket)
+    policy.SetKey(key)
+    policy.SetExpires(time.Now().UTC().Add(ttl))
 
-	key = sanitizeKey(key)
+    if contentType != "" {
+        _ = policy.SetContentType(contentType)
+    }
+    if maxBytes > 0 {
+        _ = policy.SetContentLengthRange(1, maxBytes)
+    }
 
-	p := minio.NewPostPolicy()
+    rawURL, form, err := s.client.PresignedPostPolicy(ctx, policy)
+    if err != nil {
+        return nil, nil, err
+    }
 
-	p.SetBucket(s.bucket)
-	p.SetKey(key)
-	p.SetExpires(time.Now().UTC().Add(ttl))
-
-	if contentType != "" {
-		p.SetContentType(contentType)
-	}
-	if maxBytes > 0 {
-		p.SetContentLengthRange(1, maxBytes)
-	}
-
-	u, form, err := s.client.PresignedPostPolicy(ctx, p)
-	if err != nil {
-		return nil, nil, fmt.Errorf("presigned post: %w", err)
-	}
-
-	public := s.toPublicURL(u.String())
-	outURL, err := url.Parse(public)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid public url: %w", err)
-	}
-
-	return outURL, form, nil
+    externalURL, _ := url.Parse(s.ToExternalURL(rawURL.String()))
+    return externalURL, form, nil
 }
 
-// ======================================================
+// ============================================================================
 // Stat
-// ======================================================
+// ============================================================================
+
+type ObjectStat struct {
+    Size     int64
+    ETag     string
+    MIMEType string
+}
 
 func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error) {
-	if key == "" {
-		return nil, ErrEmptyKey
-	}
+    st, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+    if err != nil {
+        return nil, err
+    }
 
-	key = sanitizeKey(key)
-
-	st, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("stat %q: %w", key, err)
-	}
-
-	return &ObjectStat{
-		Size:     st.Size,
-		ETag:     st.ETag,
-		MIMEType: st.ContentType,
-	}, nil
+    return &ObjectStat{
+        Size:     st.Size,
+        ETag:     st.ETag,
+        MIMEType: st.ContentType,
+    }, nil
 }
 
-// ======================================================
+// ============================================================================
 // Delete
-// ======================================================
+// ============================================================================
 
 func (s *MinioStorage) Delete(ctx context.Context, key string) error {
-	if key == "" {
-		return ErrEmptyKey
-	}
-
-	key = sanitizeKey(key)
-
-	err := s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
-	if err != nil {
-		return fmt.Errorf("delete %q: %w", key, err)
-	}
-
-	return nil
+    return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
 }
 
-// ======================================================
+// ============================================================================
 // UploadFile
-// ======================================================
+// ============================================================================
 
 func (s *MinioStorage) UploadFile(ctx context.Context, r io.Reader, filename, folder string, size int64, contentType string) (string, error) {
-	if filename == "" {
-		return "", errors.New("filename required")
-	}
+    if folder != "" && !strings.HasSuffix(folder, "/") {
+        folder += "/"
+    }
 
-	if folder != "" {
-		folder = strings.Trim(folder, "/") + "/"
-	}
+    key := fmt.Sprintf("%s%d-%s", folder, time.Now().UnixNano(), filename)
 
-	key := fmt.Sprintf("%s%d-%s", folder, time.Now().UnixNano(), filename)
+    if _, err := s.Put(ctx, key, r, size, contentType); err != nil {
+        return "", err
+    }
 
-	if err := s.Put(ctx, key, r, size, contentType); err != nil {
-		return "", err
-	}
-
-	return key, nil
+    return key, nil
 }
 
-// ======================================================
-// Direct Public URL (non-presigned)
-// ======================================================
-
-func (s *MinioStorage) PublicURL(key string) string {
-	if key == "" {
-		return ""
-	}
-
-	key = sanitizeKey(key)
-
-	u := url.URL{
-		Scheme: "http",
-		Host:   s.cfg.Endpoint,
-		Path:   fmt.Sprintf("/%s/%s", s.bucket, key),
-	}
-
-	if s.cfg.UseSSL {
-		u.Scheme = "https"
-	}
-
-	return s.toPublicURL(u.String())
+// Put helper
+func (s *MinioStorage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) (minio.UploadInfo, error) {
+    info, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{
+        ContentType: contentType,
+    })
+    if err != nil {
+        return minio.UploadInfo{}, fmt.Errorf("put object: %w", err)
+    }
+    return info, nil
 }
+
+// ============================================================================
+// Config Access
+// ============================================================================
 
 func (s *MinioStorage) Config() *config.MinioConfig {
-	return s.cfg
+    return s.cfg
 }

@@ -63,14 +63,6 @@ services:
 
   # init bucket + เช็คว่า minio ใช้งานได้จริง
   minio-init:
-    env_file:
-      - ./.env
-    image: minio/mc:latest
-    container_name: changsure-minio-init-dev
-    depends_on:
-      - minio
-    networks:
-      - changsure-network
     entrypoint: >
       /bin/sh -c "
       echo 'Waiting for MinIO...';
@@ -78,12 +70,15 @@ services:
         sleep 2;
       done;
       echo 'Creating bucket if not exists...';
-      mc mb -p local/${MINIO_BUCKET:-changsure} || true;
-      mc anonymous set download local/${MINIO_BUCKET:-changsure} || true;
-      mc ls local;
-      echo 'MinIO init done.';
+      mc mb -p local/${MINIO_BUCKET} || true;
+
+      echo 'Disabling anonymous access...';
+      mc anonymous set none local/${MINIO_BUCKET};
+
+      echo 'MinIO Private Mode enabled.';
       exit 0;
       "
+
     restart: "no"
     logging:
       driver: "json-file"
