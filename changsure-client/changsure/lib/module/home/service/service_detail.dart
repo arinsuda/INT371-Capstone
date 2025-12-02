@@ -153,7 +153,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
                     const SizedBox(height: 2),
 
                     Text(
-                      data.subDetails,
+                      data.description,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF002C8C),
@@ -184,7 +184,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
                     ),
                     const SizedBox(height: 4),
                     MarkdownBody(
-                      data: data.description,
+                      data: data.subDetails,
                       styleSheet: MarkdownStyleSheet(
                         p: const TextStyle(
                           fontSize: 14,

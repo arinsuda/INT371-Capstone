@@ -30,7 +30,7 @@ class ServiceDetailUI {
           ? m.imageUrls.first
           : "assets/image/clean3.png",
       description: (m.serDescription ?? "").isEmpty ? "-" : m.serDescription!,
-      subDetails: m.serDetails.isNotEmpty ? m.serDetails.join(", ") : "-",
+      subDetails: m.serDetails.isNotEmpty ? m.serDetails.map((e)=> "- $e").join("\n") : "-",
       conditions: m.additionalTerms.isNotEmpty
           ? m.additionalTerms.map((e) => "- $e").join("\n")
           : "-",

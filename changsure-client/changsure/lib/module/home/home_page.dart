@@ -92,11 +92,26 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCategoryShortcuts(List categories) {
     final shortcuts = categories.take(4).toList();
 
+    final buttons = [
+      {'label': 'ทาสี', 'icon': 'assets/icons/painted.png'},
+      {'label': 'การประปา', 'icon': 'assets/icons/waterWork.png'},
+      // Asset
+      {'label': 'การไฟฟ้า', 'icon': 'assets/icons/powerSupply.png'},
+      // Asset
+      {'label': 'เครื่องใช้ไฟฟ้า', 'icon': 'assets/icons/electric.png'},
+      // Asset
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: shortcuts.map((cat) {
+        children: shortcuts.asMap().entries.map((entry) {
+          final index = entry.key;
+          final cat = entry.value;
+
+          final fallbackIcon = buttons[index]['icon'];
+
           return GestureDetector(
             onTap: () => _navigateToCategory(cat.id, cat.catName),
             child: Column(
@@ -115,17 +130,13 @@ class _HomePageState extends State<HomePage> {
                             cat.iconUrl!,
                             width: 30,
                             height: 30,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              size: 30,
-                              color: Colors.grey,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              fallbackIcon!,
+                              width: 30,
+                              height: 30,
                             ),
                           )
-                        : const Icon(
-                            Icons.category,
-                            size: 30,
-                            color: Colors.grey,
-                          ),
+                        : Image.asset(fallbackIcon!, width: 30, height: 30),
                   ),
                 ),
                 const SizedBox(height: 8),

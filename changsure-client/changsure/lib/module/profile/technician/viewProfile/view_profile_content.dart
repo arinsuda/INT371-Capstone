@@ -84,30 +84,30 @@ class ViewProfileContent extends StatelessWidget {
                               : AssetImage(avatarUrl) as ImageProvider,
                         ),
 
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child:
-                          GestureDetector(
-                            onTap: () => _pickAvatar(context),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                              ),
-                              padding: const EdgeInsets.all(4),
-                              child: const CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Color(0xFFE8E8E8),
-                                child: Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.black,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        // Positioned(
+                        //   bottom: 0,
+                        //   right: 0,
+                        //   child:
+                        //   GestureDetector(
+                        //     onTap: () => _pickAvatar(context),
+                        //     child: Container(
+                        //       decoration: const BoxDecoration(
+                        //         shape: BoxShape.circle,
+                        //         color: Colors.white,
+                        //       ),
+                        //       padding: const EdgeInsets.all(4),
+                        //       child: const CircleAvatar(
+                        //         radius: 12,
+                        //         backgroundColor: Color(0xFFE8E8E8),
+                        //         child: Icon(
+                        //           Icons.camera_alt,
+                        //           color: Colors.black,
+                        //           size: 14,
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),
