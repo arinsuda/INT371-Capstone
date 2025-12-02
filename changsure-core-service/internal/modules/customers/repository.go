@@ -52,7 +52,6 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*Customer, error) {
 	var customer Customer
 	err := r.db.WithContext(ctx).
 		Preload("Addresses").
-		Preload("Addresses.Province").
 		First(&customer, id).Error
 
 	if err != nil {
@@ -69,7 +68,6 @@ func (r *repository) GetByPhone(ctx context.Context, phone string) (*Customer, e
 	err := r.db.WithContext(ctx).
 		Where("phone = ?", phone).
 		Preload("Addresses").
-		Preload("Addresses.Province").
 		First(&customer).Error
 
 	if err != nil {
@@ -86,7 +84,6 @@ func (r *repository) GetByEmail(ctx context.Context, email string) (*Customer, e
 	err := r.db.WithContext(ctx).
 		Where("email = ?", email).
 		Preload("Addresses").
-		Preload("Addresses.Province").
 		First(&customer).Error
 
 	if err != nil {
@@ -113,7 +110,6 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]*Customer
 	var customers []*Customer
 	err := r.db.WithContext(ctx).
 		Preload("Addresses").
-		Preload("Addresses.Province").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
