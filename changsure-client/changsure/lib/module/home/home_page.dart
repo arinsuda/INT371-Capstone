@@ -51,8 +51,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildContent(BuildContext context) {
-    final categoryState = context.watch<ServiceCategoryState>();
-    final serviceState = context.watch<ServiceState>();
+    // final categoryState = context.watch<ServiceCategoryState>();
+    // final serviceState = context.watch<ServiceState>();
+    final categoryState = context.read<ServiceCategoryState>();
+    final serviceState = context.read<ServiceState>();
+
 
     if (categoryState.loading || serviceState.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
