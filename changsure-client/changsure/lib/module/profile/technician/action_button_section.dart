@@ -3,7 +3,7 @@ import 'package:changsure/module/profile/technician/address_page.dart';
 import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../state/bottomBarState.dart';
+import '../../../../state/bottom_bar_state.dart';
 import '../../../../state/technician_address_state.dart';
 import 'view_profile_tab.dart';
 

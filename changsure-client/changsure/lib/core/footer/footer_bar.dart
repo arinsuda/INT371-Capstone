@@ -6,7 +6,7 @@ import '../../module/home/home_page.dart';
 import '../../module/profile/technician/profile_page.dart';
 import '../../module/profile/user/profile_page.dart';
 
-import '../../state/bottomBarState.dart';
+import '../../state/bottom_bar_state.dart';
 import '../../state/auth_state.dart';
 import '../../state/profile_state.dart';
 import '../theme.dart';

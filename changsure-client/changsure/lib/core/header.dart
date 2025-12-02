@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../state/bottomBarState.dart';
+import '../../state/bottom_bar_state.dart';
 
 class Header extends StatelessWidget {
   final String header;

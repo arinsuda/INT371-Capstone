@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme.dart';
 import '../../../state/profile_state.dart';
 import '../../../state/auth_state.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 import '../../../services/auth_service.dart';
 
 import '../../../core/profile/profile_card_section.dart';

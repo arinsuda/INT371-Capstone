@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/profile/technician_card.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/activities.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 import 'activities/post_activity.dart';
 
 class ViewActivities extends StatefulWidget {
@@ -53,13 +53,13 @@ class _ViewActivitiesState extends State<ViewActivities> {
                         end: Alignment.bottomCenter,
                         colors: _isPressed
                             ? [
-                                AppColors.secondary.withOpacity(0.8),
-                                AppColors.secondary,
-                              ]
+                          AppColors.secondary.withOpacity(0.8),
+                          AppColors.secondary,
+                        ]
                             : [
-                                AppColors.primary.withOpacity(0.8),
-                                AppColors.primary,
-                              ],
+                          AppColors.primary.withOpacity(0.8),
+                          AppColors.primary,
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(

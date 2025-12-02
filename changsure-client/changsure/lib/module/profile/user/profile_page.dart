@@ -6,12 +6,14 @@ import 'package:changsure/core/profile/profile_card_section.dart';
 import 'package:changsure/module/profile/user/edit_profile.dart';
 
 import '../../../core/theme.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 import '../../../state/profile_state.dart';
 
 import '../../../services/auth_service.dart';
 import '../../../state/auth_state.dart';
 import '../../auth/login.dart';
+import './address_page.dart';
+import 'history_service_page.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -69,10 +71,10 @@ class _ProfileState extends State<UserProfile> {
                   profile: profile,
                   profileImageUrl: null,
                   onEdit: () {
-                    Navigator.push(
+                    Provider.of<BottomBarState>(
                       context,
-                      MaterialPageRoute(builder: (_) => const EditProfile()),
-                    );
+                      listen: false,
+                    ).setSubPage(const EditProfile());
                   },
                 ),
 
@@ -100,33 +102,49 @@ class _ProfileState extends State<UserProfile> {
 
                           return Column(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      item['icon'] as IconData,
-                                      color: const Color(0xFF737373),
-                                      size: 22,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        item['label'] as String,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.black,
+                              InkWell(
+                                onTap: () {
+                                  if (item['label'] == 'ที่อยู่ของฉัน') {
+                                    Provider.of<BottomBarState>(
+                                      context,
+                                      listen: false,
+                                    ).setSubPage(const CustomerAddressPage());
+                                  } else if (item['label'] ==
+                                      'ประวัติการรับบริการ') {
+                                    Provider.of<BottomBarState>(
+                                      context,
+                                      listen: false,
+                                    ).setSubPage(const HistoryServicePage());
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        item['icon'] as IconData,
+                                        color: const Color(0xFF737373),
+                                        size: 22,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          item['label'] as String,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right,
-                                      color: Color(0xFFAAAAAA),
-                                      size: 24,
-                                    ),
-                                  ],
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Color(0xFFAAAAAA),
+                                        size: 24,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               if (!isLast)

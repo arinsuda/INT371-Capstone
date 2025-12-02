@@ -23,7 +23,7 @@ import 'package:changsure/state/auth_state.dart';
 import 'package:changsure/state/profile_state.dart';
 import 'package:changsure/state/province_state.dart';
 import 'package:changsure/state/technician_address_state.dart';
-import 'package:changsure/state/bottomBarState.dart';
+import 'package:changsure/state/bottom_bar_state.dart';
 import 'package:changsure/state/customer_address_state.dart';
 import 'package:changsure/state/category_state.dart';
 import 'package:changsure/state/service_state.dart';

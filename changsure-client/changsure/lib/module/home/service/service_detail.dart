@@ -302,6 +302,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
               },
             );
           },
+          padding: EdgeInsets.symmetric(vertical: 10),
         ),
       ),
     );
@@ -319,14 +320,15 @@ class _ServiceDetailState extends State<ServiceDetail> {
             maxChildSize: 0.53,
             minChildSize: 0.3,
             builder: (context, scrollController) {
-              int selectedIndex = -1;
-              final options = [
-                "ระบบเลือกช่างให้อัตโนมัติ",
-                "เลือกช่างด้วยตนเอง",
-              ];
+              int selectedIndex = -1; // เริ่มต้นเป็น -1 (ไม่ได้เลือก)
 
               return StatefulBuilder(
                 builder: (context, setState) {
+                  final options = [
+                    "ระบบเลือกช่างให้อัตโนมัติ",
+                    "เลือกช่างด้วยตนเอง",
+                  ];
+
                   return Container(
                     decoration: const BoxDecoration(
                       color: Colors.white,
@@ -352,7 +354,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           "เลือกวิธีการจองช่าง",
                           style: TextStyle(
                             fontSize: 20,
@@ -361,7 +363,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           "คุณต้องการเลือกช่างแบบไหน?",
                           style: TextStyle(
                             fontSize: 16,
@@ -369,12 +371,13 @@ class _ServiceDetailState extends State<ServiceDetail> {
                           ),
                         ),
                         const SizedBox(height: 24),
-
                         ...List.generate(options.length, (index) {
                           final isSelected = selectedIndex == index;
                           return GestureDetector(
                             onTap: () {
-                              setState(() => selectedIndex = index);
+                              setState(() {
+                                selectedIndex = index;
+                              });
                             },
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -390,7 +393,8 @@ class _ServiceDetailState extends State<ServiceDetail> {
                                 border: Border.all(
                                   color: isSelected
                                       ? AppColors.secondary
-                                      : const Color(0xFFD6D6D6),
+                                      : Color(0xFFD6D6D6),
+                                  width: 1,
                                 ),
                               ),
                               child: Row(
@@ -399,7 +403,7 @@ class _ServiceDetailState extends State<ServiceDetail> {
                                 children: [
                                   Text(
                                     options[index],
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       color: Color(0xFF0F53BA),
                                       fontWeight: FontWeight.bold,
@@ -408,64 +412,77 @@ class _ServiceDetailState extends State<ServiceDetail> {
                                   Radio<int>(
                                     value: index,
                                     groupValue: selectedIndex,
-                                    onChanged: (val) {
-                                      setState(() => selectedIndex = val!);
-                                    },
                                     fillColor:
-                                        MaterialStateProperty.resolveWith(
-                                          (states) =>
-                                              states.contains(
-                                                MaterialState.selected,
-                                              )
-                                              ? const Color(0xFF0F53BA)
-                                              : const Color(0xFFD6D6D6),
-                                        ),
+                                        MaterialStateProperty.resolveWith<
+                                          Color
+                                        >((states) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return Color(0xFF0F53BA);
+                                          }
+                                          return Color(0xFFD6D6D6);
+                                        }),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        selectedIndex = val!;
+                                      });
+                                    },
                                   ),
                                 ],
                               ),
                             ),
                           );
                         }),
+                        const SizedBox(height: 16),
 
                         Row(
                           children: [
+                            // ปุ่มยกเลิก
                             Expanded(
                               child: TertiaryButton(
                                 text: "ยกเลิก",
-                                onPressed: () => Navigator.pop(context),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                padding: EdgeInsets.symmetric(vertical: 8),
                               ),
                             ),
                             const SizedBox(width: 12),
+                            // ปุ่มยืนยัน
                             Expanded(
                               child: PrimaryButton(
                                 text: "ยืนยัน",
-                                onPressed: () {
-                                  if (selectedIndex == -1) return;
-
-                                  Navigator.pop(context);
-
-                                  if (selectedIndex == 0) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => SystemChoose(
-                                          serviceName: data.name,
-                                          category: data.category,
-                                        ),
-                                      ),
-                                    );
-                                  } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => CustomerChoose(
-                                          serviceName: data.name,
-                                          category: data.category,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
+                                // disable ถ้ายังไม่ได้เลือก
+                                onPressed: selectedIndex != -1
+                                    ? () {
+                                        Navigator.pop(context);
+                                        if (selectedIndex == 0) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  SystemChoose(
+                                                    serviceName: data.name,
+                                                    category: 'ทาสี',
+                                                  ),
+                                            ),
+                                          );
+                                        } else if (selectedIndex == 1) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  CustomerChoose(
+                                                    serviceName: data.name,
+                                                    category: 'ทาสี',
+                                                  ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    : null,
+                                padding: EdgeInsets.symmetric(vertical: 8),
                               ),
                             ),
                           ],

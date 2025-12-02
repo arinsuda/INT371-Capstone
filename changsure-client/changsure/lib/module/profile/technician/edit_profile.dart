@@ -4,7 +4,7 @@ import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../../state/bottomBarState.dart';
+import '../../../state/bottom_bar_state.dart';
 import '../../../state/province_state.dart';
 import '../../../state/profile_state.dart';
 import 'package:flutter/services.dart';
