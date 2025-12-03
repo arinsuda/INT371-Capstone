@@ -54,16 +54,16 @@ func (h *IconHandler) UploadIcon(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if _ ,err := h.store.Put(ctx, key, f, fileHeader.Size, contentType); err != nil {
+	if _, err := h.store.Put(ctx, key, f, fileHeader.Size, contentType); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "upload error: "+err.Error())
 	}
 
-	b, err := h.svc.Get(ctx, id, true)
+	b, err := h.svc.FindBadge(ctx, id, true)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "badge not found")
 	}
 	patch := UpdateBadgeDTO{IconURL: &key}
-	if _, err := h.svc.Update(ctx, id, patch); err != nil {
+	if _, err := h.svc.UpdateBadge(ctx, id, patch); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
@@ -86,7 +86,7 @@ func (h *IconHandler) GetIconURL(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	b, err := h.svc.Get(ctx, id, true)
+	b, err := h.svc.FindBadge(ctx, id, true)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "badge not found")
 	}

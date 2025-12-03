@@ -1,10 +1,9 @@
 package badge
 
 import (
+	"changsure-core-service/pkg/storage"
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
-
-	"changsure-core-service/pkg/storage"
 )
 
 type RouteBundle struct {
@@ -23,15 +22,16 @@ func NewRouteBundle(db *gorm.DB, store *storage.MinioStorage) *RouteBundle {
 }
 
 func (rb *RouteBundle) RegisterRoutes(api fiber.Router) {
-	g := api.Group("/badges")
+	badges := api.Group("/badges")
 
-	g.Post("/", rb.h.Create)
-	g.Get("/", rb.h.List)
-	g.Get("/:id", rb.h.Get)
-	g.Patch("/:id", rb.h.Update)
-	g.Delete("/:id", rb.h.Delete)
-	g.Post("/:id/restore", rb.h.Restore)
+	badges.Post("/", rb.h.CreateBadge)
 
-	g.Patch("/:id/icon", rb.ih.UploadIcon)
-	g.Get("/:id/icon-url", rb.ih.GetIconURL)
+	badges.Get("/", rb.h.ListBadges)
+	badges.Get("/:id", rb.h.GetBadge)
+	badges.Patch("/:id", rb.h.UpdateBadge)
+	badges.Delete("/:id", rb.h.DeleteBadge)
+	badges.Patch("/:id/restore", rb.h.RestoreBadge)
+
+	badges.Put("/:id/icon", rb.ih.UploadIcon)
+	badges.Get("/:id/icon", rb.ih.GetIconURL)
 }

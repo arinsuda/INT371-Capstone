@@ -1,4 +1,4 @@
-package address_shared
+package addressshared
 
 import "errors"
 

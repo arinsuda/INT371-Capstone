@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
+	appErr "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/validation"
 	utils "changsure-core-service/pkg/utils"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -12,10 +15,10 @@ type Handler struct{ svc Service }
 
 func NewHandler(svc Service) *Handler { return &Handler{svc: svc} }
 
-func (h *Handler) Get(c fiber.Ctx) error {
+func (h *Handler) GetBadge(c fiber.Ctx) error {
 	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
+		return appErr.BadRequest(c, "Invalid badge ID")
 	}
 
 	includeDeleted := utils.QueryBool(c, "include_deleted", false)
@@ -23,66 +26,83 @@ func (h *Handler) Get(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	b, err := h.svc.Get(ctx, id, includeDeleted)
+	badge, err := h.svc.FindBadge(ctx, id, includeDeleted)
 	if err != nil {
-		if err == ErrNotFound {
-			return fiber.NewError(fiber.StatusNotFound, "badge not found")
+		switch err {
+		case ErrNotFound:
+			return appErr.NotFound(c, "Badge not found")
+		default:
+			return appErr.InternalError(c, "Failed to fetch badge", err)
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(toResponse(b))
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    toResponse(badge),
+	})
 }
 
-func (h *Handler) Create(c fiber.Ctx) error {
+func (h *Handler) CreateBadge(c fiber.Ctx) error {
 	var dto CreateBadgeDTO
+
 	if err := c.Bind().Body(&dto); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+		return appErr.BadRequest(c, "Invalid request body")
 	}
-	if err := ValidateStruct(dto); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	if errs, err := validation.ValidateStruct(dto); err != nil {
+		return appErr.ValidationError(c, errs)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	b, err := h.svc.Create(ctx, dto)
+	badge, err := h.svc.CreateBadge(ctx, dto)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return appErr.InternalError(c, "Failed to create badge", err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(toResponse(b))
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    toResponse(badge),
+	})
 }
 
-func (h *Handler) Update(c fiber.Ctx) error {
+func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
+		return appErr.BadRequest(c, "Invalid badge ID")
 	}
 
 	var dto UpdateBadgeDTO
 	if err := c.Bind().Body(&dto); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+		return appErr.BadRequest(c, "Invalid request body")
 	}
-	if err := ValidateStruct(dto); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	if errs, err := validation.ValidateStruct(dto); err != nil {
+		return appErr.ValidationError(c, errs)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	b, err := h.svc.Update(ctx, id, dto)
+	badge, err := h.svc.UpdateBadge(ctx, id, dto)
 	if err != nil {
-		if err == ErrNotFound {
-			return fiber.NewError(fiber.StatusNotFound, "badge not found")
+		switch err {
+		case ErrNotFound:
+			return appErr.NotFound(c, "Badge not found")
+		default:
+			return appErr.InternalError(c, "Failed to update badge", err)
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(toResponse(b))
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    toResponse(badge),
+	})
 }
 
-func (h *Handler) Delete(c fiber.Ctx) error {
+func (h *Handler) DeleteBadge(c fiber.Ctx) error {
 	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
+		return appErr.BadRequest(c, "Invalid badge ID")
 	}
 
 	hard := utils.QueryBool(c, "hard", false)
@@ -90,62 +110,69 @@ func (h *Handler) Delete(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Hard delete
 	if hard {
-		if err := h.svc.HardDelete(ctx, id); err != nil {
+		if err := h.svc.HardDeleteBadge(ctx, id); err != nil {
 			if err == ErrNotFound {
-				return fiber.NewError(fiber.StatusNotFound, "badge not found")
+				return appErr.NotFound(c, "Badge not found")
 			}
-			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			return appErr.InternalError(c, "Failed to permanently delete badge", err)
 		}
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+
+		return c.JSON(fiber.Map{
 			"success": true,
-			"message": "badge permanently deleted",
+			"message": "Badge permanently deleted",
 		})
 	}
 
-	if err := h.svc.Delete(ctx, id); err != nil {
+	// Soft delete
+	if err := h.svc.SoftDeleteBadge(ctx, id); err != nil {
 		if err == ErrNotFound {
-			return fiber.NewError(fiber.StatusNotFound, "badge not found")
+			return appErr.NotFound(c, "Badge not found")
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return appErr.InternalError(c, "Failed to delete badge", err)
 	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+
+	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "badge deleted",
+		"message": "Badge deleted",
 	})
 }
 
-func (h *Handler) Restore(c fiber.Ctx) error {
+func (h *Handler) RestoreBadge(c fiber.Ctx) error {
 	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
+		return appErr.BadRequest(c, "Invalid badge ID")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := h.svc.Restore(ctx, id); err != nil {
+	if err := h.svc.RestoreBadge(ctx, id); err != nil {
 		if err == ErrNotFound {
-			return fiber.NewError(fiber.StatusNotFound, "badge not found")
+			return appErr.NotFound(c, "Badge not found")
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return appErr.InternalError(c, "Failed to restore badge", err)
 	}
+
 	return c.SendStatus(fiber.StatusOK)
 }
 
-func (h *Handler) List(c fiber.Ctx) error {
+func (h *Handler) ListBadges(c fiber.Ctx) error {
 	var q ListBadgesQuery
+
 	if err := c.Bind().Query(&q); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid query")
+		return appErr.BadRequest(c, "Invalid query parameters")
 	}
+
 	page, perPage := normalizePage(q.Page, q.PerPage)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	items, total, err := h.svc.List(ctx, q)
+	items, total, err := h.svc.ListBadges(ctx, q)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return appErr.InternalError(c, "Failed to list badges", err)
 	}
 
 	return c.JSON(NewPaginated(toResponses(items), total, page, perPage))

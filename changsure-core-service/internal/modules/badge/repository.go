@@ -12,24 +12,24 @@ var (
 )
 
 type Repository interface {
-	Create(ctx context.Context, b *Badge) error
-	FindByID(ctx context.Context, id uint, includeDeleted bool) (*Badge, error)
-	Update(ctx context.Context, b *Badge) error
-	Delete(ctx context.Context, id uint) error                 
-	Restore(ctx context.Context, id uint) error                
-	HardDelete(ctx context.Context, id uint) error             
-	List(ctx context.Context, q ListBadgesQuery) ([]Badge, int64, error)
+	CreateBadge(ctx context.Context, b *Badge) error
+	FindBadgeById(ctx context.Context, id uint, includeDeleted bool) (*Badge, error)
+	UpdateBadge(ctx context.Context, b *Badge) error
+	SoftDelete(ctx context.Context, id uint) error
+	RestoreBadge(ctx context.Context, id uint) error
+	HardDelete(ctx context.Context, id uint) error
+	ListBadges(ctx context.Context, q ListBadgesQuery) ([]Badge, int64, error)
 }
 
 type gormRepository struct{ db *gorm.DB }
 
 func NewRepository(db *gorm.DB) Repository { return &gormRepository{db: db} }
 
-func (r *gormRepository) Create(ctx context.Context, b *Badge) error {
+func (r *gormRepository) CreateBadge(ctx context.Context, b *Badge) error {
 	return r.db.WithContext(ctx).Create(b).Error
 }
 
-func (r *gormRepository) FindByID(ctx context.Context, id uint, includeDeleted bool) (*Badge, error) {
+func (r *gormRepository) FindBadgeById(ctx context.Context, id uint, includeDeleted bool) (*Badge, error) {
 	var b Badge
 	db := r.db.WithContext(ctx).Model(&Badge{})
 	if includeDeleted {
@@ -44,11 +44,11 @@ func (r *gormRepository) FindByID(ctx context.Context, id uint, includeDeleted b
 	return &b, nil
 }
 
-func (r *gormRepository) Update(ctx context.Context, b *Badge) error {
+func (r *gormRepository) UpdateBadge(ctx context.Context, b *Badge) error {
 	return r.db.WithContext(ctx).Save(b).Error
 }
 
-func (r *gormRepository) Delete(ctx context.Context, id uint) error {
+func (r *gormRepository) SoftDelete(ctx context.Context, id uint) error {
 	res := r.db.WithContext(ctx).Delete(&Badge{}, id)
 	if res.Error != nil {
 		return res.Error
@@ -59,7 +59,7 @@ func (r *gormRepository) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (r *gormRepository) Restore(ctx context.Context, id uint) error {
+func (r *gormRepository) RestoreBadge(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Unscoped().
 		Model(&Badge{}).
 		Where("id = ?", id).
@@ -77,7 +77,7 @@ func (r *gormRepository) HardDelete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (r *gormRepository) List(ctx context.Context, q ListBadgesQuery) ([]Badge, int64, error) {
+func (r *gormRepository) ListBadges(ctx context.Context, q ListBadgesQuery) ([]Badge, int64, error) {
 	db := r.db.WithContext(ctx).Model(&Badge{})
 
 	switch {

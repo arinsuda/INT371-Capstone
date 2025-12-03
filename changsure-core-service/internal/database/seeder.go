@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 
 	badge "changsure-core-service/internal/modules/badge"
-	"changsure-core-service/internal/modules/provinces"
-	"changsure-core-service/internal/modules/service_categories"
-	"changsure-core-service/internal/modules/services"
+	"changsure-core-service/internal/modules/province"
+	servicecategory "changsure-core-service/internal/modules/service_category"
+	"changsure-core-service/internal/modules/service"
 )
 
 const (
@@ -52,7 +52,7 @@ func (d *Database) Seed() error {
 }
 
 func (s *Seeder) seedProvinces() error {
-	if s.isAlreadySeeded(&provinces.Province{}, "Provinces") {
+	if s.isAlreadySeeded(&province.Province{}, "Provinces") {
 		return nil
 	}
 
@@ -65,9 +65,9 @@ func (s *Seeder) seedProvinces() error {
 		return fmt.Errorf("load provinces: %w", err)
 	}
 
-	data := make([]provinces.Province, 0, len(items))
+	data := make([]province.Province, 0, len(items))
 	for _, item := range items {
-		data = append(data, provinces.Province{NameTH: item.NameTH})
+		data = append(data, province.Province{NameTH: item.NameTH})
 	}
 
 	if err := s.db.Create(&data).Error; err != nil {
@@ -79,7 +79,7 @@ func (s *Seeder) seedProvinces() error {
 }
 
 func (s *Seeder) seedServiceCategories() error {
-	if s.isAlreadySeeded(&service_categories.ServiceCategory{}, "Service categories") {
+	if s.isAlreadySeeded(&servicecategory.ServiceCategory{}, "Service categories") {
 		return nil
 	}
 
@@ -94,12 +94,12 @@ func (s *Seeder) seedServiceCategories() error {
 		return fmt.Errorf("load categories: %w", err)
 	}
 
-	data := make([]service_categories.ServiceCategory, 0, len(items))
+	data := make([]servicecategory.ServiceCategory, 0, len(items))
 	for _, item := range items {
 		desc := item.CatDesc
 		icon := item.IconURL
 
-		data = append(data, service_categories.ServiceCategory{
+		data = append(data, servicecategory.ServiceCategory{
 			CatName:  item.CatName,
 			CatDesc:  &desc,
 			IconURL:  &icon,
@@ -118,7 +118,7 @@ func (s *Seeder) seedServiceCategories() error {
 /* -------------------- Services -------------------- */
 
 func (s *Seeder) seedServices() error {
-	if s.isAlreadySeeded(&services.Service{}, "Services") {
+	if s.isAlreadySeeded(&service.Service{}, "Services") {
 		return nil
 	}
 
@@ -143,20 +143,20 @@ func (s *Seeder) seedServices() error {
 		return fmt.Errorf("load services: %w", err)
 	}
 
-	data := make([]services.Service, 0, len(items))
+	data := make([]service.Service, 0, len(items))
 	for _, item := range items {
 		categoryID, ok := categoryMap[item.Category]
 		if !ok {
 			return fmt.Errorf("category %q not found, please seed categories first", item.Category)
 		}
 
-		svc := services.Service{
+		svc := service.Service{
 			SerName:         item.Name,
 			SerDescription:  item.Desc,
-			ImageURLs:       services.StringArray(item.ImageURLs),
-			SerDetails:      services.StringArray(item.Details),
-			AdditionalTerms: services.StringArray(item.Terms),
-			WorkingDuration: services.StringArray(item.Duration),
+			ImageURLs:       service.StringArray(item.ImageURLs),
+			SerDetails:      service.StringArray(item.Details),
+			AdditionalTerms: service.StringArray(item.Terms),
+			WorkingDuration: service.StringArray(item.Duration),
 			DefaultPrice:    item.DefaultPrice,
 			IsActive:        true,
 			CategoryID:      categoryID,
@@ -231,7 +231,7 @@ func (s *Seeder) loadJSONFile(filepath string, target interface{}) error {
 }
 
 func (s *Seeder) loadCategoryMap() (map[string]uint, error) {
-	var categories []service_categories.ServiceCategory
+	var categories []servicecategory.ServiceCategory
 	if err := s.db.Find(&categories).Error; err != nil {
 		return nil, fmt.Errorf("read service categories: %w", err)
 	}

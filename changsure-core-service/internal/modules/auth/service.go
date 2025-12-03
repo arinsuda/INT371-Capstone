@@ -13,19 +13,14 @@ import (
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/middleware"
-	"changsure-core-service/internal/modules/customers"
-	"changsure-core-service/internal/modules/technicians"
-)
-
-var (
-	ErrInvalidCredentials  = errors.New("invalid email or password")
-	ErrInvalidRefreshToken = errors.New("invalid or expired refresh token")
+	"changsure-core-service/internal/modules/customer"
+	"changsure-core-service/internal/modules/technician"
 )
 
 type Service interface {
 	Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error)
 	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
-	Refresh(ctx context.Context, refreshToken string) (*TokenPair, error)
+	GenerateRefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
 }
 
 type CustomerReader interface {
@@ -35,9 +30,9 @@ type CustomerReader interface {
 }
 
 type TechnicianReader interface {
-	FindByEmail(ctx context.Context, email string) (*technicians.Technician, error)
-	FindByID(ctx context.Context, id uint) (*technicians.Technician, error)
-	Create(ctx context.Context, t *technicians.Technician) error
+	FindByEmail(ctx context.Context, email string) (*technician.Technician, error)
+	FindByID(ctx context.Context, id uint) (*technician.Technician, error)
+	Create(ctx context.Context, t *technician.Technician) error
 }
 
 type service struct {
@@ -113,10 +108,10 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 	switch role {
 	case "customer":
 		c := &customers.Customer{
-			FirstName: "",
-			LastName:  "",
-			Email:     &email,
-			PasswordHash:  passwordHash,
+			FirstName:    "",
+			LastName:     "",
+			Email:        &email,
+			PasswordHash: passwordHash,
 		}
 		if err := s.customers.Create(ctx, c); err != nil {
 			return nil, err
@@ -124,11 +119,11 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 		userID = c.ID
 
 	case "technician":
-		t := &technicians.Technician{
-			FirstName: "",
-			LastName:  "",
-			Email:     &email,
-			PasswordHash:  passwordHash,
+		t := &technician.Technician{
+			FirstName:    "",
+			LastName:     "",
+			Email:        &email,
+			PasswordHash: passwordHash,
 		}
 		if err := s.technicians.Create(ctx, t); err != nil {
 			return nil, err
@@ -216,7 +211,7 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 	}, nil
 }
 
-func (s *service) Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
+func (s *service) GenerateRefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
 	if refreshToken == "" {
 		return nil, ErrInvalidRefreshToken
 	}
