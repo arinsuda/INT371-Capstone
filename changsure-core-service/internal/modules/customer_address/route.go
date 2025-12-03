@@ -8,7 +8,7 @@ import (
 
 func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
 
-	me := r.Group("/me/addresses",
+	me := r.Group("/addresses",
 		middleware.AuthMiddleware(cfg),
 		middleware.CustomerOnly(),
 	)
@@ -18,8 +18,5 @@ func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
 	me.Get("/:id", h.GetCustomerAddress)
 	me.Patch("/:id", h.UpdateCustomerAddress)
 	me.Delete("/:id", h.DeleteCustomerAddress)
-
 	me.Patch("/:id/primary", h.SetPrimaryCustomerAddress)
-
-	r.Post("/technicians/nearby", h.SearchNearbyTechnicians)
 }

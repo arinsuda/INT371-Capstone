@@ -87,6 +87,7 @@ func (r *Router) setupProtectedRoutes() {
 	// Domain-specific resources
 	r.setupTechnicianRoutes(v1)
 	r.setupCustomerRoutes(v1)
+	r.setupCustomerMeRoutes(v1)
 }
 
 // setupSharedResources configures resources available to all authenticated users
@@ -118,6 +119,12 @@ func (r *Router) setupCustomerRoutes(api fiber.Router) {
 	r.container.CustomerHandler.RegisterRoutes(customers)
 	r.container.CustomerTechnicianHandler.RegisterRoutes(customers)
 	r.container.CustomerAddressHandler.RegisterRoutes(customers, r.cfg)
+}
+
+func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
+	me := api.Group("/me")
+
+	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
 }
 
 // setupDevelopmentTools configures development-only endpoints
