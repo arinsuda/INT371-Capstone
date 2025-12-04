@@ -15,12 +15,11 @@ import (
 )
 
 type IconHandler struct {
-	svc   Service
-	store *storage.MinioStorage
+	svc Service
 }
 
-func NewIconHandler(svc Service, store *storage.MinioStorage) *IconHandler {
-	return &IconHandler{svc: svc, store: store}
+func NewIconHandler(svc Service) *IconHandler {
+	return &IconHandler{svc: svc}
 }
 
 func (h *IconHandler) UploadIcon(c fiber.Ctx) error {
@@ -44,37 +43,54 @@ func (h *IconHandler) UploadIcon(c fiber.Ctx) error {
 	if ext == "" {
 		ext = ".png"
 	}
-	key := fmt.Sprintf("badges/%d/%d_%s%s", id, time.Now().Unix(), uuid.NewString(), ext)
+
+	key := fmt.Sprintf(
+		"badges/%d/%d_%s%s",
+		id,
+		time.Now().Unix(),
+		uuid.NewString(),
+		ext,
+	)
 
 	contentType := fileHeader.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 15*time.Second)
 	defer cancel()
 
-	if _, err := h.store.Put(ctx, key, f, fileHeader.Size, contentType); err != nil {
+	_, err = storage.GlobalMinio.Put(
+		ctx,
+		key,
+		f,
+		fileHeader.Size,
+		contentType,
+	)
+	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "upload error: "+err.Error())
 	}
 
-	b, err := h.svc.FindBadge(ctx, id, true)
-	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "badge not found")
-	}
 	patch := UpdateBadgeDTO{IconURL: &key}
 	if _, err := h.svc.UpdateBadge(ctx, id, patch); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	iconURL := storage.GlobalMinio.PublicURL(key)
+	iconPresigned, err := storage.GlobalMinio.PresignGet(
+		ctx,
+		key,
+		time.Hour,
+		false,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to generate icon URL")
+	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"id":       b.ID,
+		"id":       id,
 		"icon_key": key,
-		"icon_url": iconURL,
+		"icon_url": iconPresigned,
 	})
-
 }
 
 func (h *IconHandler) GetIconURL(c fiber.Ctx) error {
@@ -83,21 +99,29 @@ func (h *IconHandler) GetIconURL(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
-	b, err := h.svc.FindBadge(ctx, id, true)
+	badge, err := h.svc.FindBadge(ctx, id, true)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "badge not found")
 	}
-	if b.IconURL == "" {
+	if badge.IconURL == "" {
 		return fiber.NewError(fiber.StatusNotFound, "icon not set")
 	}
 
-	publicURL := storage.GlobalMinio.PublicURL(b.IconURL)
+	iconURL, err := storage.GlobalMinio.PresignGet(
+		ctx,
+		badge.IconURL,
+		time.Hour,
+		false,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to generate icon URL")
+	}
 
 	return c.JSON(fiber.Map{
-		"id":       b.ID,
-		"icon_url": publicURL,
+		"id":       badge.ID,
+		"icon_url": iconURL,
 	})
 }

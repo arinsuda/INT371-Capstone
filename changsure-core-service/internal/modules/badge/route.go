@@ -17,7 +17,7 @@ func NewRouteBundle(db *gorm.DB, store *storage.MinioStorage) *RouteBundle {
 
 	return &RouteBundle{
 		h:  NewHandler(svc),
-		ih: NewIconHandler(svc, store),
+		ih: NewIconHandler(svc),
 	}
 }
 

@@ -13,9 +13,9 @@ import (
 	"changsure-core-service/internal/modules/province"
 
 	tb "changsure-core-service/internal/modules/technician_badge"
+	tsvc "changsure-core-service/internal/modules/technician_service"
 	addr "changsure-core-service/internal/modules/technician_service_area"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
-	tsvc "changsure-core-service/internal/modules/technician_service"
 	"changsure-core-service/pkg/storage"
 )
 
@@ -429,12 +429,21 @@ func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 
 func (s *service) buildAvatarURL(avatarURL *string) *string {
 	if avatarURL == nil || *avatarURL == "" || s.storage == nil {
-		emptyStr := ""
-		return &emptyStr
+		empty := ""
+		return &empty
 	}
 
-	publicURL := s.storage.PublicURL(*avatarURL)
-	return &publicURL
+	// generate presigned URL
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	url, err := s.storage.PresignGet(ctx, *avatarURL, time.Hour, false)
+	if err != nil {
+		empty := ""
+		return &empty
+	}
+
+	return &url
 }
 
 /* ---------------------- Badges Response ---------------------- */
@@ -450,14 +459,20 @@ func (s *service) buildBadgesResponse(techBadges []tb.TechnicianBadge) []badge.B
 
 		iconURL := ""
 		if b.IconURL != "" && s.storage != nil {
-			iconURL = s.storage.PublicURL(b.IconURL)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			url, err := s.storage.PresignGet(ctx, b.IconURL, time.Hour, false)
+			if err == nil {
+				iconURL = url
+			}
 		}
 
 		result = append(result, badge.BadgeResponse{
 			ID:          b.ID,
 			Name:        b.Name,
 			Description: b.Description,
-			IconURL:     iconURL,
+			IconURL:     iconURL, // presigned URL
 			Level:       b.Level,
 			IsActive:    b.IsActive,
 			CreatedAt:   b.CreatedAt.Unix(),

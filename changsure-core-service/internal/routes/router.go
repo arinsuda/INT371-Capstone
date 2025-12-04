@@ -105,7 +105,6 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
-	r.container.TechnicianHandler.RegisterRoutes(technicians)
 	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
 	r.container.TechnicianWorkHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
@@ -125,6 +124,8 @@ func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 	me := api.Group("/me")
 
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
+	r.container.TechnicianHandler.RegisterRoutes(me)
+
 }
 
 // setupDevelopmentTools configures development-only endpoints

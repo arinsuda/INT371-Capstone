@@ -1,6 +1,7 @@
 package customers
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"strings"
@@ -91,16 +92,18 @@ type CustomerResponse struct {
 	Addresses []customer_addresses.CustomerAddressResponse `json:"addresses,omitempty"`
 }
 
-type ProvinceResponse struct {
-	ID     uint   `json:"id"`
-	NameTH string `json:"name_th"`
-}
-
 func ToCustomerResponse(c *Customer) *CustomerResponse {
-	var avatar string
+	var avatar *string = nil
 
+	// ✔ Generate presigned URL if avatar exists
 	if c.AvatarURL != nil && *c.AvatarURL != "" && storage.GlobalMinio != nil {
-		avatar = storage.GlobalMinio.PublicURL(*c.AvatarURL)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		url, err := storage.GlobalMinio.PresignGet(ctx, *c.AvatarURL, time.Hour, false)
+		if err == nil {
+			avatar = &url
+		}
 	}
 
 	resp := &CustomerResponse{
@@ -109,18 +112,16 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 		LastName:  c.LastName,
 		Email:     c.Email,
 		Phone:     c.Phone,
-		AvatarURL: &avatar,
+		AvatarURL: avatar,
 		CreatedAt: c.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
 
 	// ----- Address -----
-	// ----- Address -----
 	if len(c.Addresses) > 0 {
 		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
 		for _, a := range c.Addresses {
-
-			item := customer_addresses.CustomerAddressResponse{
+			resp.Addresses = append(resp.Addresses, customer_addresses.CustomerAddressResponse{
 				ID:          a.ID,
 				HouseNumber: a.HouseNumber,
 				Village:     a.Village,
@@ -138,9 +139,7 @@ func ToCustomerResponse(c *Customer) *CustomerResponse {
 				IsPrimary:   a.IsPrimary,
 				CreatedAt:   a.CreatedAt.Format(time.RFC3339),
 				UpdatedAt:   a.UpdatedAt.Format(time.RFC3339),
-			}
-
-			resp.Addresses = append(resp.Addresses, item)
+			})
 		}
 	}
 

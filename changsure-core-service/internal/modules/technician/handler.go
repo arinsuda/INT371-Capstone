@@ -1,15 +1,27 @@
 package technician
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	tsvc "changsure-core-service/internal/modules/technician_service"
+	"changsure-core-service/pkg/imageutil"
 	"changsure-core-service/pkg/storage"
+
 	"github.com/gofiber/fiber/v3"
 )
 
-type Handler struct{ svc Service }
+type Handler struct {
+	svc   Service
+	store storage.MinioStorage
+}
 
 func NewHandler(s Service) *Handler { return &Handler{svc: s} }
 
@@ -52,30 +64,96 @@ func techIDFromLocals(c fiber.Ctx) uint {
 func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	var req TechnicianProfileReq
 
-	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
-	}
-
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"error":   "unauthorized",
-		})
+		return c.Status(401).JSON(fiber.Map{"success": false, "error": "unauthorized"})
+	}
+
+	contentType := c.Get(fiber.HeaderContentType)
+
+	if strings.HasPrefix(contentType, fiber.MIMEApplicationJSON) {
+		if err := c.Bind().Body(&req); err != nil {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "invalid json: " + err.Error()})
+		}
+	} else {
+
+		req.FirstName = c.FormValue("firstname")
+		req.LastName = c.FormValue("lastname")
+
+		if req.FirstName == "" || req.LastName == "" {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "firstname & lastname required"})
+		}
+
+		if v := c.FormValue("bio"); v != "" {
+			req.Bio = &v
+		}
+		if v := c.FormValue("phone"); v != "" {
+			req.Phone = &v
+		}
+		if v := c.FormValue("email"); v != "" {
+			req.Email = &v
+		}
+
+		if v := c.FormValue("province_ids"); v != "" {
+			if err := json.Unmarshal([]byte(v), &req.ProvinceIDs); err != nil {
+				return c.Status(400).JSON(fiber.Map{"success": false, "error": "invalid province_ids"})
+			}
+		}
+
+		if v := c.FormValue("services"); v != "" {
+			if err := json.Unmarshal([]byte(v), &req.Services); err != nil {
+				return c.Status(400).JSON(fiber.Map{"success": false, "error": "invalid services"})
+			}
+		}
+
+		fileHeader, err := c.FormFile("avatar")
+		if err == nil && fileHeader != nil {
+			file, err := fileHeader.Open()
+			if err != nil {
+				return fiber.NewError(500, "failed to open uploaded file")
+			}
+			defer file.Close()
+
+			var raw bytes.Buffer
+			if _, err := raw.ReadFrom(file); err != nil {
+				return fiber.NewError(500, "failed to read uploaded file")
+			}
+
+			opt := imageutil.ResizeOptions{
+				MaxWidth:    800,
+				MaxFileSize: 500_000,
+				Quality:     85,
+			}
+
+			imgBuf, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), opt)
+			if err != nil {
+				return fiber.NewError(400, "image invalid or too large: "+err.Error())
+			}
+
+			filename := fmt.Sprintf("%d_%d.jpg", techID, time.Now().Unix())
+
+			key, err := storage.GlobalMinio.UploadFile(
+				c.Context(),
+				bytes.NewReader(imgBuf.Bytes()),
+				filename,
+				"avatars",
+				int64(imgBuf.Len()),
+				"image/jpeg",
+			)
+			if err != nil {
+				return fiber.NewError(500, "upload failed: "+err.Error())
+			}
+
+			req.AvatarURL = &key
+		}
 	}
 
 	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
-	return c.Status(http.StatusOK).JSON(fiber.Map{
+	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "profile updated",
 		"data":    fiber.Map{"technician_id": id},
@@ -85,24 +163,22 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	techID := techIDFromLocals(c)
 	if techID == 0 {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"error":   "unauthorized",
-		})
+		return c.Status(401).JSON(fiber.Map{"success": false, "error": "unauthorized"})
 	}
 
 	res, err := h.svc.GetProfile(c.Context(), techID)
 	if err != nil {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    res,
-	})
+	if res.AvatarURL != nil && *res.AvatarURL != "" {
+		url, err := storage.GlobalMinio.PresignGet(c.Context(), *res.AvatarURL, time.Hour, false)
+		if err == nil {
+			res.AvatarURL = &url
+		}
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
 func (h *Handler) PatchProvinces(c fiber.Ctx) error {
@@ -190,7 +266,7 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"error":   "file is required",
 		})
@@ -198,7 +274,7 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 
 	src, err := file.Open()
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "cannot open file: "+err.Error())
 	}
 	defer src.Close()
 
@@ -206,27 +282,46 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "minio not ready")
 	}
 
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+
+	filename := fmt.Sprintf("%d_%d%s", techID, time.Now().Unix(), ext)
+
 	key, err := storage.GlobalMinio.UploadFile(
 		c.Context(),
 		src,
-		file.Filename,
+		filename,
 		"avatars",
 		file.Size,
 		file.Header.Get("Content-Type"),
 	)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "upload failed: "+err.Error())
 	}
 
-	publicURL := storage.GlobalMinio.PublicURL(key)
-
 	if err := h.svc.UpdateAvatar(c.Context(), techID, key); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "db update failed: "+err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+	defer cancel()
+
+	presignedURL, err := storage.GlobalMinio.PresignGet(
+		ctx,
+		key,
+		time.Hour,
+		false,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "cannot generate presigned url")
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"url":     publicURL,
+		"url":     presignedURL,
+		"key":     key,
 	})
 }
 
