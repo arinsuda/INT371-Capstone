@@ -12,5 +12,5 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Post("/services", h.AddService)
 	router.Delete("/services/:id", h.RemoveService)
 	router.Patch("/services/:id", h.UpdateService)
-	router.Post("/profile/avatar", h.UploadAvatar)
+	router.Patch("/profile/avatar", h.UploadAvatar)
 }

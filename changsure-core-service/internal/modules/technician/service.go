@@ -19,15 +19,11 @@ import (
 	"changsure-core-service/pkg/storage"
 )
 
-/* ---------------------- Errors ---------------------- */
-
 var (
 	ErrUnauthorized      = errors.New("unauthorized: technician id missing from auth")
 	ErrAreaRepoNotWired  = errors.New("area repository not initialized")
 	ErrServiceIDRequired = errors.New("service_id is required")
 )
-
-/* ---------------------- Interface ---------------------- */
 
 type Service interface {
 	UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error)
@@ -39,8 +35,6 @@ type Service interface {
 	UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error
 }
 
-/* ---------------------- Impl Struct ---------------------- */
-
 type service struct {
 	db          *gorm.DB
 	repo        Repository
@@ -48,8 +42,6 @@ type service struct {
 	serviceRepo tsvc.Repository
 	storage     *storage.MinioStorage
 }
-
-/* ---------------------- DTOs ---------------------- */
 
 type AddedTechServiceResult struct {
 	TechnicianID uint             `json:"technician_id"`
@@ -70,8 +62,6 @@ type TechServiceBrief struct {
 	PriceMax    *float64 `json:"price_max,omitempty"`
 }
 
-/* ---------------------- Constructor ---------------------- */
-
 func NewService(db *gorm.DB, repo Repository, areaRepo addr.Repository, svcRepo tsvc.Repository) Service {
 	return &service{
 		db:          db,
@@ -81,8 +71,6 @@ func NewService(db *gorm.DB, repo Repository, areaRepo addr.Repository, svcRepo 
 		storage:     storage.GlobalMinio,
 	}
 }
-
-/* ---------------------- Upsert Profile ---------------------- */
 
 func (s *service) UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error) {
 	if err := s.validateTechID(techID); err != nil {
@@ -105,8 +93,6 @@ func (s *service) UpsertProfile(ctx context.Context, techID uint, req Technician
 	return tech.ID, nil
 }
 
-/* ---------------------- Get Profile ---------------------- */
-
 func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfileRes, error) {
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
@@ -120,8 +106,6 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 	return s.buildProfileResponse(tech), nil
 }
 
-/* ---------------------- Update Provinces ---------------------- */
-
 func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -134,8 +118,6 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 		return s.areaRepo.ReplaceForTech(tx, techID, provinceIDs)
 	})
 }
-
-/* ---------------------- Add Service ---------------------- */
 
 func (s *service) AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error) {
 	if err := s.validateTechID(techID); err != nil {
@@ -172,8 +154,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 	return &result, nil
 }
 
-/* ---------------------- Remove Service ---------------------- */
-
 func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -195,8 +175,6 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 	})
 }
 
-/* ---------------------- Update Service ---------------------- */
-
 func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.UpdateTechServiceReq) (*UpdatedTechServiceResult, error) {
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
@@ -209,7 +187,7 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.Updat
 	var result UpdatedTechServiceResult
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// ค้นหา service ที่มีอยู่
+
 		var existing tsvc.TechnicianService
 		if err := tx.Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).
 			First(&existing).Error; err != nil {
@@ -219,7 +197,6 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.Updat
 			return fmt.Errorf("failed to find service: %w", err)
 		}
 
-		// อัปเดตข้อมูล
 		if req.PricingType != "" {
 			existing.PricingType = req.PricingType
 		}
@@ -227,12 +204,10 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.Updat
 		existing.PriceMin = req.PriceMin
 		existing.PriceMax = req.PriceMax
 
-		// บันทึกการเปลี่ยนแปลง
 		if err := tx.Save(&existing).Error; err != nil {
 			return fmt.Errorf("failed to update service: %w", err)
 		}
 
-		// โหลด service detail
 		if err := tx.Model(&existing).Association("Service").Find(&existing.Service); err != nil {
 			return fmt.Errorf("failed to load service association: %w", err)
 		}
@@ -259,8 +234,6 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.Updat
 	return &result, nil
 }
 
-/* ---------------------- Update Avatar ---------------------- */
-
 func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error {
 	if err := s.validateTechID(techID); err != nil {
 		return err
@@ -278,8 +251,6 @@ func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath stri
 	return nil
 }
 
-/* ---------------------- Validation ---------------------- */
-
 func (s *service) validateTechID(techID uint) error {
 	if techID == 0 {
 		return ErrUnauthorized
@@ -293,8 +264,6 @@ func (s *service) validateAreaRepo() error {
 	}
 	return nil
 }
-
-/* ---------------------- Normalize Avatar ---------------------- */
 
 func (s *service) normalizeAvatarURL(url *string) *string {
 	if url == nil || *url == "" {
@@ -318,10 +287,8 @@ func (s *service) normalizeAvatarURL(url *string) *string {
 	return &trimmed
 }
 
-/* ---------------------- Update Fields ---------------------- */
-
 func (s *service) updateTechnicianFields(tech *Technician, req TechnicianProfileReq) {
-	// ใช้ฟิลด์ใหม่ที่มี json tag เป็น "firstname" และ "lastname"
+
 	if req.FirstName != "" {
 		tech.FirstName = req.FirstName
 	}
@@ -342,8 +309,6 @@ func (s *service) updateTechnicianFields(tech *Technician, req TechnicianProfile
 	}
 }
 
-/* ---------------------- Profile Transaction ---------------------- */
-
 func (s *service) upsertProfileTransaction(
 	ctx context.Context,
 	tech *Technician,
@@ -352,12 +317,10 @@ func (s *service) upsertProfileTransaction(
 ) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-		// บันทึกข้อมูล technician พื้นฐานก่อน
 		if err := tx.Save(tech).Error; err != nil {
 			return fmt.Errorf("failed to save technician: %w", err)
 		}
 
-		// อัปเดต provinces (ถ้ามี)
 		if len(provinceIDs) > 0 {
 			if s.areaRepo == nil {
 				return ErrAreaRepoNotWired
@@ -367,7 +330,6 @@ func (s *service) upsertProfileTransaction(
 			}
 		}
 
-		// อัปเดต services (ถ้ามี)
 		if len(serviceItems) > 0 {
 			if s.serviceRepo == nil {
 				return errors.New("service repository not initialized")
@@ -380,8 +342,6 @@ func (s *service) upsertProfileTransaction(
 		return nil
 	})
 }
-
-/* ---------------------- Fetch Associations ---------------------- */
 
 func (s *service) fetchTechnicianWithAssociations(ctx context.Context, techID uint) (*Technician, error) {
 	var tech Technician
@@ -401,8 +361,6 @@ func (s *service) fetchTechnicianWithAssociations(ctx context.Context, techID ui
 
 	return &tech, nil
 }
-
-/* ---------------------- Build Response DTO ---------------------- */
 
 func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 	return &TechnicianProfileRes{
@@ -425,8 +383,6 @@ func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 	}
 }
 
-/* ---------------------- Avatar URL ---------------------- */
-
 func (s *service) buildAvatarURL(avatarURL *string) *string {
 	if avatarURL == nil {
 		empty := ""
@@ -434,8 +390,6 @@ func (s *service) buildAvatarURL(avatarURL *string) *string {
 	}
 	return avatarURL
 }
-
-/* ---------------------- Badges Response ---------------------- */
 
 func (s *service) buildBadgesResponse(techBadges []tb.TechnicianBadge) []badge.BadgeResponse {
 	result := make([]badge.BadgeResponse, 0, len(techBadges))
@@ -461,7 +415,7 @@ func (s *service) buildBadgesResponse(techBadges []tb.TechnicianBadge) []badge.B
 			ID:          b.ID,
 			Name:        b.Name,
 			Description: b.Description,
-			IconURL:     iconURL, // presigned URL
+			IconURL:     iconURL,
 			Level:       b.Level,
 			IsActive:    b.IsActive,
 			CreatedAt:   b.CreatedAt.Unix(),
@@ -471,8 +425,6 @@ func (s *service) buildBadgesResponse(techBadges []tb.TechnicianBadge) []badge.B
 
 	return result
 }
-
-/* ---------------------- Provinces Response ---------------------- */
 
 func (s *service) buildProvincesResponse(serviceAreas []tsvca.TechnicianServiceArea) []province.ProvinceResponse {
 	result := make([]province.ProvinceResponse, 0, len(serviceAreas))
@@ -489,8 +441,6 @@ func (s *service) buildProvincesResponse(serviceAreas []tsvca.TechnicianServiceA
 
 	return result
 }
-
-/* ---------------------- Services Response ---------------------- */
 
 func (s *service) buildServicesResponse(techServices []tsvc.TechnicianService) []TechServiceRes {
 	result := make([]TechServiceRes, 0, len(techServices))
@@ -522,8 +472,6 @@ func (s *service) buildServicesResponse(techServices []tsvc.TechnicianService) [
 
 	return result
 }
-
-/* ---------------------- Summary ---------------------- */
 
 func (s *service) buildServiceSummary(techServices []tsvc.TechnicianService) []TechServiceSummary {
 	summaryMap := make(map[uint]*TechServiceSummary)
@@ -564,8 +512,6 @@ func (s *service) buildServiceSummary(techServices []tsvc.TechnicianService) []T
 
 	return result
 }
-
-/* ---------------------- Tech Service Helpers ---------------------- */
 
 func (s *service) findExistingService(tx *gorm.DB, techID, serviceID uint) (*tsvc.TechnicianService, error) {
 	var existing tsvc.TechnicianService
