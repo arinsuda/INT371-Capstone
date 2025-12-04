@@ -208,7 +208,7 @@ func (c *Container) initTechnicianModule() {
 		c.TechnicianServiceAreaRepo,
 		c.TechnicianServiceRepo,
 	)
-	c.TechnicianHandler = technician.NewHandler(c.TechnicianService)
+	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)
 }
 
 func (c *Container) initTechnicianServiceModule() {

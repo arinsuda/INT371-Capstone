@@ -428,22 +428,11 @@ func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 /* ---------------------- Avatar URL ---------------------- */
 
 func (s *service) buildAvatarURL(avatarURL *string) *string {
-	if avatarURL == nil || *avatarURL == "" || s.storage == nil {
+	if avatarURL == nil {
 		empty := ""
 		return &empty
 	}
-
-	// generate presigned URL
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	url, err := s.storage.PresignGet(ctx, *avatarURL, time.Hour, false)
-	if err != nil {
-		empty := ""
-		return &empty
-	}
-
-	return &url
+	return avatarURL
 }
 
 /* ---------------------- Badges Response ---------------------- */

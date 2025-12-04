@@ -30,7 +30,7 @@ func NewHandler(s Service, st *storage.MinioStorage, cfg *config.Config) *Handle
 		storage:  st,
 		endpoint: cfg.Minio.PublicBaseURL,
 		bucket:   cfg.Minio.Bucket,
-		public:   false, // ❗ bucket เป็น private เสมอ ต้องเป็น false
+		public:   false, 
 	}
 }
 

@@ -169,11 +169,7 @@ func (s *MinioStorage) PresignPut(
 // =============================
 //  Upload File (Best Practice)
 // =============================
-//
-//   IMPORTANT:
-//   - Returns key only
-//   - GetProfile must generate presigned URL each time
-//
+
 
 func (s *MinioStorage) UploadFile(
 	ctx context.Context,
