@@ -1,44 +1,64 @@
 package badge
 
 import (
+	"context"
+	"strings"
 	"time"
 
 	"changsure-core-service/pkg/storage"
-	"context"
-	"github.com/gofiber/fiber/v3"
 )
 
-func toResponse(b *Badge) fiber.Map {
-	iconURL := ""
+func normalizeKey(key string) string {
+	if strings.HasPrefix(key, "http://") || strings.HasPrefix(key, "https://") {
+		return ""
+	}
+	return strings.TrimLeft(key, "/")
+}
 
-	if b.IconURL != "" && storage.GlobalMinio != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		url, err := storage.GlobalMinio.PresignGet(ctx, b.IconURL, time.Hour, false)
-		if err == nil {
-			iconURL = url
-		}
+func generatePresigned(store *storage.MinioStorage, key string) string {
+	if store == nil || key == "" {
+		return ""
 	}
 
-	return fiber.Map{
-		"id":          b.ID,
-		"name":        b.Name,
-		"description": b.Description,
-		"icon_url":    iconURL,
-		"icon_key":    b.IconURL,
-		"level":       b.Level,
-		"is_active":   b.IsActive,
-		"created_at":  b.CreatedAt,
-		"updated_at":  b.UpdatedAt,
-		"deleted_at":  b.DeletedAt,
+	key = normalizeKey(key)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	url, err := store.PresignGet(ctx, key, time.Hour, false)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
+func toResponse(b *Badge, store *storage.MinioStorage) BadgeResponse {
+	return BadgeResponse{
+		ID:          b.ID,
+		Name:        b.Name,
+		Description: b.Description,
+		IconURL:     generatePresigned(store, b.IconURL),
+		Level:       b.Level,
+		IsActive:    b.IsActive,
+		CreatedAt:   b.CreatedAt.Unix(),
+		UpdatedAt:   b.UpdatedAt.Unix(),
 	}
 }
 
-func toResponses(badges []Badge) []fiber.Map {
-	res := make([]fiber.Map, len(badges))
-	for i := range badges {
-		res[i] = toResponse(&badges[i])
+func toResponses(items []Badge, store *storage.MinioStorage) []BadgeResponse {
+	res := make([]BadgeResponse, 0, len(items))
+	for i := range items {
+		res = append(res, toResponse(&items[i], store))
 	}
 	return res
+}
+
+func normalizeIconKey(icon string) string {
+	if icon == "" {
+		return ""
+	}
+	if strings.HasPrefix(icon, "http://") || strings.HasPrefix(icon, "https://") {
+		return ""
+	}
+	return strings.TrimLeft(icon, "/")
 }

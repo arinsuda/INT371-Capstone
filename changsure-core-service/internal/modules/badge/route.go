@@ -7,8 +7,7 @@ import (
 )
 
 type RouteBundle struct {
-	h  *Handler
-	ih *IconHandler
+	h *Handler
 }
 
 func NewRouteBundle(db *gorm.DB, store *storage.MinioStorage) *RouteBundle {
@@ -16,8 +15,7 @@ func NewRouteBundle(db *gorm.DB, store *storage.MinioStorage) *RouteBundle {
 	svc := NewService(repo)
 
 	return &RouteBundle{
-		h:  NewHandler(svc),
-		ih: NewIconHandler(svc),
+		h: NewHandler(svc, store),
 	}
 }
 
@@ -28,10 +26,9 @@ func (rb *RouteBundle) RegisterRoutes(api fiber.Router) {
 
 	badges.Get("/", rb.h.ListBadges)
 	badges.Get("/:id", rb.h.GetBadge)
-	badges.Patch("/:id", rb.h.UpdateBadge)
+	badges.Put("/:id", rb.h.UpdateBadge)
 	badges.Delete("/:id", rb.h.DeleteBadge)
 	badges.Patch("/:id/restore", rb.h.RestoreBadge)
 
-	badges.Put("/:id/icon", rb.ih.UploadIcon)
-	badges.Get("/:id/icon", rb.ih.GetIconURL)
+	badges.Put("/:id/icon", rb.h.UploadIcon)
 }

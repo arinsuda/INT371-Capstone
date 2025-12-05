@@ -26,27 +26,34 @@ func (s *service) CreateBadge(ctx context.Context, dto CreateBadgeDTO) (*Badge, 
 			if dto.IconURL == nil {
 				return ""
 			}
-			return *dto.IconURL
+			return normalizeIconKey(*dto.IconURL)
 		}(),
-		Level: 0,
+		Level: func() uint {
+			if dto.Level == nil {
+				return 0
+			}
+			return *dto.Level
+		}(),
 		IsActive: func() bool {
 			if dto.IsActive == nil {
 				return true
 			}
 			return *dto.IsActive
 		}(),
+		Description: func() string {
+			if dto.Description == nil {
+				return ""
+			}
+			return *dto.Description
+		}(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if dto.Level != nil {
-		b.Level = *dto.Level
-	}
-	if dto.Description != nil {
-		b.Description = *dto.Description
-	}
+
 	if err := s.repo.CreateBadge(ctx, b); err != nil {
 		return nil, err
 	}
+
 	return b, nil
 }
 
@@ -55,11 +62,12 @@ func (s *service) UpdateBadge(ctx context.Context, id uint, dto UpdateBadgeDTO) 
 	if err != nil {
 		return nil, err
 	}
+
 	if dto.Name != nil {
 		b.Name = *dto.Name
 	}
 	if dto.IconURL != nil {
-		b.IconURL = *dto.IconURL
+		b.IconURL = normalizeIconKey(*dto.IconURL)
 	}
 	if dto.Level != nil {
 		b.Level = *dto.Level
@@ -70,15 +78,24 @@ func (s *service) UpdateBadge(ctx context.Context, id uint, dto UpdateBadgeDTO) 
 	if dto.Description != nil {
 		b.Description = *dto.Description
 	}
+
 	b.UpdatedAt = time.Now()
+
 	if err := s.repo.UpdateBadge(ctx, b); err != nil {
 		return nil, err
 	}
+
 	return b, nil
 }
 
-func (s *service) SoftDeleteBadge(ctx context.Context, id uint) error { return s.repo.SoftDelete(ctx, id) }
-func (s *service) RestoreBadge(ctx context.Context, id uint) error    { return s.repo.RestoreBadge(ctx, id) }
+func (s *service) SoftDeleteBadge(ctx context.Context, id uint) error {
+	return s.repo.SoftDelete(ctx, id)
+}
+
+func (s *service) RestoreBadge(ctx context.Context, id uint) error {
+	return s.repo.RestoreBadge(ctx, id)
+}
+
 func (s *service) HardDeleteBadge(ctx context.Context, id uint) error {
 	return s.repo.HardDelete(ctx, id)
 }
