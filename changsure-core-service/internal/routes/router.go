@@ -115,16 +115,14 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 // setupCustomerRoutes configures customer-related endpoints
 func (r *Router) setupCustomerRoutes(api fiber.Router) {
 	customers := api.Group("/customers")
-
-	r.container.CustomerHandler.RegisterRoutes(customers)
 	r.container.CustomerTechnicianHandler.RegisterRoutes(customers)
-	r.container.CustomerAddressHandler.RegisterRoutes(customers, r.cfg)
 }
 
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 	me := api.Group("customers/me")
 
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
+	r.container.CustomerHandler.RegisterRoutes(me)
 }
 
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
