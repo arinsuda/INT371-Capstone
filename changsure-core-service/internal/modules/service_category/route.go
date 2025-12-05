@@ -6,7 +6,11 @@ import (
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
 	g := r.Group("/service-categories")
-	g.Get("/", h.List)
-	g.Get("/:id", h.GetByID)
-	g.Post("/:id/icon", h.UploadIcon)
+
+	g.Get("/", h.ListServiceCategories)
+	g.Get("/:id", h.GetServiceCategoryById)
+	g.Post("/", h.CreateServiceCategory)
+	g.Put("/:id", h.UpdateServiceCategory)
+	g.Delete("/:id", h.DeleteServiceCategoryById)
+	g.Post("/:id/icon", h.UploadIconServiceCategory)
 }

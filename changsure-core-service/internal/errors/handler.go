@@ -73,3 +73,31 @@ func UnprocessableEntity(c fiber.Ctx, msg string) error {
 		Message: msg,
 	})
 }
+
+func InternalServerError(c fiber.Ctx, msg string) error {
+	return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+		Status:  "error",
+		Message: msg,
+	})
+}
+
+func ServiceUnavailable(c fiber.Ctx, msg string) error {
+	return c.Status(fiber.StatusServiceUnavailable).JSON(ErrorResponse{
+		Status:  "error",
+		Message: msg,
+	})
+}
+
+func NotImplemented(c fiber.Ctx, msg string) error {
+	return c.Status(fiber.StatusNotImplemented).JSON(ErrorResponse{
+		Status:  "error",
+		Message: msg,
+	})
+}
+
+func TooManyRequests(c fiber.Ctx, msg string) error {
+	return c.Status(fiber.StatusTooManyRequests).JSON(ErrorResponse{
+		Status:  "error",
+		Message: msg,
+	})
+}
