@@ -107,9 +107,7 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
 	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
-	r.container.TechnicianWorkHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
-	r.container.TechnicianAddressHandler.RegisterRoutes(technicians, r.cfg)
 }
 
 // setupCustomerRoutes configures customer-related endpoints
@@ -128,6 +126,8 @@ func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
 	me := api.Group("/technicians")
 	r.container.TechnicianHandler.RegisterRoutes(me)
+	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
+	r.container.TechnicianPostHandler.RegisterRoutes(me)
 }
 
 // setupDevelopmentTools configures development-only endpoints

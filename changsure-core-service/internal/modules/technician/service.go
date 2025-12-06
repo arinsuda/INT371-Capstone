@@ -16,7 +16,10 @@ import (
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	addr "changsure-core-service/internal/modules/technician_service_area"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
+
+	"changsure-core-service/pkg/security"
 	"changsure-core-service/pkg/storage"
+	"changsure-core-service/pkg/utils"
 )
 
 var (
@@ -72,7 +75,28 @@ func NewService(db *gorm.DB, repo Repository, areaRepo addr.Repository, svcRepo 
 	}
 }
 
+func (s *service) checkOwnTechnician(ctx context.Context, techID uint) error {
+	if techID == 0 {
+		return ErrUnauthorized
+	}
+
+	requesterID := utils.GetUserIDFromContext(ctx)
+	if requesterID == 0 {
+		return ErrUnauthorized
+	}
+
+	if err := security.CheckOwner(techID, requesterID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *service) UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error) {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
+		return 0, err
+	}
+
 	if err := s.validateTechID(techID); err != nil {
 		return 0, err
 	}
@@ -107,6 +131,10 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 }
 
 func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
+		return err
+	}
+
 	if err := s.validateTechID(techID); err != nil {
 		return err
 	}
@@ -120,6 +148,10 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 }
 
 func (s *service) AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*AddedTechServiceResult, error) {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
+		return nil, err
+	}
+
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
 	}
@@ -155,6 +187,10 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 }
 
 func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
+		return err
+	}
+
 	if err := s.validateTechID(techID); err != nil {
 		return err
 	}
@@ -176,6 +212,10 @@ func (s *service) RemoveService(ctx context.Context, techID uint, req RemoveTech
 }
 
 func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.UpdateTechServiceReq) (*UpdatedTechServiceResult, error) {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
+		return nil, err
+	}
+
 	if err := s.validateTechID(techID); err != nil {
 		return nil, err
 	}
@@ -235,7 +275,7 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req tsvc.Updat
 }
 
 func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error {
-	if err := s.validateTechID(techID); err != nil {
+	if err := s.checkOwnTechnician(ctx, techID); err != nil {
 		return err
 	}
 

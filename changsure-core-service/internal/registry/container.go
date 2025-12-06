@@ -20,7 +20,7 @@ import (
 	"changsure-core-service/internal/modules/technician_badge"
 	"changsure-core-service/internal/modules/technician_service_area"
 	"changsure-core-service/internal/modules/technician_service"
-	techworks "changsure-core-service/internal/modules/technician_work"
+	techworks "changsure-core-service/internal/modules/technician_post"
 	"changsure-core-service/internal/modules/technician"
 
 	"changsure-core-service/internal/config"
@@ -83,9 +83,9 @@ type Container struct {
 	TechnicianBadgeService technicianbadge.Service
 	TechnicianBadgeHandler *technicianbadge.Handler
 
-	TechnicianWorkRepo    techworks.Repository
-	TechnicianWorkService techworks.Service
-	TechnicianWorkHandler *techworks.Handler
+	TechnicianPostRepo    techworks.Repository
+	TechnicianPostService techworks.Service
+	TechnicianPostHandler *techworks.Handler
 
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
@@ -251,9 +251,9 @@ func (c *Container) initTechnicianBadgeModule() {
 }
 
 func (c *Container) initTechnicianWorkModule() {
-	c.TechnicianWorkRepo = techworks.NewRepository(c.DB)
-	c.TechnicianWorkService = techworks.NewService(c.TechnicianWorkRepo)
-	c.TechnicianWorkHandler = techworks.NewHandler(c.TechnicianWorkService)
+	c.TechnicianPostRepo = techworks.NewRepository(c.DB)
+	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo)
+	c.TechnicianPostHandler = techworks.NewHandler(c.TechnicianPostService)
 }
 
 func (c *Container) initTechnicianAddressModule() {
