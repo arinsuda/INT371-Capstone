@@ -2,84 +2,86 @@ package technicianbadge
 
 import (
 	"context"
-	goerrors "errors"
+	"errors"
 	"time"
 
-	appErrors "changsure-core-service/internal/errors"
+	appErr "changsure-core-service/internal/errors"
 	"changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-type Handler struct {
-	svc Service
-}
+type Handler struct{ svc Service }
 
-func NewHandler(svc Service) *Handler {
-	return &Handler{svc: svc}
-}
+func NewHandler(svc Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) Assign(c fiber.Ctx) error {
-	technicianID, err := utils.ParseUintParam(c, "technician_id")
+	techID, err := utils.ParseUintParam(c, "technician_id")
 	if err != nil {
-		return appErrors.BadRequest(c, "invalid technician id")
+		return appErr.BadRequest(c, "invalid technician id")
 	}
 
-	var body struct {
-		BadgeID   uint       `json:"badge_id"`
-		ExpiredAt *time.Time `json:"expired_at"`
-	}
-	if err := c.Bind().Body(&body); err != nil {
-		return appErrors.BadRequest(c, "invalid body")
+	var req AssignBadgeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return appErr.BadRequest(c, "invalid request body")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
-	tb, err := h.svc.AssignBadge(ctx, technicianID, body.BadgeID, body.ExpiredAt)
+	tb, err := h.svc.AssignBadge(ctx, techID, req.BadgeID, req.ExpiredAt)
 	if err != nil {
-		if goerrors.Is(err, ErrTechnicianNotFound) {
-			return appErrors.NotFound(c, "technician not found")
+		if errors.Is(err, ErrTechnicianNotFound) {
+			return appErr.NotFound(c, "technician not found")
 		}
-		return appErrors.InternalError(c, "failed to assign badge", err)
+		return appErr.InternalError(c, "failed to assign badge", err)
 	}
-	return c.Status(fiber.StatusCreated).JSON(tb)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    toResponse(tb),
+	})
 }
 
 func (h *Handler) ListByTechnician(c fiber.Ctx) error {
-	technicianID, err := utils.ParseUintParam(c, "technician_id")
+	techID, err := utils.ParseUintParam(c, "technician_id")
 	if err != nil {
-		return appErrors.BadRequest(c, "invalid technician id")
+		return appErr.BadRequest(c, "invalid technician id")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
-	items, err := h.svc.GetBadgesByTechnician(ctx, technicianID)
+	items, err := h.svc.GetBadgesByTechnician(ctx, techID)
 	if err != nil {
-		if goerrors.Is(err, ErrTechnicianNotFound) {
-			return appErrors.NotFound(c, "technician not found")
-		}
-		return appErrors.InternalError(c, "failed to get badges", err)
+		return appErr.InternalError(c, "failed to fetch badges", err)
 	}
-	return c.JSON(items)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    toResponses(items),
+	})
 }
 
-func (h *Handler) Remove(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
+func (h *Handler) Unassign(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technician_id")
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id")
+		return appErr.BadRequest(c, "invalid technician id")
 	}
 
-	hard := c.Query("hard") == "true"
+	badgeID, err := utils.ParseUintParam(c, "badge_id")
+	if err != nil {
+		return appErr.BadRequest(c, "invalid badge id")
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
-	if err := h.svc.RemoveBadge(ctx, id, hard); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	if err := h.svc.RemoveBadge(ctx, techID, badgeID); err != nil {
+		return appErr.InternalError(c, "failed to remove badge", err)
 	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+
+	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "badge removed",
 	})

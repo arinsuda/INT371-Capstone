@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"time"
+	"strings"
 
 	"changsure-core-service/internal/config"
 
@@ -130,7 +131,22 @@ func (s *MinioStorage) PresignGet(
 	if err != nil {
 		return "", err
 	}
-	return u.String(), nil
+
+	urlStr := u.String()
+
+	if s.cfg != nil && s.cfg.PublicBaseURL != "" {
+		publicBase := s.cfg.PublicBaseURL
+
+		internalEndpoint := s.cfg.Endpoint
+
+		if !strings.HasPrefix(internalEndpoint, "http") {
+			internalEndpoint = "http://" + internalEndpoint
+		}
+
+		urlStr = strings.Replace(urlStr, internalEndpoint, publicBase, 1)
+	}
+
+	return urlStr, nil
 }
 
 func (s *MinioStorage) PresignGetWithFilename(
@@ -169,7 +185,6 @@ func (s *MinioStorage) PresignPut(
 // =============================
 //  Upload File (Best Practice)
 // =============================
-
 
 func (s *MinioStorage) UploadFile(
 	ctx context.Context,

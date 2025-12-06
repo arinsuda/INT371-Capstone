@@ -8,14 +8,14 @@ import (
 
 var ErrTechnicianNotFound = errors.New("technician not found")
 
-type Service interface {
-	AssignBadge(ctx context.Context, technicianID, badgeID uint, expiredAt *time.Time) (*TechnicianBadge, error)
-	GetBadgesByTechnician(ctx context.Context, technicianID uint) ([]TechnicianBadge, error)
-	RemoveBadge(ctx context.Context, id uint, hard bool) error
-}
-
 type TechnicianReader interface {
 	ExistsByID(ctx context.Context, id uint) (bool, error)
+}
+
+type Service interface {
+	AssignBadge(ctx context.Context, techID, badgeID uint, expiredAt *time.Time) (*TechnicianBadge, error)
+	GetBadgesByTechnician(ctx context.Context, techID uint) ([]TechnicianBadge, error)
+	RemoveBadge(ctx context.Context, techID, badgeID uint) error
 }
 
 type service struct {
@@ -27,8 +27,8 @@ func NewService(repo Repository, techRepo TechnicianReader) Service {
 	return &service{repo: repo, techRepo: techRepo}
 }
 
-func (s *service) ensureTechExists(ctx context.Context, technicianID uint) error {
-	ok, err := s.techRepo.ExistsByID(ctx, technicianID)
+func (s *service) ensureTechExists(ctx context.Context, id uint) error {
+	ok, err := s.techRepo.ExistsByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -38,13 +38,13 @@ func (s *service) ensureTechExists(ctx context.Context, technicianID uint) error
 	return nil
 }
 
-func (s *service) AssignBadge(ctx context.Context, technicianID, badgeID uint, expiredAt *time.Time) (*TechnicianBadge, error) {
-	if err := s.ensureTechExists(ctx, technicianID); err != nil {
+func (s *service) AssignBadge(ctx context.Context, techID, badgeID uint, exp *time.Time) (*TechnicianBadge, error) {
+	if err := s.ensureTechExists(ctx, techID); err != nil {
 		return nil, err
 	}
 
 	tb := &TechnicianBadge{
-		TechnicianID: technicianID,
+		TechnicianID: techID,
 		BadgeID:      badgeID,
 	}
 
@@ -52,23 +52,17 @@ func (s *service) AssignBadge(ctx context.Context, technicianID, badgeID uint, e
 		return nil, err
 	}
 
-	if err := s.repo.PreloadBadge(ctx, tb); err != nil {
-		return nil, err
-	}
-
+	_ = s.repo.PreloadBadge(ctx, tb)
 	return tb, nil
 }
 
-func (s *service) GetBadgesByTechnician(ctx context.Context, technicianID uint) ([]TechnicianBadge, error) {
-	if err := s.ensureTechExists(ctx, technicianID); err != nil {
+func (s *service) GetBadgesByTechnician(ctx context.Context, techID uint) ([]TechnicianBadge, error) {
+	if err := s.ensureTechExists(ctx, techID); err != nil {
 		return nil, err
 	}
-	return s.repo.FindByTechnician(ctx, technicianID)
+	return s.repo.FindByTechnician(ctx, techID)
 }
 
-func (s *service) RemoveBadge(ctx context.Context, id uint, hard bool) error {
-	if hard {
-		return s.repo.HardDeleteByID(ctx, id)
-	}
-	return s.repo.DeleteByID(ctx, id)
+func (s *service) RemoveBadge(ctx context.Context, techID, badgeID uint) error {
+	return s.repo.DeleteByTechAndBadge(ctx, techID, badgeID)
 }
