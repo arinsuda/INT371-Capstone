@@ -27,25 +27,25 @@ type CreateCustomerAddressRequest struct {
 }
 
 type UpdateCustomerAddressRequest struct {
-	HouseNumber *string `json:"house_number"`
-	Village     *string `json:"village"`
-	Moo         *string `json:"moo"`
-	Soi         *string `json:"soi"`
-	Road        *string `json:"road"`
+	HouseNumber string `json:"house_number" validate:"required"`
+	Village     string `json:"village"`
+	Moo         string `json:"moo"`
+	Soi         string `json:"soi"`
+	Road        string `json:"road"`
 
-	SubDistrict *string `json:"sub_district"`
-	District    *string `json:"district"`
-	Province    *string `json:"province"`
+	SubDistrict string `json:"sub_district" validate:"required"`
+	District    string `json:"district" validate:"required"`
+	Province    string `json:"province" validate:"required"`
 
-	PostalCode *string `json:"postal_code"`
-	Country    *string `json:"country"`
+	PostalCode string `json:"postal_code" validate:"required"`
+	Country    string `json:"country" validate:"required"`
 
-	ProvinceID *uint `json:"province_id"`
+	ProvinceID uint `json:"province_id" validate:"required"`
 
-	Latitude  *float64 `json:"latitude"`
-	Longitude *float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 
-	IsPrimary *bool `json:"is_primary"`
+	IsPrimary bool `json:"is_primary"`
 }
 
 type CustomerAddressResponse struct {

@@ -110,12 +110,12 @@ func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 	}
 
 	addrID, err := parseIDParam(c, "id")
-	if err != nil {
+	if err != nil || addrID == 0 {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
 	var req UpdateCustomerAddressRequest
-	if err := c.Bind().JSON(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		return customErr.BadRequest(c, "invalid request body")
 	}
 
@@ -124,6 +124,7 @@ func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 	}
 
 	ctx := middleware.GetContext(c)
+
 	addr, err := h.service.UpdateCustomerAddress(ctx, addrID, custID, &req)
 	if err != nil {
 		switch {

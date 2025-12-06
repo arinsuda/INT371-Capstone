@@ -44,7 +44,26 @@ func (r *repo) UpdateCustomerAddress(ctx context.Context, addr *CustomerAddress)
 	return r.db.WithContext(ctx).
 		Model(&CustomerAddress{}).
 		Where("id = ? AND customer_id = ?", addr.ID, addr.CustomerID).
-		Updates(addr).Error
+		Updates(map[string]any{
+			"house_number": addr.HouseNumber,
+			"village":      addr.Village,
+			"moo":          addr.Moo,
+			"soi":          addr.Soi,
+			"road":         addr.Road,
+
+			"sub_district": addr.SubDistrict,
+			"district":     addr.District,
+			"province":     addr.Province,
+
+			"postal_code": addr.PostalCode,
+			"country":     addr.Country,
+
+			"province_id": addr.ProvinceID,
+			"latitude":    addr.Latitude,
+			"longitude":   addr.Longitude,
+
+			"is_primary": addr.IsPrimary,
+		}).Error
 }
 
 func (r *repo) DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error {
