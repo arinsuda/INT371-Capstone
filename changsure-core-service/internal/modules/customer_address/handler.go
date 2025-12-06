@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	customErr "changsure-core-service/internal/errors"
-	"changsure-core-service/internal/middleware"
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	"changsure-core-service/internal/validation"
 
+	"changsure-core-service/pkg/utils"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -20,9 +20,6 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-// ==========================================================
-// CREATE ADDRESS
-// ==========================================================
 func (h *Handler) CreateCustomerAddress(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
@@ -38,7 +35,8 @@ func (h *Handler) CreateCustomerAddress(c fiber.Ctx) error {
 		return customErr.ValidationError(c, details)
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
+
 	addr, err := h.service.CreateCustomerAddress(ctx, custID, &req)
 	if err != nil {
 		return customErr.InternalError(c, "failed to create address", err)
@@ -50,16 +48,14 @@ func (h *Handler) CreateCustomerAddress(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// LIST ADDRESSES
-// ==========================================================
 func (h *Handler) ListCustomerAddresses(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
 		return customErr.BadRequest(c, "invalid customer token")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
+
 	list, err := h.service.ListCustomerAddresses(ctx, custID)
 	if err != nil {
 		return customErr.InternalError(c, "failed to fetch addresses", err)
@@ -71,9 +67,6 @@ func (h *Handler) ListCustomerAddresses(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// GET ADDRESS
-// ==========================================================
 func (h *Handler) GetCustomerAddress(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
@@ -85,7 +78,8 @@ func (h *Handler) GetCustomerAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
+
 	addr, err := h.service.GetCustomerAddress(ctx, addrID, custID)
 	if err != nil {
 		if errors.Is(err, addressshared.ErrAddressNotFound) {
@@ -100,9 +94,6 @@ func (h *Handler) GetCustomerAddress(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// UPDATE ADDRESS
-// ==========================================================
 func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
@@ -110,7 +101,7 @@ func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 	}
 
 	addrID, err := parseIDParam(c, "id")
-	if err != nil || addrID == 0 {
+	if err != nil {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
@@ -123,17 +114,15 @@ func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 		return customErr.ValidationError(c, details)
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
 
 	addr, err := h.service.UpdateCustomerAddress(ctx, addrID, custID, &req)
 	if err != nil {
 		switch {
 		case errors.Is(err, addressshared.ErrAddressNotFound):
 			return customErr.NotFound(c, "address not found")
-
 		case errors.Is(err, addressshared.ErrUnauthorized):
 			return customErr.Unauthorized(c, "you do not own this address")
-
 		default:
 			return customErr.InternalError(c, "failed to update address", err)
 		}
@@ -145,9 +134,6 @@ func (h *Handler) UpdateCustomerAddress(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// DELETE ADDRESS
-// ==========================================================
 func (h *Handler) DeleteCustomerAddress(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
@@ -159,7 +145,8 @@ func (h *Handler) DeleteCustomerAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
+
 	if err := h.service.DeleteCustomerAddress(ctx, addrID, custID); err != nil {
 		return customErr.InternalError(c, "failed to delete address", err)
 	}
@@ -170,9 +157,6 @@ func (h *Handler) DeleteCustomerAddress(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// SET PRIMARY ADDRESS
-// ==========================================================
 func (h *Handler) SetPrimaryCustomerAddress(c fiber.Ctx) error {
 	custID := extractCustomerID(c)
 	if custID == 0 {
@@ -184,7 +168,8 @@ func (h *Handler) SetPrimaryCustomerAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
+
 	if err := h.service.SetPrimaryCustomerAddress(ctx, addrID, custID); err != nil {
 		return customErr.InternalError(c, "failed to set primary address", err)
 	}
@@ -195,9 +180,6 @@ func (h *Handler) SetPrimaryCustomerAddress(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// SEARCH NEARBY TECHNICIANS
-// ==========================================================
 func (h *Handler) SearchNearbyTechnicians(c fiber.Ctx) error {
 	var req addressshared.NearbyQuery
 	if err := c.Bind().JSON(&req); err != nil {
@@ -211,7 +193,8 @@ func (h *Handler) SearchNearbyTechnicians(c fiber.Ctx) error {
 		req.Limit = 50
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := c.Context()
+
 	results, err := h.service.SearchNearbyTechnicians(ctx, req)
 	if err != nil {
 		return customErr.InternalError(c, "failed to search technicians", err)
@@ -223,16 +206,13 @@ func (h *Handler) SearchNearbyTechnicians(c fiber.Ctx) error {
 	})
 }
 
-// ==========================================================
-// Helpers
-// ==========================================================
 func extractCustomerID(c fiber.Ctx) uint {
 	id, _ := c.Locals("userID").(uint)
 	return id
 }
 
-func parseIDParam(c fiber.Ctx, name string) (uint, error) {
-	raw := c.Params(name)
+func parseIDParam(c fiber.Ctx, key string) (uint, error) {
+	raw := c.Params(key)
 	id, err := strconv.ParseUint(raw, 10, 32)
 	return uint(id), err
 }

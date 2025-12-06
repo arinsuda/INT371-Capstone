@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
+	"changsure-core-service/pkg/utils"
 )
 
 var ErrNotFound = errors.New("customer address not found")
@@ -33,7 +34,23 @@ func NewService(repo Repository, techSearch TechnicianNearbySearcher) Service {
 	return &service{repo: repo, techSearch: techSearch}
 }
 
+func (s *service) checkOwnCustomer(ctx context.Context, customerID uint) error {
+	requesterID := utils.GetUserIDFromContext(ctx)
+	if requesterID == 0 {
+		return addressshared.ErrUnauthorized
+	}
+	if requesterID != customerID {
+		return addressshared.ErrUnauthorized
+	}
+	return nil
+}
+
 func (s *service) CreateCustomerAddress(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddress, error) {
+
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return nil, err
+	}
+
 	addr := &CustomerAddress{
 		CustomerID: customerID,
 	}
@@ -71,12 +88,15 @@ func (s *service) UpdateCustomerAddress(
 	req *UpdateCustomerAddressRequest,
 ) (*CustomerAddress, error) {
 
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return nil, err
+	}
+
 	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
 
-	// FULL REPLACE — เหมือน PUT ควรทำ
 	addr.HouseNumber = &req.HouseNumber
 	addr.Village = &req.Village
 	addr.Moo = &req.Moo
@@ -94,7 +114,6 @@ func (s *service) UpdateCustomerAddress(
 	addr.Latitude = &req.Latitude
 	addr.Longitude = &req.Longitude
 
-	// HANDLE PRIMARY FLAG
 	if req.IsPrimary {
 		_ = s.repo.SetPrimaryCustomerAddress(ctx, customerID)
 	}
@@ -108,18 +127,38 @@ func (s *service) UpdateCustomerAddress(
 }
 
 func (s *service) DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error {
+
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return err
+	}
+
 	return s.repo.DeleteCustomerAddress(ctx, id, customerID)
 }
 
 func (s *service) GetCustomerAddress(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error) {
+
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return nil, err
+	}
+
 	return s.repo.FindCustomerAddressByID(ctx, id, customerID)
 }
 
 func (s *service) ListCustomerAddresses(ctx context.Context, customerID uint) ([]*CustomerAddress, error) {
+
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return nil, err
+	}
+
 	return s.repo.FindCustomerAddresses(ctx, customerID)
 }
 
 func (s *service) SetPrimaryCustomerAddress(ctx context.Context, id uint, customerID uint) error {
+
+	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+		return err
+	}
+
 	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
 	if err != nil {
 		return ErrNotFound

@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
+	"changsure-core-service/pkg/security"
+	"changsure-core-service/pkg/utils"
 )
 
 var ErrAddressNotFound = errors.New("address not found")
@@ -28,7 +30,16 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
+func (s *service) checkOwn(ctx context.Context, techID uint) error {
+	requesterID := utils.GetUserIDFromContext(ctx)
+	return security.CheckOwner(techID, requesterID)
+}
+
 func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddress, error) {
+
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return nil, err
+	}
 
 	addr := &TechnicianAddress{
 		TechnicianID: techID,
@@ -73,6 +84,10 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 
 func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateTechnicianAddressRequest) (*TechnicianAddress, error) {
 
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return nil, err
+	}
+
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return nil, ErrAddressNotFound
@@ -108,18 +123,38 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 }
 
 func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
+
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return err
+	}
+
 	return s.repo.Delete(ctx, id, techID)
 }
 
 func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAddress, error) {
+
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return nil, err
+	}
+
 	return s.repo.Get(ctx, id, techID)
 }
 
 func (s *service) List(ctx context.Context, techID uint) ([]*TechnicianAddress, error) {
+
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByTechnician(ctx, techID)
 }
 
 func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
+
+	if err := s.checkOwn(ctx, techID); err != nil {
+		return err
+	}
+
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return ErrAddressNotFound

@@ -16,7 +16,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// Extract customer ID from JWT locals
 func customerIDFromLocals(c fiber.Ctx) uint {
 	if v := c.Locals("userID"); v != nil {
 		switch x := v.(type) {
@@ -36,12 +35,6 @@ func customerIDFromLocals(c fiber.Ctx) uint {
 	}
 	return 0
 }
-
-//
-// ============================
-//     PROFILE (SELF)
-// ============================
-//
 
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	customerID := customerIDFromLocals(c)
@@ -111,12 +104,6 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 		"data":    ToCustomerResponse(customer),
 	})
 }
-
-//
-// ============================
-//     CRUD (ADMIN / SYSTEM)
-// ============================
-//
 
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)

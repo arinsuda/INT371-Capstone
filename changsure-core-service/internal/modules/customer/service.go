@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"changsure-core-service/pkg/utils"
 )
 
 var (
@@ -11,6 +13,7 @@ var (
 	ErrPhoneAlreadyExists = errors.New("phone number already exists")
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidInput       = errors.New("invalid input")
+	ErrUnauthorizedOwner  = errors.New("forbidden: not owner of this resource")
 )
 
 type Service interface {
@@ -33,17 +36,32 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) GetProfile(ctx context.Context, customerID uint) (*Customer, error) {
-	if customerID == 0 {
-		return nil, errors.New("unauthorized: customer id missing from auth")
+func (s *service) checkOwner(ctx context.Context, targetID uint) error {
+	requesterID := utils.GetUserIDFromContext(ctx)
+	if requesterID == 0 {
+		return ErrUnauthorizedOwner
 	}
+	if requesterID != targetID {
+		return ErrUnauthorizedOwner
+	}
+	return nil
+}
+
+func (s *service) GetProfile(ctx context.Context, customerID uint) (*Customer, error) {
+
+	if err := s.checkOwner(ctx, customerID); err != nil {
+		return nil, err
+	}
+
 	return s.GetCustomer(ctx, customerID)
 }
 
 func (s *service) UpdateProfile(ctx context.Context, customerID uint, req *UpdateCustomerRequest) (*Customer, error) {
-	if customerID == 0 {
-		return nil, errors.New("unauthorized: customer id missing from auth")
+
+	if err := s.checkOwner(ctx, customerID); err != nil {
+		return nil, err
 	}
+
 	return s.UpdateCustomer(ctx, customerID, req)
 }
 
@@ -59,6 +77,11 @@ func (s *service) GetCustomer(ctx context.Context, id uint) (*Customer, error) {
 }
 
 func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustomerRequest) (*Customer, error) {
+
+	if err := s.checkOwner(ctx, id); err != nil {
+		return nil, err
+	}
+
 	customer, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -115,6 +138,11 @@ func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustom
 }
 
 func (s *service) DeleteCustomer(ctx context.Context, id uint) error {
+
+	if err := s.checkOwner(ctx, id); err != nil {
+		return err
+	}
+
 	exists, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err

@@ -5,11 +5,12 @@ import (
 	"strconv"
 
 	customErr "changsure-core-service/internal/errors"
-	"changsure-core-service/internal/middleware"
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	"changsure-core-service/internal/validation"
 
 	"github.com/gofiber/fiber/v3"
+
+	"changsure-core-service/pkg/utils"
 )
 
 type Handler struct {
@@ -35,7 +36,8 @@ func (h *Handler) CreateAddress(c fiber.Ctx) error {
 		return customErr.ValidationError(c, details)
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
+
 	addr, err := h.service.Create(ctx, techID, &req)
 	if err != nil {
 		return customErr.InternalError(c, "failed to create address", err)
@@ -53,7 +55,8 @@ func (h *Handler) ListAddresses(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid technician token")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
+
 	list, err := h.service.List(ctx, techID)
 	if err != nil {
 		return customErr.InternalError(c, "failed to fetch addresses", err)
@@ -71,13 +74,13 @@ func (h *Handler) GetAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid technician token")
 	}
 
-	addrRaw := c.Params("id")
-	addrID, err := strconv.ParseUint(addrRaw, 10, 32)
+	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil || addrID == 0 {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
+
 	addr, err := h.service.Get(ctx, uint(addrID), techID)
 	if err != nil {
 		if errors.Is(err, addressshared.ErrAddressNotFound) {
@@ -112,7 +115,7 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 		return customErr.ValidationError(c, details)
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
 	addr, err := h.service.Update(ctx, uint(addrID), techID, &req)
 	if err != nil {
@@ -134,13 +137,13 @@ func (h *Handler) DeleteAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid technician token")
 	}
 
-	addrRaw := c.Params("id")
-	addrID, err := strconv.ParseUint(addrRaw, 10, 32)
+	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil || addrID == 0 {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
+
 	if err := h.service.Delete(ctx, uint(addrID), techID); err != nil {
 		if errors.Is(err, addressshared.ErrAddressNotFound) {
 			return customErr.NotFound(c, "address not found")
@@ -160,13 +163,13 @@ func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid technician token")
 	}
 
-	addrRaw := c.Params("id")
-	addrID, err := strconv.ParseUint(addrRaw, 10, 32)
+	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil || addrID == 0 {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
-	ctx := middleware.GetContext(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
+
 	if err := h.service.SetPrimary(ctx, uint(addrID), techID); err != nil {
 		if errors.Is(err, addressshared.ErrAddressNotFound) {
 			return customErr.NotFound(c, "address not found")
@@ -181,14 +184,12 @@ func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
 }
 
 func (h *Handler) ListPublicAddresses(c fiber.Ctx) error {
-	raw := c.Params("id")
-	techID, err := strconv.ParseUint(raw, 10, 32)
+	techID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil || techID == 0 {
 		return customErr.BadRequest(c, "invalid technician id")
 	}
 
-	ctx := middleware.GetContext(c)
-	list, err := h.service.List(ctx, uint(techID))
+	list, err := h.service.List(c.Context(), uint(techID))
 	if err != nil {
 		return customErr.InternalError(c, "failed to fetch addresses", err)
 	}
@@ -221,8 +222,7 @@ func (h *Handler) SearchNearby(c fiber.Ctx) error {
 		req.Limit = 50
 	}
 
-	ctx := middleware.GetContext(c)
-	results, err := h.service.FindNearby(ctx, req)
+	results, err := h.service.FindNearby(c.Context(), req)
 	if err != nil {
 		return customErr.InternalError(c, "failed to search nearby technicians", err)
 	}
