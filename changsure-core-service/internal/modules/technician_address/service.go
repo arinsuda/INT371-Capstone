@@ -78,52 +78,27 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		return nil, ErrAddressNotFound
 	}
 
-	if req.HouseNumber != nil {
-		addr.HouseNumber = req.HouseNumber
-	}
-	if req.Village != nil {
-		addr.Village = req.Village
-	}
-	if req.Moo != nil {
-		addr.Moo = req.Moo
-	}
-	if req.Soi != nil {
-		addr.Soi = req.Soi
-	}
-	if req.Road != nil {
-		addr.Road = req.Road
-	}
-	if req.SubDistrict != nil {
-		addr.SubDistrict = req.SubDistrict
-	}
-	if req.District != nil {
-		addr.District = req.District
-	}
-	if req.Province != nil {
-		addr.Province = req.Province
-	}
-	if req.PostalCode != nil {
-		addr.PostalCode = req.PostalCode
-	}
-	if req.Country != nil {
-		addr.Country = req.Country
-	}
-	if req.ProvinceID != nil {
-		addr.ProvinceID = req.ProvinceID
-	}
-	if req.Latitude != nil {
-		addr.Latitude = req.Latitude
-	}
-	if req.Longitude != nil {
-		addr.Longitude = req.Longitude
-	}
+	addr.HouseNumber = &req.HouseNumber
+	addr.Village = &req.Village
+	addr.Moo = &req.Moo
+	addr.Soi = &req.Soi
+	addr.Road = &req.Road
 
-	if req.IsPrimary != nil {
-		if *req.IsPrimary {
-			_ = s.repo.ClearPrimary(ctx, techID)
-		}
-		addr.IsPrimary = *req.IsPrimary
+	addr.SubDistrict = &req.SubDistrict
+	addr.District = &req.District
+	addr.Province = &req.Province
+
+	addr.PostalCode = &req.PostalCode
+	addr.Country = &req.Country
+
+	addr.ProvinceID = &req.ProvinceID
+	addr.Latitude = &req.Latitude
+	addr.Longitude = &req.Longitude
+
+	if req.IsPrimary {
+		_ = s.repo.ClearPrimary(ctx, techID)
 	}
+	addr.IsPrimary = req.IsPrimary
 
 	if err := s.repo.Update(ctx, addr); err != nil {
 		return nil, err

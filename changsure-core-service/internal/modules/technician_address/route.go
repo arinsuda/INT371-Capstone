@@ -16,7 +16,7 @@ func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
 	me.Post("", h.CreateAddress)
 	me.Get("", h.ListAddresses)
 	me.Get("/:id", h.GetAddress)
-	me.Patch("/:id", h.UpdateAddress)
+	me.Put("/:id", h.UpdateAddress)
 	me.Delete("/:id", h.DeleteAddress)
 
 	me.Patch("/:id/primary", h.SetPrimaryAddress)

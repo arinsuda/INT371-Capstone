@@ -37,7 +37,26 @@ func (r *repo) Update(ctx context.Context, addr *TechnicianAddress) error {
 	return r.db.WithContext(ctx).
 		Model(&TechnicianAddress{}).
 		Where("id = ? AND technician_id = ?", addr.ID, addr.TechnicianID).
-		Updates(addr).Error
+		Updates(map[string]any{
+			"house_number": addr.HouseNumber,
+			"village":      addr.Village,
+			"moo":          addr.Moo,
+			"soi":          addr.Soi,
+			"road":         addr.Road,
+
+			"sub_district": addr.SubDistrict,
+			"district":     addr.District,
+			"province":     addr.Province,
+
+			"postal_code": addr.PostalCode,
+			"country":     addr.Country,
+
+			"province_id": addr.ProvinceID,
+			"latitude":    addr.Latitude,
+			"longitude":   addr.Longitude,
+
+			"is_primary": addr.IsPrimary,
+		}).Error
 }
 
 func (r *repo) Delete(ctx context.Context, id uint, techID uint) error {

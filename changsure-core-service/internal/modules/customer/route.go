@@ -6,12 +6,14 @@ import (
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
 
-	r.Get("/profile", h.GetProfile)
-	r.Patch("/profile", h.UpdateProfile)
+	customer := r.Group("/me")
 
-	r.Get("/", h.ListCustomers)
+	customer.Get("/profile", h.GetProfile)
+	customer.Patch("/profile", h.UpdateProfile)
 
-	r.Get("/:id", h.GetCustomer)
-	r.Patch("/:id", h.UpdateCustomer)
-	r.Delete("/:id", h.DeleteCustomer)
+	customer.Get("/", h.ListCustomers)
+
+	customer.Get("/:id", h.GetCustomer)
+	customer.Patch("/:id", h.UpdateCustomer)
+	customer.Delete("/:id", h.DeleteCustomer)
 }

@@ -5,12 +5,15 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Get("/profile", h.GetProfile)
-	router.Patch("/profile", h.UpdateProfile)
 
-	router.Patch("/provinces", h.PatchProvinces)
-	router.Post("/services", h.AddService)
-	router.Delete("/services/:id", h.RemoveService)
-	router.Patch("/services/:id", h.UpdateService)
-	router.Patch("/profile/avatar", h.UploadAvatar)
+	technician := router.Group("/me")
+
+	technician.Get("/profile", h.GetProfile)
+	technician.Patch("/profile", h.UpdateProfile)
+
+	technician.Patch("/provinces", h.PatchProvinces)
+	technician.Post("/services", h.AddService)
+	technician.Delete("/services/:id", h.RemoveService)
+	technician.Patch("/services/:id", h.UpdateService)
+	technician.Patch("/profile/avatar", h.UploadAvatar)
 }

@@ -119,14 +119,14 @@ func (r *Router) setupCustomerRoutes(api fiber.Router) {
 }
 
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
-	me := api.Group("customers/me")
+	me := api.Group("/customers")
 
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.CustomerHandler.RegisterRoutes(me)
 }
 
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
-	me := api.Group("technicians/me")
+	me := api.Group("/technicians")
 	r.container.TechnicianHandler.RegisterRoutes(me)
 }
 

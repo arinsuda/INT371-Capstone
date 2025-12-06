@@ -98,14 +98,13 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 		return customErr.BadRequest(c, "invalid technician token")
 	}
 
-	addrRaw := c.Params("id")
-	addrID, err := strconv.ParseUint(addrRaw, 10, 32)
+	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil || addrID == 0 {
 		return customErr.BadRequest(c, "invalid address id")
 	}
 
 	var req UpdateTechnicianAddressRequest
-	if err := c.Bind().JSON(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		return customErr.BadRequest(c, "invalid request body")
 	}
 
@@ -114,6 +113,7 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 	}
 
 	ctx := middleware.GetContext(c)
+
 	addr, err := h.service.Update(ctx, uint(addrID), techID, &req)
 	if err != nil {
 		if errors.Is(err, addressshared.ErrAddressNotFound) {
