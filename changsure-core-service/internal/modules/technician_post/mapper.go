@@ -61,7 +61,6 @@ func mapToResponse(p *TechnicianPost) TechnicianPostResponse {
 		ServiceName:  sname,
 		ProvinceID:   pid,
 		ProvinceName: pname,
-		PostDate:     p.PostDate,
 		Images:       imgs,
 		IsPublished:  p.IsPublished,
 		CreatedAt:    p.CreatedAt.Unix(),

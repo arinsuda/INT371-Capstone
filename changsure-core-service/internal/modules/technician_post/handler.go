@@ -2,6 +2,8 @@ package technicianposts
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"changsure-core-service/pkg/utils"
@@ -23,8 +25,29 @@ func (h *Handler) CreatePost(c fiber.Ctx) error {
 	}
 
 	var body CreateTechnicianPostDTO
-	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(400, "invalid body")
+
+	body.Title = c.FormValue("title")
+	if desc := c.FormValue("description"); desc != "" {
+		body.Description = &desc
+	}
+
+	if sid := c.FormValue("service_id"); sid != "" {
+		if v, err := strconv.ParseUint(sid, 10, 64); err == nil {
+			tmp := uint(v)
+			body.ServiceID = &tmp
+		}
+	}
+
+	if pid := c.FormValue("province_id"); pid != "" {
+		if v, err := strconv.ParseUint(pid, 10, 64); err == nil {
+			tmp := uint(v)
+			body.ProvinceID = &tmp
+		}
+	}
+
+	form, err := c.MultipartForm()
+	if err == nil && form.File != nil {
+		body.Images = form.File["images"]
 	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
@@ -102,8 +125,46 @@ func (h *Handler) UpdatePost(c fiber.Ctx) error {
 	}
 
 	var body UpdateTechnicianPostDTO
-	if err := c.Bind().Body(&body); err != nil {
-		return fiber.NewError(400, "invalid body")
+
+	if title := c.FormValue("title"); title != "" {
+		body.Title = &title
+	}
+	if desc := c.FormValue("description"); desc != "" {
+		body.Description = &desc
+	}
+
+	if sid := c.FormValue("service_id"); sid != "" {
+		if n, err := strconv.ParseUint(sid, 10, 64); err == nil {
+			t := uint(n)
+			body.ServiceID = &t
+		}
+	}
+
+	if pid := c.FormValue("province_id"); pid != "" {
+		if n, err := strconv.ParseUint(pid, 10, 64); err == nil {
+			t := uint(n)
+			body.ProvinceID = &t
+		}
+	}
+
+	if pub := c.FormValue("is_published"); pub != "" {
+		if parsed, err := strconv.ParseBool(pub); err == nil {
+			body.IsPublished = &parsed
+		}
+	}
+
+	form, err := c.MultipartForm()
+	if err == nil && form.File != nil {
+		body.NewImages = form.File["new_images"]
+	}
+
+	ids := c.FormValue("image_ids_to_delete")
+	if ids != "" {
+		for _, s := range strings.Split(ids, ",") {
+			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+				body.ImageIDsToDelete = append(body.ImageIDsToDelete, uint(n))
+			}
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)

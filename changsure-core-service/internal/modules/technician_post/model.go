@@ -18,8 +18,7 @@ type TechnicianPost struct {
 
 	ServiceID  *uint
 	ProvinceID *uint
-	PostDate   *time.Time
-
+	
 	IsPublished bool           `gorm:"default:true"`
 	CreatedAt   time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`

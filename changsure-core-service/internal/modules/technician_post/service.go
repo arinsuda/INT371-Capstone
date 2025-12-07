@@ -3,16 +3,25 @@ package technicianposts
 import (
 	"context"
 	"errors"
+	"fmt"
+	"mime/multipart"
+	"time"
+
+	"gorm.io/gorm"
+
+	"changsure-core-service/pkg/storage"
 )
 
-var ErrNotFound = errors.New("post not found")
+var (
+	ErrPostNotFound = errors.New("post not found")
+)
 
 type Service interface {
-	Create(ctx context.Context, techID uint, dto CreateTechnicianPostDTO) (*TechnicianPostResponse, error)
-	Update(ctx context.Context, techID, postID uint, dto UpdateTechnicianPostDTO) (*TechnicianPostResponse, error)
-	Get(ctx context.Context, techID, postID uint) (*TechnicianPostResponse, error)
+	Create(ctx context.Context, techID uint, req CreateTechnicianPostDTO) (*TechnicianPostResponse, error)
+	Update(ctx context.Context, techID uint, postID uint, req UpdateTechnicianPostDTO) (*TechnicianPostResponse, error)
+	Delete(ctx context.Context, techID uint, postID uint, hard bool) error
+	Get(ctx context.Context, techID uint, postID uint) (*TechnicianPostResponse, error)
 	List(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error)
-	Delete(ctx context.Context, techID, postID uint, hard bool) error
 }
 
 type service struct {
@@ -23,130 +32,236 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) Create(ctx context.Context, techID uint, dto CreateTechnicianPostDTO) (*TechnicianPostResponse, error) {
-	p := &TechnicianPost{
-		TechnicianID: techID,
-		Title:        dto.Title,
-		Description:  dto.Description,
-		ServiceID:    dto.ServiceID,
-		ProvinceID:   dto.ProvinceID,
-		PostDate:     dto.PostDate,
-		IsPublished:  true,
-	}
-
-	imgs := make([]TechnicianPostImage, 0, len(dto.ImageURLs))
-	for i, u := range dto.ImageURLs {
-		if u == "" {
-			continue
-		}
-		imgs = append(imgs, TechnicianPostImage{
-			ImageURL:  u,
-			SortOrder: i,
-		})
-	}
-
-	if err := s.repo.Create(ctx, p, imgs); err != nil {
-		return nil, err
-	}
-
-	p2, err := s.repo.FindByID(ctx, p.ID, techID)
+func (s *service) Get(ctx context.Context, techID uint, postID uint) (*TechnicianPostResponse, error) {
+	post, err := s.repo.GetPost(ctx, postID, techID)
 	if err != nil {
-		return nil, err
+		return nil, ErrPostNotFound
 	}
 
-	res := mapToResponse(p2)
-	return &res, nil
-}
-
-func (s *service) Update(ctx context.Context, techID, postID uint, dto UpdateTechnicianPostDTO) (*TechnicianPostResponse, error) {
-	p, err := s.repo.FindByID(ctx, postID, techID)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	if dto.Title != nil {
-		p.Title = *dto.Title
-	}
-	if dto.Description != nil {
-		p.Description = dto.Description
-	}
-	if dto.ServiceID != nil {
-		p.ServiceID = dto.ServiceID
-	}
-	if dto.ProvinceID != nil {
-		p.ProvinceID = dto.ProvinceID
-	}
-	if dto.PostDate != nil {
-		p.PostDate = dto.PostDate
-	}
-	if dto.IsPublished != nil {
-		p.IsPublished = *dto.IsPublished
-	}
-
-	var newImages *[]TechnicianPostImage
-	if dto.ImageURLs != nil {
-		imgs := make([]TechnicianPostImage, 0)
-		for i, u := range *dto.ImageURLs {
-			if u == "" {
-				continue
-			}
-			imgs = append(imgs, TechnicianPostImage{
-				ImageURL:  u,
-				SortOrder: i,
-			})
-		}
-		newImages = &imgs
-	}
-
-	if err := s.repo.Update(ctx, p, newImages); err != nil {
-		return nil, err
-	}
-
-	p2, err := s.repo.FindByID(ctx, postID, techID)
-	if err != nil {
-		return nil, err
-	}
-
-	res := mapToResponse(p2)
-	return &res, nil
-}
-
-func (s *service) Get(ctx context.Context, techID, postID uint) (*TechnicianPostResponse, error) {
-	p, err := s.repo.FindByID(ctx, postID, techID)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	res := mapToResponse(p)
-	return &res, nil
+	return ToPostResponse(post), nil
 }
 
 func (s *service) List(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error) {
-	page := q.Page
-	if page <= 0 {
-		page = 1
+
+	if q.Page < 1 {
+		q.Page = 1
 	}
-	perPage := q.PerPage
-	if perPage <= 0 || perPage > 100 {
-		perPage = 10
+	if q.PerPage < 1 || q.PerPage > 100 {
+		q.PerPage = 20
 	}
 
-	posts, total, err := s.repo.ListByTechnician(ctx, techID, q, page, perPage)
+	posts, total, err := s.repo.ListPosts(ctx, techID, q, q.Page, q.PerPage)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	res := make([]TechnicianPostResponse, 0, len(posts))
-	for i := range posts {
-		res = append(res, mapToResponse(&posts[i]))
+	resp := make([]TechnicianPostResponse, 0, len(posts))
+	for _, p := range posts {
+		resp = append(resp, *ToPostResponse(&p))
 	}
 
-	return res, total, nil
+	return resp, total, nil
 }
 
-func (s *service) Delete(ctx context.Context, techID, postID uint, hard bool) error {
-	if hard {
-		return s.repo.HardDelete(ctx, postID, techID)
+func (s *service) Create(ctx context.Context, techID uint, req CreateTechnicianPostDTO) (*TechnicianPostResponse, error) {
+
+	db := s.repo.DB()
+
+	post := &TechnicianPost{
+		TechnicianID: techID,
+		Title:        req.Title,
+		Description:  req.Description,
+		ServiceID:    req.ServiceID,
+		ProvinceID:   req.ProvinceID,
+		IsPublished:  true,
 	}
-	return s.repo.SoftDelete(ctx, postID, techID)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		if err := s.repo.CreatePost(ctx, post); err != nil {
+			return fmt.Errorf("failed to create post: %w", err)
+		}
+
+		if len(req.Images) > 0 {
+			imgs, err := s.uploadAndBuildImages(ctx, tx, post.ID, req.Images)
+			if err != nil {
+				return err
+			}
+
+			if err := s.repo.AddPostImages(ctx, imgs); err != nil {
+				return fmt.Errorf("failed to save images: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	full, _ := s.repo.GetPost(ctx, post.ID, techID)
+	return ToPostResponse(full), nil
+}
+
+func (s *service) Update(ctx context.Context, techID uint, postID uint, req UpdateTechnicianPostDTO) (*TechnicianPostResponse, error) {
+
+	db := s.repo.DB()
+
+	_, err := s.repo.GetPost(ctx, postID, techID)
+	if err != nil {
+		return nil, ErrPostNotFound
+	}
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+
+		updateData := map[string]any{}
+
+		if req.Title != nil {
+			updateData["title"] = *req.Title
+		}
+		if req.Description != nil {
+			updateData["description"] = *req.Description
+		}
+		if req.ServiceID != nil {
+			updateData["service_id"] = *req.ServiceID
+		}
+		if req.ProvinceID != nil {
+			updateData["province_id"] = *req.ProvinceID
+		}
+		if req.IsPublished != nil {
+			updateData["is_published"] = *req.IsPublished
+		}
+
+		if len(updateData) > 0 {
+			if err := tx.Model(&TechnicianPost{}).
+				Where("id = ? AND technician_id = ?", postID, techID).
+				Updates(updateData).Error; err != nil {
+				return fmt.Errorf("update post failed: %w", err)
+			}
+		}
+
+		if len(req.ImageIDsToDelete) > 0 {
+			if err := s.repo.RemovePostImagesByID(ctx, postID, req.ImageIDsToDelete); err != nil {
+				return fmt.Errorf("failed to delete images: %w", err)
+			}
+		}
+
+		if len(req.NewImages) > 0 {
+			imgs, err := s.uploadAndBuildImages(ctx, tx, postID, req.NewImages)
+			if err != nil {
+				return err
+			}
+
+			if err := s.repo.AddPostImages(ctx, imgs); err != nil {
+				return fmt.Errorf("failed to save new images: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	full, _ := s.repo.GetPost(ctx, postID, techID)
+	return ToPostResponse(full), nil
+}
+
+func (s *service) Delete(ctx context.Context, techID uint, postID uint, hard bool) error {
+	if hard {
+
+		return s.repo.HardDeletePost(ctx, postID, techID)
+	}
+
+	return s.repo.SoftDeletePost(ctx, postID, techID)
+}
+
+func (s *service) uploadAndBuildImages(
+	ctx context.Context,
+	tx *gorm.DB,
+	postID uint,
+	files []*multipart.FileHeader,
+) ([]TechnicianPostImage, error) {
+
+	var images []TechnicianPostImage
+
+	for i, file := range files {
+
+		src, err := file.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file: %w", err)
+		}
+		defer src.Close()
+
+		filename := fmt.Sprintf("%d_%d_%s", postID, time.Now().UnixNano(), file.Filename)
+
+		key, err := storage.GlobalMinio.UploadFile(
+			ctx,
+			src,
+			filename,
+			fmt.Sprintf("posts/%d", postID),
+			file.Size,
+			file.Header.Get("Content-Type"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("upload failed: %w", err)
+		}
+
+		images = append(images, TechnicianPostImage{
+			PostID:    postID,
+			ImageURL:  key,
+			SortOrder: i,
+		})
+	}
+
+	return images, nil
+}
+
+func ToPostResponse(post *TechnicianPost) *TechnicianPostResponse {
+	if post == nil {
+		return nil
+	}
+
+	resp := &TechnicianPostResponse{
+		ID:           post.ID,
+		TechnicianID: post.TechnicianID,
+		Title:        post.Title,
+		Description:  post.Description,
+		ServiceID:    post.ServiceID,
+		ProvinceID:   post.ProvinceID,
+		IsPublished:  post.IsPublished,
+		CreatedAt:    post.CreatedAt.Unix(),
+	}
+
+	if post.Service != nil {
+		resp.ServiceName = &post.Service.SerName
+	}
+	if post.Province != nil {
+		resp.ProvinceName = &post.Province.NameTH
+	}
+
+	for _, img := range post.Images {
+		url := img.ImageURL
+
+		presignedURL, err := storage.GlobalMinio.PresignGet(
+			context.Background(),
+			url,
+			time.Hour,
+			false,
+		)
+		if err != nil {
+
+			presignedURL = url
+		}
+
+		resp.Images = append(resp.Images, TechnicianPostImageResponse{
+			ID:       img.ID,
+			ImageURL: presignedURL,
+			Order:    img.SortOrder,
+		})
+	}
+
+	return resp
 }

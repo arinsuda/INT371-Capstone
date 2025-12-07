@@ -102,7 +102,11 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
-// setupTechnicianRoutes configures technician-related endpoints
+func (r *Router) setupCustomerRoutes(api fiber.Router) {
+	customers := api.Group("/customers")
+	r.container.CustomerTechnicianHandler.RegisterRoutes(customers)
+}
+
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
@@ -110,21 +114,16 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
 }
 
-// setupCustomerRoutes configures customer-related endpoints
-func (r *Router) setupCustomerRoutes(api fiber.Router) {
-	customers := api.Group("/customers")
-	r.container.CustomerTechnicianHandler.RegisterRoutes(customers)
-}
-
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
-	me := api.Group("/customers")
+	me := api.Group("/customers", middleware.CustomerOnly())
 
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.CustomerHandler.RegisterRoutes(me)
 }
 
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
-	me := api.Group("/technicians")
+	me := api.Group("/technicians", middleware.TechnicianOnly())
+
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.TechnicianPostHandler.RegisterRoutes(me)

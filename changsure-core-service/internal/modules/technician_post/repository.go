@@ -7,12 +7,20 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, p *TechnicianPost, images []TechnicianPostImage) error
-	Update(ctx context.Context, p *TechnicianPost, replaceImages *[]TechnicianPostImage) error
-	FindByID(ctx context.Context, id, techID uint) (*TechnicianPost, error)
-	ListByTechnician(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error)
-	SoftDelete(ctx context.Context, id, techID uint) error
-	HardDelete(ctx context.Context, id, techID uint) error
+	DB() *gorm.DB
+
+	GetPost(ctx context.Context, postID, technicianID uint) (*TechnicianPost, error)
+	CreatePost(ctx context.Context, post *TechnicianPost) error
+	UpdatePost(ctx context.Context, post *TechnicianPost) error
+
+	AddPostImages(ctx context.Context, images []TechnicianPostImage) error
+	RemovePostImages(ctx context.Context, postID uint) error
+	RemovePostImagesByID(ctx context.Context, postID uint, imageIDs []uint) error
+
+	ListPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error)
+
+	SoftDeletePost(ctx context.Context, postID, technicianID uint) error
+	HardDeletePost(ctx context.Context, postID, technicianID uint) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -21,62 +29,31 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) Create(ctx context.Context, p *TechnicianPost, imgs []TechnicianPostImage) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(p).Error; err != nil {
-			return err
-		}
-
-		for i := range imgs {
-			imgs[i].PostID = p.ID
-		}
-		return tx.Create(&imgs).Error
-	})
+func (r *repository) DB() *gorm.DB {
+	return r.db
 }
 
-func (r *repository) Update(ctx context.Context, p *TechnicianPost, replace *[]TechnicianPostImage) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(p).Error; err != nil {
-			return err
-		}
+func (r *repository) GetPost(ctx context.Context, postID, technicianID uint) (*TechnicianPost, error) {
+	var post TechnicianPost
 
-		if replace != nil {
-			if err := tx.Where("post_id = ?", p.ID).
-				Delete(&TechnicianPostImage{}).Error; err != nil {
-				return err
-			}
-			for i := range *replace {
-				(*replace)[i].PostID = p.ID
-			}
-			return tx.Create(replace).Error
-		}
-
-		return nil
-	})
-}
-
-func (r *repository) FindByID(ctx context.Context, id, techID uint) (*TechnicianPost, error) {
-	var p TechnicianPost
-
-	if err := r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Preload("Service").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
-		Where("id = ? AND technician_id = ?", id, techID).
-		First(&p).Error; err != nil {
+		Where("id = ? AND technician_id = ?", postID, technicianID).
+		First(&post).Error
+
+	if err != nil {
 		return nil, err
 	}
-	return &p, nil
+	return &post, nil
 }
 
-func (r *repository) ListByTechnician(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error) {
-	var (
-		posts []TechnicianPost
-		total int64
-	)
+func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error) {
+	var posts []TechnicianPost
+	var total int64
 
-	tx := r.db.WithContext(ctx).
-		Model(&TechnicianPost{}).
+	tx := r.db.WithContext(ctx).Model(&TechnicianPost{}).
 		Where("technician_id = ? AND deleted_at IS NULL", techID)
 
 	if q.ServiceID != nil {
@@ -95,8 +72,7 @@ func (r *repository) ListByTechnician(ctx context.Context, techID uint, q ListTe
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
 		Order("created_at DESC").
-		Limit(perPage).
-		Offset((page - 1) * perPage).
+		Limit(perPage).Offset((page - 1) * perPage).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
 	}
@@ -104,22 +80,58 @@ func (r *repository) ListByTechnician(ctx context.Context, techID uint, q ListTe
 	return posts, total, nil
 }
 
-func (r *repository) SoftDelete(ctx context.Context, id, techID uint) error {
+func (r *repository) CreatePost(ctx context.Context, post *TechnicianPost) error {
+	return r.db.WithContext(ctx).Create(post).Error
+}
+
+func (r *repository) UpdatePost(ctx context.Context, post *TechnicianPost) error {
 	return r.db.WithContext(ctx).
-		Where("id = ? AND technician_id = ?", id, techID).
+		Model(post).
+		Updates(map[string]interface{}{
+			"title":        post.Title,
+			"description":  post.Description,
+			"service_id":   post.ServiceID,
+			"province_id":  post.ProvinceID,
+			"is_published": post.IsPublished,
+		}).Error
+}
+
+func (r *repository) AddPostImages(ctx context.Context, images []TechnicianPostImage) error {
+	return r.db.WithContext(ctx).Create(&images).Error
+}
+
+func (r *repository) RemovePostImages(ctx context.Context, postID uint) error {
+	return r.db.WithContext(ctx).
+		Where("post_id = ?", postID).
+		Delete(&TechnicianPostImage{}).Error
+}
+
+func (r *repository) RemovePostImagesByID(ctx context.Context, postID uint, imageIDs []uint) error {
+	if len(imageIDs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Where("post_id = ? AND id IN ?", postID, imageIDs).
+		Delete(&TechnicianPostImage{}).Error
+}
+
+func (r *repository) SoftDeletePost(ctx context.Context, postID, technicianID uint) error {
+	return r.db.WithContext(ctx).
+		Where("id = ? AND technician_id = ?", postID, technicianID).
 		Delete(&TechnicianPost{}).Error
 }
 
-func (r *repository) HardDelete(ctx context.Context, id, techID uint) error {
+func (r *repository) HardDeletePost(ctx context.Context, postID, technicianID uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
 		if err := tx.Unscoped().
-			Where("post_id = ?", id).
+			Where("post_id = ?", postID).
 			Delete(&TechnicianPostImage{}).Error; err != nil {
 			return err
 		}
 
 		return tx.Unscoped().
-			Where("id = ? AND technician_id = ?", id, techID).
+			Where("id = ? AND technician_id = ?", postID, technicianID).
 			Delete(&TechnicianPost{}).Error
 	})
 }

@@ -1,27 +1,31 @@
 package technicianposts
 
-import "time"
+import (
+	"mime/multipart"
+	"time"
+)
 
 type CreateTechnicianPostDTO struct {
-	Title       string  `json:"title" validate:"required,min=3,max=150"`
-	Description *string `json:"description" validate:"omitempty,max=2000"`
+	Title       string  `form:"title"`
+	Description *string `form:"description"`
 
-	ServiceID  *uint      `json:"service_id"`
-	ProvinceID *uint      `json:"province_id"`
-	PostDate   *time.Time `json:"post_date"`
+	ServiceID  *uint      `form:"service_id"`
+	ProvinceID *uint      `form:"province_id"`
+	PostDate   *time.Time `form:"post_date"`
 
-	ImageURLs []string `json:"image_urls"`
+	Images []*multipart.FileHeader `form:"images"`
 }
 
 type UpdateTechnicianPostDTO struct {
-	Title       *string    `json:"title" validate:"omitempty,min=3,max=150"`
-	Description *string    `json:"description" validate:"omitempty,max=2000"`
-	ServiceID   *uint      `json:"service_id"`
-	ProvinceID  *uint      `json:"province_id"`
-	PostDate    *time.Time `json:"post_date"`
-	IsPublished *bool      `json:"is_published"`
+	Title       *string    `form:"title"`
+	Description *string    `form:"description"`
+	ServiceID   *uint      `form:"service_id"`
+	ProvinceID  *uint      `form:"province_id"`
+	IsPublished *bool      `form:"is_published"`
 
-	ImageURLs *[]string `json:"image_urls"`
+	NewImages []*multipart.FileHeader `form:"new_images"`
+
+	ImageIDsToDelete []uint `form:"image_ids_to_delete[]"`
 }
 
 type ListTechnicianPostsQuery struct {
@@ -49,7 +53,6 @@ type TechnicianPostResponse struct {
 	ProvinceID   *uint   `json:"province_id"`
 	ProvinceName *string `json:"province_name"`
 
-	PostDate *time.Time                    `json:"post_date"`
 	Images   []TechnicianPostImageResponse `json:"images"`
 
 	IsPublished bool  `json:"is_published"`
