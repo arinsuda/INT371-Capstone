@@ -4,16 +4,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func (h *Handler) RegisterRoutes(r fiber.Router) {
+func (h *Handler) RegisterRoutes(router fiber.Router) {
 
-	customer := r.Group("/me")
+	router.Get("/profile", h.GetProfile)
+	router.Patch("/profile", h.UpdateProfile)
 
-	customer.Get("/profile", h.GetProfile)
-	customer.Patch("/profile", h.UpdateProfile)
+	router.Get("/", h.ListCustomers)
 
-	customer.Get("/", h.ListCustomers)
-
-	customer.Get("/:id", h.GetCustomer)
-	customer.Patch("/:id", h.UpdateCustomer)
-	customer.Delete("/:id", h.DeleteCustomer)
+	router.Get("/:id", h.GetCustomer)
+	router.Patch("/:id", h.UpdateCustomer)
+	router.Delete("/:id", h.DeleteCustomer)
 }

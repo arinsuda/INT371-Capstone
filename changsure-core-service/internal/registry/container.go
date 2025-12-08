@@ -7,21 +7,21 @@ import (
 
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
-	customeraddresses "changsure-core-service/internal/modules/customer_address"
-	customertechnician "changsure-core-service/internal/modules/customer_technician"
 	customer "changsure-core-service/internal/modules/customer"
+	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/province"
-	"changsure-core-service/internal/modules/service_category"
 	"changsure-core-service/internal/modules/service"
+	"changsure-core-service/internal/modules/service_category"
+	"changsure-core-service/internal/modules/technician"
 	"changsure-core-service/internal/modules/technician_address"
 	"changsure-core-service/internal/modules/technician_badge"
-	"changsure-core-service/internal/modules/technician_service_area"
-	"changsure-core-service/internal/modules/technician_service"
+	technicianmatching "changsure-core-service/internal/modules/technician_matching"
 	techworks "changsure-core-service/internal/modules/technician_post"
-	"changsure-core-service/internal/modules/technician"
+	"changsure-core-service/internal/modules/technician_service"
+	"changsure-core-service/internal/modules/technician_service_area"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
@@ -45,9 +45,9 @@ type Container struct {
 	CustomerAddressService customeraddresses.Service
 	CustomerAddressHandler *customeraddresses.Handler
 
-	CustomerTechnicianRepo    customertechnician.Repository
-	CustomerTechnicianService customertechnician.Service
-	CustomerTechnicianHandler *customertechnician.Handler
+	TechnicianMatchingRepo    technicianmatching.Repository
+	TechnicianMatchingService technicianmatching.Service
+	TechnicianMatchingHandler *technicianmatching.Handler
 
 	ProvinceRepo    province.Repository
 	ProvinceService province.Service
@@ -121,7 +121,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianWorkModule()
 	c.initTechnicianAddressModule()
 	c.initCustomerAddressModule()
-	c.initCustomerTechnicianModule()
+	c.initTechnicianMatchingModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -186,16 +186,13 @@ func (c *Container) initCustomerAddressModule() {
 	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
 }
 
-func (c *Container) initCustomerTechnicianModule() {
-	c.CustomerTechnicianRepo = customertechnician.NewRepository(c.DB)
-	c.CustomerTechnicianService = customertechnician.NewService(
-		c.CustomerTechnicianRepo,
-		c.TechnicianRepo,
-		c.TechnicianServiceRepo,
-		c.TechnicianServiceAreaRepo,
+func (c *Container) initTechnicianMatchingModule() {
+	c.TechnicianMatchingRepo = technicianmatching.NewRepository(c.DB)
+	c.TechnicianMatchingService = technicianmatching.NewService(
+		c.TechnicianMatchingRepo,
 	)
-	c.CustomerTechnicianHandler = customertechnician.NewHandler(
-		c.CustomerTechnicianService,
+	c.TechnicianMatchingHandler = technicianmatching.NewHandler(
+		c.TechnicianMatchingService,
 	)
 }
 

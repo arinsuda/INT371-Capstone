@@ -1,32 +1,18 @@
-package customertechnician
+package technicianmatching
 
 import (
 	technician "changsure-core-service/internal/modules/technician"
-	"fmt"
 )
 
-func mapToListItem(t *technician.Technician) TechnicianListItem {
-	rating := 0.0
-	if t.RatingAvg != nil {
-		rating = *t.RatingAvg
-	}
+func MapTechnicianToListItem(
+	t *technician.Technician,
+	dist float64,
+) TechnicianListItem {
 
-	price := "฿0"
-	if len(t.Services) > 0 {
-		svc := t.Services[0]
-		switch svc.PricingType {
-		case "FIXED":
-			if svc.PriceFixed != nil {
-				price = fmt.Sprintf("฿%.0f", *svc.PriceFixed)
-			}
-		case "RANGE":
-			if svc.PriceMin != nil {
-				price = fmt.Sprintf("฿%.0f+", *svc.PriceMin)
-			}
-		}
-	}
+	min, max := ExtractPriceRange(*t)
+	rating := ExtractRating(*t)
 
-	badges := make([]string, 0)
+	badges := []string{}
 	for _, b := range t.Badges {
 		badges = append(badges, b.Badge.Name)
 	}
@@ -36,18 +22,18 @@ func mapToListItem(t *technician.Technician) TechnicianListItem {
 		FirstName:   t.FirstName,
 		LastName:    t.LastName,
 		AvatarURL:   t.AvatarURL,
-		Price:       price,
+		PriceMin:    min,
+		PriceMax:    max,
 		RatingAvg:   rating,
 		RatingCount: t.RatingCount,
+		DistanceKm:  dist,
 		Badges:      badges,
 	}
 }
 
-func mapToDetail(t *technician.Technician) TechnicianDetail {
-	rating := 0.0
-	if t.RatingAvg != nil {
-		rating = *t.RatingAvg
-	}
+func MapTechnicianToDetail(t *technician.Technician) TechnicianDetail {
+
+	rating := ExtractRating(*t)
 
 	provinces := []string{}
 	for _, a := range t.ServiceAreas {

@@ -86,7 +86,7 @@ func (r *Router) setupProtectedRoutes() {
 
 	// Domain-specific resources
 	r.setupTechnicianRoutes(v1)
-	r.setupCustomerRoutes(v1)
+	// r.setupCustomerRoutes(v1)
 	r.setupCustomerMeRoutes(v1)
 	r.setupTechnicianMeRoutes(v1)
 }
@@ -102,27 +102,27 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
-func (r *Router) setupCustomerRoutes(api fiber.Router) {
-	customers := api.Group("/customers")
-	r.container.CustomerTechnicianHandler.RegisterRoutes(customers)
-}
+// func (r *Router) setupCustomerRoutes(api fiber.Router) {
+// 	customers := api.Group("/customers")
+// }
 
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
 	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
+	r.container.TechnicianMatchingHandler.RegisterRoutes(technicians)
 }
 
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
-	me := api.Group("/customers", middleware.CustomerOnly())
+	me := api.Group("/customers/me", middleware.CustomerOnly())
 
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.CustomerHandler.RegisterRoutes(me)
 }
 
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
-	me := api.Group("/technicians", middleware.TechnicianOnly())
+	me := api.Group("/technicians/me", middleware.TechnicianOnly())
 
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)

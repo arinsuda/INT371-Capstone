@@ -8,7 +8,7 @@ import (
 
 func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
 
-	me := r.Group("/me/addresses",
+	me := r.Group("/addresses",
 		middleware.AuthMiddleware(cfg),
 		middleware.TechnicianOnly(),
 	)
