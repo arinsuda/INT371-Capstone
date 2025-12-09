@@ -116,38 +116,35 @@ func (s *MinioStorage) Put(
 // =============================
 
 func (s *MinioStorage) PresignGet(
-	ctx context.Context,
-	key string,
-	ttl time.Duration,
-	asAttachment bool,
+    ctx context.Context,
+    key string,
+    ttl time.Duration,
+    asAttachment bool,
 ) (string, error) {
 
-	q := url.Values{}
-	if asAttachment {
-		q.Set("response-content-disposition", "attachment")
-	}
+    q := url.Values{}
+    if asAttachment {
+        q.Set("response-content-disposition", "attachment")
+    }
 
-	u, err := s.c.PresignedGetObject(ctx, s.bucket, key, ttl, q)
-	if err != nil {
-		return "", err
-	}
+    u, err := s.c.PresignedGetObject(ctx, s.bucket, key, ttl, q)
+    if err != nil {
+        return "", err
+    }
 
-	urlStr := u.String()
+    if s.cfg == nil || s.cfg.PublicBaseURL == "" {
+        return u.String(), nil
+    }
 
-	if s.cfg != nil && s.cfg.PublicBaseURL != "" {
-		publicBase := s.cfg.PublicBaseURL
+    parsedPresigned, _ := url.Parse(u.String())
+    publicBase, _ := url.Parse(s.cfg.PublicBaseURL)
 
-		internalEndpoint := s.cfg.Endpoint
+    parsedPresigned.Scheme = publicBase.Scheme
+    parsedPresigned.Host = publicBase.Host
 
-		if !strings.HasPrefix(internalEndpoint, "http") {
-			internalEndpoint = "http://" + internalEndpoint
-		}
-
-		urlStr = strings.Replace(urlStr, internalEndpoint, publicBase, 1)
-	}
-
-	return urlStr, nil
+    return parsedPresigned.String(), nil
 }
+
 
 func (s *MinioStorage) PresignGetWithFilename(
 	ctx context.Context,

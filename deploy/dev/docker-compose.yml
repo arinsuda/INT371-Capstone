@@ -1,11 +1,14 @@
-แก้ไขให้ minio ใน docker compose เป็น private ได้ไหม:
+version: "3.9"
+
 services:
+  # ================================
+  # MySQL DATABASE
+  # ================================
   database:
-    env_file:
-      - ./.env
     image: mysql:${MYSQL_VERSION:-8.0}
     container_name: changsure-database-dev
     restart: unless-stopped
+    env_file: ./.env
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -27,7 +30,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} --silent",
+          "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent",
         ]
       interval: 10s
       timeout: 5s
@@ -38,12 +41,14 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ================================
+  # MINIO STORAGE
+  # ================================
   minio:
-    env_file:
-      - ./.env
     image: minio/minio:${MINIO_VERSION:-latest}
     container_name: changsure-minio-dev
     restart: unless-stopped
+    env_file: ./.env
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -56,50 +61,52 @@ services:
       - "9011:9001"
     networks:
       - changsure-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://minio:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # init bucket + เช็คว่า minio ใช้งานได้จริง
+  # ================================
+  # MINIO INITIALIZER
+  # ================================
   minio-init:
+    image: minio/mc
+    container_name: changsure-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file: ./.env
     entrypoint: >
       /bin/sh -c "
       echo 'Waiting for MinIO...';
-      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
-        sleep 2;
-      done;
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
 
-      echo 'Creating bucket if not exists...';
+      echo 'Creating bucket...';
       mc mb -p local/${MINIO_BUCKET} || true;
 
-      echo 'Making bucket private...';
+      echo 'Setting bucket private...';
       mc anonymous set none local/${MINIO_BUCKET};
 
-      echo 'Disabling global anonymous access...';
-      mc admin user disable local anonymous || true;
-
-      echo 'MinIO Private Mode Enabled (bucket + server)';
+      echo 'MinIO Init Completed!';
       exit 0;
       "
-    restart: "no"
-    depends_on:
-      - minio
     networks:
       - changsure-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
+  # ================================
+  # REDIS
+  # ================================
   redis:
-    env_file:
-      - ./.env
     image: redis:${REDIS_VERSION:-7-alpine}
     container_name: changsure-redis-dev
     restart: unless-stopped
+    env_file: ./.env
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_dev:/data
@@ -118,14 +125,16 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ================================
+  # OCR SERVICE
+  # ================================
   ocr:
-    env_file:
-      - ./.env
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
     container_name: changsure-ocr-dev
     restart: unless-stopped
+    env_file: ./.env
     ports:
       - "8001:8000"
     networks:
@@ -136,14 +145,16 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ================================
+  # CORE SERVICE (Golang API)
+  # ================================
   core-service:
-    env_file:
-      - ./.env
     build:
       context: ../../changsure-core-service
       dockerfile: Dockerfile
     container_name: changsure-core-service-dev
     restart: unless-stopped
+    env_file: ./.env
     ports:
       - "8081:8080"
     depends_on:
@@ -163,6 +174,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
+# ================================
+# NETWORKS & VOLUMES
+# ================================
 networks:
   changsure-network:
     driver: bridge
