@@ -136,7 +136,6 @@ func (s *MinioStorage) Put(
 // =============================
 //  Presigned URLs
 // =============================
-// ⭐ Signature-safe version (ไม่แก้ host หลังเซ็น)
 
 func (s *MinioStorage) PresignGet(
 	ctx context.Context,
@@ -158,17 +157,15 @@ func (s *MinioStorage) PresignGet(
 	raw := u.String()
 	fmt.Println("[MINIO RAW PRESIGNED]:", raw)
 
-	// ถ้าไม่มี PublicBaseURL → ใช้ raw
 	if s.cfg == nil || s.cfg.PublicBaseURL == "" {
 		fmt.Println("[MINIO FINAL URL]: (same as RAW)")
 		return raw, nil
 	}
 
-	// 🧩 Extract เฉพาะ path + query แล้ว prepend public host
 	parsed, _ := url.Parse(raw)
 
 	final := fmt.Sprintf("%s%s?%s",
-		s.cfg.PublicBaseURL, // เช่น http://cp25ssa1.sit.kmutt.ac.th:9010
+		s.cfg.PublicBaseURL,
 		parsed.Path,
 		parsed.RawQuery,
 	)
