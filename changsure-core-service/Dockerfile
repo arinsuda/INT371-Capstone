@@ -12,13 +12,11 @@ RUN go mod download
 
 COPY . .
 
+RUN echo "---- DEBUG: SOURCE FILES ----" && find /src -maxdepth 4
+
 ENV CGO_ENABLED=1 GOOS=linux
 RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/api/main.go
 
-
-# ================================
-# FINAL IMAGE
-# ================================
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,6 +31,8 @@ WORKDIR /app
 COPY --from=builder /out/app /app/app
 
 COPY --from=builder /src/seeds /app/seeds
+
+COPY --from=builder /src /app/src
 
 RUN useradd -r -u 10001 appuser && chown -R appuser:appuser /app
 USER appuser
