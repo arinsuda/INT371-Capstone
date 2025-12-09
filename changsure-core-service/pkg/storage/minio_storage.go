@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/url"
 	"time"
-	"strings"
 
 	"changsure-core-service/internal/config"
 
