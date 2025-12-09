@@ -1,4 +1,4 @@
-package address_shared
+package addressshared
 
 type AddressFields struct {
 	HouseNumber *string `gorm:"type:varchar(50)" json:"house_number"`

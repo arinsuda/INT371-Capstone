@@ -19,7 +19,7 @@ var (
 
 type FieldError struct {
 	Field string `json:"field"`
-	Error string `json:"error"`
+	Message string `json:"error"`
 }
 
 func Init(locale string) error {
@@ -62,7 +62,6 @@ func Init(locale string) error {
 	return nil
 }
 
-// ValidateStruct เรียกใช้ในทุกโมดูล
 func ValidateStruct(s any) ([]FieldError, error) {
 	if err := V.Struct(s); err != nil {
 		if verrs, ok := err.(validator.ValidationErrors); ok {
@@ -74,12 +73,12 @@ func ValidateStruct(s any) ([]FieldError, error) {
 				}
 				out = append(out, FieldError{
 					Field: ve.Field(),
-					Error: msg,
+					Message: msg,
 				})
 			}
 			return out, err
 		}
-		return []FieldError{{Field: "", Error: err.Error()}}, err
+		return []FieldError{{Field: "", Message: err.Error()}}, err
 	}
 	return nil, nil
 }

@@ -1,3 +1,4 @@
+แก้ไขให้ minio ใน docker compose เป็น private ได้ไหม:
 services:
   database:
     env_file:
@@ -61,31 +62,32 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # init bucket + เช็คว่า minio ใช้งานได้จริง
   minio-init:
-    env_file:
-      - ./.env
-    image: minio/mc:latest
-    container_name: changsure-minio-init-dev
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        sleep 2;
+      done;
+
+      echo 'Creating bucket if not exists...';
+      mc mb -p local/${MINIO_BUCKET} || true;
+
+      echo 'Making bucket private...';
+      mc anonymous set none local/${MINIO_BUCKET};
+
+      echo 'Disabling global anonymous access...';
+      mc admin user disable local anonymous || true;
+
+      echo 'MinIO Private Mode Enabled (bucket + server)';
+      exit 0;
+      "
+    restart: "no"
     depends_on:
       - minio
     networks:
       - changsure-network
-
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        echo "Waiting for MinIO...";
-        until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
-          sleep 2;
-        done;
-        echo "Creating bucket if not exists...";
-        mc mb -p local/${MINIO_BUCKET:-changsure} || true;
-        mc anonymous set download local/${MINIO_BUCKET:-changsure} || true;
-        mc ls local;
-        echo "MinIO init done.";
-
-    restart: "no"
     logging:
       driver: "json-file"
       options:

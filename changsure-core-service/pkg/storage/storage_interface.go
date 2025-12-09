@@ -14,5 +14,4 @@ type Storage interface {
 	Stat(ctx context.Context, key string) (*ObjectStat, error)
 	Delete(ctx context.Context, key string) error
 	UploadFile(ctx context.Context, r io.Reader, filename, folder string, size int64, contentType string) (string, error)
-	PublicURL(key string) string
 }

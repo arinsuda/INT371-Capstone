@@ -2,6 +2,7 @@ package routes
 
 import (
 	"changsure-core-service/internal/modules/ocr/handler"
+
 	"github.com/gofiber/fiber/v3"
 )
 

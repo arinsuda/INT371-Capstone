@@ -1,4 +1,4 @@
-package address_shared
+package addressshared
 
 type NearbyQuery struct {
 	Lat float64 `json:"lat" validate:"required"`

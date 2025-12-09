@@ -7,21 +7,21 @@ import (
 
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
-	customeraddresses "changsure-core-service/internal/modules/customer_addresses"
-	"changsure-core-service/internal/modules/customer_technicians"
-	"changsure-core-service/internal/modules/customers"
+	customer "changsure-core-service/internal/modules/customer"
+	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
-	"changsure-core-service/internal/modules/provinces"
-	"changsure-core-service/internal/modules/service_categories"
-	"changsure-core-service/internal/modules/services"
-	"changsure-core-service/internal/modules/technician_addresses"
-	"changsure-core-service/internal/modules/technician_badges"
-	"changsure-core-service/internal/modules/technician_service_areas"
-	"changsure-core-service/internal/modules/technician_services"
-	techworks "changsure-core-service/internal/modules/technician_works"
-	"changsure-core-service/internal/modules/technicians"
+	"changsure-core-service/internal/modules/province"
+	"changsure-core-service/internal/modules/service"
+	"changsure-core-service/internal/modules/service_category"
+	"changsure-core-service/internal/modules/technician"
+	"changsure-core-service/internal/modules/technician_address"
+	"changsure-core-service/internal/modules/technician_badge"
+	technicianmatching "changsure-core-service/internal/modules/technician_matching"
+	techworks "changsure-core-service/internal/modules/technician_post"
+	"changsure-core-service/internal/modules/technician_service"
+	"changsure-core-service/internal/modules/technician_service_area"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
@@ -37,55 +37,55 @@ type Container struct {
 	AuthService auth.Service
 	AuthHandler *auth.Handler
 
-	CustomerRepo    customers.Repository
-	CustomerService customers.Service
-	CustomerHandler *customers.Handler
+	CustomerRepo    customer.Repository
+	CustomerService customer.Service
+	CustomerHandler *customer.Handler
 
 	CustomerAddressRepo    customeraddresses.Repository
 	CustomerAddressService customeraddresses.Service
 	CustomerAddressHandler *customeraddresses.Handler
 
-	CustomerTechnicianRepo    customer_technicians.Repository
-	CustomerTechnicianService customer_technicians.Service
-	CustomerTechnicianHandler *customer_technicians.Handler
+	TechnicianMatchingRepo    technicianmatching.Repository
+	TechnicianMatchingService technicianmatching.Service
+	TechnicianMatchingHandler *technicianmatching.Handler
 
-	ProvinceRepo    provinces.Repository
-	ProvinceService provinces.Service
-	ProvinceHandler *provinces.Handler
+	ProvinceRepo    province.Repository
+	ProvinceService province.Service
+	ProvinceHandler *province.Handler
 
-	TechnicianRepo    technicians.Repository
-	TechnicianService technicians.Service
-	TechnicianHandler *technicians.Handler
+	TechnicianRepo    technician.Repository
+	TechnicianService technician.Service
+	TechnicianHandler *technician.Handler
 
-	TechnicianServiceRepo    technician_services.Repository
-	TechnicianServiceService technician_services.Service
-	TechnicianServiceHandler *technician_services.Handler
+	TechnicianServiceRepo    technicianservice.Repository
+	TechnicianServiceService technicianservice.Service
+	TechnicianServiceHandler *technicianservice.Handler
 
-	TechnicianAddressRepo    technician_addresses.Repository
-	TechnicianAddressService technician_addresses.Service
-	TechnicianAddressHandler *technician_addresses.Handler
+	TechnicianAddressRepo    technicianaddress.Repository
+	TechnicianAddressService technicianaddress.Service
+	TechnicianAddressHandler *technicianaddress.Handler
 
-	TechnicianServiceAreaRepo technician_service_areas.Repository
+	TechnicianServiceAreaRepo technicianservicearea.Repository
 
-	ServiceCategoryRepo    service_categories.Repository
-	ServiceCategoryService service_categories.Service
-	ServiceCategoryHandler *service_categories.Handler
+	ServiceCategoryRepo    servicecategory.Repository
+	ServiceCategoryService servicecategory.Service
+	ServiceCategoryHandler *servicecategory.Handler
 
-	ServiceRepo    services.Repository
-	ServiceService services.ServiceSvc
-	ServiceHandler *services.Handler
+	ServiceRepo    service.Repository
+	ServiceService service.ServiceSvc
+	ServiceHandler *service.Handler
 
 	BadgeRepo    badge.Repository
 	BadgeService badge.Service
 	BadgeHandler *badge.RouteBundle
 
-	TechnicianBadgeRepo    technician_badges.Repository
-	TechnicianBadgeService technician_badges.Service
-	TechnicianBadgeHandler *technician_badges.Handler
+	TechnicianBadgeRepo    technicianbadge.Repository
+	TechnicianBadgeService technicianbadge.Service
+	TechnicianBadgeHandler *technicianbadge.Handler
 
-	TechnicianWorkRepo    techworks.Repository
-	TechnicianWorkService techworks.Service
-	TechnicianWorkHandler *techworks.Handler
+	TechnicianPostRepo    techworks.Repository
+	TechnicianPostService techworks.Service
+	TechnicianPostHandler *techworks.Handler
 
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
@@ -121,7 +121,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianWorkModule()
 	c.initTechnicianAddressModule()
 	c.initCustomerAddressModule()
-	c.initCustomerTechnicianModule()
+	c.initTechnicianMatchingModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -166,15 +166,15 @@ func (c *Container) initOCRModule(cfg *config.Config) {
 }
 
 func (c *Container) initCustomerModule() {
-	c.CustomerRepo = customers.NewRepository(c.DB)
-	c.CustomerService = customers.NewService(c.CustomerRepo)
-	c.CustomerHandler = customers.NewHandler(c.CustomerService)
+	c.CustomerRepo = customer.NewRepository(c.DB)
+	c.CustomerService = customer.NewService(c.CustomerRepo)
+	c.CustomerHandler = customer.NewHandler(c.CustomerService)
 }
 
 func (c *Container) initProvinceModule() {
-	c.ProvinceRepo = provinces.NewRepository(c.DB)
-	c.ProvinceService = provinces.NewService(c.ProvinceRepo)
-	c.ProvinceHandler = provinces.NewHandler(c.ProvinceService)
+	c.ProvinceRepo = province.NewRepository(c.DB)
+	c.ProvinceService = province.NewService(c.ProvinceRepo)
+	c.ProvinceHandler = province.NewHandler(c.ProvinceService)
 }
 
 func (c *Container) initCustomerAddressModule() {
@@ -186,41 +186,38 @@ func (c *Container) initCustomerAddressModule() {
 	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
 }
 
-func (c *Container) initCustomerTechnicianModule() {
-	c.CustomerTechnicianRepo = customer_technicians.NewRepository(c.DB)
-	c.CustomerTechnicianService = customer_technicians.NewService(
-		c.CustomerTechnicianRepo,
-		c.TechnicianRepo,
-		c.TechnicianServiceRepo,
-		c.TechnicianServiceAreaRepo,
+func (c *Container) initTechnicianMatchingModule() {
+	c.TechnicianMatchingRepo = technicianmatching.NewRepository(c.DB)
+	c.TechnicianMatchingService = technicianmatching.NewService(
+		c.TechnicianMatchingRepo,
 	)
-	c.CustomerTechnicianHandler = customer_technicians.NewHandler(
-		c.CustomerTechnicianService,
+	c.TechnicianMatchingHandler = technicianmatching.NewHandler(
+		c.TechnicianMatchingService,
 	)
 }
 
 func (c *Container) initTechnicianModule() {
-	c.TechnicianRepo = technicians.NewRepository(c.DB)
-	c.TechnicianServiceAreaRepo = technician_service_areas.NewRepository(c.DB)
-	c.TechnicianService = technicians.NewService(
+	c.TechnicianRepo = technician.NewRepository(c.DB)
+	c.TechnicianServiceAreaRepo = technicianservicearea.NewRepository(c.DB)
+	c.TechnicianService = technician.NewService(
 		c.DB,
 		c.TechnicianRepo,
 		c.TechnicianServiceAreaRepo,
 		c.TechnicianServiceRepo,
 	)
-	c.TechnicianHandler = technicians.NewHandler(c.TechnicianService)
+	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)
 }
 
 func (c *Container) initTechnicianServiceModule() {
-	c.TechnicianServiceRepo = technician_services.NewRepository(c.DB)
-	c.TechnicianServiceService = technician_services.NewService(c.TechnicianServiceRepo)
-	c.TechnicianServiceHandler = technician_services.NewHandler(c.TechnicianServiceService)
+	c.TechnicianServiceRepo = technicianservice.NewRepository(c.DB)
+	c.TechnicianServiceService = technicianservice.NewService(c.TechnicianServiceRepo)
+	c.TechnicianServiceHandler = technicianservice.NewHandler(c.TechnicianServiceService)
 }
 
 func (c *Container) initServiceCategoryModule(cfg *config.Config) {
-	c.ServiceCategoryRepo = service_categories.NewRepository(c.DB)
-	c.ServiceCategoryService = service_categories.NewService(c.ServiceCategoryRepo)
-	c.ServiceCategoryHandler = service_categories.NewHandler(
+	c.ServiceCategoryRepo = servicecategory.NewRepository(c.DB)
+	c.ServiceCategoryService = servicecategory.NewService(c.ServiceCategoryRepo)
+	c.ServiceCategoryHandler = servicecategory.NewHandler(
 		c.ServiceCategoryService,
 		c.Storage,
 		cfg,
@@ -228,9 +225,9 @@ func (c *Container) initServiceCategoryModule(cfg *config.Config) {
 }
 
 func (c *Container) initServiceModule() {
-	c.ServiceRepo = services.NewRepository(c.DB)
-	c.ServiceService = services.NewService(c.ServiceRepo)
-	c.ServiceHandler = services.NewHandler(c.ServiceService)
+	c.ServiceRepo = service.NewRepository(c.DB)
+	c.ServiceService = service.NewService(c.ServiceRepo)
+	c.ServiceHandler = service.NewHandler(c.ServiceService)
 }
 
 func (c *Container) initBadgeModule() {
@@ -240,28 +237,28 @@ func (c *Container) initBadgeModule() {
 }
 
 func (c *Container) initTechnicianBadgeModule() {
-	c.TechnicianBadgeRepo = technician_badges.NewRepository(c.DB)
+	c.TechnicianBadgeRepo = technicianbadge.NewRepository(c.DB)
 
-	c.TechnicianBadgeService = technician_badges.NewService(
+	c.TechnicianBadgeService = technicianbadge.NewService(
 		c.TechnicianBadgeRepo,
 		c.TechnicianRepo,
 	)
 
-	c.TechnicianBadgeHandler = technician_badges.NewHandler(c.TechnicianBadgeService)
+	c.TechnicianBadgeHandler = technicianbadge.NewHandler(c.TechnicianBadgeService)
 }
 
 func (c *Container) initTechnicianWorkModule() {
-	c.TechnicianWorkRepo = techworks.NewRepository(c.DB)
-	c.TechnicianWorkService = techworks.NewService(c.TechnicianWorkRepo)
-	c.TechnicianWorkHandler = techworks.NewHandler(c.TechnicianWorkService)
+	c.TechnicianPostRepo = techworks.NewRepository(c.DB)
+	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo)
+	c.TechnicianPostHandler = techworks.NewHandler(c.TechnicianPostService)
 }
 
 func (c *Container) initTechnicianAddressModule() {
-	c.TechnicianAddressRepo = technician_addresses.NewRepository(c.DB)
-	c.TechnicianAddressService = technician_addresses.NewService(
+	c.TechnicianAddressRepo = technicianaddress.NewRepository(c.DB)
+	c.TechnicianAddressService = technicianaddress.NewService(
 		c.TechnicianAddressRepo,
 	)
-	c.TechnicianAddressHandler = technician_addresses.NewHandler(c.TechnicianAddressService)
+	c.TechnicianAddressHandler = technicianaddress.NewHandler(c.TechnicianAddressService)
 }
 
 func AllModels() []interface{} {
@@ -269,20 +266,20 @@ func AllModels() []interface{} {
 
 	models = append(models, auth.Models()...)
 
-	models = append(models, provinces.Models()...)
-	models = append(models, service_categories.Models()...)
-	models = append(models, services.Models()...)
-	models = append(models, customers.Models()...)
-	models = append(models, technicians.Models()...)
+	models = append(models, province.Models()...)
+	models = append(models, servicecategory.Models()...)
+	models = append(models, service.Models()...)
+	models = append(models, customer.Models()...)
+	models = append(models, technician.Models()...)
 
 	models = append(models, customeraddresses.Models()...)
-	models = append(models, technician_services.Models()...)
-	models = append(models, technician_service_areas.Models()...)
+	models = append(models, technicianservice.Models()...)
+	models = append(models, technicianservicearea.Models()...)
 
 	models = append(models, badge.Models()...)
-	models = append(models, technician_badges.Models()...)
+	models = append(models, technicianbadge.Models()...)
 	models = append(models, techworks.Models()...)
-	models = append(models, technician_addresses.Models()...)
+	models = append(models, technicianaddress.Models()...)
 
 	return models
 }
