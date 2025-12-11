@@ -6,39 +6,15 @@ import 'package:provider/provider.dart';
 import '../../../mockDB/province.dart';
 import '../../../mockDB/services_categories.dart';
 import '../../../state/bottom_bar_state.dart';
+import '../../../core/profile/editProfile/phone_formatter.dart';
 import 'package:flutter/services.dart';
-
-class _PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final text = newValue.text.replaceAll('-', '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(text: '');
-    }
-
-    if (text[0] != '0') {
-      return oldValue;
-    }
-
-    String formatted = '';
-
-    for (int i = 0; i < text.length && i < 10; i++) {
-      if (i == 3 || i == 6) {
-        formatted += '-';
-      }
-      formatted += text[i];
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../core/profile/editProfile/text_field.dart';
+import 'editProfile/price_type.dart';
+import 'editProfile/province_checkbox_list.dart';
+import 'editProfile/service_categories.dart';
+import 'editProfile/small_price_input.dart';
+import 'editProfile/text_area.dart';
+import 'editProfile/search_bar.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -62,11 +38,11 @@ class _EditProfileState extends State<EditProfile> {
   final TextEditingController phoneController = TextEditingController(
     text: '088-888-8888',
   );
-  final TextEditingController _searchController = TextEditingController();
   final TextEditingController aboutController = TextEditingController(
     text:
         'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน',
   );
+  final TextEditingController _searchController = TextEditingController();
 
   Map<String, bool> _selectedProvinces = {};
   String _searchText = '';
@@ -287,7 +263,7 @@ class _EditProfileState extends State<EditProfile> {
               ),
               const SizedBox(height: 24),
 
-              _buildTextField(
+              buildTextField(
                 "ชื่อ",
                 nameController,
                 validator: (v) {
@@ -297,7 +273,7 @@ class _EditProfileState extends State<EditProfile> {
                 },
               ),
 
-              _buildTextField(
+              buildTextField(
                 "นามสกุล",
                 lastNameController,
                 validator: (v) {
@@ -306,7 +282,7 @@ class _EditProfileState extends State<EditProfile> {
                 },
               ),
 
-              _buildTextField(
+              buildTextField(
                 "อีเมล",
                 emailController,
                 validator: (v) {
@@ -318,14 +294,14 @@ class _EditProfileState extends State<EditProfile> {
                 },
               ),
 
-              _buildTextField(
+              buildTextField(
                 "เบอร์โทร",
                 phoneController,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(10),
-                  _PhoneNumberFormatter(),
+                  PhoneNumberFormatter(),
                 ],
                 validator: (v) {
                   if (v == null || v.isEmpty) return "กรุณากรอกเบอร์โทร";
@@ -336,7 +312,7 @@ class _EditProfileState extends State<EditProfile> {
                 },
               ),
 
-              _buildTextArea("เกี่ยวกับ", aboutController),
+              buildTextArea("เกี่ยวกับ", aboutController),
 
               const SizedBox(height: 12),
               const Padding(
@@ -352,12 +328,20 @@ class _EditProfileState extends State<EditProfile> {
               const SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _buildProvinceSearchBar(),
+                child: buildProvinceSearchBar(_searchController),
               ),
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _buildProvinceCheckboxList(),
+                child: buildProvinceCheckboxList(
+                  context,
+                  _searchText,
+                  _selectedProvinces,
+                  () {
+                    setState(() {}); // ✅ เพิ่ม setState เพื่อ rebuild UI
+                    _checkChanged();
+                  },
+                ),
               ),
               // แสดง error สำหรับ Province
               if (_provinceError != null)
@@ -386,7 +370,38 @@ class _EditProfileState extends State<EditProfile> {
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Column(children: _buildServiceCategories()),
+                child: Column(
+                  children: buildServiceCategories(
+                    context,
+                    mockServiceCategories,
+                    _selectedServices,
+                    _priceType,
+                    _minPriceControllers,
+                    _maxPriceControllers,
+                    _fixPriceControllers,
+                    _priceErrors,
+                    (sub) {
+                      // ✅ แก้: เพิ่ม setState รอบนอกและเรียก _checkChanged หลัง setState
+                      setState(() {
+                        _selectedServices[sub] =
+                            !(_selectedServices[sub] ?? false);
+                      });
+                      _checkChanged();
+                    },
+                    (sub, newType) {
+                      // ✅ แก้: รับ parameter newType มาตรงๆ แทนการ toggle
+                      setState(() {
+                        _priceType[sub] = newType;
+                      });
+                      _checkChanged();
+                    },
+                    () {
+                      // ✅ แก้: เพิ่ม setState ก่อนเรียก _checkChanged
+                      setState(() {});
+                      _checkChanged();
+                    },
+                  ),
+                ),
               ),
               // แสดง error สำหรับ Service
               if (_serviceError != null)
@@ -433,449 +448,6 @@ class _EditProfileState extends State<EditProfile> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField(
-    String label,
-    TextEditingController controller, {
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.colorTertiaryText,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: controller,
-            validator: validator,
-            keyboardType: keyboardType,
-            inputFormatters: inputFormatters,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.colorError,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.primaryBorder,
-                  width: 1.5,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.colorError,
-                  width: 1.5,
-                ),
-              ),
-              errorStyle: const TextStyle(
-                color: AppColors.colorError,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextArea(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.colorTertiaryText,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            maxLength: 500,
-            controller: controller,
-            maxLines: 5,
-            textAlignVertical: TextAlignVertical.top,
-            decoration: InputDecoration(
-              hintText: 'เขียนรายละเอียดเกี่ยวกับตัวคุณ...',
-              hintStyle: const TextStyle(color: Color(0xFFAAAAAA)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.primaryBorder,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProvinceSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD9D9D9)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 4),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'ค้นหา...',
-                hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          const Icon(Icons.search, color: Color(0xFFAAAAAA), size: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProvinceCheckboxList() {
-    List<String> filtered = mockProvinces
-        .where((p) => p.toLowerCase().contains(_searchText.toLowerCase()))
-        .toList();
-    List<String> checked =
-        filtered.where((p) => _selectedProvinces[p] == true).toList()..sort();
-    List<String> unchecked =
-        filtered.where((p) => _selectedProvinces[p] != true).toList()..sort();
-    List<String> displayList = [...checked, ...unchecked];
-    if (_searchText.isEmpty) displayList = displayList.take(10).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FE),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: displayList.map((province) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 0),
-            child: Theme(
-              data: Theme.of(
-                context,
-              ).copyWith(unselectedWidgetColor: AppColors.primaryBorder),
-              child: CheckboxListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: const BorderSide(
-                    color: AppColors.primaryBorder,
-                    width: 1,
-                  ),
-                ),
-                title: Text(
-                  province,
-                  style: const TextStyle(
-                    color: AppColors.colorTertiaryText,
-                    fontSize: 14,
-                  ),
-                ),
-                value: _selectedProvinces[province] ?? false,
-                onChanged: (val) {
-                  setState(() {
-                    _selectedProvinces[province] = val ?? false;
-                    _checkChanged();
-                  });
-                },
-                activeColor: const Color(0xFF3071C7),
-                controlAffinity: ListTileControlAffinity.trailing,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  List<Widget> _buildServiceCategories() {
-    return mockServiceCategories.asMap().entries.map((entry) {
-      int index = entry.key;
-      ServiceCategory category = entry.value;
-      BorderRadius radius = BorderRadius.zero;
-      if (index == 0)
-        radius = const BorderRadius.vertical(top: Radius.circular(8));
-      if (index == mockServiceCategories.length - 1)
-        radius = const BorderRadius.vertical(bottom: Radius.circular(8));
-
-      return Container(
-        margin: const EdgeInsets.only(bottom: 0),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE1EFFA),
-          borderRadius: radius,
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: Text(
-              category.name,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            iconColor: AppColors.primaryHover,
-            collapsedIconColor: AppColors.primaryHover,
-            backgroundColor: Colors.transparent,
-            childrenPadding: const EdgeInsets.symmetric(
-              horizontal: 0,
-              vertical: 0,
-            ),
-            children: category.subServices.map(_buildSubServiceItem).toList(),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildSubServiceItem(String subService) {
-    bool selected = _selectedServices[subService] ?? false;
-    String? priceError = _priceErrors[subService];
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.primaryBGHover : AppColors.primaryBG,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CheckboxListTile(
-            value: selected,
-            onChanged: (val) {
-              setState(() {
-                _selectedServices[subService] = val ?? false;
-                _checkChanged();
-              });
-            },
-            title: Text(
-              subService,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.colorTertiaryText,
-              ),
-            ),
-            controlAffinity: ListTileControlAffinity.trailing,
-            activeColor: const Color(0xFF3071C7),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          if (selected)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (_priceType[subService] == "range") ...[
-                        Expanded(
-                          child: TextField(
-                            controller: _minPriceControllers[subService],
-                            decoration: _buildSmallPriceInputDecoration(
-                              "Min Price",
-                              hasError: priceError != null,
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (_) {
-                              _checkChanged();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_forward,
-                          color: AppColors.primaryBorderHover,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _maxPriceControllers[subService],
-                            decoration: _buildSmallPriceInputDecoration(
-                              "Max Price",
-                              hasError: priceError != null,
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (_) {
-                              _checkChanged();
-                            },
-                          ),
-                        ),
-                      ],
-                      if (_priceType[subService] == "fix")
-                        Expanded(
-                          child: TextField(
-                            controller: _fixPriceControllers[subService],
-                            textAlign: TextAlign.right,
-                            decoration: _buildSmallPriceInputDecoration(
-                              "Price",
-                              hasError: priceError != null,
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (_) {
-                              // ⭐ เคลียร์ error เมื่อพิมพ์
-                              setState(() {
-                                _priceErrors[subService] = null;
-                              });
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                  // ⭐ แสดง error สำหรับ price
-                  if (priceError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        priceError,
-                        style: const TextStyle(
-                          color: AppColors.colorError,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          if (selected)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  _buildPriceTypeChip(subService, "range", "Range price"),
-                  const SizedBox(width: 8),
-                  _buildPriceTypeChip(subService, "fix", "Fix price"),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _buildSmallPriceInputDecoration(
-    String hint, {
-    bool hasError = false,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: AppColors.primaryBorder, fontSize: 14),
-      contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(
-          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
-        ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(
-          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(
-          color: hasError ? AppColors.colorError : AppColors.primaryBorderHover,
-          width: 2,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriceTypeChip(String subService, String type, String label) {
-    bool selected = _priceType[subService] == type;
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: selected
-              ? AppColors.colorSecondaryText
-              : AppColors.primaryBorderHover,
-        ),
-      ),
-      selected: selected,
-      onSelected: (_) {
-        setState(() {
-          _priceType[subService] = type;
-          // ⭐ เคลียร์ราคาเมื่อเปลี่ยน type
-          if (type == "fix") {
-            _minPriceControllers[subService]?.clear();
-            _maxPriceControllers[subService]?.clear();
-          } else {
-            _fixPriceControllers[subService]?.clear();
-          }
-          _priceErrors[subService] = null;
-          _checkChanged();
-        });
-      },
-      backgroundColor: AppColors.colorSecondaryText,
-      selectedColor: AppColors.primaryBorderHover,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: AppColors.primarySecondaryBorder),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      showCheckmark: false,
     );
   }
 }

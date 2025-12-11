@@ -1,38 +1,9 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
 import '../../../core/button/primary_button.dart';
 import '../../../core/theme.dart';
-import '../../../state/bottom_bar_state.dart';
-
-class _PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    // เอาเฉพาะตัวเลข
-    String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    // จำกัดให้ไม่เกิน 10 ตัว
-    if (digits.length > 10) {
-      digits = digits.substring(0, 10);
-    }
-
-    // Format 099-999-9999
-    String formatted = '';
-    for (int i = 0; i < digits.length; i++) {
-      if (i == 3 || i == 6) formatted += '-';
-      formatted += digits[i];
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../core/profile/editProfile/phone_formatter.dart';
+import '../../../core/profile/editProfile/text_field.dart';
 
 
 class EditProfile extends StatefulWidget {
@@ -64,80 +35,6 @@ class _EditProfileState extends State<EditProfile> {
     final isValid = _formKey.currentState?.validate() ?? false;
     isFormValid.value = isValid;
   }
-
-  Widget _buildTextField(
-      String label,
-      TextEditingController controller, {
-        String? Function(String?)? validator,
-        TextInputType? keyboardType,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.colorTertiaryText,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: controller,
-            validator: validator,
-            keyboardType: keyboardType,
-            inputFormatters: inputFormatters,
-            onChanged: (_) => _validateForm(),
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.colorStroke),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.colorError,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.primaryBorder,
-                  width: 1.5,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: AppColors.colorError,
-                  width: 1.5,
-                ),
-              ),
-              errorStyle: const TextStyle(
-                color: AppColors.colorError,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -197,17 +94,18 @@ class _EditProfileState extends State<EditProfile> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    _buildTextField(
+                    buildTextField(
                       "ชื่อ",
                       nameController,
                       validator: (v) {
                         if (v == null || v.isEmpty) return "กรุณากรอกชื่อ";
-                        if (v.length < 2) return "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร";
+                        if (v.length < 2)
+                          return "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร";
                         return null;
                       },
                     ),
 
-                    _buildTextField(
+                    buildTextField(
                       "นามสกุล",
                       lastNameController,
                       validator: (v) {
@@ -216,7 +114,7 @@ class _EditProfileState extends State<EditProfile> {
                       },
                     ),
 
-                    _buildTextField(
+                    buildTextField(
                       "อีเมล",
                       emailController,
                       validator: (v) {
@@ -228,23 +126,21 @@ class _EditProfileState extends State<EditProfile> {
                       },
                     ),
 
-                    _buildTextField(
+                    buildTextField(
                       "เบอร์โทร",
                       phoneController,
                       keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        _PhoneNumberFormatter(),
-                      ],
+                      inputFormatters: [PhoneNumberFormatter()],
                       validator: (v) {
                         if (v == null || v.isEmpty) return "กรุณากรอกเบอร์โทร";
-                        if (!RegExp(r"^[0-9]{3}-[0-9]{3}-[0-9]{4}$").hasMatch(v)) {
+                        if (!RegExp(
+                          r"^[0-9]{3}-[0-9]{3}-[0-9]{4}$",
+                        ).hasMatch(v)) {
                           return "กรุณากรอกเบอร์โทรให้ถูกต้อง";
                         }
                         return null;
                       },
                     ),
-
-
                   ],
                 ),
               ),
@@ -254,18 +150,19 @@ class _EditProfileState extends State<EditProfile> {
                   horizontal: 12,
                   vertical: 0,
                 ),
-                child:ValueListenableBuilder<bool>(
+                child: ValueListenableBuilder<bool>(
                   valueListenable: isFormValid,
                   builder: (context, valid, _) {
                     return PrimaryButton(
                       text: "บันทึกการแก้ไข",
-                      onPressed: valid ? () {
-                        // SAVE HERE
-                      } : null, // <-- disable button when invalid
+                      onPressed: valid
+                          ? () {
+                              // SAVE HERE
+                            }
+                          : null, // <-- disable button when invalid
                     );
                   },
                 ),
-
               ),
             ],
           ),
@@ -274,5 +171,3 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 }
-
-
