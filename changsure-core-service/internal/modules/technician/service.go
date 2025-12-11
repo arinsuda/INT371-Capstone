@@ -17,9 +17,9 @@ import (
 	addr "changsure-core-service/internal/modules/technician_service_area"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
 
-	"changsure-core-service/pkg/security"
+	// "changsure-core-service/pkg/security"
 	"changsure-core-service/pkg/storage"
-	"changsure-core-service/pkg/utils"
+	// "changsure-core-service/pkg/utils"
 )
 
 var (
@@ -80,14 +80,14 @@ func (s *service) checkOwnTechnician(ctx context.Context, techID uint) error {
 		return ErrUnauthorized
 	}
 
-	requesterID := utils.GetUserIDFromContext(ctx)
-	if requesterID == 0 {
-		return ErrUnauthorized
-	}
+	// requesterID := utils.GetUserIDFromContext(ctx)
+	// if requesterID == 0 {
+	// 	return ErrUnauthorized
+	// }
 
-	if err := security.CheckOwner(techID, requesterID); err != nil {
-		return err
-	}
+	// if err := security.CheckOwner(techID, requesterID); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
