@@ -1,3 +1,4 @@
+import 'package:changsure/module/home/booking/booking_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/button/primary_button.dart';
@@ -259,7 +260,12 @@ class TechnicianCardCTM extends StatelessWidget {
                     child: PrimaryButton(
                       text: "จองช่าง",
                       onPressed: () {
-                        // TODO: จองช่าง
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => (BookingPage()),
+                          ),
+                        );
                       },
                       padding: const EdgeInsets.symmetric(vertical: 5),
                       fontSize: 14,

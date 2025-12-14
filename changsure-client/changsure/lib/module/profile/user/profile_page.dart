@@ -22,7 +22,7 @@ class UserProfile extends StatefulWidget {
 class _ProfileState extends State<UserProfile> {
   final items = [
     {'label': 'ที่อยู่ของฉัน', 'icon': Icons.pin_drop_outlined},
-    {'label': 'ประวัติการรับบริการ', 'icon': Icons.history},
+    // {'label': 'ประวัติการรับบริการ', 'icon': Icons.history},
   ];
 
   @override
@@ -85,14 +85,14 @@ class _ProfileState extends State<UserProfile> {
                                 Provider.of<BottomBarState>(
                                   context,
                                   listen: false,
-                                ).setSubPage(const AddressPage());
-                              } else if (item['label'] == 'ประวัติการรับบริการ') {
-                                // ทำอย่างอื่น ถ้ามี
-                                Provider.of<BottomBarState>(
-                                  context,
-                                  listen: false,
-                                ).setSubPage(const HistoryServicePage());
-                              }
+                                ).setSubPage(const AddressPage());}
+                              //  else if (item['label'] == 'ประวัติการรับบริการ') {
+                              //   // ทำอย่างอื่น ถ้ามี
+                              //   Provider.of<BottomBarState>(
+                              //     context,
+                              //     listen: false,
+                              //   ).setSubPage(const HistoryServicePage());
+                              // }
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 12),

@@ -205,7 +205,9 @@ class _AddressState extends State<Address> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             children: [
-              Header(header: "ดูที่อยู่ของฉัน"),
+              Header(header: "ดูที่อยู่ของฉัน" , onPressed: () {
+                Navigator.pop(context);
+              },),
               const SizedBox(height: 16),
 
               Padding(

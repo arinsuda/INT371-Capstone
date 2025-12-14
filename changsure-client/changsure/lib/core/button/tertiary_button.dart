@@ -30,7 +30,8 @@ class _TertiaryButtonState extends State<TertiaryButton> {
   Widget build(BuildContext context) {
     final bool isDisabled = widget.onPressed == null;
 
-    return GestureDetector(
+    return
+      GestureDetector(
       onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
       onTapUp: isDisabled
           ? null
@@ -70,22 +71,11 @@ class _TertiaryButtonState extends State<TertiaryButton> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // // Stroke
-            // Container(
-            //   decoration: BoxDecoration(
-            //     borderRadius: BorderRadius.circular(widget.borderRadius),
-            //     border: Border.all(
-            //       color: Colors.white.withOpacity(0.12),
-            //       width: 2,
-            //     ),
-            //   ),
-            // ),
-
             // Text
             Text(
               widget.text,
               style: TextStyle(
-                fontSize: widget.fontSize, // ← fontSize จากผู้ใช้
+                fontSize: widget.fontSize,
                 color:
                 isDisabled ? AppColors.primaryBorder : AppColors.primaryText,
               ),
