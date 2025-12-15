@@ -82,9 +82,14 @@ func (h *Handler) GetCustomerAddress(c fiber.Ctx) error {
 
 	addr, err := h.service.GetCustomerAddress(ctx, addrID, custID)
 	if err != nil {
-		if errors.Is(err, addressshared.ErrAddressNotFound) {
+		if errors.Is(err, ErrNotFound) {
 			return customErr.NotFound(c, "address not found")
 		}
+
+		if errors.Is(err, addressshared.ErrUnauthorized) {
+			return customErr.Forbidden(c, "access denied")
+		}
+
 		return customErr.InternalError(c, "failed to get address", err)
 	}
 
@@ -148,7 +153,19 @@ func (h *Handler) DeleteCustomerAddress(c fiber.Ctx) error {
 	ctx := utils.InjectUserIDIntoContext(c.Context(), custID)
 
 	if err := h.service.DeleteCustomerAddress(ctx, addrID, custID); err != nil {
-		return customErr.InternalError(c, "failed to delete address", err)
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return customErr.NotFound(c, "address not found")
+
+		case errors.Is(err, ErrCannotDeletePrimary):
+			return customErr.BadRequest(c, "cannot delete primary address")
+
+		case errors.Is(err, addressshared.ErrUnauthorized):
+			return customErr.Forbidden(c, "access denied")
+
+		default:
+			return customErr.InternalError(c, "failed to delete address", err)
+		}
 	}
 
 	return c.JSON(fiber.Map{

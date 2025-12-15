@@ -9,7 +9,10 @@ import (
 	"changsure-core-service/pkg/utils"
 )
 
-var ErrAddressNotFound = errors.New("address not found")
+var (
+	ErrAddressNotFound     = errors.New("address not found")
+	ErrCannotDeletePrimary = errors.New("cannot delete primary address")
+)
 
 type Service interface {
 	Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddress, error)
@@ -126,6 +129,15 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 
 	if err := s.checkOwn(ctx, techID); err != nil {
 		return err
+	}
+
+	addr, err := s.repo.Get(ctx, id, techID)
+	if err != nil {
+		return ErrAddressNotFound
+	}
+
+	if addr.IsPrimary {
+		return ErrCannotDeletePrimary
 	}
 
 	return s.repo.Delete(ctx, id, techID)
