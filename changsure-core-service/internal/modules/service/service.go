@@ -8,6 +8,8 @@ type ServiceSvc interface {
 	Get(ctx context.Context, id uint) (*Service, error)
 	List(ctx context.Context, q ListQuery) ([]Service, int64, error)
 	Delete(ctx context.Context, id uint) error
+
+	GetAllServiceNoPagination(ctx context.Context, q ListQuery) ([]Service, error)
 }
 
 type service struct{ repo Repository }
@@ -76,6 +78,13 @@ func (s *service) Update(ctx context.Context, id uint, in UpdateServiceRequest) 
 
 func (s *service) Get(ctx context.Context, id uint) (*Service, error) {
 	return s.repo.Get(ctx, id)
+}
+
+func (s *service) GetAllServiceNoPagination(ctx context.Context, q ListQuery) ([]Service, error) {
+	q.SortBy = "id"
+	q.SortOrder = "asc"
+
+	return s.repo.GetAll(ctx, q)
 }
 
 func (s *service) List(ctx context.Context, q ListQuery) ([]Service, int64, error) {
