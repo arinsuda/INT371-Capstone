@@ -48,6 +48,7 @@ dependencies:
   http: ^1.1.0
   dropdown_button2: ^2.3.9
   flutter_markdown: ^0.7.7+1
+  table_calendar: ^3.0.9
 
 flutter_icons:
   android: true

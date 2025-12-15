@@ -5,8 +5,13 @@ import 'package:changsure/core/theme.dart';
 import 'package:provider/provider.dart';
 import '../core/footer/footer_bar.dart';
 import '../state/bottom_bar_state.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await initializeDateFormatting('th_TH', null);
   runApp(
     MultiProvider(
       providers: [

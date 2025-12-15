@@ -16,6 +16,10 @@ class ServiceDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
+    print('serviceName => ${data.name}');
+    print('category => ${data.category}');
+
     // ดึงหมวดของบริการนี้
     final category = mockServiceCategories.firstWhere(
       (cat) =>
@@ -303,6 +307,7 @@ class ServiceDetail extends StatelessWidget {
         child: PrimaryButton(
           text: "จองคิว",
           onPressed: () {
+            final rootContext = context;
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
@@ -466,17 +471,18 @@ class ServiceDetail extends StatelessWidget {
                                             // disable ถ้ายังไม่ได้เลือก
                                             onPressed: selectedIndex != -1
                                                 ? () {
+
                                                     Navigator.pop(context);
                                                     if (selectedIndex == 0) {
                                                       Navigator.push(
-                                                        context,
+                                                        rootContext,
                                                         MaterialPageRoute(
                                                           builder: (context) =>
                                                               SystemChoose(
                                                                 serviceName:
                                                                     data.name,
                                                                 category:
-                                                                    'ทาสี',
+                                                                    data.category,
                                                               ),
                                                         ),
                                                       );
@@ -490,7 +496,7 @@ class ServiceDetail extends StatelessWidget {
                                                                 serviceName:
                                                                     data.name,
                                                                 category:
-                                                                    'ทาสี',
+                                                                    data.category,
                                                               ),
                                                         ),
                                                       );

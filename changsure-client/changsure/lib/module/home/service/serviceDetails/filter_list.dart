@@ -266,7 +266,8 @@ class _FilterListState extends State<FilterList> {
 
     return GestureDetector(
       onTap: () => onTap(label),
-      child: Container(
+      child:
+      Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
