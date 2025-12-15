@@ -14,6 +14,7 @@ var (
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidInput       = errors.New("invalid input")
 	ErrUnauthorizedOwner  = errors.New("forbidden: not owner of this resource")
+	ErrAccessDenied	  = errors.New("access denied")
 )
 
 type Service interface {

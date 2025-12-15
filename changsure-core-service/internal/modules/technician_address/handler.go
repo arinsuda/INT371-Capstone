@@ -145,10 +145,16 @@ func (h *Handler) DeleteAddress(c fiber.Ctx) error {
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
 	if err := h.service.Delete(ctx, uint(addrID), techID); err != nil {
-		if errors.Is(err, addressshared.ErrAddressNotFound) {
+		switch {
+		case errors.Is(err, ErrAddressNotFound):
 			return customErr.NotFound(c, "address not found")
+
+		case errors.Is(err, ErrCannotDeletePrimary):
+			return customErr.BadRequest(c, "cannot delete primary address")
+
+		default:
+			return customErr.InternalError(c, "failed to delete address", err)
 		}
-		return customErr.InternalError(c, "failed to delete address", err)
 	}
 
 	return c.JSON(fiber.Map{

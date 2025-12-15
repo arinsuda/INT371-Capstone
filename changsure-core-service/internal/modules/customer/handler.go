@@ -1,6 +1,7 @@
 package customers
 
 import (
+	utils "changsure-core-service/pkg/utils"
 	"errors"
 	"net/http"
 	"strconv"
@@ -45,14 +46,25 @@ func (h *Handler) GetProfile(c fiber.Ctx) error {
 		})
 	}
 
-	customer, err := h.service.GetProfile(c.Context(), customerID)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), customerID)
+
+	customer, err := h.service.GetProfile(ctx, customerID)
+
 	if err != nil {
-		if err == ErrCustomerNotFound {
+		if errors.Is(err, ErrAccessDenied) {
+			return c.Status(http.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": "Access denied",
+			})
+		}
+
+		if errors.Is(err, ErrCustomerNotFound) {
 			return c.Status(http.StatusNotFound).JSON(fiber.Map{
 				"success": false,
 				"message": "Customer not found",
 			})
 		}
+
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to get profile",
@@ -82,16 +94,22 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 		})
 	}
 
-	customer, err := h.service.UpdateProfile(c.Context(), customerID, &req)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), customerID)
+
+	customer, err := h.service.UpdateProfile(ctx, customerID, &req)
 	if err != nil {
 		switch {
-		case err == ErrCustomerNotFound:
+		case errors.Is(err, ErrCustomerNotFound):
 			return c.Status(http.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Customer not found"})
-		case err == ErrPhoneAlreadyExists:
+
+		case errors.Is(err, ErrUnauthorizedOwner):
+			return c.Status(http.StatusForbidden).JSON(fiber.Map{"success": false, "message": "Forbidden: Access denied"})
+
+		case errors.Is(err, ErrPhoneAlreadyExists):
 			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Phone number already exists"})
-		case err == ErrEmailAlreadyExists:
+		case errors.Is(err, ErrEmailAlreadyExists):
 			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Email already exists"})
-		case err == ErrInvalidInput:
+		case errors.Is(err, ErrInvalidInput):
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"success": false, "message": err.Error()})
 		default:
 			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update profile"})
