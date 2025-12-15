@@ -69,6 +69,40 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) ListAllNoPagination(c fiber.Ctx) error {
+	var q ListQuery
+
+	if v := c.Query("category_id"); v != "" {
+		if id, err := toUint(v); err == nil && id > 0 {
+			tmp := uint(id)
+			q.CategoryID = &tmp
+		}
+	}
+
+	if v := c.Query("is_active"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			q.IsActive = &b
+		}
+	}
+
+	items, err := h.svc.GetAllServiceNoPagination(c.Context(), q)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).
+			JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	list := make([]ServiceResponse, 0, len(items))
+	for _, it := range items {
+		list = append(list, MapServiceToResponse(&it))
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"total":   len(list),
+		"data":    list,
+	})
+}
+
 func (h *Handler) List(c fiber.Ctx) error {
 	var q ListQuery
 

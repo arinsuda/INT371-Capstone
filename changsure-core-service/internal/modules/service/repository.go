@@ -13,6 +13,7 @@ type Repository interface {
 	UpdateFields(ctx context.Context, id uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, q ListQuery) ([]Service, int64, error)
+	GetAll(ctx context.Context, q ListQuery) ([]Service, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -29,6 +30,26 @@ func (r *repository) Get(ctx context.Context, id uint) (*Service, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (r *repository) GetAll(ctx context.Context, q ListQuery) ([]Service, error) {
+	db := r.db.WithContext(ctx)
+
+	if q.CategoryID != nil {
+		db = db.Where("category_id = ?", *q.CategoryID)
+	}
+	if q.IsActive != nil {
+		db = db.Where("is_active = ?", *q.IsActive)
+	}
+
+	db = db.Order("id asc")
+
+	var items []Service
+	if err := db.Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 func (r *repository) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
