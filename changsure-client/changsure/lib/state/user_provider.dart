@@ -1,7 +1,9 @@
 import 'package:changsure/data/services/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/data/models/user/user_model.dart';
+import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
+import 'package:changsure/data/services/address_service.dart';
+import 'package:changsure/data/models/address_model.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();
@@ -46,4 +48,6 @@ class UserNotifier extends Notifier<UserModel?> {
       print("❌ Refresh Error: $e");
     }
   }
+
+  
 }

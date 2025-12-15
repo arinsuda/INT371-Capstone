@@ -1,4 +1,4 @@
-import 'package:changsure/data/models/user/user_model.dart';
+import 'package:changsure/data/models/users/users_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

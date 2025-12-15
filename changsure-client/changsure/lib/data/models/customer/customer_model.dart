@@ -1,5 +1,4 @@
-// lib/data/models/customer_model.dart
-
+import 'package:changsure/data/models/address_model.dart';
 class CustomerModel {
   final int id;
   final String firstName;
@@ -9,7 +8,7 @@ class CustomerModel {
   final String? avatarUrl;
 
   // ข้อมูลที่อยู่ (Nested List)
-  final List<CustomerAddress> addresses;
+  final List<AddressModel> addresses;
 
   CustomerModel({
     required this.id,
@@ -34,46 +33,9 @@ class CustomerModel {
 
       addresses:
           (json['addresses'] as List<dynamic>?)
-              ?.map((e) => CustomerAddress.fromJson(e))
+              ?.map((e) => AddressModel.fromJson(e))
               .toList() ??
           [],
-    );
-  }
-}
-
-// --- Sub-Class: ที่อยู่ลูกค้า ---
-class CustomerAddress {
-  final int id;
-  final String houseNumber;
-  final String subDistrict; // แขวง/ตำบล
-  final String district; // เขต/อำเภอ
-  final String province; // จังหวัด
-  final String postalCode;
-  final bool isPrimary;
-
-  CustomerAddress({
-    required this.id,
-    required this.houseNumber,
-    required this.subDistrict,
-    required this.district,
-    required this.province,
-    required this.postalCode,
-    this.isPrimary = false,
-  });
-
-  // สร้าง String ที่อยู่เต็มรูปแบบ
-  String get fullAddress =>
-      '$houseNumber ต.$subDistrict อ.$district จ.$province $postalCode';
-
-  factory CustomerAddress.fromJson(Map<String, dynamic> json) {
-    return CustomerAddress(
-      id: json['id'] ?? 0,
-      houseNumber: json['house_number'] ?? '',
-      subDistrict: json['sub_district'] ?? '',
-      district: json['district'] ?? '',
-      province: json['province'] ?? '',
-      postalCode: json['postal_code'] ?? '',
-      isPrimary: json['is_primary'] ?? false,
     );
   }
 }

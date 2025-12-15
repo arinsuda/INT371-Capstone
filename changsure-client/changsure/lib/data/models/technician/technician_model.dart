@@ -1,4 +1,5 @@
 import 'package:changsure/data/models/master_data_models.dart';
+import 'package:changsure/data/models/address_model.dart';
 
 class TechnicianModel {
   final int id;
@@ -17,6 +18,7 @@ class TechnicianModel {
   final List<ProvinceModel> provinces;
   final List<TechnicianService> services;
   final List<BadgeModel> badges;
+  final List<AddressModel> addresses;
 
   TechnicianModel({
     required this.id,
@@ -34,6 +36,7 @@ class TechnicianModel {
     this.provinces = const [],
     this.services = const [],
     this.badges = const [],
+    this.addresses = const [],
   });
 
   String get fullName => '$firstName $lastName';
@@ -73,11 +76,16 @@ class TechnicianModel {
               ?.map((e) => BadgeModel.fromJson(e))
               .toList() ??
           [],
+      addresses:
+          (json['addresses'] as List<dynamic>?)
+              ?.map((e) => AddressModel.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 }
 
-// Sub-Classes 
+// Sub-Classes
 
 class TechnicianService {
   final int serviceId;
