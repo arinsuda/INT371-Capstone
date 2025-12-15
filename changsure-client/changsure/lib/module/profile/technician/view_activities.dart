@@ -1,21 +1,21 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/profile/technician_card.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/activities.dart';
-import '../../../state/bottom_bar_state.dart';
-import 'activities/post_activity.dart';
+import '../../../state/bottom_nav_provider.dart';
 
-class ViewActivities extends StatefulWidget {
+class ViewActivities extends ConsumerStatefulWidget {
   const ViewActivities({super.key});
 
   @override
-  State<ViewActivities> createState() => _ViewActivitiesState();
+  ConsumerState<ViewActivities> createState() => _ViewActivitiesState();
 }
 
-class _ViewActivitiesState extends State<ViewActivities> {
+class _ViewActivitiesState extends ConsumerState<ViewActivities> {
   bool _isPressed = false;
 
   @override
@@ -36,10 +36,11 @@ class _ViewActivitiesState extends State<ViewActivities> {
                   onTapDown: (_) => setState(() => _isPressed = true),
                   onTapUp: (_) {
                     setState(() => _isPressed = false);
-                    Provider.of<BottomBarState>(
-                      context,
-                      listen: false,
-                    ).setSubPage(const PostActivity());
+                    ref
+                        .read(bottomSubPageProvider.notifier)
+                        .state = const SubPageConfig(
+                      page: BottomSubPage.technicianPostActivity,
+                    );
                   },
                   onTapCancel: () => setState(() => _isPressed = false),
                   child: Container(
@@ -96,11 +97,9 @@ class _ViewActivitiesState extends State<ViewActivities> {
               padding: const EdgeInsets.all(6),
               child: GridView.builder(
                 shrinkWrap: true,
-                // ให้ GridView ขยายตามจำนวน item
                 physics: const NeverScrollableScrollPhysics(),
-                // ป้องกัน scroll ซ้อน
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 คอลัมน์
+                  crossAxisCount: 2,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 12,
                   childAspectRatio: 0.8,

@@ -1,27 +1,19 @@
-import 'package:changsure/module/auth/login.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:changsure/core/theme.dart';
-import 'package:provider/provider.dart';
-import '../core/footer/footer_bar.dart';
-import '../state/bottom_bar_state.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:changsure/state/user_provider.dart';
+import 'package:changsure/module/auth/login.dart';
+import 'package:changsure/core/theme.dart';
+import 'package:changsure/core/footer/footer_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await initializeDateFormatting('th_TH', null);
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => BottomBarState()),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
 
+  runApp(const ProviderScope(child: MyApp()));
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -48,20 +40,12 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Root widget ของแอป ใช้ BottomBar อยู่ตลอด
-class AppRoot extends StatelessWidget {
+class AppRoot extends ConsumerWidget {
   const AppRoot({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isLoggedIn = true; // ปรับ logic ตรวจสอบ login จริงได้
-
-    // ถ้ายังไม่ login → แสดงหน้า Login
-    if (!isLoggedIn) {
-      return const LoginScreen();
-    }
-
-    // ถ้า login แล้ว → ใช้ FooterBarTemplate ที่มี BottomBar
-    return const FooterBarTemplate();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider);
+    return userState == null ? const LoginScreen() : const FooterBarTemplate();
   }
 }

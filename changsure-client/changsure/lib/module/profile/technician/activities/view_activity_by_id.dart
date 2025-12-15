@@ -1,137 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
-import '../../../../core/button/tertiary_button.dart';
-import '../../../../mockDB/activities.dart';
-import '../../../../state/bottom_bar_state.dart';
-import '../view_activities.dart';
-import 'edit_activity_by_id.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:changsure/mockDB/activities.dart';
+// Import State ของคุณ
+import 'package:changsure/state/bottom_nav_provider.dart';
 
-class ViewActivityById extends StatelessWidget {
+// --- 1. Constants (แยก Config สีออกมา) ---
+const Map<String, Map<String, Color>> kActivityColorMap = {
+  "ช่างทาสี": {
+    "text": Color(0xFFEB2F96),
+    "background": Color(0xFFFFF0F6),
+    "border": Color(0xFFFFADD2),
+  },
+  "ช่างประปา": {
+    "text": Color(0xFF36CFC9),
+    "background": Color(0xFFE6FFFB),
+    "border": Color(0xFF87E8DE),
+  },
+  "ช่างไฟฟ้า": {
+    "text": Color(0xFFFAAD14),
+    "background": Color(0xFFFFFBE6),
+    "border": Color(0xFFFFE58F),
+  },
+  "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
+    "text": Color(0xFF722ED1),
+    "background": Color(0xFFF9F0FF),
+    "border": Color(0xFFD3ADF7),
+  },
+};
+
+// --- 2. Data Provider (ดึงข้อมูลตาม ID) ---
+final activityDetailProvider = Provider.family<Activity, int>((ref, id) {
+  // ดึงจาก MockDB (ในอนาคตเปลี่ยนเป็น API ได้ง่ายที่จุดนี้)
+  return mockActivities.firstWhere(
+    (a) => a.id == id,
+    orElse: () => mockActivities.first,
+  );
+});
+
+// --- 3. Main Widget ---
+class ViewActivityById extends ConsumerWidget {
   final int id;
-  final Map<String, Map<String, Color>> colorMap = {
-    "ช่างทาสี": {
-      "text": const Color(0xFFEB2F96),
-      "background": const Color(0xFFFFF0F6),
-      "border": const Color(0xFFFFADD2),
-    },
-    "ช่างประปา": {
-      "text": const Color(0xFF36CFC9),
-      "background": const Color(0xFFE6FFFB),
-      "border": const Color(0xFF87E8DE),
-    },
-    "ช่างไฟฟ้า": {
-      "text": const Color(0xFFFAAD14),
-      "background": const Color(0xFFFFFBE6),
-      "border": const Color(0xFFFFE58F),
-    },
-    "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
-      "text": const Color(0xFF722ED1),
-      "background": const Color(0xFFF9F0FF),
-      "border": const Color(0xFFD3ADF7),
-    },
-  };
 
-  ViewActivityById({super.key, required this.id});
+  const ViewActivityById({super.key, required this.id});
 
-  void _showDeleteModal(BuildContext context) {
+  // Navigation: กลับหน้าหลัก
+  void _navigateBack(WidgetRef ref) {
+    ref.read(bottomSubPageProvider.notifier).state = null;
+  }
+
+  // Navigation: ไปหน้าแก้ไข
+  void _navigateToEdit(WidgetRef ref) {
+    // ⚠️ ต้องเพิ่ม Enum 'editActivity' ใน BottomSubPage ก่อนนะครับ (ดูหมายเหตุด้านล่าง)
+    final config = SubPageConfig(
+      page: BottomSubPage.technicianEditActivity,
+      activityId: id,
+    );
+    ref.read(bottomSubPageProvider.notifier).state = config;
+  }
+
+  // Action: แสดง Modal ลบ
+  void _showDeleteModal(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.6), // พื้นหลังดำโปร่งแสง
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // หัวเรื่อง
-                const Text(
-                  "ลบผลงาน",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // ข้อความรายละเอียด
-                const Text(
-                  "คุณแน่ใจหรือไม่ว่าต้องการลบผลงานนี้ออกจากหน้าโปรไฟล์ช่างของคุณ? ผลงานดังกล่าวจะถูกลบออกจากโปรไฟล์ของคุณอย่างถาวร",
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-
-                // ปุ่มด้านล่าง
-                Row(
-                  children: [
-                    // ปุ่มยกเลิก
-                    Expanded(
-                      child: TertiaryButton(
-                        text: "ยกเลิก",
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        padding: EdgeInsets.symmetric(vertical: 11),
-                        fontSize: 14,
-                        borderRadius: 8,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // ปุ่มลบ
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFF5222D)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          foregroundColor: const Color(0xFFF5222D),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () {
-                          // ทำการลบโพสต์จริง
-                          Navigator.of(context).pop();
-                          Provider.of<BottomBarState>(
-                            context,
-                            listen: false,
-                          ).setSubPage(const ViewActivities());
-                        },
-                        child: const Text(
-                          "ลบ",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (context) => _DeleteConfirmationDialog(
+        onConfirm: () {
+          // TODO: ใส่ Logic ลบข้อมูลจริงที่นี่
+          Navigator.of(context).pop(); // ปิด Dialog
+          _navigateBack(ref); // กลับหน้าหลัก
+        },
+        onCancel: () => Navigator.of(context).pop(),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final activity = mockActivities.firstWhere((a) => a.id == id);
-    final categoryColor = colorMap[activity.serviceCategoryName];
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch ข้อมูล Activity
+    final activity = ref.watch(activityDetailProvider(id));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -141,189 +92,262 @@ class ViewActivityById extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Header(
-                header: "ดูผลงาน",
-                onPressed: () {
-                  Provider.of<BottomBarState>(
-                    context,
-                    listen: false,
-                  ).setSubPage(const ViewActivities());
-                },
-              ),
-
+              // Header
+              Header(header: "ดูผลงาน", onPressed: () => _navigateBack(ref)),
               const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundImage: const AssetImage(
-                        'assets/image/Technician.png',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "คุณ สมชาย รักชาติ",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-                          //จะใส่ serviceCategoryName
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  categoryColor?["background"] ??
-                                  Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: categoryColor?["border"] ?? Colors.grey,
-                              ),
-                            ),
-                            child: Text(
-                              activity.serviceCategoryName,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: categoryColor?["text"] ?? Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        PopupMenuButton<String>(
-                          elevation: 4,
-                          offset: const Offset(0, 40),
-                          // ให้เมนูเลื่อนลงมาด้านล่างปุ่ม
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              // ทำอะไรเมื่อกดแก้ไขโพสต์
-                              Provider.of<BottomBarState>(
-                                context,
-                                listen: false,
-                              ).setSubPage(EditActivityById(id: activity.id));
-                            } else if (value == 'delete') {
-                              _showDeleteModal(context);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.create_rounded,
-                                        size: 20,
-                                        color: AppColors.colorTertiaryText,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text("แก้ไขโพสต์"),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.delete,
-                                        size: 20,
-                                        color: AppColors.colorTertiaryText,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text("ลบโพสต์"),
-                                ],
-                              ),
-                            ),
-                          ],
-                          child: SvgPicture.asset(
-                            'assets/icons/optionIcon.svg',
-                            height: 20,
-                            width: 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              // Profile Section & Menu
+              _ActivityProfileHeader(
+                activity: activity,
+                onEdit: () => _navigateToEdit(ref),
+                onDelete: () => _showDeleteModal(context, ref),
               ),
-
               const SizedBox(height: 24),
 
+              // Description
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
                   activity.description,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // รูปภาพทั้งหมด
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...activity.images.map(
-                      (img) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: ClipRRect(child: Image.asset(img)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Image Gallery
+              _ActivityImageGallery(images: activity.images),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- 4. Sub-Widgets (Component ย่อย) ---
+
+class _ActivityProfileHeader extends StatelessWidget {
+  final Activity activity;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ActivityProfileHeader({
+    required this.activity,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryColor = kActivityColorMap[activity.serviceCategoryName];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const CircleAvatar(
+            radius: 40,
+            backgroundImage: AssetImage('assets/image/Technician.png'),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "คุณ สมชาย รักชาติ",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                _CategoryBadge(
+                  label: activity.serviceCategoryName,
+                  colors: categoryColor,
+                ),
+              ],
+            ),
+          ),
+          _ActionMenuButton(onEdit: onEdit, onDelete: onDelete),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryBadge extends StatelessWidget {
+  final String label;
+  final Map<String, Color>? colors;
+
+  const _CategoryBadge({required this.label, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors?["background"] ?? Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors?["border"] ?? Colors.grey),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: colors?["text"] ?? Colors.black,
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionMenuButton extends StatelessWidget {
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ActionMenuButton({required this.onEdit, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      elevation: 4,
+      offset: const Offset(0, 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: SvgPicture.asset(
+        'assets/icons/optionIcon.svg',
+        height: 20,
+        width: 20,
+      ),
+      onSelected: (value) {
+        if (value == 'edit') onEdit();
+        if (value == 'delete') onDelete();
+      },
+      itemBuilder: (context) => [
+        _buildPopupMenuItem('edit', Icons.create_rounded, "แก้ไขโพสต์"),
+        _buildPopupMenuItem('delete', Icons.delete, "ลบโพสต์"),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _buildPopupMenuItem(
+    String value,
+    IconData icon,
+    String text,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: Center(
+              child: Icon(icon, size: 20, color: AppColors.colorTertiaryText),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(text),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityImageGallery extends StatelessWidget {
+  final List<String> images;
+
+  const _ActivityImageGallery({required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: images.map((img) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                img,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _DeleteConfirmationDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _DeleteConfirmationDialog({
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ลบผลงาน",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "คุณแน่ใจหรือไม่ว่าต้องการลบผลงานนี้ออกจากหน้าโปรไฟล์ช่างของคุณ? ผลงานดังกล่าวจะถูกลบออกจากโปรไฟล์ของคุณอย่างถาวร",
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "ยกเลิก",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFF5222D)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      foregroundColor: const Color(0xFFF5222D),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: onConfirm,
+                    child: const Text(
+                      "ลบ",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

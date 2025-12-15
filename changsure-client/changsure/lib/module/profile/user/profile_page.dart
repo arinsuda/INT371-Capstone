@@ -1,25 +1,25 @@
+import 'package:changsure/state/user_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/theme.dart';
+import '../../../state/bottom_nav_provider.dart';
+
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/profile/services_section.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../core/theme.dart';
-import '../../../state/bottom_bar_state.dart';
 import 'package:changsure/core/profile/profile_card_section.dart';
-import 'package:changsure/module/profile/user/edit_profile.dart';
-import './address_page.dart';
-import 'history_service_page.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
-class UserProfile extends StatefulWidget {
+class UserProfile extends ConsumerStatefulWidget {
   const UserProfile({super.key});
 
   @override
-  State<UserProfile> createState() => _ProfileState();
+  ConsumerState<UserProfile> createState() => _ProfileState();
 }
 
-class _ProfileState extends State<UserProfile> {
+class _ProfileState extends ConsumerState<UserProfile> {
   final items = [
     {'label': 'ที่อยู่ของฉัน', 'icon': Icons.pin_drop_outlined},
     // {'label': 'ประวัติการรับบริการ', 'icon': Icons.history},
@@ -50,10 +50,11 @@ class _ProfileState extends State<UserProfile> {
               email: 'somchai@example.com',
               phone: '081-234-5678',
               onEdit: () {
-                Provider.of<BottomBarState>(
-                  context,
-                  listen: false,
-                ).setSubPage(const EditProfile());
+                ref
+                    .read(bottomSubPageProvider.notifier)
+                    .state = const SubPageConfig(
+                  page: BottomSubPage.customerEditProfile,
+                );
               },
             ),
             Padding(
@@ -74,25 +75,27 @@ class _ProfileState extends State<UserProfile> {
                   Column(
                     children: List.generate(items.length, (index) {
                       final item = items[index];
-                      final isLast = index == items.length - 1; // แก้ตรงนี้
+                      final isLast = index == items.length - 1;
 
                       return Column(
                         children: [
-                          // แถวไอเท็ม
                           InkWell(
                             onTap: () {
                               if (item['label'] == 'ที่อยู่ของฉัน') {
-                                Provider.of<BottomBarState>(
-                                  context,
-                                  listen: false,
-                                ).setSubPage(const AddressPage());}
-                              //  else if (item['label'] == 'ประวัติการรับบริการ') {
-                              //   // ทำอย่างอื่น ถ้ามี
-                              //   Provider.of<BottomBarState>(
-                              //     context,
-                              //     listen: false,
-                              //   ).setSubPage(const HistoryServicePage());
-                              // }
+                                ref
+                                    .read(bottomSubPageProvider.notifier)
+                                    .state = const SubPageConfig(
+                                  page: BottomSubPage.customerAddressPage,
+                                );
+                              } else if (item['label'] ==
+                                  'ประวัติการรับบริการ') {
+                                ref
+                                    .read(bottomSubPageProvider.notifier)
+                                    .state = const SubPageConfig(
+                                  page:
+                                      BottomSubPage.customerHistoryServicePage,
+                                );
+                              }
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -133,7 +136,6 @@ class _ProfileState extends State<UserProfile> {
                       );
                     }),
                   ),
-
                 ],
               ),
             ),
@@ -141,7 +143,12 @@ class _ProfileState extends State<UserProfile> {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PrimaryButton(text: "ออกจากระบบ", onPressed: () {}),
+              child: PrimaryButton(
+                text: "ออกจากระบบ",
+                onPressed: () {
+                  ref.read(userProvider.notifier).logout();
+                },
+              ),
             ),
           ],
         ),

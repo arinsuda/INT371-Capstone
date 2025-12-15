@@ -6,7 +6,7 @@ import '../../../core/button/primary_button.dart';
 import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/services_categories.dart';
-import '../../../state/bottom_bar_state.dart';
+import '../../../state/bottom_nav_provider.dart';
 import '../../profile/technician/viewProfile/service.dart';
 
 import 'dart:math';
@@ -18,7 +18,7 @@ import '../../../core/button/primary_button.dart';
 import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
 import '../../../mockDB/technician.dart';
-import '../../../state/bottom_bar_state.dart';
+import '../../../state/bottom_nav_provider.dart';
 
 class SystemChoose extends StatelessWidget {
   final String serviceName;

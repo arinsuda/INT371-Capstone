@@ -1,10 +1,32 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/button/primary_button.dart';
-import '../../../core/theme.dart';
-import '../../../core/profile/editProfile/phone_formatter.dart';
-import '../../../core/profile/editProfile/text_field.dart';
 
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.length > 10) {
+      digits = digits.substring(0, 10);
+    }
+
+    String formatted = '';
+    for (int i = 0; i < digits.length; i++) {
+      if (i == 3 || i == 6) formatted += '-';
+      formatted += digits[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -31,9 +53,46 @@ class _EditProfileState extends State<EditProfile> {
   );
 
   void _validateForm() {
-    // ถ้า formKey ปกติ → validate ทั้งฟอร์ม
     final isValid = _formKey.currentState?.validate() ?? false;
     isFormValid.value = isValid;
+  }
+
+  Widget buildTextField(
+    String label,
+    TextEditingController controller, {
+    String? Function(String?)? validator,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          onChanged: (value) => _validateForm(),
+          decoration: const InputDecoration(
+            isDense: true, // ทำให้ช่องไม่สูงเกินไป
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 16), // เว้นระยะห่างด้านล่างแต่ละช่อง
+      ],
+    );
   }
 
   @override
@@ -44,9 +103,11 @@ class _EditProfileState extends State<EditProfile> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            padding: const EdgeInsets.symmetric(
+              vertical: 12,
+              horizontal: 16,
+            ),
             children: [
-              // ---------- Header ----------
               Header(header: "แก้ไขโปรไฟล์"),
               const SizedBox(height: 16),
 
@@ -87,12 +148,8 @@ class _EditProfileState extends State<EditProfile> {
 
               // ---------- Form Fields ----------
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 0,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     buildTextField(
                       "ชื่อ",
@@ -108,10 +165,8 @@ class _EditProfileState extends State<EditProfile> {
                     buildTextField(
                       "นามสกุล",
                       lastNameController,
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return "กรุณากรอกนามสกุล";
-                        return null;
-                      },
+                      validator: (v) =>
+                          (v == null || v.isEmpty) ? "กรุณากรอกนามสกุล" : null,
                     ),
 
                     buildTextField(
@@ -145,10 +200,11 @@ class _EditProfileState extends State<EditProfile> {
                 ),
               ),
 
+              // ---------- Save Button ----------
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 0,
+                  vertical: 24,
                 ),
                 child: ValueListenableBuilder<bool>(
                   valueListenable: isFormValid,
@@ -157,9 +213,10 @@ class _EditProfileState extends State<EditProfile> {
                       text: "บันทึกการแก้ไข",
                       onPressed: valid
                           ? () {
-                              // SAVE HERE
+                              // Save Logic
+                              print("บันทึกข้อมูล: ${nameController.text}");
                             }
-                          : null, // <-- disable button when invalid
+                          : null,
                     );
                   },
                 ),

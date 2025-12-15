@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../mockDB/service_categories.dart';
-import '../../state/bottom_bar_state.dart';
+import '../../state/bottom_nav_provider.dart';
 import './homePage/service_card.dart';
 
 class ServiceCategoryPage extends StatelessWidget {

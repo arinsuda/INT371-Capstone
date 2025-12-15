@@ -1,19 +1,18 @@
-import 'package:changsure/module/profile/technician/activities/post_activity.dart';
-import 'package:changsure/module/profile/technician/address_page.dart';
-import 'package:changsure/module/profile/technician/view_activities.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../../state/bottom_bar_state.dart';
-import 'view_profile_tab.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../state/bottom_nav_provider.dart';
 
-class ActionButtonSection extends StatelessWidget {
+class ActionButtonSection extends ConsumerWidget {
   const ActionButtonSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final buttons = [
       {'label': 'ที่อยู่ของฉัน', 'icon': Icons.location_on}, // IconData
-      {'label': 'ดูโปรไฟล์ช่าง', 'icon': 'assets/icons/technicianIcon.png'}, // Asset
+      {
+        'label': 'ดูโปรไฟล์ช่าง',
+        'icon': 'assets/icons/technicianIcon.png',
+      }, // Asset
       {'label': 'ลงผลงาน', 'icon': 'assets/icons/postWork.png'}, // Asset
       {'label': 'ปฏิทินช่าง', 'icon': 'assets/icons/calendar.png'}, // Asset
     ];
@@ -22,17 +21,12 @@ class ActionButtonSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children:
-        buttons.map((button) {
+        children: buttons.map((button) {
           final icon = button['icon'];
 
           Widget iconWidget;
           if (icon is IconData) {
-            iconWidget = Icon(
-              icon,
-              color: Colors.black,
-              size: 24,
-            );
+            iconWidget = Icon(icon, color: Colors.black, size: 24);
           } else if (icon is String) {
             iconWidget = Image.asset(
               icon,
@@ -48,13 +42,22 @@ class ActionButtonSection extends StatelessWidget {
             onTap: () {
               // ตรวจสอบปุ่ม "ดูโปรไฟล์ช่าง"
               if (button['label'] == 'ดูโปรไฟล์ช่าง') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewProfilePage());
+                const config = SubPageConfig(
+                  page: BottomSubPage.technicianViewProfile,
+                );
+                ref.read(bottomSubPageProvider.notifier).state = config;
               }
               if (button['label'] == 'ลงผลงาน') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const ViewActivities());
+                const config = SubPageConfig(
+                  page: BottomSubPage.technicianViewActivity,
+                );
+                ref.read(bottomSubPageProvider.notifier).state = config;
               }
               if (button['label'] == 'ที่อยู่ของฉัน') {
-                Provider.of<BottomBarState>(context, listen: false).setSubPage(const AddressPage());
+                const config = SubPageConfig(
+                  page: BottomSubPage.technicianAddressPage,
+                );
+                ref.read(bottomSubPageProvider.notifier).state = config;
               }
               // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
             },

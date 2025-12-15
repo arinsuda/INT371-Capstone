@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import './viewProfile/view_profile_content.dart';
 import './viewProfile/review_content.dart';
 import 'package:provider/provider.dart';
-import '../../../state/bottom_bar_state.dart';
+import '../../../state/bottom_nav_provider.dart';
 import '../../../core/theme.dart';
 
 class ViewProfilePage extends StatelessWidget {

@@ -1,224 +1,290 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/core/profile/editProfile/phone_formatter.dart';
+import 'package:changsure/data/models/technician/technician_model.dart';
+import 'package:changsure/module/profile/technician/province_selection_list.dart';
+import 'package:changsure/module/profile/technician/service_category_tile.dart';
+import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:provider/provider.dart';
-import '../../../mockDB/province.dart';
-import '../../../mockDB/services_categories.dart';
-import '../../../state/bottom_bar_state.dart';
-import '../../../core/profile/editProfile/phone_formatter.dart';
 import 'package:flutter/services.dart';
+
+import 'package:changsure/state/master_data_provider.dart';
+import 'package:changsure/data/models/master_data_models.dart';
+
+import '../../../state/bottom_nav_provider.dart';
 import '../../../core/profile/editProfile/text_field.dart';
-import 'editProfile/price_type.dart';
-import 'editProfile/province_checkbox_list.dart';
-import 'editProfile/service_categories.dart';
-import 'editProfile/small_price_input.dart';
 import 'editProfile/text_area.dart';
 import 'editProfile/search_bar.dart';
 
-class EditProfile extends StatefulWidget {
+class EditProfile extends ConsumerStatefulWidget {
   const EditProfile({super.key});
 
   @override
-  State<EditProfile> createState() => _EditProfileState();
+  ConsumerState<EditProfile> createState() => _EditProfileState();
 }
 
-class _EditProfileState extends State<EditProfile> {
+class _EditProfileState extends ConsumerState<EditProfile> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController nameController = TextEditingController(
-    text: 'สมชาย',
-  );
-  final TextEditingController lastNameController = TextEditingController(
-    text: 'ใจดี',
-  );
-  final TextEditingController emailController = TextEditingController(
-    text: 'somchai@gmail.com',
-  );
-  final TextEditingController phoneController = TextEditingController(
-    text: '088-888-8888',
-  );
-  final TextEditingController aboutController = TextEditingController(
-    text:
-        'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน',
-  );
+  late TextEditingController nameController;
+  late TextEditingController lastNameController;
+  late TextEditingController emailController;
+  late TextEditingController phoneController;
+  late TextEditingController aboutController;
   final TextEditingController _searchController = TextEditingController();
 
-  Map<String, bool> _selectedProvinces = {};
+  // State Variables
+  Map<int, bool> _selectedProvinces = {};
+  Map<int, bool> _selectedServices = {};
+
   String _searchText = '';
 
-  Map<String, bool> _selectedServices = {};
-  Map<String, String> _priceType = {};
-  Map<String, TextEditingController> _minPriceControllers = {};
-  Map<String, TextEditingController> _maxPriceControllers = {};
-  Map<String, TextEditingController> _fixPriceControllers = {};
-  bool hasChanged = false;
+  Map<int, String> _priceType = {};
+  Map<int, TextEditingController> _minPriceControllers = {};
+  Map<int, TextEditingController> _maxPriceControllers = {};
+  Map<int, TextEditingController> _fixPriceControllers = {};
 
-  // ตัวแปรเก็บ error messages
+  bool hasChanged = false;
+  bool _isInitialized = false;
+
+  // Errors
   String? _provinceError;
   String? _serviceError;
-  Map<String, String?> _priceErrors = {};
+  Map<int, String?> _priceErrors = {};
 
-  void _checkChanged() {
-    bool changed = false;
-    bool allPricesFilled = true;
-    bool hasSelectedProvince = false;
-    bool hasSelectedServiceWithPrice = false;
-
-    changed |= nameController.text != 'สมชาย';
-    changed |= lastNameController.text != 'ใจดี';
-    changed |= emailController.text != 'somchai@gmail.com';
-    changed |= phoneController.text != '088-888-8888';
-    changed |=
-        aboutController.text !=
-        'ช่างไฟฟ้ามากประสบการณ์กว่า 10 ปี เชี่ยวชาญงานซ่อมไฟฟ้าและติดตั้งอุปกรณ์ภายในบ้าน';
-
-    hasSelectedProvince = _selectedProvinces.values.any((v) => v);
-    changed |= hasSelectedProvince;
-
-    for (var sub in _selectedServices.keys) {
-      if (_selectedServices[sub] == true) {
-        changed = true;
-
-        if (_priceType[sub] == "range") {
-          final minText = _minPriceControllers[sub]?.text ?? '';
-          final maxText = _maxPriceControllers[sub]?.text ?? '';
-          if (minText.isEmpty || maxText.isEmpty) {
-            allPricesFilled = false;
-          } else {
-            hasSelectedServiceWithPrice = true;
-          }
-        } else if (_priceType[sub] == "fix") {
-          final fixText = _fixPriceControllers[sub]?.text ?? '';
-          if (fixText.isEmpty) {
-            allPricesFilled = false;
-          } else {
-            hasSelectedServiceWithPrice = true;
-          }
-        }
-      }
-    }
-
-    bool validationPassed = _validateAll();
-
-    bool shouldEnable =
-        changed &&
-        hasSelectedProvince &&
-        hasSelectedServiceWithPrice &&
-        allPricesFilled &&
-        validationPassed;
-
-    if (shouldEnable != hasChanged) {
-      setState(() {
-        hasChanged = shouldEnable;
-      });
-    }
-  }
-
-  bool _validateAll() {
-    // Validate Province
-    String? newProvinceError = _selectedProvinces.values.any((v) => v)
-        ? null
-        : "กรุณาเลือกข้อมูลให้ครบถ้วน";
-
-    // Validate Services
-    bool hasSelectedService = _selectedServices.values.any((v) => v);
-    String? newServiceError = hasSelectedService
-        ? null
-        : "กรุณาเลือกข้อมูลให้ครบถ้วน";
-
-    // Validate Prices
-    Map<String, String?> newPriceErrors = {};
-    for (var sub in _selectedServices.keys) {
-      if (_selectedServices[sub] == true) {
-        if (_priceType[sub] == "range") {
-          final minText = _minPriceControllers[sub]?.text.trim() ?? '';
-          final maxText = _maxPriceControllers[sub]?.text.trim() ?? '';
-
-          if (minText.isEmpty || maxText.isEmpty) {
-            newPriceErrors[sub] = "กรุณากรอกจำนวน Min และ Max ให้ครบถ้วน";
-          } else if (minText.startsWith('0') && minText.length > 1) {
-            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
-          } else if (maxText.startsWith('0') && maxText.length > 1) {
-            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
-          } else {
-            final min = int.tryParse(minText) ?? 0;
-            final max = int.tryParse(maxText) ?? 0;
-            if (max < min) {
-              newPriceErrors[sub] = "Max ต้องมากกว่าหรือเท่ากับ Min";
-            } else {
-              newPriceErrors[sub] = null;
-            }
-          }
-        } else if (_priceType[sub] == "fix") {
-          final fixText = _fixPriceControllers[sub]?.text.trim() ?? '';
-          if (fixText.isEmpty) {
-            newPriceErrors[sub] = "กรุณากรอกราคา";
-          } else if (fixText.startsWith('0') && fixText.length > 1) {
-            newPriceErrors[sub] = "ราคาไม่สามารถเริ่มต้นด้วย 0";
-          } else {
-            newPriceErrors[sub] = null;
-          }
-        }
-      }
-    }
-
-    // Update state ถ้ามีการเปลี่ยนแปลง
-    if (_provinceError != newProvinceError ||
-        _serviceError != newServiceError ||
-        _priceErrors.toString() != newPriceErrors.toString()) {
-      setState(() {
-        _provinceError = newProvinceError;
-        _serviceError = newServiceError;
-        _priceErrors = newPriceErrors;
-      });
-    } else {
-      _provinceError = newProvinceError;
-      _serviceError = newServiceError;
-      _priceErrors = newPriceErrors;
-    }
-
-    // Return true ถ้าไม่มี error
-    return _provinceError == null &&
-        _serviceError == null &&
-        !_priceErrors.values.any((error) => error != null);
-  }
+  // Data
+  TechnicianModel? originalTech;
+  List<ProvinceModel> allProvinces = [];
+  List<ServiceCategoryModel> allCategories = [];
 
   @override
   void initState() {
     super.initState();
 
-    _selectedProvinces = {for (var p in mockProvinces) p: false};
+    nameController = TextEditingController();
+    lastNameController = TextEditingController();
+    emailController = TextEditingController();
+    phoneController = TextEditingController();
+    aboutController = TextEditingController();
+  }
 
-    _searchController.addListener(() {
-      setState(() {
-        _searchText = _searchController.text.trim();
-      });
-    });
+  void _initializeData(
+    List<ProvinceModel> provinces,
+    List<ServiceCategoryModel> categories,
+  ) {
+    if (_isInitialized) return;
 
-    for (var category in mockServiceCategories) {
-      for (var sub in category.subServices) {
-        _selectedServices[sub] = false;
-        _priceType[sub] = "range";
-        _minPriceControllers[sub] = TextEditingController();
-        _maxPriceControllers[sub] = TextEditingController();
-        _fixPriceControllers[sub] = TextEditingController();
+    final user = ref.read(userProvider);
+    final tech = user?.technicianProfile;
+    originalTech = tech;
+    allProvinces = provinces;
+    allCategories = categories;
 
-        _minPriceControllers[sub]?.addListener(_checkChanged);
-        _maxPriceControllers[sub]?.addListener(_checkChanged);
-        _fixPriceControllers[sub]?.addListener(_checkChanged);
+    String firstName = '';
+    String lastName = '';
+    if (tech?.fullName != null) {
+      final parts = tech!.fullName.split(' ');
+      if (parts.isNotEmpty) firstName = parts[0];
+      if (parts.length > 1) lastName = parts.sublist(1).join(' ');
+    }
+
+    nameController.text = tech?.firstName ?? firstName;
+    lastNameController.text = tech?.lastName ?? lastName;
+    emailController.text = tech?.email ?? '';
+    aboutController.text = tech?.bio ?? '';
+
+    String rawPhone = tech?.phone ?? '';
+    if (rawPhone.isNotEmpty &&
+        rawPhone.length == 10 &&
+        !rawPhone.contains('-')) {
+      phoneController.text =
+          "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
+    } else {
+      phoneController.text = rawPhone;
+    }
+
+    _selectedProvinces = {for (var p in provinces) p.id: false};
+    if (tech?.provinces != null) {
+      for (var userProv in tech!.provinces) {
+        final match = provinces.firstWhere(
+          (p) => p.nameTh == userProv.nameTh,
+          orElse: () => ProvinceModel(id: -1, nameTh: ''),
+        );
+        if (match.id != -1) {
+          _selectedProvinces[match.id] = true;
+        }
       }
     }
 
+    for (var category in categories) {
+      for (var service in category.services) {
+        final sId = service.id;
+        _selectedServices[sId] = false;
+
+        _priceType[sId] = service.priceType == 'fixed' ? 'fix' : 'range';
+
+        _minPriceControllers[sId] = TextEditingController(
+          text: service.minPrice?.toString() ?? '',
+        );
+        _maxPriceControllers[sId] = TextEditingController(
+          text: service.maxPrice?.toString() ?? '',
+        );
+        _fixPriceControllers[sId] = TextEditingController(
+          text: service.maxPrice?.toString() ?? '',
+        );
+
+        _minPriceControllers[sId]?.addListener(_checkChanged);
+        _maxPriceControllers[sId]?.addListener(_checkChanged);
+        _fixPriceControllers[sId]?.addListener(_checkChanged);
+      }
+    }
+
+    if (tech?.services != null) {
+      for (var userService in tech!.services) {
+        ServiceModel? match;
+
+        for (var cat in categories) {
+          try {
+            match = cat.services.firstWhere(
+              (s) => s.id == userService.serviceId,
+            );
+
+            if (match != null) break;
+          } catch (_) {}
+        }
+
+        print("Services count: ${categories[0].services.length}");
+
+        if (match != null) {
+          final sId = match.id;
+          _selectedServices[sId] = true;
+
+          if (userService.pricingType == 'FIXED') {
+            _priceType[sId] = 'fix';
+            _fixPriceControllers[sId]?.text =
+                userService.priceFixed?.toString() ?? '';
+          } else {
+            _priceType[sId] = 'range';
+            _minPriceControllers[sId]?.text =
+                userService.priceMin?.toString() ?? '';
+            _maxPriceControllers[sId]?.text =
+                userService.priceMax?.toString() ?? '';
+          }
+        }
+      }
+    }
+
+    // Main Listeners
+    _searchController.addListener(() {
+      setState(() => _searchText = _searchController.text.trim());
+    });
     nameController.addListener(_checkChanged);
     lastNameController.addListener(_checkChanged);
     emailController.addListener(_checkChanged);
     phoneController.addListener(_checkChanged);
     aboutController.addListener(_checkChanged);
+
+    _isInitialized = true;
+  }
+
+  void _saveProfile() {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_validateAll()) return;
+
+    String rawPhone = phoneController.text.replaceAll('-', '');
+
+    // TODO: สร้าง Object เพื่อส่ง API
+    // Map<String, dynamic> updateData = {
+    //   "first_name": nameController.text,
+    //   "phone": rawPhone, // ส่งแบบไม่มีขีด 0888888888
+    //   "province_ids": _selectedProvinces.entries.where((e) => e.value).map((e) => e.key).toList(),
+    //   ...
+    // };
+
+    print("Saving Phone Raw: $rawPhone");
+
+    ref.read(bottomSubPageProvider.notifier).state = null;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย (Mock)')),
+    );
+  }
+
+  void _checkChanged() {
+    setState(() {
+      hasChanged = true;
+    });
+  }
+
+  bool _validateAll() {
+    String? newProvinceError = _selectedProvinces.values.any((v) => v)
+        ? null
+        : "กรุณาเลือกจังหวัดอย่างน้อย 1 แห่ง";
+
+    bool hasService = _selectedServices.values.any((v) => v);
+    String? newServiceError = hasService
+        ? null
+        : "กรุณาเลือกบริการอย่างน้อย 1 รายการ";
+
+    Map<int, String?> newPriceErrors = {};
+    for (var sId in _selectedServices.keys) {
+      if (_selectedServices[sId] == true) {
+        if (_priceType[sId] == "range") {
+          final min = _minPriceControllers[sId]?.text.trim() ?? '';
+          final max = _maxPriceControllers[sId]?.text.trim() ?? '';
+          if (min.isEmpty || max.isEmpty) {
+            newPriceErrors[sId] = "กรุณากรอกราคาให้ครบ";
+          } else if (int.parse(max) < int.parse(min)) {
+            newPriceErrors[sId] = "Max ต้องมากกว่า Min";
+          }
+        } else {
+          final fix = _fixPriceControllers[sId]?.text.trim() ?? '';
+          if (fix.isEmpty) {
+            newPriceErrors[sId] = "กรุณากรอกราคา";
+          }
+        }
+      }
+    }
+
+    setState(() {
+      _provinceError = newProvinceError;
+      _serviceError = newServiceError;
+      _priceErrors = newPriceErrors;
+    });
+
+    return _provinceError == null &&
+        _serviceError == null &&
+        !_priceErrors.values.any((e) => e != null);
   }
 
   @override
   Widget build(BuildContext context) {
+    final provincesAsync = ref.watch(provincesProvider);
+    final categoriesAsync = ref.watch(serviceCategoriesProvider);
+
+    // Handle Loading & Error
+    if (provincesAsync.isLoading || categoriesAsync.isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (provincesAsync.hasError || categoriesAsync.hasError) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: Text("โหลดข้อมูลไม่สำเร็จ")),
+      );
+    }
+
+    // Init Data Once
+    final provinces = provincesAsync.value!;
+    final categories = categoriesAsync.value!;
+
+    if (!_isInitialized) {
+      _initializeData(provinces, categories);
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -314,6 +380,9 @@ class _EditProfileState extends State<EditProfile> {
 
               buildTextArea("เกี่ยวกับ", aboutController),
 
+              // -----------------------------------------------------------
+              // PROVINCES
+              // -----------------------------------------------------------
               const SizedBox(height: 12),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
@@ -333,17 +402,18 @@ class _EditProfileState extends State<EditProfile> {
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: buildProvinceCheckboxList(
-                  context,
-                  _searchText,
-                  _selectedProvinces,
-                  () {
-                    setState(() {}); // ✅ เพิ่ม setState เพื่อ rebuild UI
+                child: ProvinceSelectionList(
+                  provinces: provinces,
+                  selectedProvinces: _selectedProvinces,
+                  searchText: _searchText,
+                  onProvinceChanged: (id, val) {
+                    setState(() {
+                      _selectedProvinces[id] = val;
+                    });
                     _checkChanged();
                   },
                 ),
               ),
-              // แสดง error สำหรับ Province
               if (_provinceError != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 4),
@@ -356,6 +426,9 @@ class _EditProfileState extends State<EditProfile> {
                   ),
                 ),
 
+              // -----------------------------------------------------------
+              // SERVICES
+              // -----------------------------------------------------------
               const SizedBox(height: 16),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
@@ -371,39 +444,34 @@ class _EditProfileState extends State<EditProfile> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
-                  children: buildServiceCategories(
-                    context,
-                    mockServiceCategories,
-                    _selectedServices,
-                    _priceType,
-                    _minPriceControllers,
-                    _maxPriceControllers,
-                    _fixPriceControllers,
-                    _priceErrors,
-                    (sub) {
-                      // ✅ แก้: เพิ่ม setState รอบนอกและเรียก _checkChanged หลัง setState
-                      setState(() {
-                        _selectedServices[sub] =
-                            !(_selectedServices[sub] ?? false);
-                      });
-                      _checkChanged();
-                    },
-                    (sub, newType) {
-                      // ✅ แก้: รับ parameter newType มาตรงๆ แทนการ toggle
-                      setState(() {
-                        _priceType[sub] = newType;
-                      });
-                      _checkChanged();
-                    },
-                    () {
-                      // ✅ แก้: เพิ่ม setState ก่อนเรียก _checkChanged
-                      setState(() {});
-                      _checkChanged();
-                    },
-                  ),
+                  children: categories.map((cat) {
+                    return ServiceCategoryTile(
+                      category: cat,
+                      selectedServices: _selectedServices,
+                      priceTypes: _priceType,
+                      minPriceControllers: _minPriceControllers,
+                      maxPriceControllers: _maxPriceControllers,
+                      fixPriceControllers: _fixPriceControllers,
+                      priceErrors: _priceErrors,
+
+                      onServiceSelected: (id, val) {
+                        setState(() {
+                          _selectedServices[id] = val;
+                        });
+                        _checkChanged();
+                      },
+
+                      onPriceTypeChanged: (id, type) {
+                        setState(() {
+                          _priceType[id] = type;
+                        });
+                        _checkChanged();
+                      },
+                    );
+                  }).toList(),
                 ),
               ),
-              // แสดง error สำหรับ Service
+
               if (_serviceError != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 4),
@@ -421,26 +489,7 @@ class _EditProfileState extends State<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: PrimaryButton(
                   text: "บันทึกการแก้ไข",
-                  onPressed: hasChanged
-                      ? () {
-                          // เช็ค Form validation ก่อน
-                          if (!_formKey.currentState!.validate()) {
-                            print("INVALID! Form fields มีปัญหา");
-                            return;
-                          }
-
-                          // เช็ค Province และ Services validation
-                          if (!_validateAll()) {
-                            print("INVALID! Province หรือ Services มีปัญหา");
-                            return;
-                          }
-                          // ผ่านทั้งหมด
-                          Provider.of<BottomBarState>(
-                            context,
-                            listen: false,
-                          ).closeSubPage();
-                        }
-                      : null,
+                  onPressed: hasChanged ? _saveProfile : null,
                 ),
               ),
               const SizedBox(height: 24),

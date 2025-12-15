@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../state/bottom_bar_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../state/bottom_nav_provider.dart';
 
-class Header extends StatelessWidget {
+class Header extends ConsumerWidget {
   final String header;
-  final VoidCallback? onPressed; // 👈 เพิ่ม callback
+  final VoidCallback? onPressed;
 
-  const Header({
-    super.key,
-    required this.header,
-    this.onPressed, // 👈 optional
-  });
+  const Header({super.key, required this.header, this.onPressed});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       child: Row(
@@ -21,16 +17,14 @@ class Header extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: onPressed ??
-                    () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context); // กลับด้วย Navigator
-                      } else {
-                        Provider.of<BottomBarState>(
-                          context,
-                          listen: false,
-                        ).closeSubPage(); // กลับด้วย BottomBarState
-                      }
+            onPressed:
+                onPressed ??
+                () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    ref.read(bottomSubPageProvider.notifier).state = null;
+                  }
                 },
           ),
           Expanded(

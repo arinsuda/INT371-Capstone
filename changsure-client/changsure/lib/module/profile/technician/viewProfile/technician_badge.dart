@@ -1,30 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme.dart';
+import '../../../../state/user_provider.dart';
 
-class TechnicianBadge extends StatelessWidget {
+class TechnicianBadge extends ConsumerWidget {
   const TechnicianBadge({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final buttons = [
-      {
-        'label': 'Top Service Technician',
-        'icon': 'assets/icons/top_service.png',
-      },
-      {
-        'label': 'ChangSure Recommend',
-        'icon': 'assets/icons/changSure_rec.png',
-      },
-      {
-        'label': 'High-Rating Technician',
-        'icon': 'assets/icons/high_rating.png',
-      },
-      {
-        'label': 'Fast Response Technician',
-        'icon': 'assets/icons/fast_response.png',
-      },
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+    final badges = user?.technicianProfile?.badges ?? [];
+
+    print("DEBUG BADGES: จำนวน Badge = ${badges.length}");
+    // ถ้าไม่มี Badge ไม่ต้องแสดงอะไรเลย (หรือจะแสดงข้อความว่าไม่มีก็ได้)
+    if (badges.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,9 +55,9 @@ class TechnicianBadge extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 8),
           child: Row(
-            children: buttons.map((button) {
-              final iconPath = button['icon'] as String;
-
+            // ใช้ crossAxisAlignment start เพื่อให้ text ยาวๆ ไม่ดัน layout เละ
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: badges.map((badge) {
               return Expanded(
                 child: GestureDetector(
                   onTap: () {},
@@ -76,11 +68,27 @@ class TechnicianBadge extends StatelessWidget {
                         width: 70,
                         height: 70,
                         child: Center(
-                          child: Image.asset(
-                            iconPath,
+                          child: Image.network(
+                            badge.iconUrl,
                             width: 70,
                             height: 70,
                             fit: BoxFit.contain,
+                            // ใส่ errorBuilder เผื่อรูปโหลดไม่ได้
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              );
+                            },
+                            // ใส่ loadingBuilder เพื่อความสวยงามตอนโหลด
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -88,7 +96,7 @@ class TechnicianBadge extends StatelessWidget {
                       SizedBox(
                         width: 80,
                         child: Text(
-                          button['label'] as String,
+                          badge.name,
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,

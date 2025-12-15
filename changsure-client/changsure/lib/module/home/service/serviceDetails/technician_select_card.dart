@@ -5,7 +5,7 @@ import '../../../../core/button/primary_button.dart';
 import '../../../../core/button/secondary_button.dart';
 import '../../../../core/theme.dart';
 import '../../../../mockDB/technician.dart';
-import '../../../../state/bottom_bar_state.dart';
+import '../../../../state/bottom_nav_provider.dart';
 import '../../../profile/technician/view_profile_tab.dart';
 
 class TechnicianCardCTM extends StatelessWidget {

@@ -1,17 +1,19 @@
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/home/view_service_list.dart';
-import 'package:flutter/material.dart' hide Banner;
-import 'package:provider/provider.dart';
-import '../../mockDB/service_categories.dart';
-import '../../state/bottom_bar_state.dart';
-import './homePage/service_card.dart';
-import './homePage/banner.dart';
 
-class HomePage extends StatelessWidget {
+import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:changsure/module/home/homePage/service_card.dart';
+import 'package:changsure/module/home/homePage/banner.dart';
+
+import '../../mockDB/service_categories.dart';
+
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final buttonToCategory = {
       'ทาสี': 'งานทาสี',
       'การประปา': 'งานประปา',

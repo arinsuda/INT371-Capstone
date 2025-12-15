@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 
 import '../../module/profile/technician/activities/view_activity_by_id.dart';
-import '../../state/bottom_bar_state.dart';
+import '../../state/bottom_nav_provider.dart';
 import '../theme.dart';
 
-class TechnicianCard extends StatelessWidget {
+class TechnicianCard extends ConsumerWidget {
   final int id;
   final String serviceCategoryName;
   final String description;
@@ -20,7 +21,7 @@ class TechnicianCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final Map<String, Map<String, Color>> colorMap = {
       "ช่างทาสี": {
         "text": const Color(0xFFEB2F96),
@@ -72,11 +73,7 @@ class TechnicianCard extends StatelessWidget {
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                 ),
-                child: Image.asset(
-                  images[0],
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset(images[0], height: 120, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(width: 4),
@@ -85,11 +82,7 @@ class TechnicianCard extends StatelessWidget {
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(12),
                 ),
-                child: Image.asset(
-                  images[1],
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset(images[1], height: 120, fit: BoxFit.cover),
               ),
             ),
           ],
@@ -107,11 +100,7 @@ class TechnicianCard extends StatelessWidget {
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
               ),
-              child: Image.asset(
-                images[0],
-                height: 120,
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset(images[0], height: 120, fit: BoxFit.cover),
             ),
           ),
           const SizedBox(width: 4),
@@ -122,13 +111,11 @@ class TechnicianCard extends StatelessWidget {
               child: Column(
                 children: List.generate(
                   images.length - 1 > 2 ? 2 : images.length - 1,
-                      (index) {
+                  (index) {
                     bool isLastWithExtra = index == 1 && extraCount > 0;
                     return Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index == 0 ? 4.0 : 0,
-                        ),
+                        padding: EdgeInsets.only(bottom: index == 0 ? 4.0 : 0),
                         child: Stack(
                           children: [
                             Image.asset(
@@ -163,13 +150,12 @@ class TechnicianCard extends StatelessWidget {
       );
     }
 
-
     return GestureDetector(
       onTap: () {
-        Provider.of<BottomBarState>(
-          context,
-          listen: false,
-        ).setSubPage(ViewActivityById(id: id));
+        ref.read(bottomSubPageProvider.notifier).state = SubPageConfig(
+          page: BottomSubPage.technicianViewActivityById,
+          activityId: id,
+        );
       },
       child: Card(
         color: Colors.white,

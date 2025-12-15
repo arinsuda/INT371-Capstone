@@ -1,14 +1,11 @@
-import 'dart:convert';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 
-import '../../state/bottom_bar_state.dart';
 import '../theme.dart';
 
 class _PostCodeFormatter extends TextInputFormatter {
@@ -55,14 +52,12 @@ class _AddressState extends State<Address> {
   LatLng? currentPosition;
   final mapController = MapController();
 
-  // controllers
   late TextEditingController houseNumberController;
   late TextEditingController subDistrictController;
   late TextEditingController districtController;
   late TextEditingController provinceController;
   late TextEditingController postCodeController;
 
-  // track if anything changed
   bool hasChanged = false;
   bool allValid = false;
 
@@ -73,7 +68,6 @@ class _AddressState extends State<Address> {
     super.initState();
     getLocation();
 
-    // init controllers
     houseNumberController = TextEditingController(text: widget.houseNumber);
     subDistrictController = TextEditingController(text: widget.subDistrict);
     districtController = TextEditingController(text: widget.district);
