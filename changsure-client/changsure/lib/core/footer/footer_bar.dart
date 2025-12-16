@@ -24,12 +24,12 @@ import 'package:changsure/module/profile/technician/activities/edit/edit_activit
 import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart'
     as tech_view_act;
 
-import 'package:changsure/module/profile/user/profile_page.dart'
+import 'package:changsure/module/profile/customer/profile_page.dart'
     as user_profile;
-import 'package:changsure/module/profile/user/edit_profile.dart' as user_edit;
-import 'package:changsure/module/profile/user/address_page.dart'
+import 'package:changsure/module/profile/customer/edit_profile.dart' as user_edit;
+import 'package:changsure/module/profile/customer/address_page.dart'
     as user_address;
-import 'package:changsure/module/profile/user/history_service_page.dart'
+import 'package:changsure/module/profile/customer/history_service_page.dart'
     as user_history;
 
 class FooterBarTemplate extends ConsumerStatefulWidget {

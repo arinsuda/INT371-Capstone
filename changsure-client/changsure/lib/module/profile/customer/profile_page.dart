@@ -27,6 +27,9 @@ class _ProfileState extends ConsumerState<UserProfile> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProvider);
+    final customer = user?.customerProfile;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -45,10 +48,12 @@ class _ProfileState extends ConsumerState<UserProfile> {
             ),
             const SizedBox(height: 12),
             ProfileSection(
-              profileImage: 'assets/image/Technician.png',
-              fullName: 'สมศักดิ์ หนวดเยิ้ม',
-              email: 'somchai@example.com',
-              phone: '081-234-5678',
+              profileImage: (customer?.avatarUrl != null && customer!.avatarUrl!.isNotEmpty)
+                  ? customer.avatarUrl!
+                  : 'assets/image/Technician.png',
+              fullName: customer?.fullName ?? 'ไม่ระบุชื่อ',
+              email: customer?.email ?? '-',
+              phone: customer?.phone ?? '-',
               onEdit: () {
                 ref
                     .read(bottomSubPageProvider.notifier)

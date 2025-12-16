@@ -1,18 +1,16 @@
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/profile/editProfile/phone_formatter.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
-import 'package:changsure/module/profile/technician/province_selection_list.dart';
-import 'package:changsure/module/profile/technician/service_category_tile.dart';
+import 'package:changsure/module/profile/technician/editProfile/province_selection_list.dart';
+import 'package:changsure/module/profile/technician/editProfile/service_category_tile.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:flutter/services.dart';
-
 import 'package:changsure/state/master_data_provider.dart';
 import 'package:changsure/data/models/master_data_models.dart';
-
 import '../../../state/bottom_nav_provider.dart';
 import '../../../core/profile/editProfile/text_field.dart';
 import 'editProfile/text_area.dart';

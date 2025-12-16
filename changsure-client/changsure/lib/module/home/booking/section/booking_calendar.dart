@@ -127,11 +127,12 @@ class _BookingCalendarState extends State<BookingCalendar> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           SvgPicture.asset(
                             "assets/icons/calendar.svg",
-                            width: 16,
-                            height: 16,
+                            width: 18,
+                            height: 18,
                           ),
                           const SizedBox(width: 12),
                           Text(

@@ -105,7 +105,7 @@ class _EditProfileState extends State<EditProfile> {
           child: ListView(
             padding: const EdgeInsets.symmetric(
               vertical: 12,
-              horizontal: 16,
+              horizontal: 8,
             ),
             children: [
               Header(header: "แก้ไขโปรไฟล์"),
