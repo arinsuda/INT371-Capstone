@@ -12,8 +12,6 @@ class TechnicianBadge extends ConsumerWidget {
     final user = ref.watch(userProvider);
     final badges = user?.technicianProfile?.badges ?? [];
 
-    print("DEBUG BADGES: จำนวน Badge = ${badges.length}");
-    // ถ้าไม่มี Badge ไม่ต้องแสดงอะไรเลย (หรือจะแสดงข้อความว่าไม่มีก็ได้)
     if (badges.isEmpty) {
       return const SizedBox.shrink();
     }

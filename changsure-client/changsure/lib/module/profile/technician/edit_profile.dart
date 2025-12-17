@@ -4,15 +4,19 @@ import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:changsure/module/profile/technician/editProfile/province_selection_list.dart';
 import 'package:changsure/module/profile/technician/editProfile/service_category_tile.dart';
 import 'package:changsure/state/user_provider.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/core/button/primary_button.dart';
-import 'package:changsure/core/theme.dart';
 import 'package:flutter/services.dart';
 import 'package:changsure/state/master_data_provider.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 import '../../../state/bottom_nav_provider.dart';
 import '../../../core/profile/editProfile/text_field.dart';
+
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/theme.dart';
+
 import 'editProfile/text_area.dart';
 import 'editProfile/search_bar.dart';
 
@@ -25,6 +29,7 @@ class EditProfile extends ConsumerStatefulWidget {
 
 class _EditProfileState extends ConsumerState<EditProfile> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
 
   late TextEditingController nameController;
   late TextEditingController lastNameController;
@@ -33,7 +38,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   late TextEditingController aboutController;
   final TextEditingController _searchController = TextEditingController();
 
-  // State Variables
   Map<int, bool> _selectedProvinces = {};
   Map<int, bool> _selectedServices = {};
 
@@ -44,15 +48,14 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   Map<int, TextEditingController> _maxPriceControllers = {};
   Map<int, TextEditingController> _fixPriceControllers = {};
 
+  File? _avatarFile;
   bool hasChanged = false;
   bool _isInitialized = false;
 
-  // Errors
   String? _provinceError;
   String? _serviceError;
   Map<int, String?> _priceErrors = {};
 
-  // Data
   TechnicianModel? originalTech;
   List<ProvinceModel> allProvinces = [];
   List<ServiceCategoryModel> allCategories = [];
@@ -66,6 +69,48 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     emailController = TextEditingController();
     phoneController = TextEditingController();
     aboutController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    aboutController.dispose();
+    _searchController.dispose();
+
+    for (final c in _minPriceControllers.values) {
+      c.dispose();
+    }
+    for (final c in _maxPriceControllers.values) {
+      c.dispose();
+    }
+    for (final c in _fixPriceControllers.values) {
+      c.dispose();
+    }
+
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _avatarFile = File(pickedFile.path);
+        });
+        _checkChanged();
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+    }
   }
 
   void _initializeData(
@@ -129,9 +174,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
         _maxPriceControllers[sId] = TextEditingController(
           text: service.maxPrice?.toString() ?? '',
         );
-        _fixPriceControllers[sId] = TextEditingController(
-          text: service.maxPrice?.toString() ?? '',
-        );
+        _fixPriceControllers[sId] = TextEditingController(text: '');
 
         _minPriceControllers[sId]?.addListener(_checkChanged);
         _maxPriceControllers[sId]?.addListener(_checkChanged);
@@ -153,8 +196,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
           } catch (_) {}
         }
 
-        print("Services count: ${categories[0].services.length}");
-
         if (match != null) {
           final sId = match.id;
           _selectedServices[sId] = true;
@@ -174,7 +215,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
       }
     }
 
-    // Main Listeners
     _searchController.addListener(() {
       setState(() => _searchText = _searchController.text.trim());
     });
@@ -187,32 +227,167 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     _isInitialized = true;
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_validateAll()) return;
 
-    String rawPhone = phoneController.text.replaceAll('-', '');
+    final provinceIds = _selectedProvinces.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
 
-    // TODO: สร้าง Object เพื่อส่ง API
-    // Map<String, dynamic> updateData = {
-    //   "first_name": nameController.text,
-    //   "phone": rawPhone, // ส่งแบบไม่มีขีด 0888888888
-    //   "province_ids": _selectedProvinces.entries.where((e) => e.value).map((e) => e.key).toList(),
-    //   ...
-    // };
+    List<Map<String, dynamic>> servicesData = [];
 
-    print("Saving Phone Raw: $rawPhone");
+    for (var sId in _selectedServices.keys) {
+      if (_selectedServices[sId] == true) {
+        final type = _priceType[sId] == 'fix' ? 'FIXED' : 'RANGE';
 
-    ref.read(bottomSubPageProvider.notifier).state = null;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย (Mock)')),
+        Map<String, dynamic> serviceMap = {
+          "service_id": sId,
+          "pricing_type": type,
+        };
+
+        if (type == 'FIXED') {
+          serviceMap["price_fixed"] = double.tryParse(
+            _fixPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
+          );
+        } else {
+          serviceMap["price_min"] = double.tryParse(
+            _minPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
+          );
+          serviceMap["price_max"] = double.tryParse(
+            _maxPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
+          );
+        }
+        servicesData.add(serviceMap);
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator()),
     );
+
+    final success = await ref
+        .read(userProvider.notifier)
+        .saveTechnicianProfile(
+          firstName: nameController.text,
+          lastName: lastNameController.text,
+          phone: phoneController.text.replaceAll('-', ''),
+          bio: aboutController.text,
+          provinceIds: provinceIds,
+          services: servicesData,
+          avatarFile: _avatarFile,
+        );
+
+    if (mounted) Navigator.pop(context);
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')));
+        ref.read(bottomSubPageProvider.notifier).state = null;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึก')),
+        );
+      }
+    }
   }
 
   void _checkChanged() {
-    setState(() {
-      hasChanged = true;
-    });
+    if (!mounted) return;
+    final changed = _hasProfileChanged();
+    if (hasChanged != changed) {
+      setState(() => hasChanged = changed);
+    }
+  }
+
+  bool _hasProfileChanged() {
+    if (originalTech == null) return false;
+
+    if (_avatarFile != null) return true;
+
+    if (nameController.text != (originalTech!.firstName)) return true;
+    if (lastNameController.text != (originalTech!.lastName)) return true;
+    if (emailController.text != (originalTech!.email ?? '')) return true;
+    if (aboutController.text != (originalTech!.bio ?? '')) return true;
+
+    String currentPhone = phoneController.text.replaceAll('-', '');
+    String originalPhone = (originalTech!.phone ?? '').replaceAll('-', '');
+    if (currentPhone != originalPhone) return true;
+
+    final currentProvIds = _selectedProvinces.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toSet();
+    final originalProvIds = originalTech!.provinces.map((e) => e.id).toSet();
+
+    if (currentProvIds.length != originalProvIds.length ||
+        !currentProvIds.containsAll(originalProvIds)) {
+      return true;
+    }
+
+    final currentServiceIds = _selectedServices.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toSet();
+    final originalServiceIds = originalTech!.services
+        .map((e) => e.serviceId)
+        .toSet();
+
+    if (currentServiceIds.length != originalServiceIds.length ||
+        !currentServiceIds.containsAll(originalServiceIds)) {
+      return true;
+    }
+
+    for (final sId in currentServiceIds) {
+      TechnicianService? originalSvc;
+
+      try {
+        originalSvc = originalTech!.services.firstWhere(
+          (s) => s.serviceId == sId,
+        );
+      } catch (_) {
+        return true;
+      }
+
+      if (originalSvc == null) return true;
+
+      String currentType = (_priceType[sId] == 'fix') ? 'FIXED' : 'RANGE';
+
+      if (currentType != originalSvc.pricingType) return true;
+
+      if (currentType == 'FIXED') {
+        double currentVal =
+            double.tryParse(
+              _fixPriceControllers[sId]?.text.replaceAll(',', '') ?? '',
+            ) ??
+            0.0;
+        double originalVal = originalSvc.priceFixed ?? 0.0;
+        if (currentVal != originalVal) return true;
+      } else {
+        double currentMin =
+            double.tryParse(
+              _minPriceControllers[sId]?.text.replaceAll(',', '') ?? '',
+            ) ??
+            0.0;
+        double originalMin = originalSvc.priceMin ?? 0.0;
+        if (currentMin != originalMin) return true;
+
+        double currentMax =
+            double.tryParse(
+              _maxPriceControllers[sId]?.text.replaceAll(',', '') ?? '',
+            ) ??
+            0.0;
+        double originalMax = originalSvc.priceMax ?? 0.0;
+        if (currentMax != originalMax) return true;
+      }
+    }
+
+    return false;
   }
 
   bool _validateAll() {
@@ -233,8 +408,13 @@ class _EditProfileState extends ConsumerState<EditProfile> {
           final max = _maxPriceControllers[sId]?.text.trim() ?? '';
           if (min.isEmpty || max.isEmpty) {
             newPriceErrors[sId] = "กรุณากรอกราคาให้ครบ";
-          } else if (int.parse(max) < int.parse(min)) {
-            newPriceErrors[sId] = "Max ต้องมากกว่า Min";
+          } else {
+            final double minVal = double.tryParse(min) ?? 0;
+            final double maxVal = double.tryParse(max) ?? 0;
+
+            if (maxVal < minVal) {
+              newPriceErrors[sId] = "Max ต้องมากกว่า Min";
+            }
           }
         } else {
           final fix = _fixPriceControllers[sId]?.text.trim() ?? '';
@@ -256,12 +436,32 @@ class _EditProfileState extends ConsumerState<EditProfile> {
         !_priceErrors.values.any((e) => e != null);
   }
 
+  ImageProvider _getAvatarImage() {
+    // 1. ถ้ามีรูปใหม่จาก Gallery -> ใช้ FileImage
+    if (_avatarFile != null) {
+      return FileImage(_avatarFile!);
+    }
+
+    // 2. ถ้ามี URL จาก Server (ตรวจสอบว่าเป็น http/https เท่านั้น)
+    // หมายเหตุ: เช็ค field name ใน model ให้ตรงด้วย (เช่น avatar หรือ avatarUrl)
+    // ในที่นี้ผมใช้ avatarUrl ตามที่คุณเคยใช้
+    final url = originalTech?.avatarUrl;
+    if (url != null && url.isNotEmpty) {
+      if (url.startsWith('http') || url.startsWith('https')) {
+        return NetworkImage(url);
+      }
+      // ถ้า URL มาแปลกๆ (ไม่ใช่ http) ให้ข้ามไปใช้รูป default ดีกว่าเสี่ยงจอดำ
+    }
+
+    // 3. รูป Default
+    return const AssetImage('assets/image/Technician.png');
+  }
+
   @override
   Widget build(BuildContext context) {
     final provincesAsync = ref.watch(provincesProvider);
     final categoriesAsync = ref.watch(serviceCategoriesProvider);
 
-    // Handle Loading & Error
     if (provincesAsync.isLoading || categoriesAsync.isLoading) {
       return const Scaffold(
         backgroundColor: Colors.white,
@@ -275,7 +475,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
       );
     }
 
-    // Init Data Once
     final provinces = provincesAsync.value!;
     final categories = categoriesAsync.value!;
 
@@ -296,28 +495,35 @@ class _EditProfileState extends ConsumerState<EditProfile> {
               Center(
                 child: Stack(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 50,
-                      backgroundImage: AssetImage(
-                        'assets/image/Technician.png',
-                      ),
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _getAvatarImage(),
+                      onBackgroundImageError: (exception, stackTrace) {
+                        print("🖼️ Image Load Error: $exception");
+                        // ถ้าโหลดรูปไม่ผ่าน (เช่น link เสีย) มันจะแสดงสีเทาๆ แทนที่จะพัง
+                      },
                     ),
+
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Color(0xFFE8E8E8),
-                          child: Icon(
-                            Icons.camera_alt,
-                            color: Colors.black,
-                            size: 14,
+                      child: GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Color(0xFFE8E8E8),
+                            child: Icon(
+                              Icons.camera_alt,
+                              color: Colors.black,
+                              size: 14,
+                            ),
                           ),
                         ),
                       ),
@@ -378,9 +584,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
               buildTextArea("เกี่ยวกับ", aboutController),
 
-              // -----------------------------------------------------------
-              // PROVINCES
-              // -----------------------------------------------------------
               const SizedBox(height: 12),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
@@ -424,9 +627,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                   ),
                 ),
 
-              // -----------------------------------------------------------
-              // SERVICES
-              // -----------------------------------------------------------
               const SizedBox(height: 16),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
@@ -439,10 +639,14 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                 ),
               ),
               const SizedBox(height: 8),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
-                  children: categories.map((cat) {
+                  children: categories.asMap().entries.map((entry) {
+                    int index = entry.key;
+                    ServiceCategoryModel cat = entry.value;
+
                     return ServiceCategoryTile(
                       category: cat,
                       selectedServices: _selectedServices,
@@ -451,20 +655,21 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                       maxPriceControllers: _maxPriceControllers,
                       fixPriceControllers: _fixPriceControllers,
                       priceErrors: _priceErrors,
-
                       onServiceSelected: (id, val) {
                         setState(() {
                           _selectedServices[id] = val;
                         });
                         _checkChanged();
                       },
-
                       onPriceTypeChanged: (id, type) {
                         setState(() {
                           _priceType[id] = type;
                         });
                         _checkChanged();
                       },
+
+                      isFirst: index == 0,
+                      isLast: index == categories.length - 1,
                     );
                   }).toList(),
                 ),

@@ -1,3 +1,4 @@
+import 'package:changsure/data/models/users/users_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import 'package:changsure/data/services/auth_service.dart';
 
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
@@ -61,8 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     SizedBox(height: toLogicalPx(context, 32)),
 
                     _buildTextField(
-                      label:
-                          'อีเมล',
+                      label: 'อีเมล',
                       controller: _usernameController,
                     ),
                     SizedBox(height: toLogicalPx(context, 16)),
@@ -97,10 +98,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 });
 
                                 final authService = AuthService();
-                                final userModel = await authService.login(
-                                  _usernameController.text.trim(),
-                                  _passwordController.text.trim(),
-                                );
+
+                                final Map<String, dynamic>? response =
+                                    await authService.login(
+                                      _usernameController.text.trim(),
+                                      _passwordController.text.trim(),
+                                    );
 
                                 if (mounted) {
                                   setState(() {
@@ -108,10 +111,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   });
                                 }
 
-                                if (userModel != null) {
+                                if (response != null &&
+                                    response['data'] != null) {
+                                  final Map<String, dynamic> data =
+                                      response['data'];
+
+                                  final accessToken = data['access_token'];
+                                  final refreshToken = data['refresh_token'];
+
+                                  Map<String, dynamic> decodedToken =
+                                      JwtDecoder.decode(accessToken);
+
+                                  UserRole role = UserRole.customer;
+                                  if (decodedToken['role'] == 'technician') {
+                                    role = UserRole.technician;
+                                  }
+
+                                  final userId =
+                                      decodedToken['user_id'] ??
+                                      decodedToken['sub'] ??
+                                      0;
+
+                                  final userModel = UserModel(
+                                    id: userId,
+                                    token: accessToken,
+                                    role: role,
+                                  );
+
                                   ref
                                       .read(userProvider.notifier)
-                                      .login(userModel);
+                                      .login(userModel, refreshToken);
                                 } else {
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
