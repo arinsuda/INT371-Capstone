@@ -1,8 +1,8 @@
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/profile/editProfile/phone_formatter.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
-import 'package:changsure/module/profile/technician/editProfile/province_selection_list.dart';
-import 'package:changsure/module/profile/technician/editProfile/service_category_tile.dart';
+import 'package:changsure/module/profile/technician/editProfile/province_checkbox_list.dart';
+import 'package:changsure/module/profile/technician/editProfile/service_categories.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -603,11 +603,12 @@ class _EditProfileState extends ConsumerState<EditProfile> {
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: ProvinceSelectionList(
-                  provinces: provinces,
-                  selectedProvinces: _selectedProvinces,
-                  searchText: _searchText,
-                  onProvinceChanged: (id, val) {
+                child: buildProvinceCheckboxList(
+                  context,
+                  _searchText,
+                  provinces,
+                  _selectedProvinces,
+                  (id, val) {
                     setState(() {
                       _selectedProvinces[id] = val;
                     });
@@ -647,17 +648,20 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                     int index = entry.key;
                     ServiceCategoryModel cat = entry.value;
 
-                    return ServiceCategoryTile(
+                    return ServiceCategory(
                       category: cat,
+                      isFirst: index == 0,
+                      isLast: index == categories.length - 1,
                       selectedServices: _selectedServices,
                       priceTypes: _priceType,
                       minPriceControllers: _minPriceControllers,
                       maxPriceControllers: _maxPriceControllers,
                       fixPriceControllers: _fixPriceControllers,
                       priceErrors: _priceErrors,
-                      onServiceSelected: (id, val) {
+                      onServiceToggle: (id) {
                         setState(() {
-                          _selectedServices[id] = val;
+                          _selectedServices[id] =
+                              !(_selectedServices[id] ?? false);
                         });
                         _checkChanged();
                       },
@@ -667,9 +671,9 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                         });
                         _checkChanged();
                       },
-
-                      isFirst: index == 0,
-                      isLast: index == categories.length - 1,
+                      onPriceChange: () {
+                        _checkChanged();
+                      },
                     );
                   }).toList(),
                 ),

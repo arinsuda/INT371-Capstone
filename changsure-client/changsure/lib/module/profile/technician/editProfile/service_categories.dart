@@ -1,31 +1,46 @@
-import 'package:changsure/module/profile/technician/editProfile/sub_service_tile.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme.dart';
-import '../../../../mockDB/services_categories.dart';
+import 'package:changsure/core/theme.dart';
+import 'package:changsure/data/models/master_data_models.dart';
+import 'package:changsure/module/profile/technician/editProfile/sub_service_tile.dart';
 
-List<Widget> buildServiceCategories(
-    BuildContext context,
-    List<ServiceCategory> categories,
-    Map<String, bool> selectedServices,
-    Map<String, String> priceType,
-    Map<String, TextEditingController> minPriceControllers,
-    Map<String, TextEditingController> maxPriceControllers,
-    Map<String, TextEditingController> fixPriceControllers,
-    Map<String, String?> priceErrors,
-    Function(String) onServiceToggle,
-    Function(String, String) onPriceTypeChange, // ✅ เปลี่ยน signature รับ 2 parameters
-    Function() onPriceChange,
-    ) {
-  return categories.asMap().entries.map((entry) {
-    int index = entry.key;
-    ServiceCategory category = entry.value;
+class ServiceCategory extends StatelessWidget {
+  final ServiceCategoryModel category;
+  final Map<int, bool> selectedServices;
+  final Map<int, String> priceTypes;
+  final Map<int, TextEditingController> minPriceControllers;
+  final Map<int, TextEditingController> maxPriceControllers;
+  final Map<int, TextEditingController> fixPriceControllers;
+  final Map<int, String?> priceErrors;
+
+  final Function(int serviceId) onServiceToggle;
+  final Function(int serviceId, String type) onPriceTypeChanged;
+  final VoidCallback onPriceChange;
+
+  final bool isFirst;
+  final bool isLast;
+
+  const ServiceCategory({
+    super.key,
+    required this.category,
+    required this.selectedServices,
+    required this.priceTypes,
+    required this.minPriceControllers,
+    required this.maxPriceControllers,
+    required this.fixPriceControllers,
+    required this.priceErrors,
+    required this.onServiceToggle,
+    required this.onPriceTypeChanged,
+    required this.onPriceChange,
+    this.isFirst = false,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     BorderRadius radius = BorderRadius.zero;
-
-    if (index == 0) {
-      radius = const BorderRadius.vertical(top: Radius.circular(8));
-    } else if (index == categories.length - 1) {
+    if (isFirst) radius = const BorderRadius.vertical(top: Radius.circular(8));
+    if (isLast)
       radius = const BorderRadius.vertical(bottom: Radius.circular(8));
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 0),
@@ -37,29 +52,37 @@ List<Widget> buildServiceCategories(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           title: Text(
-            category.name,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            category.catName,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
           iconColor: AppColors.primaryHover,
           collapsedIconColor: AppColors.primaryHover,
           backgroundColor: Colors.transparent,
           childrenPadding: EdgeInsets.zero,
-          children: category.subServices.map((sub) {
+
+          children: category.services.map((service) {
+            final int sId = service.id;
+
             return buildSubServiceTile(
-              sub,
-              selectedServices[sub] ?? false,
-              priceType[sub] ?? "range",
-              minPriceControllers[sub]!,
-              maxPriceControllers[sub]!,
-              fixPriceControllers[sub]!,
-              priceErrors[sub],
-              onServiceToggle,
-              onPriceTypeChange,
+              service.serName,
+              selectedServices[sId] ?? false,
+              priceTypes[sId] ?? "range",
+              minPriceControllers[sId]!,
+              maxPriceControllers[sId]!,
+              fixPriceControllers[sId]!,
+              priceErrors[sId],
+
+              (String name) => onServiceToggle(sId),
+              (String name, String newType) => onPriceTypeChanged(sId, newType),
               onPriceChange,
             );
           }).toList(),
         ),
       ),
     );
-  }).toList();
+  }
 }
