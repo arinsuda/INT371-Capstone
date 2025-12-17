@@ -54,13 +54,26 @@ func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicia
 	var total int64
 
 	tx := r.db.WithContext(ctx).Model(&TechnicianPost{}).
-		Where("technician_id = ? AND deleted_at IS NULL", techID)
+		Where("technician_posts.technician_id = ? AND technician_posts.deleted_at IS NULL", techID)
+
+	if q.CategoryID != nil {
+		tx = tx.Joins("JOIN services ON services.id = technician_posts.service_id").
+			Where("services.category_id = ?", *q.CategoryID)
+	}
 
 	if q.ServiceID != nil {
-		tx = tx.Where("service_id = ?", *q.ServiceID)
+		tx = tx.Where("technician_posts.service_id = ?", *q.ServiceID)
 	}
 	if q.ProvinceID != nil {
-		tx = tx.Where("province_id = ?", *q.ProvinceID)
+		tx = tx.Where("technician_posts.province_id = ?", *q.ProvinceID)
+	}
+	if q.IsPublished != nil {
+		tx = tx.Where("technician_posts.is_published = ?", *q.IsPublished)
+	}
+
+	if q.Search != "" {
+		keyword := "%" + q.Search + "%"
+		tx = tx.Where("(technician_posts.title LIKE ? OR technician_posts.description LIKE ?)", keyword, keyword)
 	}
 
 	if err := tx.Count(&total).Error; err != nil {
@@ -71,7 +84,7 @@ func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicia
 		Preload("Service").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
-		Order("created_at DESC").
+		Order("technician_posts.created_at DESC").
 		Limit(perPage).Offset((page - 1) * perPage).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err

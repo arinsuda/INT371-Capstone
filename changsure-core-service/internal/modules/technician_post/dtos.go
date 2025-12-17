@@ -17,11 +17,11 @@ type CreateTechnicianPostDTO struct {
 }
 
 type UpdateTechnicianPostDTO struct {
-	Title       *string    `form:"title"`
-	Description *string    `form:"description"`
-	ServiceID   *uint      `form:"service_id"`
-	ProvinceID  *uint      `form:"province_id"`
-	IsPublished *bool      `form:"is_published"`
+	Title       *string `form:"title"`
+	Description *string `form:"description"`
+	ServiceID   *uint   `form:"service_id"`
+	ProvinceID  *uint   `form:"province_id"`
+	IsPublished *bool   `form:"is_published"`
 
 	NewImages []*multipart.FileHeader `form:"new_images"`
 
@@ -29,8 +29,12 @@ type UpdateTechnicianPostDTO struct {
 }
 
 type ListTechnicianPostsQuery struct {
-	ServiceID  *uint `query:"service_id"`
-	ProvinceID *uint `query:"province_id"`
+	ServiceID   *uint  `query:"service_id"`
+	ProvinceID  *uint  `query:"province_id"`
+	
+	Search      string `query:"search"`
+	IsPublished *bool  `query:"is_published"`
+	CategoryID  *uint  `query:"category_id"`
 
 	Page    int `query:"page"`
 	PerPage int `query:"per_page"`
@@ -53,7 +57,7 @@ type TechnicianPostResponse struct {
 	ProvinceID   *uint   `json:"province_id"`
 	ProvinceName *string `json:"province_name"`
 
-	Images   []TechnicianPostImageResponse `json:"images"`
+	Images []TechnicianPostImageResponse `json:"images"`
 
 	IsPublished bool  `json:"is_published"`
 	CreatedAt   int64 `json:"created_at"`
