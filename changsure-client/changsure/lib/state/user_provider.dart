@@ -67,9 +67,7 @@ class UserNotifier extends Notifier<UserModel?> {
 
       state = UserModel(id: userId, token: token, role: role);
 
-      if (role == UserRole.technician) {
-        await refreshUser();
-      }
+      await refreshUser();
       await loadAddresses();
     } catch (e) {
       await logout();
@@ -107,27 +105,25 @@ class UserNotifier extends Notifier<UserModel?> {
   void updateCustomerProfile(CustomerModel customer) {
     if (state == null) return;
 
-    state = state!.copyWith(
-      customerProfile: customer,
-    );
+    state = state!.copyWith(customerProfile: customer);
   }
 
   Future<void> refreshUser() async {
-    if (state?.token == null || state?.role != UserRole.technician) return;
+    if (state?.token == null) return;
 
     try {
       final authService = AuthService();
-      final newTechProfile = await authService.getTechnicianProfile(
-        state!.token!,
-      );
 
-      if (newTechProfile != null) {
-        state = state!.copyWith(technicianProfile: newTechProfile);
-        await loadAddresses();
-
-        print(
-          "✅ Refresh Profile Success: Badge count = ${newTechProfile.badges.length}",
-        );
+      if (state!.role == UserRole.technician) {
+        final profile = await authService.getTechnicianProfile(state!.token!);
+        if (profile != null) {
+          state = state!.copyWith(technicianProfile: profile);
+        }
+      } else if (state!.role == UserRole.customer) {
+        final profile = await authService.getCustomerProfile(state!.token!);
+        if (profile != null) {
+          state = state!.copyWith(customerProfile: profile);
+        }
       }
     } catch (e) {
       print("❌ Refresh Error: $e");
