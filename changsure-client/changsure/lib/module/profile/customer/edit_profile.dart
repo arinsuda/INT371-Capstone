@@ -1,61 +1,140 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/data/models/customer/customer_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/button/primary_button.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:changsure/state/user_provider.dart';
 
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+import '../../../core/profile/editProfile/phone_formatter.dart';
+import '../../../data/services/customer_service.dart';
+import '../../../state/bottom_nav_provider.dart';
 
-    if (digits.length > 10) {
-      digits = digits.substring(0, 10);
-    }
-
-    String formatted = '';
-    for (int i = 0; i < digits.length; i++) {
-      if (i == 3 || i == 6) formatted += '-';
-      formatted += digits[i];
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class EditProfile extends StatefulWidget {
+class EditProfile extends ConsumerStatefulWidget {
   const EditProfile({super.key});
 
   @override
-  State<EditProfile> createState() => _EditProfileState();
+  ConsumerState<EditProfile> createState() => _EditProfileState();
 }
 
-class _EditProfileState extends State<EditProfile> {
+class _EditProfileState extends ConsumerState<EditProfile> {
   final _formKey = GlobalKey<FormState>();
   final ValueNotifier<bool> isFormValid = ValueNotifier(false);
 
-  final TextEditingController nameController = TextEditingController(
-    text: 'สมศักดิ์',
-  );
-  final TextEditingController lastNameController = TextEditingController(
-    text: 'หนวดเยิ้ม',
-  );
-  final TextEditingController emailController = TextEditingController(
-    text: 'somsuk@gmail.com',
-  );
-  final TextEditingController phoneController = TextEditingController(
-    text: '099-999-9999',
-  );
+  late TextEditingController nameController;
+  late TextEditingController lastNameController;
+  late TextEditingController emailController;
+  late TextEditingController phoneController;
+
+  bool hasChanged = false;
+  bool _isInitialized = false;
+
+  CustomerModel? originalCustomer;
 
   void _validateForm() {
     final isValid = _formKey.currentState?.validate() ?? false;
     isFormValid.value = isValid;
   }
+
+  @override
+  void initState() {
+    super.initState();
+
+    nameController = TextEditingController();
+    lastNameController = TextEditingController();
+    emailController = TextEditingController();
+    phoneController = TextEditingController();
+  }
+
+  void _initializeData() {
+    if (_isInitialized) return;
+
+    final user = ref.watch(userProvider);
+    final customer = user?.customerProfile;
+    originalCustomer = customer;
+
+    String firstName = '';
+    String lastName = '';
+    if (customer?.fullName != null) {
+      final parts = customer!.fullName.split(' ');
+      if (parts.isNotEmpty) firstName = parts[0];
+      if (parts.length > 1) lastName = parts.sublist(1).join(' ');
+    }
+
+    nameController.text = customer?.firstName ?? firstName;
+    lastNameController.text = customer?.lastName ?? lastName;
+    emailController.text = customer?.email ?? '';
+
+    String rawPhone = customer?.phone ?? '';
+    if (rawPhone.isNotEmpty &&
+        rawPhone.length == 10 &&
+        !rawPhone.contains('-')) {
+      phoneController.text =
+          "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
+    } else {
+      phoneController.text = rawPhone;
+    }
+
+    nameController.addListener(_checkChanged);
+    lastNameController.addListener(_checkChanged);
+    emailController.addListener(_checkChanged);
+    phoneController.addListener(_checkChanged);
+
+    _isInitialized = true;
+  }
+
+  void _checkChanged() {
+    setState(() {
+      hasChanged = true;
+    });
+  }
+
+  Future<void> _saveProfile() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final user = ref.read(userProvider);
+
+    if (user == null || user.token == null || originalCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเข้าสู่ระบบใหม่')),
+      );
+      return;
+    }
+
+    final rawPhone = phoneController.text.replaceAll('-', '');
+
+    final updatedCustomer = originalCustomer!.copyWith(
+      firstName: nameController.text.trim(),
+      lastName: lastNameController.text.trim(),
+      email: emailController.text.trim(),
+      phone: rawPhone,
+    );
+
+    try {
+      final success = await CustomerService().updateCustomer(
+        user.token!, // ✅ safe แล้ว
+        user.role,
+        updatedCustomer,
+      );
+
+      if (success) {
+        ref.read(userProvider.notifier)
+            .updateCustomerProfile(updatedCustomer);
+
+        ref.read(bottomSubPageProvider.notifier).state = null;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
+    }
+  }
+
+
 
   Widget buildTextField(
     String label,
@@ -97,16 +176,16 @@ class _EditProfileState extends State<EditProfile> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      _initializeData();
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: 8,
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             children: [
               Header(header: "แก้ไขโปรไฟล์"),
               const SizedBox(height: 16),
@@ -211,11 +290,8 @@ class _EditProfileState extends State<EditProfile> {
                   builder: (context, valid, _) {
                     return PrimaryButton(
                       text: "บันทึกการแก้ไข",
-                      onPressed: valid
-                          ? () {
-                              // Save Logic
-                              print("บันทึกข้อมูล: ${nameController.text}");
-                            }
+                      onPressed: valid && hasChanged
+                          ? _saveProfile
                           : null,
                     );
                   },

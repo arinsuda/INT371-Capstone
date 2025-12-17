@@ -1,4 +1,5 @@
 import 'package:changsure/data/models/address_model.dart';
+
 class CustomerModel {
   final int id;
   final String firstName;
@@ -7,9 +8,6 @@ class CustomerModel {
   final String? phone;
   final String? avatarUrl;
 
-  // ข้อมูลที่อยู่ (Nested List)
-  final List<AddressModel> addresses;
-
   CustomerModel({
     required this.id,
     required this.firstName,
@@ -17,7 +15,6 @@ class CustomerModel {
     this.email,
     this.phone,
     this.avatarUrl,
-    this.addresses = const [],
   });
 
   String get fullName => '$firstName $lastName';
@@ -30,12 +27,37 @@ class CustomerModel {
       email: json['email'],
       phone: json['phone'],
       avatarUrl: json['avatar_url'],
-
-      addresses:
-          (json['addresses'] as List<dynamic>?)
-              ?.map((e) => AddressModel.fromJson(e))
-              .toList() ??
-          [],
     );
   }
+
+  /// 👇 สำหรับ PATCH / PUT profile
+  Map<String, dynamic> toJson() {
+    return {
+      'firstname': firstName,
+      'lastname': lastName,
+      'email': email,
+      'phone': phone,
+      'avatar_url': avatarUrl,
+    };
+  }
+
+  CustomerModel copyWith({
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phone,
+    String? avatarUrl,
+  }) {
+    return CustomerModel(
+      id: id,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+    );
+  }
+
 }
+
+
