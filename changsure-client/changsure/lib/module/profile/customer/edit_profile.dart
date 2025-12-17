@@ -19,7 +19,6 @@ class EditProfile extends ConsumerStatefulWidget {
 class _EditProfileState extends ConsumerState<EditProfile> {
   final _formKey = GlobalKey<FormState>();
   final ValueNotifier<bool> isFormValid = ValueNotifier(false);
-
   late TextEditingController nameController;
   late TextEditingController lastNameController;
   late TextEditingController emailController;

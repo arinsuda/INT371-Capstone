@@ -56,7 +56,7 @@ Widget buildProvinceCheckboxList(
               value: selectedProvinces[province] ?? false,
               onChanged: (val) {
                 selectedProvinces[province] = val ?? false;
-                onChange(); // 👈 เรียกกลับไปแจ้ง state
+                onChange();
               },
               activeColor: const Color(0xFF3071C7),
               controlAffinity: ListTileControlAffinity.trailing,

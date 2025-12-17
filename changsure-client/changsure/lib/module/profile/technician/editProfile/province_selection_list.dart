@@ -51,7 +51,7 @@ class ProvinceSelectionList extends StatelessWidget {
 
     return Container(
       constraints: const BoxConstraints(maxHeight: 400),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FE),
         borderRadius: BorderRadius.circular(8),
@@ -95,7 +95,7 @@ class ProvinceSelectionList extends StatelessWidget {
                 controlAffinity: ListTileControlAffinity.trailing,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 0,
+                  vertical: 6,
                 ),
                 dense: true,
                 visualDensity: VisualDensity.compact,

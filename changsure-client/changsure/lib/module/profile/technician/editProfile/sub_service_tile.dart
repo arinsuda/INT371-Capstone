@@ -13,7 +13,7 @@ Widget buildSubServiceTile(
     TextEditingController fixCtrl,
     String? priceError,
     Function(String) onServiceToggle,
-    Function(String, String) onPriceTypeChange, // ✅ แก้: รับ 2 parameters
+    Function(String, String) onPriceTypeChange,
     Function() onPriceChange,
     ) {
   return Container(

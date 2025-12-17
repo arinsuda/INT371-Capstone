@@ -54,11 +54,11 @@ class ServiceCategoryTile extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: AppColors.primaryText,
             ),
           ),
-          iconColor: const Color(0xFF3071C7),
-          collapsedIconColor: const Color(0xFF3071C7),
+          iconColor: AppColors.primaryHover,
+          collapsedIconColor:AppColors.primaryHover,
           backgroundColor: Colors.transparent,
           childrenPadding: EdgeInsets.zero,
           children: category.services.map((service) {
@@ -77,7 +77,7 @@ class ServiceCategoryTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF2F8FD) : Colors.white,
+        color: isSelected ? AppColors.primaryBGHover : Colors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,10 +87,10 @@ class ServiceCategoryTile extends StatelessWidget {
             onChanged: (val) => onServiceSelected(sId, val ?? false),
             title: Text(
               service.serName,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+              style: const TextStyle(fontSize: 14, color: AppColors.colorTertiaryText),
             ),
             controlAffinity: ListTileControlAffinity.trailing,
-            activeColor: const Color(0xFF3071C7),
+            activeColor: AppColors.primaryBorderHover,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             dense: true,
             visualDensity: VisualDensity.compact,
@@ -174,7 +174,7 @@ class ServiceCategoryTile extends StatelessWidget {
     bool hasError = false,
     TextAlign textAlign = TextAlign.start,
   }) {
-    const primaryBlue = Color(0xFF3071C7);
+    const primaryBlue = AppColors.primaryBorderHover;
 
     return SizedBox(
       height: 40,
@@ -186,7 +186,7 @@ class ServiceCategoryTile extends StatelessWidget {
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+          hintStyle: const TextStyle(color: AppColors.primaryBorder, fontSize: 13),
           contentPadding: const EdgeInsets.symmetric(
             vertical: 0,
             horizontal: 12,
@@ -195,10 +195,10 @@ class ServiceCategoryTile extends StatelessWidget {
           fillColor: Colors.white,
 
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide(
               color: hasError ? AppColors.colorError : primaryBlue,
-              width: 1,
+              width: 1.5,
             ),
           ),
 
@@ -238,7 +238,6 @@ class ServiceCategoryTile extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-
             color: isSelected ? Colors.white : primaryBlue,
             fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
           ),
