@@ -3,11 +3,12 @@ class PostModel {
   final String title;
   final String content;
   final List<String> images;
+  final List<int> imageIds;
   final String createdAt;
   final int serviceId;
   final String serviceName;
-  final int serviceCategoryId;
-  final String serviceCategoryName;
+  final int categoryId;
+  final String categoryName;
   final String provinceName;
 
   PostModel({
@@ -15,21 +16,24 @@ class PostModel {
     required this.title,
     required this.content,
     required this.images,
+    required this.imageIds,
     required this.createdAt,
     required this.serviceId,
     required this.serviceName,
-    required this.serviceCategoryId,
-    required this.serviceCategoryName,
+    required this.categoryId,
+    required this.categoryName,
     required this.provinceName,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
-    List<String> imgList = [];
+    List<String> imgUrls = [];
+    List<int> imgIds = [];
+
     if (json['images'] != null) {
-      imgList = (json['images'] as List)
-          .map((item) => (item['image_url'] ?? '').toString())
-          .where((url) => url.isNotEmpty)
-          .toList();
+      for (var item in json['images']) {
+        imgUrls.add(item['image_url'] ?? '');
+        imgIds.add(item['id'] ?? 0);
+      }
     }
 
     String dateStr = '';
@@ -44,19 +48,15 @@ class PostModel {
       id: json['id'] ?? 0,
       title: json['title'] ?? '',
       content: json['description'] ?? '',
-      images: imgList,
+      images: imgUrls,
+      imageIds: imgIds,
       createdAt: dateStr,
       serviceId: json['service_id'] ?? 0,
       serviceName: json['service_name'] ?? '',
-      provinceName: json['province_name'] ?? '',
 
-      serviceCategoryId:
-          json['service_category_id'] ?? json['category_id'] ?? 0,
-      serviceCategoryName:
-          json['service_category_name'] ??
-          json['category_name'] ??
-          json['service_name'] ??
-          'งานทั่วไป',
+      categoryId: json['category_id'] ?? 0,
+      categoryName: json['category_name'] ?? 'งานทั่วไป',
+      provinceName: json['province_name'] ?? '',
     );
   }
 }

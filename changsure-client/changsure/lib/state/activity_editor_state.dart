@@ -1,42 +1,56 @@
 import 'dart:io';
+import 'package:changsure/data/services/technician_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:changsure/mockDB/activities.dart';
 
-// --- Data Model (Immutable State) ---
+import 'user_provider.dart';
+
 class ActivityEditorState {
+  final bool isLoading;
+  final int? serviceId;
   final String? selectedCategory;
+
   final List<String> assetImages;
+  final List<int> assetImageIds;
   final List<File> pickedImages;
+
+  final List<int> idsToDelete;
+
   final String? descriptionError;
   final String? imageError;
 
-  // เก็บค่าเดิมไว้เช็คว่ามีการแก้ไขหรือไม่ (isChanged)
-  final String? originalCategory;
+  final int? originalServiceId;
   final String? originalDescription;
-  final List<String> originalImages;
 
-  // เก็บ text ปัจจุบันเพื่อเทียบกับ original (แยกจาก Controller)
   final String currentDescription;
 
   const ActivityEditorState({
+    this.isLoading = false,
+    this.serviceId,
     this.selectedCategory,
     required this.assetImages,
+    required this.assetImageIds,
     required this.pickedImages,
+    required this.idsToDelete,
     this.descriptionError,
     this.imageError,
-    this.originalCategory,
+    this.originalServiceId,
     this.originalDescription,
-    required this.originalImages,
     this.currentDescription = '',
   });
 
   bool get isChanged {
-    return selectedCategory != originalCategory ||
+    if (originalServiceId == null) {
+      return currentDescription.isNotEmpty ||
+          pickedImages.isNotEmpty ||
+          serviceId != null;
+    }
+
+    return serviceId != originalServiceId ||
         currentDescription != (originalDescription ?? '') ||
         pickedImages.isNotEmpty ||
-        assetImages.length != originalImages.length;
+        idsToDelete.isNotEmpty;
   }
 
   bool get hasError {
@@ -44,125 +58,171 @@ class ActivityEditorState {
   }
 
   ActivityEditorState copyWith({
+    bool? isLoading,
+    int? serviceId,
     String? selectedCategory,
     List<String>? assetImages,
+    List<int>? assetImageIds,
     List<File>? pickedImages,
+    List<int>? idsToDelete,
     String? descriptionError,
     String? imageError,
-    String? originalCategory,
+    int? originalServiceId,
     String? originalDescription,
-    List<String>? originalImages,
     String? currentDescription,
   }) {
     return ActivityEditorState(
+      isLoading: isLoading ?? this.isLoading,
+      serviceId: serviceId ?? this.serviceId,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       assetImages: assetImages ?? this.assetImages,
+      assetImageIds: assetImageIds ?? this.assetImageIds,
       pickedImages: pickedImages ?? this.pickedImages,
-      descriptionError:
-          descriptionError ??
-          this.descriptionError, // ส่ง null มาเพื่อ clear error ได้
+      idsToDelete: idsToDelete ?? this.idsToDelete,
+      descriptionError: descriptionError ?? this.descriptionError,
       imageError: imageError ?? this.imageError,
-      originalCategory: originalCategory ?? this.originalCategory,
+      originalServiceId: originalServiceId ?? this.originalServiceId,
       originalDescription: originalDescription ?? this.originalDescription,
-      originalImages: originalImages ?? this.originalImages,
       currentDescription: currentDescription ?? this.currentDescription,
     );
   }
 }
 
-// --- Map สี ---
-const Map<String, Map<String, Color>> kActivityColorMap = {
-  "ช่างทาสี": {
-    "text": Color(0xFFEB2F96),
-    "background": Color(0xFFFFF0F6),
-    "border": Color(0xFFFFADD2),
-  },
-  "ช่างประปา": {
-    "text": Color(0xFF36CFC9),
-    "background": Color(0xFFE6FFFB),
-    "border": Color(0xFF87E8DE),
-  },
-  "ช่างไฟฟ้า": {
-    "text": Color(0xFFFAAD14),
-    "background": Color(0xFFFFFBE6),
-    "border": Color(0xFFFFE58F),
-  },
-  "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
-    "text": Color(0xFF722ED1),
-    "background": Color(0xFFF9F0FF),
-    "border": Color(0xFFD3ADF7),
-  },
-};
-
-// --- Notifier ---
 class ActivityEditorNotifier
     extends AutoDisposeFamilyNotifier<ActivityEditorState, int> {
   final TextEditingController descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
+  bool get isCreateMode => arg <= 0;
+
   @override
   ActivityEditorState build(int id) {
-    // โหลดข้อมูลจาก MockDB
-    final activity = mockActivities.firstWhere((a) => a.id == id);
+    final initialState = ActivityEditorState(
+      isLoading: !isCreateMode,
+      assetImages: [],
+      assetImageIds: [],
+      pickedImages: [],
+      idsToDelete: [],
+    );
 
-    // ตั้งค่า Controller
-    descriptionController.text = activity.description;
-
-    // Listen การพิมพ์เพื่อ update state และ validate
     descriptionController.addListener(_onTextChanged);
 
-    // Dispose controller เมื่อ Provider ถูกทำลาย
     ref.onDispose(() {
       descriptionController.removeListener(_onTextChanged);
       descriptionController.dispose();
     });
 
-    return ActivityEditorState(
-      selectedCategory: activity.serviceCategoryName,
-      assetImages: List<String>.from(activity.images),
-      pickedImages: [],
-      originalCategory: activity.serviceCategoryName,
-      originalDescription: activity.description,
-      originalImages: List<String>.from(activity.images),
-      currentDescription: activity.description,
-    );
+    if (!isCreateMode) {
+      Future.microtask(() => _loadPostData(id));
+    }
+
+    return initialState;
+  }
+
+  Future<void> _loadPostData(int id) async {
+    final user = ref.read(userProvider);
+    if (user?.token == null) return;
+
+    final service = TechnicianService();
+    final post = await service.getPostById(user!.token!, id);
+
+    if (post != null) {
+      descriptionController.text = post.content;
+
+      List<int> mockIds = List.generate(post.images.length, (index) => 0);
+
+      state = state.copyWith(
+        isLoading: false,
+        serviceId: post.serviceId,
+        selectedCategory: post.categoryName,
+        assetImages: post.images,
+        assetImageIds: mockIds,
+        originalServiceId: post.serviceId,
+        originalDescription: post.content,
+        currentDescription: post.content,
+      );
+    } else {
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   void _onTextChanged() {
-    // อัปเดต currentDescription เพื่อให้ UI รู้ว่า text เปลี่ยน (สำหรับปุ่ม Save)
     state = state.copyWith(currentDescription: descriptionController.text);
-    validateFields();
+
+    if (state.descriptionError != null) {
+      state = ActivityEditorState(
+        isLoading: state.isLoading,
+        serviceId: state.serviceId,
+        selectedCategory: state.selectedCategory,
+        assetImages: state.assetImages,
+        assetImageIds: state.assetImageIds,
+        pickedImages: state.pickedImages,
+        idsToDelete: state.idsToDelete,
+        originalServiceId: state.originalServiceId,
+        originalDescription: state.originalDescription,
+        currentDescription: state.currentDescription,
+        descriptionError: null,
+        imageError: state.imageError,
+      );
+    }
   }
 
-  void setCategory(String category) {
-    state = state.copyWith(selectedCategory: category);
-    validateFields();
+  void setService(int id, String name) {
+    state = state.copyWith(serviceId: id, selectedCategory: name);
   }
 
   Future<void> pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      final newPicked = [...state.pickedImages, File(image.path)];
-      state = state.copyWith(pickedImages: newPicked);
-      validateFields();
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      final newPicked = [
+        ...state.pickedImages,
+        ...images.map((e) => File(e.path)),
+      ];
+
+      state = ActivityEditorState(
+        isLoading: state.isLoading,
+        serviceId: state.serviceId,
+        selectedCategory: state.selectedCategory,
+        assetImages: state.assetImages,
+        assetImageIds: state.assetImageIds,
+        pickedImages: newPicked,
+        idsToDelete: state.idsToDelete,
+        originalServiceId: state.originalServiceId,
+        originalDescription: state.originalDescription,
+        currentDescription: state.currentDescription,
+        descriptionError: state.descriptionError,
+        imageError: null,
+      );
     }
   }
 
   void removeAssetImage(int index) {
     final newAssets = [...state.assetImages];
+    final newAssetIds = [...state.assetImageIds];
+
     newAssets.removeAt(index);
-    state = state.copyWith(assetImages: newAssets);
-    validateFields();
+
+    int deletedId = newAssetIds.removeAt(index);
+
+    final newIdsToDelete = [...state.idsToDelete];
+    if (deletedId > 0) {
+      newIdsToDelete.add(deletedId);
+    }
+
+    state = state.copyWith(
+      assetImages: newAssets,
+      assetImageIds: newAssetIds,
+      idsToDelete: newIdsToDelete,
+    );
   }
 
   void removePickedImage(int index) {
     final newPicked = [...state.pickedImages];
     newPicked.removeAt(index);
     state = state.copyWith(pickedImages: newPicked);
-    validateFields();
   }
 
-  void validateFields() {
+  Future<bool> savePost() async {
     String? descriptionError;
     String? imageError;
 
@@ -174,28 +234,57 @@ class ActivityEditorNotifier
       imageError = "กรุณาเพิ่มรูปภาพ";
     }
 
-    // การใช้ copyWith แบบนี้ ถ้าส่ง null ไปมันจะถือว่าไม่เปลี่ยนค่า
-    // เราจึงต้อง trick นิดหน่อย หรือถ้า Model รองรับ nullable แล้วส่งค่าใหม่เข้าไป
-    // ในที่นี้ Logic ของ copyWith ด้านบน: descriptionError ?? this.descriptionError
-    // ดังนั้นถ้าเราอยาก Clear Error เราต้องระวัง
+    if (state.serviceId == null) {}
 
-    // แก้ไข: สร้าง object ใหม่เลยเพื่อให้แน่ใจว่า error ถูก reset หรือ set ตามเงื่อนไข
-    state = ActivityEditorState(
-      selectedCategory: state.selectedCategory,
-      assetImages: state.assetImages,
-      pickedImages: state.pickedImages,
-      originalCategory: state.originalCategory,
-      originalDescription: state.originalDescription,
-      originalImages: state.originalImages,
-      currentDescription: state.currentDescription,
-      // Update Errors
-      descriptionError: descriptionError,
-      imageError: imageError,
-    );
+    if (descriptionError != null || imageError != null) {
+      state = ActivityEditorState(
+        isLoading: state.isLoading,
+        serviceId: state.serviceId,
+        selectedCategory: state.selectedCategory,
+        assetImages: state.assetImages,
+        assetImageIds: state.assetImageIds,
+        pickedImages: state.pickedImages,
+        idsToDelete: state.idsToDelete,
+        originalServiceId: state.originalServiceId,
+        originalDescription: state.originalDescription,
+        currentDescription: state.currentDescription,
+        descriptionError: descriptionError,
+        imageError: imageError,
+      );
+      return false;
+    }
+
+    final user = ref.read(userProvider);
+    final service = TechnicianService();
+
+    state = state.copyWith(isLoading: true);
+    bool success = false;
+
+    if (isCreateMode) {
+      success = await service.createPost(
+        token: user!.token!,
+        description: descriptionController.text,
+        serviceId: state.serviceId!,
+
+        provinceId: user.technicianProfile?.provinces.firstOrNull?.id ?? 1,
+        images: state.pickedImages,
+      );
+    } else {
+      success = await service.updatePost(
+        token: user!.token!,
+        postId: arg,
+        description: descriptionController.text,
+        serviceId: state.serviceId,
+        newImages: state.pickedImages,
+        imageIdsToDelete: state.idsToDelete,
+      );
+    }
+
+    state = state.copyWith(isLoading: false);
+    return success;
   }
 }
 
-// --- Provider ---
 final activityEditorProvider = NotifierProvider.autoDispose
     .family<ActivityEditorNotifier, ActivityEditorState, int>(
       ActivityEditorNotifier.new,

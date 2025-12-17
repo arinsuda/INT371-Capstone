@@ -1,31 +1,46 @@
 import 'package:flutter/material.dart';
-import 'post_activity_category_dropdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../../../state/user_provider.dart';
 
-class PostActivityProfileHeader extends StatelessWidget {
+import '../../edit/components/activity_category_dropdown.dart';
+
+class PostActivityProfileHeader extends ConsumerWidget {
   const PostActivityProfileHeader({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+    final techProfile = user?.technicianProfile;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 40,
-            backgroundImage: AssetImage('assets/image/Technician.png'),
+            backgroundColor: Colors.grey.shade200,
+            backgroundImage:
+                (techProfile?.avatarUrl != null &&
+                    techProfile!.avatarUrl!.isNotEmpty)
+                ? NetworkImage(techProfile.avatarUrl!) as ImageProvider
+                : const AssetImage('assets/image/Technician.png'),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "คุณ สมชาย รักชาติ",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  "${techProfile?.firstName ?? 'ไม่ระบุชื่อ'} ${techProfile?.lastName ?? ''}",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                SizedBox(height: 4),
-                PostActivityCategoryDropdown(),
+                const SizedBox(height: 4),
+
+                const ActivityCategoryDropdown(activityId: 0),
               ],
             ),
           ),

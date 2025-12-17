@@ -1,3 +1,4 @@
+import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -140,7 +141,8 @@ class _AddressPageState extends ConsumerState<Address> {
             children: [
               Header(
                 header: "ดูที่อยู่ของฉัน",
-                onPressed: () => Navigator.pop(context),
+                onPressed: () =>
+                    ref.read(bottomSubPageProvider.notifier).state = null,
               ),
               Expanded(
                 child: ListView(

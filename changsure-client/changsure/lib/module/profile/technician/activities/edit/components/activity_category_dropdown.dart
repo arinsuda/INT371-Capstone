@@ -1,5 +1,4 @@
-// Path: lib/module/profile/technician/activities/edit/components/activity_category_dropdown.dart
-
+import 'package:changsure/state/master_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/state/activity_editor_state.dart';
@@ -14,9 +13,41 @@ class ActivityCategoryDropdown extends ConsumerWidget {
     final state = ref.watch(activityEditorProvider(activityId));
     final notifier = ref.read(activityEditorProvider(activityId).notifier);
 
+    final categoriesAsync = ref.watch(serviceCategoriesProvider);
+
+    const Map<String, Map<String, Color>> kActivityColorMap = {
+      "งานทาสี": {
+        "text": Color(0xFFEB2F96),
+        "background": Color(0xFFFFF0F6),
+        "border": Color(0xFFFFADD2),
+      },
+      "งานประปา": {
+        "text": Color(0xFF36CFC9),
+        "background": Color(0xFFE6FFFB),
+        "border": Color(0xFF87E8DE),
+      },
+      "งานไฟฟ้า": {
+        "text": Color(0xFFFAAD14),
+        "background": Color(0xFFFFFBE6),
+        "border": Color(0xFFFFE58F),
+      },
+      "งานซ่อมเครื่องใช้ไฟฟ้า": {
+        "text": Color(0xFF722ED1),
+        "background": Color(0xFFF9F0FF),
+        "border": Color(0xFFD3ADF7),
+      },
+    };
+
     final selectedCategory = state.selectedCategory;
+
+    final defaultColors = {
+      "text": Colors.black,
+      "background": Colors.grey.shade200,
+      "border": Colors.grey.shade400,
+    };
+
     final colors = selectedCategory != null
-        ? kActivityColorMap[selectedCategory]
+        ? (kActivityColorMap[selectedCategory] ?? defaultColors)
         : null;
 
     return GestureDetector(
@@ -33,29 +64,46 @@ class ActivityCategoryDropdown extends ConsumerWidget {
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: kActivityColorMap.keys.map((categoryName) {
-                    final itemColor = kActivityColorMap[categoryName] ?? {};
-                    return ListTile(
-                      title: Text(
-                        categoryName,
-                        style: TextStyle(
-                          color: itemColor["text"] ?? Colors.black,
-                        ),
-                      ),
-                      onTap: () {
-                        notifier.setCategory(categoryName);
-                        Navigator.pop(context);
-                      },
+
+                child: categoriesAsync.when(
+                  loading: () => const SizedBox(
+                    height: 100,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, stack) => const SizedBox(
+                    height: 100,
+                    child: Center(child: Text('ไม่สามารถโหลดข้อมูลได้')),
+                  ),
+                  data: (categories) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+
+                      children: categories.map((category) {
+                        final categoryName = category.catName;
+                        final itemColor =
+                            kActivityColorMap[categoryName] ??
+                            {"text": Colors.black};
+
+                        return ListTile(
+                          title: Text(
+                            categoryName,
+                            style: TextStyle(color: itemColor["text"]),
+                          ),
+                          onTap: () {
+                            notifier.setService(category.id, categoryName);
+                            Navigator.pop(context);
+                          },
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
             );
           },
         );
       },
+
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(

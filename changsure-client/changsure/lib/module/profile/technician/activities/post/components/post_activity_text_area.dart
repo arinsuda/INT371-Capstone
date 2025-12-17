@@ -1,4 +1,5 @@
 import 'package:changsure/core/theme.dart';
+import 'package:changsure/state/activity_editor_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/state/post_activity_state.dart';
@@ -8,8 +9,8 @@ class PostActivityTextArea extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(postActivityProvider.notifier);
-    // ในหน้า Post ปกติเราอาจจะยังไม่มี Error ตั้งแต่เริ่ม แต่ถ้าอยากโชว์แดงๆ ก็ดึง state.descriptionError มาใช้ได้
+    final provider = activityEditorProvider(0);
+    final notifier = ref.read(provider.notifier);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),

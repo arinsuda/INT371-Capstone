@@ -1,17 +1,18 @@
 import 'package:changsure/core/theme.dart';
+import 'package:changsure/state/activity_editor_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/state/post_activity_state.dart';
 
 class PostActivityImageUploader extends ConsumerWidget {
   const PostActivityImageUploader({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedImages = ref.watch(
-      postActivityProvider.select((s) => s.selectedImages),
-    );
-    final notifier = ref.read(postActivityProvider.notifier);
+    final provider = activityEditorProvider(0);
+    final state = ref.watch(provider);
+    final notifier = ref.read(provider.notifier);
+
+    final selectedImages = state.pickedImages;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
@@ -37,7 +38,7 @@ class PostActivityImageUploader extends ConsumerWidget {
                   top: 0,
                   right: 0,
                   child: GestureDetector(
-                    onTap: () => notifier.removeImage(index),
+                    onTap: () => notifier.removePickedImage(index),
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(

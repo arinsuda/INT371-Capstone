@@ -1,16 +1,43 @@
+import 'package:changsure/state/master_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/state/post_activity_state.dart';
+import 'package:changsure/state/activity_editor_state.dart';
 
 class PostActivityCategoryDropdown extends ConsumerWidget {
   const PostActivityCategoryDropdown({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCategory = ref.watch(
-      postActivityProvider.select((s) => s.selectedCategory),
-    );
-    final notifier = ref.read(postActivityProvider.notifier);
+    final provider = activityEditorProvider(0);
+    final state = ref.watch(provider);
+    final notifier = ref.read(provider.notifier);
+
+    final categoriesAsync = ref.watch(serviceCategoriesProvider);
+
+    const Map<String, Map<String, Color>> kActivityColorMap = {
+      "ช่างทาสี": {
+        "text": Color(0xFFEB2F96),
+        "background": Color(0xFFFFF0F6),
+        "border": Color(0xFFFFADD2),
+      },
+      "ช่างประปา": {
+        "text": Color(0xFF36CFC9),
+        "background": Color(0xFFE6FFFB),
+        "border": Color(0xFF87E8DE),
+      },
+      "ช่างไฟฟ้า": {
+        "text": Color(0xFFFAAD14),
+        "background": Color(0xFFFFFBE6),
+        "border": Color(0xFFFFE58F),
+      },
+      "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
+        "text": Color(0xFF722ED1),
+        "background": Color(0xFFF9F0FF),
+        "border": Color(0xFFD3ADF7),
+      },
+    };
+
+    final selectedCategory = state.selectedCategory;
 
     final colors = selectedCategory != null
         ? kActivityColorMap[selectedCategory]
@@ -30,23 +57,40 @@ class PostActivityCategoryDropdown extends ConsumerWidget {
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: kActivityColorMap.keys.map((categoryName) {
-                    final itemColor = kActivityColorMap[categoryName] ?? {};
-                    return ListTile(
-                      title: Text(
-                        categoryName,
-                        style: TextStyle(
-                          color: itemColor["text"] ?? Colors.black,
+
+                child: categoriesAsync.when(
+                  loading: () => const SizedBox(
+                    height: 100,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, s) => const SizedBox(
+                    height: 50,
+                    child: Center(child: Text("โหลดข้อมูลไม่สำเร็จ")),
+                  ),
+                  data: (categories) => Column(
+                    mainAxisSize: MainAxisSize.min,
+
+                    children: categories.map((category) {
+                      final categoryName = category.catName;
+
+                      final itemColor =
+                          kActivityColorMap[categoryName] ??
+                          {"text": Colors.black};
+
+                      return ListTile(
+                        title: Text(
+                          categoryName,
+                          style: TextStyle(
+                            color: itemColor["text"] ?? Colors.black,
+                          ),
                         ),
-                      ),
-                      onTap: () {
-                        notifier.setCategory(categoryName);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
+                        onTap: () {
+                          notifier.setService(category.id, categoryName);
+                          Navigator.pop(context);
+                        },
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             );

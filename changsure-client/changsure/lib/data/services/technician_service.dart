@@ -106,4 +106,130 @@ class TechnicianService {
 
     return [];
   }
+
+  Future<bool> createPost({
+    required String token,
+    required String description,
+    required int serviceId,
+    String? title,
+    int? provinceId,
+    List<File>? images,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts');
+    final request = http.MultipartRequest('POST', url);
+
+    request.headers.addAll({'Authorization': 'Bearer $token'});
+
+    request.fields['description'] = description;
+    request.fields['service_id'] = serviceId.toString();
+
+    request.fields['title'] =
+        title ??
+        (description.length > 20 ? description.substring(0, 20) : description);
+
+    if (provinceId != null) {
+      request.fields['province_id'] = provinceId.toString();
+    } else {
+      request.fields['province_id'] = "1";
+    }
+
+    request.fields['post_date'] = DateTime.now().toIso8601String();
+
+    if (images != null) {
+      for (var file in images) {
+        final mimeTypeData = lookupMimeType(file.path)?.split('/');
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'images',
+            file.path,
+            contentType: mimeTypeData != null
+                ? MediaType(mimeTypeData[0], mimeTypeData[1])
+                : null,
+          ),
+        );
+      }
+    }
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("❌ Create Post Error: $e");
+      return false;
+    }
+  }
+
+  Future<PostModel?> getPostById(String token, int id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true && json['data'] != null) {
+          return PostModel.fromJson(json['data']);
+        }
+      }
+    } catch (e) {
+      print("❌ Get Post Error: $e");
+    }
+    return null;
+  }
+
+  Future<bool> updatePost({
+    required String token,
+    required int postId,
+    String? title,
+    String? description,
+    int? serviceId,
+    int? provinceId,
+    List<File>? newImages,
+    List<int>? imageIdsToDelete,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/me/posts/$postId',
+    );
+    final request = http.MultipartRequest('PUT', url);
+
+    request.headers.addAll({'Authorization': 'Bearer $token'});
+
+    if (title != null) request.fields['title'] = title;
+    if (description != null) request.fields['description'] = description;
+    if (serviceId != null) request.fields['service_id'] = serviceId.toString();
+    if (provinceId != null)
+      request.fields['province_id'] = provinceId.toString();
+
+    if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
+      for (var id in imageIdsToDelete) {
+        request.fields['image_ids_to_delete[]'] = id.toString();
+      }
+    }
+
+    if (newImages != null) {
+      for (var file in newImages) {
+        final mimeTypeData = lookupMimeType(file.path)?.split('/');
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'new_images',
+            file.path,
+            contentType: mimeTypeData != null
+                ? MediaType(mimeTypeData[0], mimeTypeData[1])
+                : null,
+          ),
+        );
+      }
+    }
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("❌ Update Post Error: $e");
+      return false;
+    }
+  }
 }

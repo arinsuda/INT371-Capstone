@@ -175,7 +175,7 @@ class ActivitySection extends ConsumerWidget {
 
                   return TechnicianCard(
                     id: post.id,
-                    serviceCategoryName: post.serviceCategoryName,
+                    serviceCategoryName: post.categoryName,
                     description: post.content,
                     images: post.images,
                   );

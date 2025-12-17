@@ -7,20 +7,18 @@ import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
 
 import '../../../../../../state/bottom_nav_provider.dart';
+import '../../../../../../state/user_provider.dart'; // Import User Provider
 import 'package:changsure/state/activity_editor_state.dart';
 import 'components/activity_category_dropdown.dart';
 
 class EditActivityPage extends ConsumerWidget {
-  final int id;
+  final int id; // ถ้า id = 0 คือ Create, id > 0 คือ Edit
 
   const EditActivityPage({super.key, required this.id});
 
   void _navigateToView(WidgetRef ref) {
-    final config = SubPageConfig(
-      page: BottomSubPage.technicianViewActivityById,
-      activityId: id,
-    );
-    ref.read(bottomSubPageProvider.notifier).state = config;
+    // กลับไปหน้า list หรือ view (แล้วแต่ flow)
+    ref.read(bottomSubPageProvider.notifier).state = null;
   }
 
   @override
@@ -28,39 +26,60 @@ class EditActivityPage extends ConsumerWidget {
     final state = ref.watch(activityEditorProvider(id));
     final notifier = ref.read(activityEditorProvider(id).notifier);
 
+    // ดึงข้อมูล User จริง
+    final user = ref.watch(userProvider);
+    final techProfile = user?.technicianProfile;
+
+    // Loading Overlay หรือ Center Loading
+    if (state.isLoading && state.currentDescription.isEmpty && id > 0) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            Header(header: "แก้ไขผลงาน", onPressed: () => _navigateToView(ref)),
+            Header(
+              header: id > 0
+                  ? "แก้ไขผลงาน"
+                  : "ลงผลงานใหม่", // เปลี่ยนหัวข้อตามโหมด
+              onPressed: () => _navigateToView(ref),
+            ),
 
             const SizedBox(height: 16),
 
+            // --- User Info (ข้อมูลจริง) ---
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 40,
-                    backgroundImage: AssetImage('assets/image/Technician.png'),
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage:
+                        (techProfile?.avatarUrl != null &&
+                            techProfile!.avatarUrl!.isNotEmpty)
+                        ? NetworkImage(techProfile.avatarUrl!) as ImageProvider
+                        : const AssetImage('assets/image/Technician.png'),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "คุณ สมชาย รักชาติ",
-                          style: TextStyle(
+                        Text(
+                          "${techProfile?.firstName ?? ''} ${techProfile?.lastName ?? ''}",
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
-
+                        // Dropdown (ต้องส่ง id ไปให้ Provider)
+                        // **สำคัญ**: ActivityCategoryDropdown ต้องรองรับการเลือกแล้วเรียก notifier.setService(id, name)
                         ActivityCategoryDropdown(activityId: id),
                       ],
                     ),
@@ -71,6 +90,7 @@ class EditActivityPage extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
+            // --- Text Field ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
               child: Column(
@@ -115,6 +135,7 @@ class EditActivityPage extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
+            // --- Images Section ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
               child: Column(
@@ -124,18 +145,25 @@ class EditActivityPage extends ConsumerWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      // 1. รูปเก่า (Network)
                       ...state.assetImages.asMap().entries.map((entry) {
                         return _buildImageItem(
-                          Image.asset(
+                          Image.network(
                             entry.value,
                             width: 70,
                             height: 70,
                             fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => Container(
+                              color: Colors.grey,
+                              width: 70,
+                              height: 70,
+                            ),
                           ),
                           () => notifier.removeAssetImage(entry.key),
                         );
                       }),
 
+                      // 2. รูปใหม่ (File)
                       ...state.pickedImages.asMap().entries.map((entry) {
                         return _buildImageItem(
                           Image.file(
@@ -148,6 +176,7 @@ class EditActivityPage extends ConsumerWidget {
                         );
                       }),
 
+                      // ปุ่ม Add
                       GestureDetector(
                         onTap: notifier.pickImage,
                         child: Container(
@@ -158,7 +187,7 @@ class EditActivityPage extends ConsumerWidget {
                             border: Border.all(
                               color: state.imageError != null
                                   ? AppColors.colorError
-                                  : AppColors.colorStroke,
+                                  : AppColors.primaryBorder,
                               width: state.imageError != null ? 1.5 : 1,
                             ),
                           ),
@@ -167,7 +196,6 @@ class EditActivityPage extends ConsumerWidget {
                             color: state.imageError != null
                                 ? AppColors.colorError
                                 : AppColors.primaryBorder,
-                            size: 30,
                           ),
                         ),
                       ),
@@ -188,6 +216,7 @@ class EditActivityPage extends ConsumerWidget {
               ),
             ),
 
+            // --- Action Buttons ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
               child: Row(
@@ -201,10 +230,32 @@ class EditActivityPage extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: PrimaryButton(
-                      text: "บันทึก",
-                      onPressed: (state.isChanged && !state.hasError)
-                          ? () {
-                              _navigateToView(ref);
+                      text: state.isLoading ? "กำลังบันทึก..." : "บันทึก",
+                      // กดได้เมื่อมีการเปลี่ยนแปลง และไม่มี Error และไม่โหลดอยู่
+                      onPressed:
+                          (state.isChanged &&
+                              !state.hasError &&
+                              !state.isLoading)
+                          ? () async {
+                              final success = await notifier.savePost();
+                              if (success && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      id > 0
+                                          ? 'แก้ไขสำเร็จ'
+                                          : 'สร้างผลงานสำเร็จ',
+                                    ),
+                                  ),
+                                );
+                                _navigateToView(ref); // กลับหน้าเดิม
+                              } else if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('เกิดข้อผิดพลาดในการบันทึก'),
+                                  ),
+                                );
+                              }
                             }
                           : null,
                     ),
