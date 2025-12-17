@@ -38,6 +38,7 @@ func (r *repository) GetPost(ctx context.Context, postID, technicianID uint) (*T
 
 	err := r.db.WithContext(ctx).
 		Preload("Service").
+		Preload("Service.Category").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
 		Where("id = ? AND technician_id = ?", postID, technicianID).
