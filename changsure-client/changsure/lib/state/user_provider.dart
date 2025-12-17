@@ -12,6 +12,8 @@ import 'package:changsure/data/services/auth_service.dart';
 import 'package:changsure/data/services/address_service.dart';
 import 'package:changsure/data/services/technician_service.dart' as api;
 
+import '../data/models/customer/customer_model.dart';
+
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();
 });
@@ -100,6 +102,14 @@ class UserNotifier extends Notifier<UserModel?> {
     if (state != null && state!.role == UserRole.technician) {
       state = state!.copyWith(technicianProfile: newProfile);
     }
+  }
+
+  void updateCustomerProfile(CustomerModel customer) {
+    if (state == null) return;
+
+    state = state!.copyWith(
+      customerProfile: customer,
+    );
   }
 
   Future<void> refreshUser() async {
