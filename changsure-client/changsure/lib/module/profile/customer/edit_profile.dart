@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import '../../../core/button/primary_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/state/user_provider.dart';
-
 import '../../../core/profile/editProfile/phone_formatter.dart';
 import '../../../data/services/customer_service.dart';
 import '../../../state/bottom_nav_provider.dart';
@@ -133,8 +132,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
       );
     }
   }
-
-
 
   Widget buildTextField(
     String label,

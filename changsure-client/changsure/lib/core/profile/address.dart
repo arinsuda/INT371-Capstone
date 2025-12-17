@@ -129,6 +129,7 @@ class _AddressPageState extends ConsumerState<Address> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final locationAsync = ref.watch(currentLocationProvider);
 
@@ -137,100 +138,81 @@ class _AddressPageState extends ConsumerState<Address> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             children: [
               Header(
                 header: "ดูที่อยู่ของฉัน",
                 onPressed: () =>
-                    ref.read(bottomSubPageProvider.notifier).state = null,
+                ref.read(bottomSubPageProvider.notifier).state = null,
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 6,
-                  ),
-                  children: [
-                    const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                    /*
-                    locationAsync.when(
-                      data: (pos) => pos != null 
-                        ? Text("พิกัด: ${pos.latitude}, ${pos.longitude}") 
-                        : const SizedBox(),
-                      loading: () => const LinearProgressIndicator(),
-                      error: (err, stack) => const SizedBox(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(
+                  children: [
+                    _buildTextArea(
+                      "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
+                      houseNumberController,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return "กรุณากรอกบ้านเลขที่";
+                        }
+                        if (v.length > 500) {
+                          return "บ้านเลขที่ต้องไม่เกิน 500 ตัวอักษร";
+                        }
+                        return null;
+                      },
+                      onChanged: (_) => _checkForm(),
                     ),
-                    */
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        children: [
-                          _buildTextArea(
-                            "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-                            houseNumberController,
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return "กรุณากรอกบ้านเลขที่";
-                              if (v.length > 500)
-                                return "บ้านเลขที่ต้องไม่เกิน 500 ตัวอักษร";
-                              return null;
-                            },
-                            onChanged: (_) => _checkForm(),
-                          ),
-                          _buildTextField(
-                            "แขวง/ตำบล",
-                            subDistrictController,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? "กรุณากรอกแขวง/ตำบล"
-                                : null,
-                            onChanged: (_) => _checkForm(),
-                          ),
-                          _buildTextField(
-                            "เขต/อำเภอ",
-                            districtController,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? "กรุณากรอกเขต/อำเภอ"
-                                : null,
-                            onChanged: (_) => _checkForm(),
-                          ),
-                          _buildTextField(
-                            "จังหวัด",
-                            provinceController,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? "กรุณากรอกจังหวัด"
-                                : null,
-                            onChanged: (_) => _checkForm(),
-                          ),
-                          _buildTextField(
-                            "รหัสไปรษณีย์",
-                            postCodeController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(5),
-                              _PostCodeFormatter(),
-                            ],
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return "กรุณากรอกรหัสไปรษณีย์";
-                              if (!RegExp(r"^[1-9][0-9]{4}$").hasMatch(v)) {
-                                return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
-                              }
-                              return null;
-                            },
-                            onChanged: (_) => _checkForm(),
-                          ),
-                        ],
-                      ),
+                    _buildTextField(
+                      "แขวง/ตำบล",
+                      subDistrictController,
+                      validator: (v) =>
+                      (v == null || v.isEmpty) ? "กรุณากรอกแขวง/ตำบล" : null,
+                      onChanged: (_) => _checkForm(),
                     ),
-                    const SizedBox(height: 24),
+                    _buildTextField(
+                      "เขต/อำเภอ",
+                      districtController,
+                      validator: (v) =>
+                      (v == null || v.isEmpty) ? "กรุณากรอกเขต/อำเภอ" : null,
+                      onChanged: (_) => _checkForm(),
+                    ),
+                    _buildTextField(
+                      "จังหวัด",
+                      provinceController,
+                      validator: (v) =>
+                      (v == null || v.isEmpty) ? "กรุณากรอกจังหวัด" : null,
+                      onChanged: (_) => _checkForm(),
+                    ),
+                    _buildTextField(
+                      "รหัสไปรษณีย์",
+                      postCodeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(5),
+                        _PostCodeFormatter(),
+                      ],
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return "กรุณากรอกรหัสไปรษณีย์";
+                        }
+                        if (!RegExp(r"^[1-9][0-9]{4}$").hasMatch(v)) {
+                          return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
+                        }
+                        return null;
+                      },
+                      onChanged: (_) => _checkForm(),
+                    ),
                   ],
                 ),
               ),
 
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                 child: PrimaryButton(
                   text: "ยืนยัน",
                   onPressed: hasChanged && allValid ? _onSave : null,
@@ -242,6 +224,7 @@ class _AddressPageState extends ConsumerState<Address> {
       ),
     );
   }
+
 
   Widget _buildTextField(
     String label,
