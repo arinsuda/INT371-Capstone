@@ -9,50 +9,38 @@ import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:changsure/data/models/customer/customer_model.dart';
 
 class AuthService {
-  Future<UserModel?> login(String email, String password) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/auth/login');
-
+  Future<Map<String, dynamic>?> login(String email, String password) async {
     try {
       final response = await http.post(
-        url,
+        Uri.parse('${ApiConstants.baseUrl}/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        final data = jsonResponse['data'];
-
-        final String accessToken = data['access_token'];
-
-        Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
-        final String roleStr = decodedToken['role'] ?? 'guest';
-
-        print("Decoded Role: $roleStr");
-        if (roleStr == 'technician') {
-          final techProfile = await getTechnicianProfile(accessToken);
-          if (techProfile != null) {
-            return UserModel(
-              role: UserRole.technician,
-              token: accessToken,
-              technicianProfile: techProfile,
-            );
-          }
-        } else if (roleStr == 'customer') {
-          final customerProfile = await getCustomerProfile(accessToken);
-          if (customerProfile != null) {
-            return UserModel(
-              role: UserRole.customer,
-              token: accessToken,
-              customerProfile: customerProfile,
-            );
-          }
-        }
+        return jsonDecode(response.body);
       } else {
-        print('Login Failed: ${response.statusCode} - ${response.body}');
+        print("Login failed: ${response.body}");
       }
     } catch (e) {
-      print('Login Error: $e');
+      print("Login Error: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> refreshToken(String refreshToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/auth/refresh-token'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Refresh token failed: $e");
     }
     return null;
   }

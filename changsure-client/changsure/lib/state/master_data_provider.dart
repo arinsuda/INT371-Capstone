@@ -49,7 +49,7 @@ class MasterDataService {
       );
 
       final serviceResponse = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/services?page=1&page_size=1000'),
+        Uri.parse('${ApiConstants.baseUrl}/services/all'),
         headers: headers,
       );
 

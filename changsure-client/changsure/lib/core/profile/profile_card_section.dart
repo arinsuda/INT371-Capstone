@@ -22,18 +22,21 @@ class ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return
-      Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: 10,
-        horizontal: 18,
-      ),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // รูปโปรไฟล์
-          CircleAvatar(radius: 30, backgroundImage: AssetImage(profileImage)),
-          SizedBox(width:  16),
+          CircleAvatar(
+            radius: 30,
+            backgroundImage:
+                (profileImage.startsWith('http') ||
+                    profileImage.startsWith('https'))
+                ? NetworkImage(profileImage)
+                : AssetImage(profileImage) as ImageProvider,
+          ),
+          SizedBox(width: 16),
 
           // ชื่อ อีเมล เบอร์
           Expanded(
@@ -54,7 +57,7 @@ class ProfileSection extends StatelessWidget {
                 Row(
                   children: [
                     // Email
-                    Icon(Icons.email, size: 14, color: const Color(0xFF9B9B9B) ),
+                    Icon(Icons.email, size: 14, color: const Color(0xFF9B9B9B)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(

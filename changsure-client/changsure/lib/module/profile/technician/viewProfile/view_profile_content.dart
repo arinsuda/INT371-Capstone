@@ -1,6 +1,6 @@
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../../core/theme.dart';
 import 'activity_section.dart';
@@ -9,11 +9,24 @@ import 'service.dart';
 
 import '../../../../state/user_provider.dart';
 
-class ViewProfileContent extends ConsumerWidget {
+class ViewProfileContent extends ConsumerStatefulWidget {
   const ViewProfileContent({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ViewProfileContent> createState() => _ViewProfileContentState();
+}
+
+class _ViewProfileContentState extends ConsumerState<ViewProfileContent> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
     final tech = user?.technicianProfile;
 
@@ -33,27 +46,31 @@ class ViewProfileContent extends ConsumerWidget {
         color: AppColors.primary,
         backgroundColor: Colors.white,
         onRefresh: () async {
-          // สั่งให้ Provider ดึงข้อมูลใหม่
           await ref.read(userProvider.notifier).refreshUser();
         },
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
+
                   Center(
                     child: Stack(
                       children: [
                         CircleAvatar(
                           radius: 50,
+                          backgroundColor: Colors.grey.shade200,
                           backgroundImage:
                               (tech?.avatarUrl != null &&
                                   tech!.avatarUrl!.isNotEmpty)
                               ? NetworkImage(tech.avatarUrl!) as ImageProvider
                               : const AssetImage('assets/image/Technician.png'),
+
+                          onBackgroundImageError: (exception, stackTrace) {},
                         ),
                         Positioned(
                           bottom: 0,
@@ -64,15 +81,6 @@ class ViewProfileContent extends ConsumerWidget {
                               color: Colors.white,
                             ),
                             padding: const EdgeInsets.all(4),
-                            child: const CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Color(0xFFE8E8E8),
-                              child: Icon(
-                                Icons.camera_alt,
-                                color: Colors.black,
-                                size: 14,
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -163,9 +171,9 @@ class ViewProfileContent extends ConsumerWidget {
                     child: TechnicianBadge(),
                   ),
                   const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: const Text(
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
                       "เกี่ยวกับ",
                       style: TextStyle(
                         fontSize: 16,
@@ -195,7 +203,7 @@ class ViewProfileContent extends ConsumerWidget {
               ),
             ),
 
-            const ActivitySection(),
+            ActivitySection(),
           ],
         ),
       ),

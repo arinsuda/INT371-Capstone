@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 
@@ -11,9 +12,11 @@ class ServiceCategoryTile extends StatelessWidget {
   final Map<int, TextEditingController> fixPriceControllers;
   final Map<int, String?> priceErrors;
 
-  // Callbacks
   final Function(int serviceId, bool value) onServiceSelected;
   final Function(int serviceId, String type) onPriceTypeChanged;
+
+  final bool isFirst;
+  final bool isLast;
 
   const ServiceCategoryTile({
     super.key,
@@ -26,127 +29,220 @@ class ServiceCategoryTile extends StatelessWidget {
     required this.priceErrors,
     required this.onServiceSelected,
     required this.onPriceTypeChanged,
+    this.isFirst = false,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ExpansionTile(
-      title: Text(
-        category.catName,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+    BorderRadius radius = BorderRadius.zero;
+    if (isFirst) radius = const BorderRadius.vertical(top: Radius.circular(8));
+    if (isLast)
+      radius = const BorderRadius.vertical(bottom: Radius.circular(8));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE1EFFA),
+        borderRadius: radius,
       ),
-      children: category.services.map((service) {
-        final sId = service.id;
-        final isSelected = selectedServices[sId] ?? false;
-
-        return Column(
-          children: [
-            CheckboxListTile(
-              title: Text(service.serName),
-              value: isSelected,
-              activeColor: AppColors.primary,
-              onChanged: (val) {
-                onServiceSelected(sId, val ?? false);
-              },
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(
+            category.catName,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-            if (isSelected)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Price Type Toggle
-                    Row(
-                      children: [
-                        _buildPriceTypeChoice(sId, 'range', 'ช่วงราคา'),
-                        const SizedBox(width: 8),
-                        _buildPriceTypeChoice(sId, 'fix', 'ราคาเหมา'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Input Fields
-                    if (priceTypes[sId] == 'range')
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildPriceInput(
-                              minPriceControllers[sId]!,
-                              'เริ่มต้น',
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text("-"),
-                          ),
-                          Expanded(
-                            child: _buildPriceInput(
-                              maxPriceControllers[sId]!,
-                              'สูงสุด',
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      _buildPriceInput(fixPriceControllers[sId]!, 'ราคาเหมา'),
-
-                    // Error Message
-                    if (priceErrors[sId] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          priceErrors[sId]!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            const Divider(height: 1),
-          ],
-        );
-      }).toList(),
+          ),
+          iconColor: const Color(0xFF3071C7),
+          collapsedIconColor: const Color(0xFF3071C7),
+          backgroundColor: Colors.transparent,
+          childrenPadding: EdgeInsets.zero,
+          children: category.services.map((service) {
+            return _buildSubServiceItem(service);
+          }).toList(),
+        ),
+      ),
     );
   }
 
-  // Helper Widget (Private ภายในไฟล์นี้)
-  Widget _buildPriceTypeChoice(int sId, String type, String label) {
-    final isSelected = priceTypes[sId] == type;
-    return GestureDetector(
-      onTap: () => onPriceTypeChanged(sId, type),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-            fontSize: 12,
+  Widget _buildSubServiceItem(ServiceModel service) {
+    final sId = service.id;
+    final isSelected = selectedServices[sId] ?? false;
+    final priceError = priceErrors[sId];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFFF2F8FD) : Colors.white,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            value: isSelected,
+            onChanged: (val) => onServiceSelected(sId, val ?? false),
+            title: Text(
+              service.serName,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+            ),
+            controlAffinity: ListTileControlAffinity.trailing,
+            activeColor: const Color(0xFF3071C7),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            dense: true,
+            visualDensity: VisualDensity.compact,
+          ),
+
+          if (isSelected)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      if (priceTypes[sId] == "range") ...[
+                        Expanded(
+                          child: _buildPriceInput(
+                            minPriceControllers[sId]!,
+                            "Min Price",
+                            hasError: priceError != null,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(
+                            Icons.arrow_right_alt,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildPriceInput(
+                            maxPriceControllers[sId]!,
+                            "Max Price",
+                            hasError: priceError != null,
+                          ),
+                        ),
+                      ] else ...[
+                        Expanded(
+                          child: _buildPriceInput(
+                            fixPriceControllers[sId]!,
+                            "Price",
+                            hasError: priceError != null,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildPriceTypeChip(sId, "range", "Range price"),
+                      const SizedBox(width: 8),
+                      _buildPriceTypeChip(sId, "fix", "Fix price"),
+                    ],
+                  ),
+
+                  if (priceError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        priceError,
+                        style: const TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceInput(
+    TextEditingController controller,
+    String hint, {
+    bool hasError = false,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    const primaryBlue = Color(0xFF3071C7);
+
+    return SizedBox(
+      height: 40,
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        textAlign: textAlign,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 0,
+            horizontal: 12,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(
+              color: hasError ? AppColors.colorError : primaryBlue,
+              width: 1,
+            ),
+          ),
+
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(
+              color: hasError ? AppColors.colorError : primaryBlue,
+              width: 1.5,
+            ),
+          ),
+
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(
+              color: hasError ? AppColors.colorError : primaryBlue,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPriceInput(TextEditingController ctrl, String hint) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontSize: 12),
-        isDense: true,
-        contentPadding: const EdgeInsets.all(10),
-        border: const OutlineInputBorder(),
+  Widget _buildPriceTypeChip(int sId, String type, String label) {
+    bool isSelected = priceTypes[sId] == type;
+    const primaryBlue = Color(0xFF3071C7);
+
+    return GestureDetector(
+      onTap: () => onPriceTypeChanged(sId, type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryBlue : Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: primaryBlue, width: 1),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+
+            color: isSelected ? Colors.white : primaryBlue,
+            fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }

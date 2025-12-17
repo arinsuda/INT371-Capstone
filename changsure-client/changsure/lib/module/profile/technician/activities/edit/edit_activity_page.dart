@@ -1,5 +1,3 @@
-// Path: lib/module/profile/technician/activities/edit/edit_activity_page.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +5,7 @@ import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
-// Adjust imports according to your actual file structure
+
 import '../../../../../../state/bottom_nav_provider.dart';
 import 'package:changsure/state/activity_editor_state.dart';
 import 'components/activity_category_dropdown.dart';
@@ -27,7 +25,6 @@ class EditActivityPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the state of our activity editor
     final state = ref.watch(activityEditorProvider(id));
     final notifier = ref.read(activityEditorProvider(id).notifier);
 
@@ -37,12 +34,10 @@ class EditActivityPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           children: [
-            // Header
             Header(header: "แก้ไขผลงาน", onPressed: () => _navigateToView(ref)),
 
             const SizedBox(height: 16),
 
-            // Profile Section
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
               child: Row(
@@ -65,7 +60,7 @@ class EditActivityPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // Using the refactored component
+
                         ActivityCategoryDropdown(activityId: id),
                       ],
                     ),
@@ -76,7 +71,6 @@ class EditActivityPage extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
-            // Description Text Area
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
               child: Column(
@@ -121,7 +115,6 @@ class EditActivityPage extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
-            // Image Upload Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
               child: Column(
@@ -131,7 +124,6 @@ class EditActivityPage extends ConsumerWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      // Asset Images
                       ...state.assetImages.asMap().entries.map((entry) {
                         return _buildImageItem(
                           Image.asset(
@@ -143,7 +135,7 @@ class EditActivityPage extends ConsumerWidget {
                           () => notifier.removeAssetImage(entry.key),
                         );
                       }),
-                      // Picked Images
+
                       ...state.pickedImages.asMap().entries.map((entry) {
                         return _buildImageItem(
                           Image.file(
@@ -155,7 +147,7 @@ class EditActivityPage extends ConsumerWidget {
                           () => notifier.removePickedImage(entry.key),
                         );
                       }),
-                      // Add Button
+
                       GestureDetector(
                         onTap: notifier.pickImage,
                         child: Container(
@@ -196,7 +188,6 @@ class EditActivityPage extends ConsumerWidget {
               ),
             ),
 
-            // Action Buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
               child: Row(
@@ -213,7 +204,6 @@ class EditActivityPage extends ConsumerWidget {
                       text: "บันทึก",
                       onPressed: (state.isChanged && !state.hasError)
                           ? () {
-                              // Perform Save Action here
                               _navigateToView(ref);
                             }
                           : null,
@@ -228,7 +218,6 @@ class EditActivityPage extends ConsumerWidget {
     );
   }
 
-  // Helper for image item to keep build method cleaner
   Widget _buildImageItem(Widget imageWidget, VoidCallback onRemove) {
     return Stack(
       children: [
