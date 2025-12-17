@@ -82,6 +82,7 @@ func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicia
 
 	if err := tx.
 		Preload("Service").
+		Preload("Service.Category").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
 		Order("technician_posts.created_at DESC").

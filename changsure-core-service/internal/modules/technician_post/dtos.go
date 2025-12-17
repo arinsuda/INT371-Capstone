@@ -29,9 +29,9 @@ type UpdateTechnicianPostDTO struct {
 }
 
 type ListTechnicianPostsQuery struct {
-	ServiceID   *uint  `query:"service_id"`
-	ProvinceID  *uint  `query:"province_id"`
-	
+	ServiceID  *uint `query:"service_id"`
+	ProvinceID *uint `query:"province_id"`
+
 	Search      string `query:"search"`
 	IsPublished *bool  `query:"is_published"`
 	CategoryID  *uint  `query:"category_id"`
@@ -52,8 +52,12 @@ type TechnicianPostResponse struct {
 	Title        string  `json:"title"`
 	Description  *string `json:"description"`
 
-	ServiceID    *uint   `json:"service_id"`
-	ServiceName  *string `json:"service_name"`
+	ServiceID   *uint   `json:"service_id"`
+	ServiceName *string `json:"service_name"`
+
+	CategoryID   *uint   `json:"category_id"`
+	CategoryName *string `json:"category_name"`
+
 	ProvinceID   *uint   `json:"province_id"`
 	ProvinceName *string `json:"province_name"`
 
