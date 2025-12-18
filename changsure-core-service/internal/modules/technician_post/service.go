@@ -68,12 +68,13 @@ func (s *service) Create(ctx context.Context, techID uint, req CreateTechnicianP
 	db := s.repo.DB()
 
 	post := &TechnicianPost{
-		TechnicianID: techID,
-		Title:        req.Title,
-		Description:  req.Description,
-		ServiceID:    req.ServiceID,
-		ProvinceID:   req.ProvinceID,
-		IsPublished:  true,
+		TechnicianID:      techID,
+		Title:             req.Title,
+		Description:       req.Description,
+		ServiceCategoryID: req.ServiceCategoryID,
+		// ServiceID:    req.ServiceID,
+		// ProvinceID:   req.ProvinceID,
+		IsPublished: true,
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -123,12 +124,15 @@ func (s *service) Update(ctx context.Context, techID uint, postID uint, req Upda
 		if req.Description != nil {
 			updateData["description"] = *req.Description
 		}
-		if req.ServiceID != nil {
-			updateData["service_id"] = *req.ServiceID
+		if req.ServiceCategoryID != nil {
+			updateData["service_category_id"] = *req.ServiceCategoryID
 		}
-		if req.ProvinceID != nil {
-			updateData["province_id"] = *req.ProvinceID
-		}
+		// if req.ServiceID != nil {
+		// 	updateData["service_id"] = *req.ServiceID
+		// }
+		// if req.ProvinceID != nil {
+		// 	updateData["province_id"] = *req.ProvinceID
+		// }
 		if req.IsPublished != nil {
 			updateData["is_published"] = *req.IsPublished
 		}

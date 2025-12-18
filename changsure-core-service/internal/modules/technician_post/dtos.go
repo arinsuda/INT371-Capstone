@@ -9,9 +9,11 @@ type CreateTechnicianPostDTO struct {
 	Title       string  `form:"title"`
 	Description *string `form:"description"`
 
-	ServiceID  *uint      `form:"service_id"`
-	ProvinceID *uint      `form:"province_id"`
-	PostDate   *time.Time `form:"post_date"`
+	ServiceCategoryID *uint      `form:"service_category_id"`
+	// ServiceID         *uint      `form:"service_id"`
+	// ProvinceID        *uint      `form:"province_id"`
+	
+	PostDate          *time.Time `form:"post_date"`
 
 	Images []*multipart.FileHeader `form:"images"`
 }
@@ -19,8 +21,11 @@ type CreateTechnicianPostDTO struct {
 type UpdateTechnicianPostDTO struct {
 	Title       *string `form:"title"`
 	Description *string `form:"description"`
-	ServiceID   *uint   `form:"service_id"`
-	ProvinceID  *uint   `form:"province_id"`
+
+	ServiceCategoryID *uint `form:"service_category_id"`
+	// ServiceID   *uint   `form:"service_id"`
+	// ProvinceID  *uint   `form:"province_id"`
+	
 	IsPublished *bool   `form:"is_published"`
 
 	NewImages []*multipart.FileHeader `form:"new_images"`
