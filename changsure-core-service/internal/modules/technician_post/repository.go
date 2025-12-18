@@ -38,7 +38,7 @@ func (r *repository) GetPost(ctx context.Context, postID, technicianID uint) (*T
 
 	err := r.db.WithContext(ctx).
 		Preload("Service").
-		Preload("Service.Category").
+		Preload("Category").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
 		Where("id = ? AND technician_id = ?", postID, technicianID).
@@ -83,7 +83,7 @@ func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicia
 
 	if err := tx.
 		Preload("Service").
-		Preload("Service.Category").
+		Preload("Category").
 		Preload("Province").
 		Preload("Images", "deleted_at IS NULL").
 		Order("technician_posts.created_at DESC").

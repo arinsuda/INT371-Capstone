@@ -31,19 +31,26 @@ func (h *Handler) CreatePost(c fiber.Ctx) error {
 		body.Description = &desc
 	}
 
-	if sid := c.FormValue("service_id"); sid != "" {
-		if v, err := strconv.ParseUint(sid, 10, 64); err == nil {
-			tmp := uint(v)
-			body.ServiceID = &tmp
+	if cid := c.FormValue("service_category_id"); cid != "" {
+		if n, err := strconv.ParseUint(cid, 10, 64); err == nil {
+			t := uint(n)
+			body.ServiceCategoryID = &t
 		}
 	}
 
-	if pid := c.FormValue("province_id"); pid != "" {
-		if v, err := strconv.ParseUint(pid, 10, 64); err == nil {
-			tmp := uint(v)
-			body.ProvinceID = &tmp
-		}
-	}
+	// if sid := c.FormValue("service_id"); sid != "" {
+	// 	if v, err := strconv.ParseUint(sid, 10, 64); err == nil {
+	// 		tmp := uint(v)
+	// 		body.ServiceID = &tmp
+	// 	}
+	// }
+
+	// if pid := c.FormValue("province_id"); pid != "" {
+	// 	if v, err := strconv.ParseUint(pid, 10, 64); err == nil {
+	// 		tmp := uint(v)
+	// 		body.ProvinceID = &tmp
+	// 	}
+	// }
 
 	form, err := c.MultipartForm()
 	if err == nil && form.File != nil {
@@ -133,19 +140,26 @@ func (h *Handler) UpdatePost(c fiber.Ctx) error {
 		body.Description = &desc
 	}
 
-	if sid := c.FormValue("service_id"); sid != "" {
-		if n, err := strconv.ParseUint(sid, 10, 64); err == nil {
+	if cid := c.FormValue("service_category_id"); cid != "" {
+		if n, err := strconv.ParseUint(cid, 10, 64); err == nil {
 			t := uint(n)
-			body.ServiceID = &t
+			body.ServiceCategoryID = &t
 		}
 	}
 
-	if pid := c.FormValue("province_id"); pid != "" {
-		if n, err := strconv.ParseUint(pid, 10, 64); err == nil {
-			t := uint(n)
-			body.ProvinceID = &t
-		}
-	}
+	// if sid := c.FormValue("service_id"); sid != "" {
+	// 	if n, err := strconv.ParseUint(sid, 10, 64); err == nil {
+	// 		t := uint(n)
+	// 		body.ServiceID = &t
+	// 	}
+	// }
+
+	// if pid := c.FormValue("province_id"); pid != "" {
+	// 	if n, err := strconv.ParseUint(pid, 10, 64); err == nil {
+	// 		t := uint(n)
+	// 		body.ProvinceID = &t
+	// 	}
+	// }
 
 	if pub := c.FormValue("is_published"); pub != "" {
 		if parsed, err := strconv.ParseBool(pub); err == nil {
