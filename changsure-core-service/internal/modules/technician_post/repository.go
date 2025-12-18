@@ -57,9 +57,13 @@ func (r *repository) ListPosts(ctx context.Context, techID uint, q ListTechnicia
 	tx := r.db.WithContext(ctx).Model(&TechnicianPost{}).
 		Where("technician_posts.technician_id = ? AND technician_posts.deleted_at IS NULL", techID)
 
+	// if q.CategoryID != nil {
+	// 	tx = tx.Joins("JOIN services ON services.id = technician_posts.service_id").
+	// 		Where("services.category_id = ?", *q.CategoryID)
+	// }
+
 	if q.CategoryID != nil {
-		tx = tx.Joins("JOIN services ON services.id = technician_posts.service_id").
-			Where("services.category_id = ?", *q.CategoryID)
+		tx = tx.Where("technician_posts.service_category_id = ?", *q.CategoryID)
 	}
 
 	if q.ServiceID != nil {
@@ -103,11 +107,12 @@ func (r *repository) UpdatePost(ctx context.Context, post *TechnicianPost) error
 	return r.db.WithContext(ctx).
 		Model(post).
 		Updates(map[string]interface{}{
-			"title":        post.Title,
-			"description":  post.Description,
-			"service_id":   post.ServiceID,
-			"province_id":  post.ProvinceID,
-			"is_published": post.IsPublished,
+			"title":               post.Title,
+			"description":         post.Description,
+			"service_category_id": post.ServiceCategoryID,
+			"service_id":          post.ServiceID,
+			"province_id":         post.ProvinceID,
+			"is_published":        post.IsPublished,
 		}).Error
 }
 
