@@ -90,7 +90,7 @@ class ActivityCategoryDropdown extends ConsumerWidget {
                             style: TextStyle(color: itemColor["text"]),
                           ),
                           onTap: () {
-                            notifier.setService(category.id, categoryName);
+                            notifier.setCategory(category.id, categoryName);
                             Navigator.pop(context);
                           },
                         );

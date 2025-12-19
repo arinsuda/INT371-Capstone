@@ -5,57 +5,58 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
-import 'package:changsure/mockDB/activities.dart';
-// Import State ของคุณ
+
+import 'package:changsure/data/models/technician/post_model.dart';
+import 'package:changsure/data/services/technician_service.dart';
+import 'package:changsure/state/user_provider.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 
-// --- 1. Constants (แยก Config สีออกมา) ---
 const Map<String, Map<String, Color>> kActivityColorMap = {
-  "ช่างทาสี": {
+  "งานทาสี": {
     "text": Color(0xFFEB2F96),
     "background": Color(0xFFFFF0F6),
     "border": Color(0xFFFFADD2),
   },
-  "ช่างประปา": {
+  "งานประปา": {
     "text": Color(0xFF36CFC9),
     "background": Color(0xFFE6FFFB),
     "border": Color(0xFF87E8DE),
   },
-  "ช่างไฟฟ้า": {
+  "งานไฟฟ้า": {
     "text": Color(0xFFFAAD14),
     "background": Color(0xFFFFFBE6),
     "border": Color(0xFFFFE58F),
   },
-  "ช่างซ่อมเครื่องใช้ไฟฟ้า": {
+  "งานซ่อมเครื่องใช้ไฟฟ้า": {
     "text": Color(0xFF722ED1),
     "background": Color(0xFFF9F0FF),
     "border": Color(0xFFD3ADF7),
   },
 };
 
-// --- 2. Data Provider (ดึงข้อมูลตาม ID) ---
-final activityDetailProvider = Provider.family<Activity, int>((ref, id) {
-  // ดึงจาก MockDB (ในอนาคตเปลี่ยนเป็น API ได้ง่ายที่จุดนี้)
-  return mockActivities.firstWhere(
-    (a) => a.id == id,
-    orElse: () => mockActivities.first,
-  );
+final postDetailProvider = FutureProvider.autoDispose.family<PostModel?, int>((
+  ref,
+  id,
+) async {
+  final user = ref.read(userProvider);
+  if (user?.token == null) return null;
+
+  final service = TechnicianService();
+  return service.getPostById(user!.token!, id);
 });
 
-// --- 3. Main Widget ---
 class ViewActivityById extends ConsumerWidget {
   final int id;
 
   const ViewActivityById({super.key, required this.id});
 
-  // Navigation: กลับหน้าหลัก
   void _navigateBack(WidgetRef ref) {
-    ref.read(bottomSubPageProvider.notifier).state = null;
+    ref.read(bottomSubPageProvider.notifier).state = const SubPageConfig(
+      page: BottomSubPage.technicianViewActivity,
+    );
   }
 
-  // Navigation: ไปหน้าแก้ไข
   void _navigateToEdit(WidgetRef ref) {
-    // ⚠️ ต้องเพิ่ม Enum 'editActivity' ใน BottomSubPage ก่อนนะครับ (ดูหมายเหตุด้านล่าง)
     final config = SubPageConfig(
       page: BottomSubPage.technicianEditActivity,
       activityId: id,
@@ -63,17 +64,29 @@ class ViewActivityById extends ConsumerWidget {
     ref.read(bottomSubPageProvider.notifier).state = config;
   }
 
-  // Action: แสดง Modal ลบ
+  Future<void> _handleDelete(BuildContext context, WidgetRef ref) async {
+    Navigator.of(context).pop();
+
+    final user = ref.read(userProvider);
+    final service = TechnicianService();
+
+    final success = await service.deletePost(token: user!.token!, postId: id);
+
+    if (success && context.mounted) {
+      _navigateBack(ref);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ')));
+    }
+  }
+
   void _showDeleteModal(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.6),
       builder: (context) => _DeleteConfirmationDialog(
-        onConfirm: () {
-          // TODO: ใส่ Logic ลบข้อมูลจริงที่นี่
-          Navigator.of(context).pop(); // ปิด Dialog
-          _navigateBack(ref); // กลับหน้าหลัก
-        },
+        onConfirm: () => _handleDelete(context, ref),
         onCancel: () => Navigator.of(context).pop(),
       ),
     );
@@ -81,89 +94,105 @@ class ViewActivityById extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch ข้อมูล Activity
-    final activity = ref.watch(activityDetailProvider(id));
+    final postAsync = ref.watch(postDetailProvider(id));
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Header(header: "ดูผลงาน", onPressed: () => _navigateBack(ref)),
-              const SizedBox(height: 16),
+      body: postAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('เกิดข้อผิดพลาด: $err')),
+        data: (post) {
+          if (post == null) {
+            return const Center(child: Text('ไม่พบข้อมูลโพสต์'));
+          }
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Header(
+                    header: "ดูผลงาน",
+                    onPressed: () => _navigateBack(ref),
+                  ),
+                  const SizedBox(height: 16),
 
-              // Profile Section & Menu
-              _ActivityProfileHeader(
-                activity: activity,
-                onEdit: () => _navigateToEdit(ref),
-                onDelete: () => _showDeleteModal(context, ref),
+                  _ActivityProfileHeader(
+                    post: post,
+                    onEdit: () => _navigateToEdit(ref),
+                    onDelete: () => _showDeleteModal(context, ref),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      post.content,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  _ActivityImageGallery(images: post.images),
+                ],
               ),
-              const SizedBox(height: 24),
-
-              // Description
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  activity.description,
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Image Gallery
-              _ActivityImageGallery(images: activity.images),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-// --- 4. Sub-Widgets (Component ย่อย) ---
-
-class _ActivityProfileHeader extends StatelessWidget {
-  final Activity activity;
+class _ActivityProfileHeader extends ConsumerWidget {
+  final PostModel post;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ActivityProfileHeader({
-    required this.activity,
+    required this.post,
     required this.onEdit,
     required this.onDelete,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final categoryColor = kActivityColorMap[activity.serviceCategoryName];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoryColor =
+        kActivityColorMap[post.categoryName] ?? kActivityColorMap["default"];
+    final user = ref.watch(userProvider);
+    final userProfile = user?.technicianProfile;
+
+    ImageProvider avatarImage;
+    if (userProfile?.avatarUrl != null && userProfile!.avatarUrl!.isNotEmpty) {
+      avatarImage = NetworkImage(userProfile.avatarUrl!);
+    } else {
+      avatarImage = const AssetImage('assets/image/Technician.png');
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 40,
-            backgroundImage: AssetImage('assets/image/Technician.png'),
+            backgroundImage: avatarImage,
+            backgroundColor: Colors.grey.shade200,
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "คุณ สมชาย รักชาติ",
+                Text(
+                  userProfile?.fullName ?? 'ไม่ระบุชื่อ',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                _CategoryBadge(
-                  label: activity.serviceCategoryName,
-                  colors: categoryColor,
-                ),
+                _CategoryBadge(label: post.categoryName, colors: categoryColor),
               ],
             ),
           ),
@@ -264,15 +293,44 @@ class _ActivityImageGallery extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: images.map((img) {
+        children: images.map((imgUrl) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                img,
+
+              child: Image.network(
+                imgUrl,
                 width: double.infinity,
                 fit: BoxFit.cover,
+
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    width: double.infinity,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.broken_image, color: Colors.grey),
+                    ),
+                  );
+                },
+
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 200,
+                    width: double.infinity,
+                    color: Colors.grey.shade100,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           );

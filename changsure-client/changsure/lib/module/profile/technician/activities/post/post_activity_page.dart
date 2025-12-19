@@ -16,7 +16,9 @@ class PostActivityPage extends ConsumerWidget {
   const PostActivityPage({super.key});
 
   void _navigateToViewActivities(WidgetRef ref) {
-    ref.read(bottomSubPageProvider.notifier).state = null;
+    ref.read(bottomSubPageProvider.notifier).state = const SubPageConfig(
+      page: BottomSubPage.technicianViewActivity,
+    );
   }
 
   @override
@@ -27,7 +29,7 @@ class PostActivityPage extends ConsumerWidget {
 
     final isFormValid =
         state.currentDescription.isNotEmpty &&
-        state.serviceId != null &&
+        state.categoryId != null &&
         (state.pickedImages.isNotEmpty || state.assetImages.isNotEmpty);
 
     return Scaffold(

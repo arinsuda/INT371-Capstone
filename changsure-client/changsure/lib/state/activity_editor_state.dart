@@ -8,7 +8,9 @@ import 'user_provider.dart';
 
 class ActivityEditorState {
   final bool isLoading;
-  final int? serviceId;
+
+  // final int? serviceId;
+  final int? categoryId;
   final String? selectedCategory;
 
   final List<String> assetImages;
@@ -20,14 +22,15 @@ class ActivityEditorState {
   final String? descriptionError;
   final String? imageError;
 
-  final int? originalServiceId;
+  // final int? originalServiceId;
+  final int? originalCategoryId;
   final String? originalDescription;
 
   final String currentDescription;
 
   const ActivityEditorState({
     this.isLoading = false,
-    this.serviceId,
+    this.categoryId,
     this.selectedCategory,
     required this.assetImages,
     required this.assetImageIds,
@@ -35,19 +38,19 @@ class ActivityEditorState {
     required this.idsToDelete,
     this.descriptionError,
     this.imageError,
-    this.originalServiceId,
+    this.originalCategoryId,
     this.originalDescription,
     this.currentDescription = '',
   });
 
   bool get isChanged {
-    if (originalServiceId == null) {
+    if (originalCategoryId == null) {
       return currentDescription.isNotEmpty ||
           pickedImages.isNotEmpty ||
-          serviceId != null;
+          categoryId != null;
     }
 
-    return serviceId != originalServiceId ||
+    return categoryId != originalCategoryId ||
         currentDescription != (originalDescription ?? '') ||
         pickedImages.isNotEmpty ||
         idsToDelete.isNotEmpty;
@@ -59,7 +62,7 @@ class ActivityEditorState {
 
   ActivityEditorState copyWith({
     bool? isLoading,
-    int? serviceId,
+    int? categoryId,
     String? selectedCategory,
     List<String>? assetImages,
     List<int>? assetImageIds,
@@ -67,13 +70,13 @@ class ActivityEditorState {
     List<int>? idsToDelete,
     String? descriptionError,
     String? imageError,
-    int? originalServiceId,
+    int? originalCategoryId,
     String? originalDescription,
     String? currentDescription,
   }) {
     return ActivityEditorState(
       isLoading: isLoading ?? this.isLoading,
-      serviceId: serviceId ?? this.serviceId,
+      categoryId: categoryId ?? this.categoryId,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       assetImages: assetImages ?? this.assetImages,
       assetImageIds: assetImageIds ?? this.assetImageIds,
@@ -81,7 +84,7 @@ class ActivityEditorState {
       idsToDelete: idsToDelete ?? this.idsToDelete,
       descriptionError: descriptionError ?? this.descriptionError,
       imageError: imageError ?? this.imageError,
-      originalServiceId: originalServiceId ?? this.originalServiceId,
+      originalCategoryId: originalCategoryId ?? this.originalCategoryId,
       originalDescription: originalDescription ?? this.originalDescription,
       currentDescription: currentDescription ?? this.currentDescription,
     );
@@ -133,11 +136,11 @@ class ActivityEditorNotifier
 
       state = state.copyWith(
         isLoading: false,
-        serviceId: post.serviceId,
+        categoryId: post.categoryId,
         selectedCategory: post.categoryName,
         assetImages: post.images,
         assetImageIds: mockIds,
-        originalServiceId: post.serviceId,
+        originalCategoryId: post.categoryId,
         originalDescription: post.content,
         currentDescription: post.content,
       );
@@ -152,13 +155,13 @@ class ActivityEditorNotifier
     if (state.descriptionError != null) {
       state = ActivityEditorState(
         isLoading: state.isLoading,
-        serviceId: state.serviceId,
+        categoryId: state.categoryId,
         selectedCategory: state.selectedCategory,
         assetImages: state.assetImages,
         assetImageIds: state.assetImageIds,
         pickedImages: state.pickedImages,
         idsToDelete: state.idsToDelete,
-        originalServiceId: state.originalServiceId,
+        originalCategoryId: state.originalCategoryId,
         originalDescription: state.originalDescription,
         currentDescription: state.currentDescription,
         descriptionError: null,
@@ -167,8 +170,12 @@ class ActivityEditorNotifier
     }
   }
 
-  void setService(int id, String name) {
-    state = state.copyWith(serviceId: id, selectedCategory: name);
+  // void setService(int id, String name) {
+  //   state = state.copyWith(serviceId: id, selectedCategory: name);
+  // }
+
+  void setCategory(int id, String name) {
+    state = state.copyWith(categoryId: id, selectedCategory: name);
   }
 
   Future<void> pickImage() async {
@@ -181,13 +188,13 @@ class ActivityEditorNotifier
 
       state = ActivityEditorState(
         isLoading: state.isLoading,
-        serviceId: state.serviceId,
+        categoryId: state.categoryId,
         selectedCategory: state.selectedCategory,
         assetImages: state.assetImages,
         assetImageIds: state.assetImageIds,
         pickedImages: newPicked,
         idsToDelete: state.idsToDelete,
-        originalServiceId: state.originalServiceId,
+        originalCategoryId: state.originalCategoryId,
         originalDescription: state.originalDescription,
         currentDescription: state.currentDescription,
         descriptionError: state.descriptionError,
@@ -234,18 +241,18 @@ class ActivityEditorNotifier
       imageError = "กรุณาเพิ่มรูปภาพ";
     }
 
-    if (state.serviceId == null) {}
+    if (state.categoryId == null) {}
 
     if (descriptionError != null || imageError != null) {
       state = ActivityEditorState(
         isLoading: state.isLoading,
-        serviceId: state.serviceId,
+        categoryId: state.categoryId,
         selectedCategory: state.selectedCategory,
         assetImages: state.assetImages,
         assetImageIds: state.assetImageIds,
         pickedImages: state.pickedImages,
         idsToDelete: state.idsToDelete,
-        originalServiceId: state.originalServiceId,
+        originalCategoryId: state.originalCategoryId,
         originalDescription: state.originalDescription,
         currentDescription: state.currentDescription,
         descriptionError: descriptionError,
@@ -264,7 +271,7 @@ class ActivityEditorNotifier
       success = await service.createPost(
         token: user!.token!,
         description: descriptionController.text,
-        serviceId: state.serviceId!,
+        categoryId: state.categoryId!,
 
         provinceId: user.technicianProfile?.provinces.firstOrNull?.id ?? 1,
         images: state.pickedImages,
@@ -274,7 +281,7 @@ class ActivityEditorNotifier
         token: user!.token!,
         postId: arg,
         description: descriptionController.text,
-        serviceId: state.serviceId,
+        categoryId: state.categoryId,
         newImages: state.pickedImages,
         imageIdsToDelete: state.idsToDelete,
       );

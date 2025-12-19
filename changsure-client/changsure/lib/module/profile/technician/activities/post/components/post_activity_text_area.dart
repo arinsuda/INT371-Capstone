@@ -2,7 +2,6 @@ import 'package:changsure/core/theme.dart';
 import 'package:changsure/state/activity_editor_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/state/post_activity_state.dart';
 
 class PostActivityTextArea extends ConsumerWidget {
   const PostActivityTextArea({super.key});

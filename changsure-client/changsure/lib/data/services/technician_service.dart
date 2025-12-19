@@ -110,7 +110,7 @@ class TechnicianService {
   Future<bool> createPost({
     required String token,
     required String description,
-    required int serviceId,
+    required int categoryId,
     String? title,
     int? provinceId,
     List<File>? images,
@@ -121,17 +121,17 @@ class TechnicianService {
     request.headers.addAll({'Authorization': 'Bearer $token'});
 
     request.fields['description'] = description;
-    request.fields['service_id'] = serviceId.toString();
+    request.fields['service_category_id'] = categoryId.toString();
 
     request.fields['title'] =
         title ??
         (description.length > 20 ? description.substring(0, 20) : description);
 
-    if (provinceId != null) {
-      request.fields['province_id'] = provinceId.toString();
-    } else {
-      request.fields['province_id'] = "1";
-    }
+    // if (provinceId != null) {
+    //   request.fields['province_id'] = provinceId.toString();
+    // } else {
+    //   request.fields['province_id'] = "1";
+    // }
 
     request.fields['post_date'] = DateTime.now().toIso8601String();
 
@@ -184,7 +184,7 @@ class TechnicianService {
     required int postId,
     String? title,
     String? description,
-    int? serviceId,
+    int? categoryId,
     int? provinceId,
     List<File>? newImages,
     List<int>? imageIdsToDelete,
@@ -198,9 +198,10 @@ class TechnicianService {
 
     if (title != null) request.fields['title'] = title;
     if (description != null) request.fields['description'] = description;
-    if (serviceId != null) request.fields['service_id'] = serviceId.toString();
-    if (provinceId != null)
-      request.fields['province_id'] = provinceId.toString();
+    if (categoryId != null)
+      request.fields['service_category_id'] = categoryId.toString();
+    // if (provinceId != null)
+    //   request.fields['province_id'] = provinceId.toString();
 
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
       for (var id in imageIdsToDelete) {
@@ -229,6 +230,19 @@ class TechnicianService {
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print("❌ Update Post Error: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deletePost({required String token, required int postId}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts/$postId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print("❌ Delete Post Error: $e");
       return false;
     }
   }

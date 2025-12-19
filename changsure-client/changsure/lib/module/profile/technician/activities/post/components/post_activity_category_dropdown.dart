@@ -85,7 +85,7 @@ class PostActivityCategoryDropdown extends ConsumerWidget {
                           ),
                         ),
                         onTap: () {
-                          notifier.setService(category.id, categoryName);
+                          notifier.setCategory(category.id, categoryName);
                           Navigator.pop(context);
                         },
                       );
