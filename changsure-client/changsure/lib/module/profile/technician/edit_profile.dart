@@ -164,17 +164,26 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     for (var category in categories) {
       for (var service in category.services) {
         final sId = service.id;
+
         _selectedServices[sId] = false;
 
-        _priceType[sId] = service.priceType == 'fixed' ? 'fix' : 'range';
+        String masterType = service.defaultPrice.type == 'fixed'
+            ? 'fix'
+            : 'range';
+        _priceType[sId] = masterType;
 
         _minPriceControllers[sId] = TextEditingController(
-          text: service.minPrice?.toString() ?? '',
+          text: service.defaultPrice.min?.toString() ?? '',
         );
         _maxPriceControllers[sId] = TextEditingController(
-          text: service.maxPrice?.toString() ?? '',
+          text:
+              service.defaultPrice.max?.toString() ??
+              service.defaultPrice.value?.toString() ??
+              '',
         );
-        _fixPriceControllers[sId] = TextEditingController(text: '');
+        _fixPriceControllers[sId] = TextEditingController(
+          text: service.defaultPrice.value?.toString() ?? '',
+        );
 
         _minPriceControllers[sId]?.addListener(_checkChanged);
         _maxPriceControllers[sId]?.addListener(_checkChanged);
@@ -184,32 +193,29 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
     if (tech?.services != null) {
       for (var userService in tech!.services) {
-        ServiceModel? match;
+        final sId = userService.serviceId;
 
-        for (var cat in categories) {
-          try {
-            match = cat.services.firstWhere(
-              (s) => s.id == userService.serviceId,
-            );
-
-            if (match != null) break;
-          } catch (_) {}
-        }
-
-        if (match != null) {
-          final sId = match.id;
+        if (_selectedServices.containsKey(sId)) {
           _selectedServices[sId] = true;
 
-          if (userService.pricingType == 'FIXED') {
-            _priceType[sId] = 'fix';
+          String userType = userService.pricingType.toLowerCase() == 'fixed'
+              ? 'fix'
+              : 'range';
+          _priceType[sId] = userType;
+
+          if (userType == 'fix') {
             _fixPriceControllers[sId]?.text =
                 userService.priceFixed?.toString() ?? '';
+
+            _minPriceControllers[sId]?.text = '';
+            _maxPriceControllers[sId]?.text = '';
           } else {
-            _priceType[sId] = 'range';
             _minPriceControllers[sId]?.text =
                 userService.priceMin?.toString() ?? '';
             _maxPriceControllers[sId]?.text =
                 userService.priceMax?.toString() ?? '';
+
+            _fixPriceControllers[sId]?.text = '';
           }
         }
       }
@@ -240,17 +246,22 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
     for (var sId in _selectedServices.keys) {
       if (_selectedServices[sId] == true) {
-        final type = _priceType[sId] == 'fix' ? 'FIXED' : 'RANGE';
+        final type = _priceType[sId];
+        final apiType = type == 'fix' ? 'FIXED' : 'RANGE';
 
         Map<String, dynamic> serviceMap = {
           "service_id": sId,
-          "pricing_type": type,
+          "pricing_type": apiType,
+          "category_id": _findCategoryId(sId),
         };
 
-        if (type == 'FIXED') {
+        if (type == 'fix') {
           serviceMap["price_fixed"] = double.tryParse(
             _fixPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
           );
+
+          serviceMap["price_min"] = null;
+          serviceMap["price_max"] = null;
         } else {
           serviceMap["price_min"] = double.tryParse(
             _minPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
@@ -258,6 +269,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
           serviceMap["price_max"] = double.tryParse(
             _maxPriceControllers[sId]?.text.replaceAll(',', '') ?? '0',
           );
+          serviceMap["price_fixed"] = null;
         }
         servicesData.add(serviceMap);
       }
@@ -295,6 +307,15 @@ class _EditProfileState extends ConsumerState<EditProfile> {
         );
       }
     }
+  }
+
+  int _findCategoryId(int serviceId) {
+    for (var cat in allCategories) {
+      for (var s in cat.services) {
+        if (s.id == serviceId) return cat.id;
+      }
+    }
+    return 0;
   }
 
   void _checkChanged() {
@@ -437,23 +458,17 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   }
 
   ImageProvider _getAvatarImage() {
-    // 1. ถ้ามีรูปใหม่จาก Gallery -> ใช้ FileImage
     if (_avatarFile != null) {
       return FileImage(_avatarFile!);
     }
 
-    // 2. ถ้ามี URL จาก Server (ตรวจสอบว่าเป็น http/https เท่านั้น)
-    // หมายเหตุ: เช็ค field name ใน model ให้ตรงด้วย (เช่น avatar หรือ avatarUrl)
-    // ในที่นี้ผมใช้ avatarUrl ตามที่คุณเคยใช้
     final url = originalTech?.avatarUrl;
     if (url != null && url.isNotEmpty) {
       if (url.startsWith('http') || url.startsWith('https')) {
         return NetworkImage(url);
       }
-      // ถ้า URL มาแปลกๆ (ไม่ใช่ http) ให้ข้ามไปใช้รูป default ดีกว่าเสี่ยงจอดำ
     }
 
-    // 3. รูป Default
     return const AssetImage('assets/image/Technician.png');
   }
 
@@ -501,7 +516,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                       backgroundImage: _getAvatarImage(),
                       onBackgroundImageError: (exception, stackTrace) {
                         print("🖼️ Image Load Error: $exception");
-                        // ถ้าโหลดรูปไม่ผ่าน (เช่น link เสีย) มันจะแสดงสีเทาๆ แทนที่จะพัง
                       },
                     ),
 

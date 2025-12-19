@@ -5,10 +5,7 @@ class ProvinceModel {
   ProvinceModel({required this.id, required this.nameTh});
 
   factory ProvinceModel.fromJson(Map<String, dynamic> json) {
-    return ProvinceModel(
-      id: json['id'],
-      nameTh: json['name_th'],
-    );
+    return ProvinceModel(id: json['id'], nameTh: json['name_th']);
   }
 }
 
@@ -43,31 +40,54 @@ class ServiceModel {
   final int id;
   final String serName;
   final int categoryId;
-  final int? minPrice;
-  final int? maxPrice;
-  final String? priceType;
+  final String? serDescription;
+  final List<String> serDetails;
+  final List<String> imageUrls;
+  final List<String> workingDuration;
+  final List<String> additionalTerms;
+  final ServicePrice defaultPrice;
 
   ServiceModel({
     required this.id,
     required this.serName,
     required this.categoryId,
-    this.minPrice,
-    this.maxPrice,
-    this.priceType,
+    this.serDescription,
+    this.serDetails = const [],
+    this.imageUrls = const [],
+    this.workingDuration = const [],
+    this.additionalTerms = const [],
+    required this.defaultPrice,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
-    final defaultPrice = json['default_price'] ?? {};
-
     return ServiceModel(
       id: json['id'],
-      serName: json['ser_name'],
-      categoryId: json['category_id'],
-      minPrice: defaultPrice['min'],
-      maxPrice:
-          defaultPrice['max'] ??
-          defaultPrice['value'],
-      priceType: defaultPrice['type'],
+      serName: json['ser_name'] ?? '',
+      categoryId: json['category_id'] ?? 0,
+      serDescription: json['ser_description'],
+      serDetails: List<String>.from(json['ser_details'] ?? []),
+      imageUrls: List<String>.from(json['image_urls'] ?? []),
+      workingDuration: List<String>.from(json['working_duration'] ?? []),
+      additionalTerms: List<String>.from(json['additional_terms'] ?? []),
+      defaultPrice: ServicePrice.fromJson(json['default_price'] ?? {}),
+    );
+  }
+}
+
+class ServicePrice {
+  final int? min;
+  final int? max;
+  final int? value;
+  final String? type;
+
+  ServicePrice({this.min, this.max, this.value, this.type});
+
+  factory ServicePrice.fromJson(Map<String, dynamic> json) {
+    return ServicePrice(
+      min: json['min'],
+      max: json['max'],
+      value: json['value'],
+      type: json['type'],
     );
   }
 }
