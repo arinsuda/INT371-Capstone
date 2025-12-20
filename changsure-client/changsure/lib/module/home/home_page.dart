@@ -6,8 +6,21 @@ import 'package:changsure/module/home/homePage/service_card.dart';
 import 'package:changsure/module/home/homePage/banner.dart';
 import '../../state/master_data_provider.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  String searchQuery = '';
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      searchQuery = value.trim();
+    });
+  }
 
   Widget _buildCategoryIcon(String name) {
     const iconMap = {
@@ -25,8 +38,17 @@ class HomePage extends ConsumerWidget {
     return Image.asset(path, width: 30, height: 30);
   }
 
+  List servicesFromCategories(List categories) {
+    return categories
+        .expand((c) => c.services)
+        .where(
+          (s) => s.serName.toLowerCase().contains(searchQuery.toLowerCase()),
+        )
+        .toList();
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final serviceCategoriesAsync = ref.watch(serviceCategoriesProvider);
 
     return Scaffold(
@@ -35,12 +57,11 @@ class HomePage extends ConsumerWidget {
           ListView(
             padding: EdgeInsets.zero,
             children: [
-              HomeBanner(),
+              HomeBanner(onSearchChanged: _onSearchChanged),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 0),
+              if (searchQuery.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: serviceCategoriesAsync.when(
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
@@ -83,6 +104,7 @@ class HomePage extends ConsumerWidget {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(height: 16),
                               ],
                             ),
                           );
@@ -91,9 +113,6 @@ class HomePage extends ConsumerWidget {
                     },
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 16),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -101,6 +120,35 @@ class HomePage extends ConsumerWidget {
                   loading: () => const SizedBox.shrink(),
                   error: (e, _) => const SizedBox.shrink(),
                   data: (categories) {
+                    /// ====== 🔍 กำลัง search ======
+                    if (searchQuery.isNotEmpty) {
+                      final services = servicesFromCategories(categories);
+
+                      if (services.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('ไม่พบบริการที่ค้นหา')),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 12,
+                          children: services.map((service) {
+                            return SizedBox(
+                              width:
+                                  (MediaQuery.of(context).size.width / 2) - 20,
+                              height: 220,
+                              child: ServiceCard(data: service),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }
+
+                    /// ====== 🏠 โหมดปกติ (UI เดิมเป๊ะ) ======
                     return Column(
                       children: categories.map((mainCategory) {
                         return Column(

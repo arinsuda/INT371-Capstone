@@ -19,7 +19,6 @@ class CustomerChoose extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    print(serviceName);
     final List<Technician> filteredTechnicians = mockTechnicians
         .where((tech) => tech.category == category)
         .toList();

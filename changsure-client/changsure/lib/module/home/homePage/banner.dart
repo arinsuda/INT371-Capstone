@@ -4,7 +4,9 @@ import '../../../core/theme.dart';
 import '../../../mockDB/province.dart';
 
 class HomeBanner extends StatefulWidget {
-  const HomeBanner({super.key});
+  final ValueChanged<String> onSearchChanged;
+
+  const HomeBanner({super.key, required this.onSearchChanged});
 
   @override
   State<HomeBanner> createState() => _HomeBannerState();
@@ -45,7 +47,7 @@ class _HomeBannerState extends State<HomeBanner> {
             ),
             const SizedBox(height: 10),
             ...mockProvinces.map(
-                  (p) => ListTile(
+              (p) => ListTile(
                 title: Text(p),
                 onTap: () {
                   setState(() => selectedProvince = p);
@@ -61,8 +63,7 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
-    return
-      SizedBox(
+    return SizedBox(
       height: 320, // ความสูงรวม Banner + Search bar
       child: Stack(
         clipBehavior: Clip.none,
@@ -104,23 +105,39 @@ class _HomeBannerState extends State<HomeBanner> {
                 GestureDetector(
                   onTap: _openProvinceSelector,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(25),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 5),
+                      ],
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.location_on, size: 16, color: Color(0xFF3071C7)),
+                        const Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Color(0xFF3071C7),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           selectedProvince,
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF3071C7), fontWeight: FontWeight.w600),
+                            fontSize: 12,
+                            color: Color(0xFF3071C7),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down, color: Color(0xFF3071C7), size: 16),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xFF3071C7),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),
@@ -133,9 +150,8 @@ class _HomeBannerState extends State<HomeBanner> {
             ),
           ),
 
-          // Search bar ลอยทับ Banner
           Positioned(
-            top: 240, // ทับเล็กน้อยบน Banner
+            top: 240,
             left: 16,
             right: 16,
             child: Container(
@@ -145,17 +161,21 @@ class _HomeBannerState extends State<HomeBanner> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: AppColors.colorStroke),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text("ค้นหา...", style: TextStyle(color: Colors.grey)),
-                  Icon(Icons.search, color: Colors.grey),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 6),
                 ],
+              ),
+              child: TextField(
+                onChanged: widget.onSearchChanged,
+                decoration: const InputDecoration(
+                  hintText: "ค้นหาบริการ...",
+                  border: InputBorder.none,
+                  icon: Icon(Icons.search, color: Colors.grey),
+                ),
               ),
             ),
           ),
+
         ],
       ),
     );
