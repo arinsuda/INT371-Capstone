@@ -165,12 +165,31 @@ class _HomeBannerState extends State<HomeBanner> {
                   BoxShadow(color: Colors.black12, blurRadius: 6),
                 ],
               ),
-              child: TextField(
+              child:
+              TextField(
                 onChanged: widget.onSearchChanged,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: "ค้นหาบริการ...",
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search, color: Colors.grey),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFAAAAAA),
+                  ),
+
+                  suffixIcon: const Icon(
+                    Icons.search,
+                    color: Colors.grey,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 0,
+                    vertical: 14,
+                  ),
+
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
