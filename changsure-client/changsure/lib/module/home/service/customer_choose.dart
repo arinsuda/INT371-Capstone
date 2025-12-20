@@ -8,7 +8,7 @@ import '../../../mockDB/technician.dart';
 
 class CustomerChoose extends StatelessWidget {
   final String serviceName;
-  final String category;
+  final int category;
 
   const CustomerChoose({
     super.key,

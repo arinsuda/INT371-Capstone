@@ -1,29 +1,27 @@
+import 'package:changsure/module/home/service/serviceDetails/service_image_carousel.dart';
 import 'package:changsure/module/home/service/system_choose.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../core/button/primary_button.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
+import '../../../data/models/master_data_models.dart';
 import '../../../mockDB/service_categories.dart';
 import '../homePage/service_card.dart';
 import 'customer_choose.dart';
 
 class ServiceDetail extends StatelessWidget {
   final int id;
-  final SubServiceDetail data;
+  final ServiceModel data;
 
   const ServiceDetail({super.key, required this.id, required this.data});
 
   @override
   Widget build(BuildContext context) {
-
-    print('serviceName => ${data.name}');
-    print('category => ${data.category}');
-
     // ดึงหมวดของบริการนี้
     final category = mockServiceCategories.firstWhere(
       (cat) =>
-          cat.name == data.category ||
+          cat.name == data.categoryId ||
           cat.subServices.any((s) => s.id == data.id),
       orElse: () => mockServiceCategories[0],
     );
@@ -37,21 +35,18 @@ class ServiceDetail extends StatelessWidget {
       body: Stack(
         children: [
           ListView(
-            padding: EdgeInsets.only(
-              top: 0,
-              bottom: 16, // ใช้ค่าจากระบบ
-            ),
+            padding: EdgeInsets.only(top: 0, bottom: 16),
             children: [
               Stack(
                 children: [
-                  Container(
+                  SizedBox(
                     height: 370,
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage("assets/image/clean3.png"),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                    child: data.imageUrls.isNotEmpty
+                        ? ServiceImageCarousel(imageUrls: data.imageUrls)
+                        : Image.asset(
+                            'assets/image/no_image.png',
+                            fit: BoxFit.cover,
+                          ),
                   ),
                   Positioned(
                     top: 30,
@@ -97,7 +92,7 @@ class ServiceDetail extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          "${data.price}",
+                          "${data.defaultPrice.min}",
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -118,7 +113,7 @@ class ServiceDetail extends StatelessWidget {
                     SizedBox(height: 2),
 
                     Text(
-                      data.name,
+                      data.serName,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -128,110 +123,29 @@ class ServiceDetail extends StatelessWidget {
 
                     SizedBox(height: 2),
 
-                    Text(
-                      data.subDetails,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        // fontWeight: FontWeight.bold,
-                        color: Color(0xFF002C8C),
+                    if (data.serDescription != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        data.serDescription!,
+                        style: const TextStyle(fontSize: 12),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
 
-              Container(
-                height: 24,
-                color: AppColors.primaryBGHover, // สีที่ต้องการ
+              _sectionDivider(),
+
+              _markdownSection(title: "รายละเอียด", data: data.serDetails),
+
+              _sectionDivider(),
+
+              _markdownSection(
+                title: "เงื่อนไขเพิ่มเติม",
+                data: data.additionalTerms,
               ),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "รายละเอียด",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryText,
-                      ),
-                    ),
-
-                    SizedBox(height: 4),
-
-                    MarkdownBody(
-                      data: data.description,
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.colorTertiaryText,
-                        ),
-                        listBullet: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.colorTertiaryText,
-                        ),
-                        listIndent: 18.0, // ระยะห่าง bullet กับข้อความ
-                        blockSpacing: 4.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(
-                height: 24,
-                color: AppColors.primaryBGHover, // สีที่ต้องการ
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "เงื่อนไขเพิ่มเติม",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryText,
-                      ),
-                    ),
-
-                    SizedBox(height: 4),
-
-                    MarkdownBody(
-                      data: data.conditions,
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.colorTertiaryText,
-                        ),
-                        listBullet: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.colorTertiaryText,
-                        ),
-                        listIndent: 18.0, // ระยะห่าง bullet กับข้อความ
-                        blockSpacing: 4.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(
-                height: 24,
-                color: AppColors.primaryBGHover, // สีที่ต้องการ
-              ),
+              _sectionDivider(),
 
               Padding(
                 padding: const EdgeInsets.only(
@@ -276,7 +190,7 @@ class ServiceDetail extends StatelessWidget {
                             final subService = relatedServices[index];
                             return SizedBox(
                               width: 160, // กำหนดความกว้างการ์ด
-                              child: ServiceCard(data: subService),
+                              child: ServiceCard(data: data),
                             );
                           },
                         ),
@@ -464,14 +378,11 @@ class ServiceDetail extends StatelessWidget {
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        // ปุ่มยืนยัน
                                         Expanded(
                                           child: PrimaryButton(
                                             text: "ยืนยัน",
-                                            // disable ถ้ายังไม่ได้เลือก
                                             onPressed: selectedIndex != -1
                                                 ? () {
-
                                                     Navigator.pop(context);
                                                     if (selectedIndex == 0) {
                                                       Navigator.push(
@@ -480,9 +391,9 @@ class ServiceDetail extends StatelessWidget {
                                                           builder: (context) =>
                                                               SystemChoose(
                                                                 serviceName:
-                                                                    data.name,
-                                                                category:
-                                                                    data.category,
+                                                                    data.serName,
+                                                                category: data
+                                                                    .categoryId,
                                                               ),
                                                         ),
                                                       );
@@ -494,9 +405,9 @@ class ServiceDetail extends StatelessWidget {
                                                           builder: (context) =>
                                                               CustomerChoose(
                                                                 serviceName:
-                                                                    data.name,
-                                                                category:
-                                                                    data.category,
+                                                                    data.serName,
+                                                                category: data
+                                                                    .categoryId,
                                                               ),
                                                         ),
                                                       );
@@ -528,4 +439,27 @@ class ServiceDetail extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _sectionDivider() {
+  return Container(height: 24, color: AppColors.primaryBGHover);
+}
+
+Widget _markdownSection({required String title, required List<String> data}) {
+  if (data.isEmpty) return const SizedBox.shrink();
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        MarkdownBody(data: data.map((e) => "- $e").join('\n')),
+      ],
+    ),
+  );
 }

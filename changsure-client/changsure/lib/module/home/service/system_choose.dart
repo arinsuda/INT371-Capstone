@@ -10,7 +10,7 @@ import '../../profile/technician/view_profile_tab.dart';
 
 class SystemChoose extends StatelessWidget {
   final String serviceName;
-  final String category;
+  final int category;
 
   const SystemChoose({
     super.key,
