@@ -127,7 +127,7 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		return nil, err
 	}
 
-	return s.buildProfileResponse(tech), nil
+	return s.buildProfileResponse(ctx, tech), nil
 }
 
 func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs []uint) error {
@@ -402,7 +402,7 @@ func (s *service) fetchTechnicianWithAssociations(ctx context.Context, techID ui
 	return &tech, nil
 }
 
-func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
+func (s *service) buildProfileResponse(ctx context.Context, tech *Technician) *TechnicianProfileRes {
 	return &TechnicianProfileRes{
 		ID:             tech.ID,
 		FirstName:      tech.FirstName,
@@ -410,7 +410,7 @@ func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 		Bio:            tech.Bio,
 		Phone:          tech.Phone,
 		Email:          tech.Email,
-		AvatarURL:      s.buildAvatarURL(tech.AvatarURL),
+		AvatarURL:      s.buildAvatarURL(ctx, tech.AvatarURL),
 		RatingAvg:      tech.RatingAvg,
 		RatingCount:    tech.RatingCount,
 		TotalJobs:      tech.TotalJobs,
@@ -423,11 +423,23 @@ func (s *service) buildProfileResponse(tech *Technician) *TechnicianProfileRes {
 	}
 }
 
-func (s *service) buildAvatarURL(avatarURL *string) *string {
-	if avatarURL == nil {
+func (s *service) buildAvatarURL(ctx context.Context, avatarURL *string) *string {
+	if avatarURL == nil || *avatarURL == "" {
 		empty := ""
 		return &empty
 	}
+
+	// ถ้ามี Storage ให้ทำการ Generate URL (Presigned หรือ Full URL ตาม Config)
+	if s.storage != nil {
+		// กำหนดเวลา expire ไว้ 1 ชั่วโมง (หรือตามต้องการ)
+		url, err := s.storage.PresignGet(ctx, *avatarURL, time.Hour, false)
+		if err == nil {
+			return &url
+		}
+		// กรณี Error อาจจะ Log ไว้ แล้ว return path เดิมไปก่อน
+		fmt.Printf("failed to presign avatar url: %v\n", err)
+	}
+
 	return avatarURL
 }
 
