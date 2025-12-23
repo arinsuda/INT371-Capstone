@@ -7,21 +7,23 @@ import (
 func MapTechnicianToListItem(
 	t *technician.Technician,
 	dist float64,
+	signedURL string,
+	badges []BadgeResponse,
 ) TechnicianListItem {
 
 	min, max := ExtractPriceRange(*t)
 	rating := ExtractRating(*t)
 
-	badges := []string{}
-	for _, b := range t.Badges {
-		badges = append(badges, b.Badge.Name)
+	var avatarResult *string
+	if signedURL != "" {
+		avatarResult = &signedURL
 	}
 
 	return TechnicianListItem{
 		ID:          t.ID,
 		FirstName:   t.FirstName,
 		LastName:    t.LastName,
-		AvatarURL:   t.AvatarURL,
+		AvatarURL:   avatarResult,
 		PriceMin:    min,
 		PriceMax:    max,
 		RatingAvg:   rating,
@@ -31,7 +33,7 @@ func MapTechnicianToListItem(
 	}
 }
 
-func MapTechnicianToDetail(t *technician.Technician) TechnicianDetail {
+func MapTechnicianToDetail(t *technician.Technician, signedURL string, badges []BadgeResponse) TechnicianDetail {
 
 	rating := ExtractRating(*t)
 
@@ -40,14 +42,14 @@ func MapTechnicianToDetail(t *technician.Technician) TechnicianDetail {
 		provinces = append(provinces, a.Province.NameTH)
 	}
 
-	badges := []string{}
-	for _, b := range t.Badges {
-		badges = append(badges, b.Badge.Name)
-	}
-
 	services := []string{}
 	for _, s := range t.Services {
 		services = append(services, s.Service.SerName)
+	}
+
+	var avatarResult *string
+	if signedURL != "" {
+		avatarResult = &signedURL
 	}
 
 	return TechnicianDetail{
@@ -55,7 +57,7 @@ func MapTechnicianToDetail(t *technician.Technician) TechnicianDetail {
 		FirstName:   t.FirstName,
 		LastName:    t.LastName,
 		Bio:         t.Bio,
-		AvatarURL:   t.AvatarURL,
+		AvatarURL:   avatarResult,
 		RatingAvg:   rating,
 		RatingCount: t.RatingCount,
 		TotalJobs:   t.TotalJobs,

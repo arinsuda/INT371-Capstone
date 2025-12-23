@@ -1,0 +1,418 @@
+[
+  {
+    "technician_id": 3,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 4,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 4,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 6,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 7,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 7,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 12,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 13,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 13,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 14,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 15,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 16,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 16,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 17,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 19,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 19,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 20,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 24,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 24,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 25,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 29,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 29,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 30,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 31,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 31,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 31,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 32,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 32,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 33,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 33,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 35,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 36,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 37,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 42,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 42,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 42,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 43,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 43,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 45,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 46,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 48,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 50,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 50,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 50,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 52,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 52,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 54,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 54,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 56,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 57,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 57,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 57,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 59,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 59,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 59,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 60,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 61,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 62,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 63,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 64,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 64,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 65,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 65,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 67,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 67,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 68,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 68,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 70,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 70,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 70,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 71,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 71,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 71,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 72,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 73,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 74,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 75,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 76,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 78,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 78,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 78,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 79,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 79,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 80,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 80,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 81,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 81,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 84,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 84,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 85,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 86,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 86,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 94,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 94,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 95,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 96,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 97,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 97,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 97,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 98,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 99,
+    "badge_id": 2
+  },
+  {
+    "technician_id": 99,
+    "badge_id": 3
+  },
+  {
+    "technician_id": 100,
+    "badge_id": 1
+  },
+  {
+    "technician_id": 100,
+    "badge_id": 2
+  }
+]

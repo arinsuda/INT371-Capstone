@@ -10,8 +10,13 @@ import (
 
 	badge "changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/province"
-	servicecategory "changsure-core-service/internal/modules/service_category"
 	"changsure-core-service/internal/modules/service"
+	servicecategory "changsure-core-service/internal/modules/service_category"
+	"changsure-core-service/internal/modules/technician"
+	technicianaddress "changsure-core-service/internal/modules/technician_address"
+	technicianbadge "changsure-core-service/internal/modules/technician_badge"
+	technicianservice "changsure-core-service/internal/modules/technician_service"
+	technicianservicearea "changsure-core-service/internal/modules/technician_service_area"
 )
 
 const (
@@ -20,6 +25,12 @@ const (
 	categoriesFile = seedsDir + "/categories/category.json"
 	servicesFile   = seedsDir + "/services/service.json"
 	badgesFile     = seedsDir + "/badges/badge.json"
+
+	techniciansFile            = seedsDir + "/technicians/technician.json"
+	technicianAddressesFile    = seedsDir + "/technicians/technician_address.json"
+	technicianBadgesFile       = seedsDir + "/technicians/technician_badge.json"
+	technicianServicesFile     = seedsDir + "/technicians/technician_service.json"
+	technicianServiceAreasFile = seedsDir + "/technicians/technician_service_area.json"
 )
 
 type Seeder struct {
@@ -31,23 +42,40 @@ func NewSeeder(db *gorm.DB) *Seeder {
 }
 
 func (d *Database) Seed() error {
-	log.Println("🌱 Seeding database...")
+	log.Println("🌱 Starting Database Seeding Process...")
+	log.Println("==================================================")
 
 	seeder := NewSeeder(d.DB)
-	seeders := []func() error{
-		seeder.seedProvinces,
-		seeder.seedServiceCategories,
-		seeder.seedServices,
-		seeder.seedBadges,
+
+	steps := []struct {
+		Name string
+		Run  func() error
+	}{
+		{"Provinces", seeder.seedProvinces},
+		{"Service Categories", seeder.seedServiceCategories},
+		{"Services", seeder.seedServices},
+		{"Badges", seeder.seedBadges},
+
+		{"Technicians", seeder.seedTechnicians},
+		{"Technician Addresses", seeder.seedTechnicianAddresses},
+		{"Technician Services", seeder.seedTechnicianServices},
+		{"Technician Service Areas", seeder.seedTechnicianServiceAreas},
+		{"Technician Badges", seeder.seedTechnicianBadges},
 	}
 
-	for _, seed := range seeders {
-		if err := seed(); err != nil {
+	for _, step := range steps {
+		log.Printf("👉 Processing: %s...", step.Name)
+
+		if err := step.Run(); err != nil {
+			log.Printf("❌ Failed to seed %s: %v\n", step.Name, err)
 			return err
 		}
+
+		log.Println("--------------------------------------------------")
 	}
 
-	log.Println("✅ Seeding completed successfully")
+	log.Println("✅ All Seeding completed successfully!")
+	log.Println("==================================================")
 	return nil
 }
 
@@ -200,6 +228,149 @@ func (s *Seeder) seedBadges() error {
 		log.Printf("   ✓ Seeded/updated badges (total now: %d)", total)
 	}
 
+	return nil
+}
+
+func (s *Seeder) seedTechnicians() error {
+	if s.isAlreadySeeded(&technician.Technician{}, "Technicians") {
+		return nil
+	}
+
+	var items []technician.Technician
+	if err := s.loadJSONFile(techniciansFile, &items); err != nil {
+		return fmt.Errorf("load technicians: %w", err)
+	}
+
+	if err := s.db.Create(&items).Error; err != nil {
+		return fmt.Errorf("seed technicians: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d technicians", len(items))
+	return nil
+}
+
+func (s *Seeder) seedTechnicianAddresses() error {
+	if s.isAlreadySeeded(&technicianaddress.TechnicianAddress{}, "Technician addresses") {
+		return nil
+	}
+
+	var items []technicianaddress.TechnicianAddress
+	if err := s.loadJSONFile(technicianAddressesFile, &items); err != nil {
+		return fmt.Errorf("load technician addresses: %w", err)
+	}
+
+	if err := s.db.Create(&items).Error; err != nil {
+		return fmt.Errorf("seed technician addresses: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d technician addresses", len(items))
+	return nil
+}
+
+func (s *Seeder) seedTechnicianServices() error {
+	if s.isAlreadySeeded(&technicianservice.TechnicianService{}, "Technician services") {
+		return nil
+	}
+
+	var items []technicianservice.TechnicianService
+	if err := s.loadJSONFile(technicianServicesFile, &items); err != nil {
+		return fmt.Errorf("load technician services: %w", err)
+	}
+
+	if err := s.db.Create(&items).Error; err != nil {
+		return fmt.Errorf("seed technician services: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d technician services", len(items))
+	return nil
+}
+
+func (s *Seeder) seedTechnicianServiceAreas() error {
+	if s.isAlreadySeeded(&technicianservicearea.TechnicianServiceArea{}, "Technician service areas") {
+		return nil
+	}
+
+	type serviceAreaData struct {
+		TechnicianID uint `json:"technician_id"`
+		ProvinceID   uint `json:"province_id"`
+		IsActive     bool `json:"is_active"`
+	}
+
+	var items []serviceAreaData
+
+	if err := s.loadJSONFile(technicianServiceAreasFile, &items); err != nil {
+		return fmt.Errorf("load technician service areas: %w", err)
+	}
+
+	data := make([]technicianservicearea.TechnicianServiceArea, 0, len(items))
+	for _, item := range items {
+
+		if item.TechnicianID == 0 || item.ProvinceID == 0 {
+			log.Printf("⚠️ Skip item with 0 ID: TechID=%d, ProvID=%d", item.TechnicianID, item.ProvinceID)
+			continue
+		}
+
+		isActive := item.IsActive
+
+		data = append(data, technicianservicearea.TechnicianServiceArea{
+			TechnicianID: item.TechnicianID,
+			ProvinceID:   item.ProvinceID,
+			IsActive:     isActive,
+		})
+	}
+
+	if len(data) == 0 {
+		log.Println("   ⚠️ No valid service areas to seed (check JSON keys)")
+		return nil
+	}
+
+	if err := s.db.Create(&data).Error; err != nil {
+		return fmt.Errorf("seed technician service areas: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d technician service areas", len(data))
+	return nil
+}
+
+func (s *Seeder) seedTechnicianBadges() error {
+	if s.isAlreadySeeded(&technicianbadge.TechnicianBadge{}, "Technician badges") {
+		return nil
+	}
+
+	type techBadgeData struct {
+		TechnicianID uint `json:"technician_id"`
+		BadgeID      uint `json:"badge_id"`
+	}
+
+	var items []techBadgeData
+	if err := s.loadJSONFile(technicianBadgesFile, &items); err != nil {
+		return fmt.Errorf("load technician badges: %w", err)
+	}
+
+	data := make([]technicianbadge.TechnicianBadge, 0, len(items))
+	for _, item := range items {
+
+		if item.TechnicianID == 0 || item.BadgeID == 0 {
+			log.Printf("⚠️ Skip badge with 0 ID: TechID=%d, BadgeID=%d", item.TechnicianID, item.BadgeID)
+			continue
+		}
+
+		data = append(data, technicianbadge.TechnicianBadge{
+			TechnicianID: item.TechnicianID,
+			BadgeID:      item.BadgeID,
+		})
+	}
+
+	if len(data) == 0 {
+		log.Println("   ⚠️ No valid technician badges to seed")
+		return nil
+	}
+
+	if err := s.db.Create(&data).Error; err != nil {
+		return fmt.Errorf("seed technician badges: %w", err)
+	}
+
+	log.Printf("   ✓ Seeded %d technician badges", len(data))
 	return nil
 }
 

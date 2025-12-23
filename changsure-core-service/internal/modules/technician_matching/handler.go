@@ -15,7 +15,6 @@ func NewHandler(s Service) *Handler {
 	return &Handler{svc: s}
 }
 
-// GET /technicians
 func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 	customerID := utils.GetUserID(c)
 	if customerID == 0 {
@@ -50,7 +49,6 @@ func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 	})
 }
 
-// GET /technicians/:id
 func (h *Handler) GetTechnicianDetail(c fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
 
@@ -61,7 +59,6 @@ func (h *Handler) GetTechnicianDetail(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
-// POST /technicians/auto-select
 func (h *Handler) AutoSelectTechnician(c fiber.Ctx) error {
 	customerID := utils.GetUserID(c)
 	if customerID == 0 {

@@ -33,19 +33,30 @@ type TechnicianListItem struct {
 
 	DistanceKm float64 `json:"distance_km"`
 
-	Badges []string `json:"badges"`
+	Badges []BadgeResponse `json:"badges"`
 }
 
 type TechnicianDetail struct {
-	ID          uint     `json:"id"`
-	FirstName   string   `json:"firstname"`
-	LastName    string   `json:"lastname"`
-	Bio         *string  `json:"bio"`
-	AvatarURL   *string  `json:"avatar_url"`
-	RatingAvg   float64  `json:"rating_avg"`
-	RatingCount uint     `json:"rating_count"`
-	TotalJobs   uint     `json:"total_jobs"`
-	Provinces   []string `json:"provinces"`
-	Badges      []string `json:"badges"`
-	Services    []string `json:"services"`
+	ID          uint            `json:"id"`
+	FirstName   string          `json:"firstname"`
+	LastName    string          `json:"lastname"`
+	Bio         *string         `json:"bio"`
+	AvatarURL   *string         `json:"avatar_url"`
+	RatingAvg   float64         `json:"rating_avg"`
+	RatingCount uint            `json:"rating_count"`
+	TotalJobs   uint            `json:"total_jobs"`
+	Provinces   []string        `json:"provinces"`
+	Badges      []BadgeResponse `json:"badges"`
+	Services    []string        `json:"services"`
+}
+
+type BadgeResponse struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IconURL     string `json:"icon_url"`
+	Level       int    `json:"level"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
 }

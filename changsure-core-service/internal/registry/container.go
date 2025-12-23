@@ -190,6 +190,7 @@ func (c *Container) initTechnicianMatchingModule() {
 	c.TechnicianMatchingRepo = technicianmatching.NewRepository(c.DB)
 	c.TechnicianMatchingService = technicianmatching.NewService(
 		c.TechnicianMatchingRepo,
+		c.Storage,
 	)
 	c.TechnicianMatchingHandler = technicianmatching.NewHandler(
 		c.TechnicianMatchingService,

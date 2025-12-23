@@ -65,7 +65,7 @@ func (s *service) CreateCustomerAddress(ctx context.Context, customerID uint, re
 	addr.Road = req.Road
 	addr.SubDistrict = req.SubDistrict
 	addr.District = req.District
-	addr.Province = nil
+	addr.Province = req.Province
 	addr.PostalCode = req.PostalCode
 	addr.Country = req.Country
 	addr.ProvinceID = req.ProvinceID

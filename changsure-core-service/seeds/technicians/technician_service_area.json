@@ -1,0 +1,977 @@
+[
+  {
+    "technician_id": 1,
+    "province_id": 77,
+    "is_active": true
+  },
+  {
+    "technician_id": 1,
+    "province_id": 17,
+    "is_active": true
+  },
+  {
+    "technician_id": 2,
+    "province_id": 12,
+    "is_active": true
+  },
+  {
+    "technician_id": 2,
+    "province_id": 73,
+    "is_active": true
+  },
+  {
+    "technician_id": 3,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 4,
+    "province_id": 66,
+    "is_active": true
+  },
+  {
+    "technician_id": 4,
+    "province_id": 24,
+    "is_active": true
+  },
+  {
+    "technician_id": 5,
+    "province_id": 49,
+    "is_active": true
+  },
+  {
+    "technician_id": 6,
+    "province_id": 50,
+    "is_active": true
+  },
+  {
+    "technician_id": 6,
+    "province_id": 41,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "province_id": 8,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "province_id": 66,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "province_id": 29,
+    "is_active": true
+  },
+  {
+    "technician_id": 9,
+    "province_id": 20,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "province_id": 50,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "province_id": 63,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "province_id": 35,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "province_id": 34,
+    "is_active": true
+  },
+  {
+    "technician_id": 12,
+    "province_id": 31,
+    "is_active": true
+  },
+  {
+    "technician_id": 12,
+    "province_id": 27,
+    "is_active": true
+  },
+  {
+    "technician_id": 12,
+    "province_id": 21,
+    "is_active": true
+  },
+  {
+    "technician_id": 13,
+    "province_id": 6,
+    "is_active": true
+  },
+  {
+    "technician_id": 13,
+    "province_id": 20,
+    "is_active": true
+  },
+  {
+    "technician_id": 13,
+    "province_id": 69,
+    "is_active": true
+  },
+  {
+    "technician_id": 14,
+    "province_id": 43,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "province_id": 21,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "province_id": 10,
+    "is_active": true
+  },
+  {
+    "technician_id": 16,
+    "province_id": 32,
+    "is_active": true
+  },
+  {
+    "technician_id": 17,
+    "province_id": 20,
+    "is_active": true
+  },
+  {
+    "technician_id": 18,
+    "province_id": 69,
+    "is_active": true
+  },
+  {
+    "technician_id": 18,
+    "province_id": 14,
+    "is_active": true
+  },
+  {
+    "technician_id": 19,
+    "province_id": 77,
+    "is_active": true
+  },
+  {
+    "technician_id": 19,
+    "province_id": 60,
+    "is_active": true
+  },
+  {
+    "technician_id": 19,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 20,
+    "province_id": 3,
+    "is_active": true
+  },
+  {
+    "technician_id": 20,
+    "province_id": 56,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "province_id": 49,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "province_id": 7,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "province_id": 22,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "province_id": 16,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "province_id": 3,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "province_id": 42,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "province_id": 13,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 24,
+    "province_id": 17,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "province_id": 26,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "province_id": 10,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "province_id": 16,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "province_id": 18,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "province_id": 67,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "province_id": 36,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "province_id": 35,
+    "is_active": true
+  },
+  {
+    "technician_id": 29,
+    "province_id": 39,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "province_id": 11,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "province_id": 18,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "province_id": 77,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "province_id": 72,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "province_id": 24,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "province_id": 7,
+    "is_active": true
+  },
+  {
+    "technician_id": 33,
+    "province_id": 8,
+    "is_active": true
+  },
+  {
+    "technician_id": 34,
+    "province_id": 46,
+    "is_active": true
+  },
+  {
+    "technician_id": 34,
+    "province_id": 42,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "province_id": 4,
+    "is_active": true
+  },
+  {
+    "technician_id": 36,
+    "province_id": 33,
+    "is_active": true
+  },
+  {
+    "technician_id": 36,
+    "province_id": 62,
+    "is_active": true
+  },
+  {
+    "technician_id": 36,
+    "province_id": 38,
+    "is_active": true
+  },
+  {
+    "technician_id": 37,
+    "province_id": 38,
+    "is_active": true
+  },
+  {
+    "technician_id": 37,
+    "province_id": 46,
+    "is_active": true
+  },
+  {
+    "technician_id": 37,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "province_id": 48,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "province_id": 31,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "province_id": 55,
+    "is_active": true
+  },
+  {
+    "technician_id": 39,
+    "province_id": 10,
+    "is_active": true
+  },
+  {
+    "technician_id": 39,
+    "province_id": 55,
+    "is_active": true
+  },
+  {
+    "technician_id": 40,
+    "province_id": 34,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "province_id": 61,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "province_id": 6,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "province_id": 48,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "province_id": 19,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "province_id": 75,
+    "is_active": true
+  },
+  {
+    "technician_id": 43,
+    "province_id": 71,
+    "is_active": true
+  },
+  {
+    "technician_id": 43,
+    "province_id": 65,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "province_id": 14,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "province_id": 72,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "province_id": 3,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "province_id": 49,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "province_id": 52,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "province_id": 10,
+    "is_active": true
+  },
+  {
+    "technician_id": 47,
+    "province_id": 46,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "province_id": 41,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "province_id": 46,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "province_id": 44,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "province_id": 62,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "province_id": 34,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "province_id": 28,
+    "is_active": true
+  },
+  {
+    "technician_id": 52,
+    "province_id": 61,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "province_id": 56,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "province_id": 59,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 55,
+    "province_id": 46,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "province_id": 40,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "province_id": 66,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "province_id": 60,
+    "is_active": true
+  },
+  {
+    "technician_id": 59,
+    "province_id": 26,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "province_id": 30,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "province_id": 11,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "province_id": 70,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "province_id": 38,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "province_id": 18,
+    "is_active": true
+  },
+  {
+    "technician_id": 62,
+    "province_id": 57,
+    "is_active": true
+  },
+  {
+    "technician_id": 62,
+    "province_id": 6,
+    "is_active": true
+  },
+  {
+    "technician_id": 62,
+    "province_id": 64,
+    "is_active": true
+  },
+  {
+    "technician_id": 63,
+    "province_id": 30,
+    "is_active": true
+  },
+  {
+    "technician_id": 64,
+    "province_id": 13,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "province_id": 70,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "province_id": 57,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "province_id": 49,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "province_id": 48,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "province_id": 12,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "province_id": 25,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "province_id": 72,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "province_id": 13,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "province_id": 42,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "province_id": 30,
+    "is_active": true
+  },
+  {
+    "technician_id": 70,
+    "province_id": 3,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "province_id": 14,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "province_id": 48,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "province_id": 11,
+    "is_active": true
+  },
+  {
+    "technician_id": 72,
+    "province_id": 48,
+    "is_active": true
+  },
+  {
+    "technician_id": 72,
+    "province_id": 7,
+    "is_active": true
+  },
+  {
+    "technician_id": 72,
+    "province_id": 6,
+    "is_active": true
+  },
+  {
+    "technician_id": 73,
+    "province_id": 45,
+    "is_active": true
+  },
+  {
+    "technician_id": 74,
+    "province_id": 53,
+    "is_active": true
+  },
+  {
+    "technician_id": 75,
+    "province_id": 36,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "province_id": 26,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "province_id": 47,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "province_id": 22,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "province_id": 38,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "province_id": 69,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "province_id": 15,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "province_id": 75,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "province_id": 63,
+    "is_active": true
+  },
+  {
+    "technician_id": 80,
+    "province_id": 52,
+    "is_active": true
+  },
+  {
+    "technician_id": 80,
+    "province_id": 68,
+    "is_active": true
+  },
+  {
+    "technician_id": 80,
+    "province_id": 7,
+    "is_active": true
+  },
+  {
+    "technician_id": 81,
+    "province_id": 8,
+    "is_active": true
+  },
+  {
+    "technician_id": 81,
+    "province_id": 63,
+    "is_active": true
+  },
+  {
+    "technician_id": 82,
+    "province_id": 75,
+    "is_active": true
+  },
+  {
+    "technician_id": 83,
+    "province_id": 45,
+    "is_active": true
+  },
+  {
+    "technician_id": 83,
+    "province_id": 27,
+    "is_active": true
+  },
+  {
+    "technician_id": 84,
+    "province_id": 32,
+    "is_active": true
+  },
+  {
+    "technician_id": 84,
+    "province_id": 21,
+    "is_active": true
+  },
+  {
+    "technician_id": 85,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "province_id": 4,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "province_id": 10,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "province_id": 47,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "province_id": 42,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "province_id": 72,
+    "is_active": true
+  },
+  {
+    "technician_id": 88,
+    "province_id": 71,
+    "is_active": true
+  },
+  {
+    "technician_id": 89,
+    "province_id": 75,
+    "is_active": true
+  },
+  {
+    "technician_id": 89,
+    "province_id": 74,
+    "is_active": true
+  },
+  {
+    "technician_id": 89,
+    "province_id": 3,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "province_id": 25,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "province_id": 17,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "province_id": 12,
+    "is_active": true
+  },
+  {
+    "technician_id": 91,
+    "province_id": 73,
+    "is_active": true
+  },
+  {
+    "technician_id": 91,
+    "province_id": 40,
+    "is_active": true
+  },
+  {
+    "technician_id": 91,
+    "province_id": 13,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "province_id": 8,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "province_id": 39,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "province_id": 1,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "province_id": 47,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "province_id": 38,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "province_id": 26,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "province_id": 64,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "province_id": 75,
+    "is_active": true
+  },
+  {
+    "technician_id": 95,
+    "province_id": 4,
+    "is_active": true
+  },
+  {
+    "technician_id": 96,
+    "province_id": 62,
+    "is_active": true
+  },
+  {
+    "technician_id": 96,
+    "province_id": 43,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "province_id": 35,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "province_id": 20,
+    "is_active": true
+  },
+  {
+    "technician_id": 98,
+    "province_id": 4,
+    "is_active": true
+  },
+  {
+    "technician_id": 99,
+    "province_id": 73,
+    "is_active": true
+  },
+  {
+    "technician_id": 99,
+    "province_id": 8,
+    "is_active": true
+  },
+  {
+    "technician_id": 100,
+    "province_id": 51,
+    "is_active": true
+  }
+]
