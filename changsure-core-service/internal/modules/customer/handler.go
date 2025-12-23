@@ -1,12 +1,13 @@
 package customers
 
 import (
-	utils "changsure-core-service/pkg/utils"
-	"errors"
-	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
+
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/pkg/utils"
 )
 
 type Handler struct {
@@ -17,58 +18,22 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-func customerIDFromLocals(c fiber.Ctx) uint {
-	if v := c.Locals("userID"); v != nil {
-		switch x := v.(type) {
-		case uint:
-			return x
-		case uint64:
-			return uint(x)
-		case int:
-			if x > 0 {
-				return uint(x)
-			}
-		case string:
-			if id, err := strconv.ParseUint(x, 10, 64); err == nil {
-				return uint(id)
-			}
-		}
-	}
-	return 0
-}
-
 func (h *Handler) GetProfile(c fiber.Ctx) error {
-	customerID := customerIDFromLocals(c)
+
+	customerID := utils.GetUserID(c)
 	if customerID == 0 {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"error":   "unauthorized",
-		})
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), customerID)
 
 	customer, err := h.service.GetProfile(ctx, customerID)
-
 	if err != nil {
-		if errors.Is(err, ErrAccessDenied) {
-			return c.Status(http.StatusForbidden).JSON(fiber.Map{
-				"success": false,
-				"message": "Access denied",
-			})
-		}
 
-		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{
-				"success": false,
-				"message": "Customer not found",
-			})
+		if strings.Contains(err.Error(), "not found") {
+			return appErrors.NotFound(c, "customer not found")
 		}
-
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"message": "Failed to get profile",
-		})
+		return appErrors.InternalError(c, "failed to get profile", err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -78,20 +43,14 @@ func (h *Handler) GetProfile(c fiber.Ctx) error {
 }
 
 func (h *Handler) UpdateProfile(c fiber.Ctx) error {
-	customerID := customerIDFromLocals(c)
+	customerID := utils.GetUserID(c)
 	if customerID == 0 {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"error":   "unauthorized",
-		})
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	var req UpdateCustomerRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid request body",
-		})
+		return appErrors.BadRequest(c, "invalid request body")
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), customerID)
@@ -99,122 +58,127 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	customer, err := h.service.UpdateProfile(ctx, customerID, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrCustomerNotFound):
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Customer not found"})
-
-		case errors.Is(err, ErrUnauthorizedOwner):
-			return c.Status(http.StatusForbidden).JSON(fiber.Map{"success": false, "message": "Forbidden: Access denied"})
-
-		case errors.Is(err, ErrPhoneAlreadyExists):
-			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Phone number already exists"})
-		case errors.Is(err, ErrEmailAlreadyExists):
-			return c.Status(http.StatusConflict).JSON(fiber.Map{"success": false, "message": "Email already exists"})
-		case errors.Is(err, ErrInvalidInput):
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"success": false, "message": err.Error()})
+		case err == ErrCustomerNotFound:
+			return appErrors.NotFound(c, "customer not found")
+		case err == ErrUnauthorizedOwner:
+			return appErrors.Forbidden(c, "access denied")
+		case err == ErrPhoneAlreadyExists:
+			return appErrors.Conflict(c, "phone number already exists")
+		case err == ErrEmailAlreadyExists:
+			return appErrors.Conflict(c, "email already exists")
+		case err == ErrInvalidInput:
+			return appErrors.BadRequest(c, err.Error())
 		default:
-			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update profile"})
+			return appErrors.InternalError(c, "failed to update profile", err)
 		}
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "Profile updated successfully",
+		"message": "profile updated successfully",
 		"data":    ToCustomerResponse(customer),
 	})
 }
 
 func (h *Handler) GetCustomer(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+
+	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid customer ID",
-		})
+		return appErrors.BadRequest(c, "invalid customer id")
 	}
 
-	customer, err := h.service.GetCustomer(c.Context(), uint(id))
+	customer, err := h.service.GetCustomer(c.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Customer not found",
-			})
+		if err == ErrCustomerNotFound {
+			return appErrors.NotFound(c, "customer not found")
 		}
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to get customer",
-		})
+		return appErrors.InternalError(c, "failed to get customer", err)
 	}
 
-	return c.JSON(fiber.Map{"status": "success", "data": ToCustomerResponse(customer)})
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    ToCustomerResponse(customer),
+	})
 }
 
 func (h *Handler) UpdateCustomer(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid customer ID"})
+		return appErrors.BadRequest(c, "invalid customer id")
 	}
 
 	var req UpdateCustomerRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid request body"})
+		return appErrors.BadRequest(c, "invalid request body")
 	}
 
-	customer, err := h.service.UpdateCustomer(c.Context(), uint(id), &req)
+	customer, err := h.service.UpdateCustomer(c.Context(), id, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrCustomerNotFound):
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Customer not found"})
-		case errors.Is(err, ErrPhoneAlreadyExists):
-			return c.Status(http.StatusConflict).JSON(fiber.Map{"status": "error", "message": "Phone number already exists"})
-		case errors.Is(err, ErrEmailAlreadyExists):
-			return c.Status(http.StatusConflict).JSON(fiber.Map{"status": "error", "message": "Email already exists"})
+		case err == ErrCustomerNotFound:
+			return appErrors.NotFound(c, "customer not found")
+		case err == ErrPhoneAlreadyExists:
+			return appErrors.Conflict(c, "phone number already exists")
+		case err == ErrEmailAlreadyExists:
+			return appErrors.Conflict(c, "email already exists")
 		default:
-			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to update customer"})
+			return appErrors.InternalError(c, "failed to update customer", err)
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Customer updated successfully",
+		"success": true,
+		"message": "customer updated successfully",
 		"data":    ToCustomerResponse(customer),
 	})
 }
 
 func (h *Handler) DeleteCustomer(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	id, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid customer ID"})
+		return appErrors.BadRequest(c, "invalid customer id")
 	}
 
-	if err := h.service.DeleteCustomer(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, ErrCustomerNotFound) {
-			return c.Status(http.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Customer not found"})
+	if err := h.service.DeleteCustomer(c.Context(), id); err != nil {
+		if err == ErrCustomerNotFound {
+			return appErrors.NotFound(c, "customer not found")
 		}
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to delete customer"})
-	}
-
-	return c.JSON(fiber.Map{"status": "success", "message": "Customer deleted successfully"})
-}
-
-func (h *Handler) ListCustomers(c fiber.Ctx) error {
-	page := c.Query("page", "1")
-	pageSize := c.Query("page_size", "20")
-
-	pageInt, _ := strconv.Atoi(page)
-	pageSizeInt, _ := strconv.Atoi(pageSize)
-
-	customers, err := h.service.ListCustomers(c.Context(), pageInt, pageSizeInt)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to list customers"})
+		return appErrors.InternalError(c, "failed to delete customer", err)
 	}
 
 	return c.JSON(fiber.Map{
-		"status": "success",
+		"success": true,
+		"message": "customer deleted successfully",
+	})
+}
+
+func (h *Handler) ListCustomers(c fiber.Ctx) error {
+
+	page := 1
+	if v := c.Query("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	pageSize := 20
+	if v := c.Query("page_size"); v != "" {
+		if s, err := strconv.Atoi(v); err == nil && s > 0 {
+			pageSize = s
+		}
+	}
+
+	customers, err := h.service.ListCustomers(c.Context(), page, pageSize)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to list customers", err)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
 		"data": fiber.Map{
 			"customers": ToCustomerResponseList(customers),
-			"page":      pageInt,
-			"page_size": pageSizeInt,
+			"page":      page,
+			"page_size": pageSize,
 			"total":     len(customers),
 		},
 	})
