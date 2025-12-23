@@ -9,6 +9,7 @@ func MapTechnicianToListItem(
 	dist float64,
 	signedURL string,
 	badges []BadgeResponse,
+	targetServiceID *uint,
 ) TechnicianListItem {
 
 	min, max := ExtractPriceRange(*t)
@@ -17,6 +18,29 @@ func MapTechnicianToListItem(
 	var avatarResult *string
 	if signedURL != "" {
 		avatarResult = &signedURL
+	}
+
+	var showServiceID uint
+	var showCategoryName string
+
+	if targetServiceID != nil {
+		for _, s := range t.Services {
+			if s.Service.ID == *targetServiceID {
+				showServiceID = s.Service.ID
+				if s.Service.Category != nil {
+					showCategoryName = s.Service.Category.CatName
+				}
+				break
+			}
+		}
+	}
+
+	if showServiceID == 0 && len(t.Services) > 0 {
+		firstSvc := t.Services[0]
+		showServiceID = firstSvc.Service.ID
+		if firstSvc.Service.Category != nil {
+			showCategoryName = firstSvc.Service.Category.CatName
+		}
 	}
 
 	return TechnicianListItem{
@@ -28,8 +52,13 @@ func MapTechnicianToListItem(
 		PriceMax:    max,
 		RatingAvg:   rating,
 		RatingCount: t.RatingCount,
+		TotalJobs:   t.TotalJobs,
 		DistanceKm:  dist,
-		Badges:      badges,
+
+		ServiceID:    showServiceID,
+		CategoryName: showCategoryName,
+
+		Badges: badges,
 	}
 }
 
@@ -43,8 +72,21 @@ func MapTechnicianToDetail(t *technician.Technician, signedURL string, badges []
 	}
 
 	services := []string{}
+
+	categoryMap := make(map[string]bool)
+
 	for _, s := range t.Services {
+
 		services = append(services, s.Service.SerName)
+
+		if s.Service.Category != nil {
+			categoryMap[s.Service.Category.CatName] = true
+		}
+	}
+
+	categories := []string{}
+	for catName := range categoryMap {
+		categories = append(categories, catName)
 	}
 
 	var avatarResult *string
@@ -62,7 +104,8 @@ func MapTechnicianToDetail(t *technician.Technician, signedURL string, badges []
 		RatingCount: t.RatingCount,
 		TotalJobs:   t.TotalJobs,
 		Provinces:   provinces,
-		Badges:      badges,
+		Categories:  categories,
 		Services:    services,
+		Badges:      badges,
 	}
 }

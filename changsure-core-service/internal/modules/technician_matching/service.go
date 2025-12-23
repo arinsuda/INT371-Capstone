@@ -55,7 +55,6 @@ func (s *service) ListTechnicians(ctx context.Context, customerID uint, q Techni
 
 			signedIcon := ""
 			if b.Badge.IconURL != "" {
-
 				url, err := s.storage.PresignGet(ctx, b.Badge.IconURL, 15*time.Minute, false)
 				if err == nil {
 					signedIcon = url
@@ -74,7 +73,7 @@ func (s *service) ListTechnicians(ctx context.Context, customerID uint, q Techni
 			})
 		}
 
-		item := MapTechnicianToListItem(&t.Technician, distKm, signedAvatar, badgeList)
+		item := MapTechnicianToListItem(&t.Technician, distKm, signedAvatar, badgeList, q.ServiceID)
 		items = append(items, item)
 	}
 
@@ -100,7 +99,6 @@ func (s *service) GetTechnicianDetail(ctx context.Context, id uint) (*Technician
 
 		signedIcon := ""
 		if b.Badge.IconURL != "" {
-
 			url, err := s.storage.PresignGet(ctx, b.Badge.IconURL, 15*time.Minute, false)
 			if err == nil {
 				signedIcon = url

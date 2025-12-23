@@ -43,6 +43,7 @@ func (r *repository) SearchTechnicians(ctx context.Context, custLat, custLng flo
 		Joins("INNER JOIN technician_addresses ta ON ta.technician_id = technicians.id AND ta.is_primary = TRUE").
 		Preload("Services", "is_active = TRUE").
 		Preload("Services.Service").
+		Preload("Services.Service.Category").
 		Preload("Badges.Badge").
 		Preload("ServiceAreas.Province")
 
@@ -96,6 +97,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*technicians.Techni
 	err := r.db.WithContext(ctx).
 		Preload("Services.Service").
 		Preload("ServiceAreas.Province").
+		Preload("Services.Service.Category").
 		Preload("Badges.Badge").
 		Preload("Addresses", "is_primary = TRUE").
 		First(&t, id).Error

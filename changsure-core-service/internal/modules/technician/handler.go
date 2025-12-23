@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +13,8 @@ import (
 	"changsure-core-service/pkg/security"
 	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
+
+	appErrors "changsure-core-service/internal/errors"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -33,41 +34,32 @@ func NewHandler(s Service, store *storage.MinioStorage) *Handler {
 func (h *Handler) GetProfile(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
 	res, err := h.svc.GetProfile(c.Context(), techID)
 	if err != nil {
-		return fiber.NewError(404, err.Error())
-	}
-
-	response := *res
-	if response.AvatarURL != nil && *response.AvatarURL != "" {
-		if presigned, err := storage.GlobalMinio.PresignGet(
-			c.Context(), *response.AvatarURL, time.Hour, false,
-		); err == nil {
-			response.AvatarURL = &presigned
-		}
+		return appErrors.NotFound(c, err.Error())
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    response,
+		"data":    res,
 	})
 }
 
 func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
 	var req TechnicianProfileReq
@@ -75,7 +67,7 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 
 	if strings.HasPrefix(contentType, fiber.MIMEApplicationJSON) {
 		if err := c.Bind().Body(&req); err != nil {
-			return fiber.NewError(400, "invalid json")
+			return appErrors.BadRequest(c, "invalid json")
 		}
 	} else {
 
@@ -83,7 +75,7 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 		req.LastName = c.FormValue("lastname")
 
 		if req.FirstName == "" || req.LastName == "" {
-			return fiber.NewError(400, "firstname & lastname required")
+			return appErrors.BadRequest(c, "firstname & lastname required")
 		}
 		if v := c.FormValue("bio"); v != "" {
 			req.Bio = &v
@@ -97,13 +89,13 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 
 		if v := c.FormValue("province_ids"); v != "" {
 			if err := json.Unmarshal([]byte(v), &req.ProvinceIDs); err != nil {
-				return fiber.NewError(400, "invalid province_ids")
+				return appErrors.BadRequest(c, "invalid province_ids")
 			}
 		}
 
 		if v := c.FormValue("services"); v != "" {
 			if err := json.Unmarshal([]byte(v), &req.Services); err != nil {
-				return fiber.NewError(400, "invalid services")
+				return appErrors.BadRequest(c, "invalid services")
 			}
 		}
 
@@ -123,7 +115,7 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 
 			imgBuf, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), opt)
 			if err != nil {
-				return fiber.NewError(400, "image invalid")
+				return appErrors.BadRequest(c, "image invalid")
 			}
 
 			filename := fmt.Sprintf("%d_%d.jpg", techID, time.Now().Unix())
@@ -137,7 +129,7 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 				"image/jpeg",
 			)
 			if err != nil {
-				return fiber.NewError(500, "upload failed: "+err.Error())
+				return appErrors.InternalError(c, "upload failed", err)
 			}
 
 			req.AvatarURL = &key
@@ -146,7 +138,7 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 
 	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
 	if err != nil {
-		return fiber.NewError(400, err.Error())
+		return appErrors.InternalError(c, "failed to update profile", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "profile updated", "technician_id": id})
@@ -155,20 +147,20 @@ func (h *Handler) UpdateProfile(c fiber.Ctx) error {
 func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
 	var req TechnicianProvincesPatchReq
 	if err := c.Bind().Body(&req); err != nil || len(req.ProvinceIDs) == 0 {
-		return fiber.NewError(400, "invalid province_ids")
+		return appErrors.BadRequest(c, "invalid province_ids")
 	}
 
 	if err := h.svc.UpdateProvinces(c.Context(), techID, req.ProvinceIDs); err != nil {
-		return fiber.NewError(400, err.Error())
+		return appErrors.InternalError(c, "failed to update provinces", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true})
@@ -177,21 +169,21 @@ func (h *Handler) PatchProvinces(c fiber.Ctx) error {
 func (h *Handler) AddService(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
 	var req AddTechServiceReq
 	if err := c.Bind().Body(&req); err != nil {
-		return fiber.NewError(400, "invalid body")
+		return appErrors.BadRequest(c, "invalid body")
 	}
 
 	res, err := h.svc.AddService(c.Context(), techID, req)
 	if err != nil {
-		return fiber.NewError(400, err.Error())
+		return appErrors.InternalError(c, "failed to add service", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": res})
@@ -200,28 +192,28 @@ func (h *Handler) AddService(c fiber.Ctx) error {
 func (h *Handler) UpdateService(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
-	svcID, _ := strconv.Atoi(c.Params("id"))
-	if svcID == 0 {
-		return fiber.NewError(400, "invalid service id")
+	svcID, err := utils.ParseUintParam(c, "id")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid service id")
 	}
 
 	var req tsvc.UpdateTechServiceReq
 	if err := c.Bind().Body(&req); err != nil {
-		return fiber.NewError(400, "invalid body")
+		return appErrors.BadRequest(c, "invalid body")
 	}
 
-	req.ServiceID = uint(svcID)
+	req.ServiceID = svcID
 
 	res, err := h.svc.UpdateService(c.Context(), techID, req)
 	if err != nil {
-		return fiber.NewError(400, err.Error())
+		return appErrors.InternalError(c, "failed to update service", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": res})
@@ -230,21 +222,21 @@ func (h *Handler) UpdateService(c fiber.Ctx) error {
 func (h *Handler) RemoveService(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
-	svcID, _ := strconv.Atoi(c.Params("id"))
-	if svcID == 0 {
-		return fiber.NewError(400, "invalid service id")
-	}
-
-	err := h.svc.RemoveService(c.Context(), techID, RemoveTechServiceReq{ServiceID: uint(svcID)})
+	svcID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return fiber.NewError(400, err.Error())
+		return appErrors.BadRequest(c, "invalid service id")
+	}
+
+	err = h.svc.RemoveService(c.Context(), techID, RemoveTechServiceReq{ServiceID: svcID})
+	if err != nil {
+		return appErrors.InternalError(c, "failed to remove service", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true})
@@ -253,16 +245,16 @@ func (h *Handler) RemoveService(c fiber.Ctx) error {
 func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
 	if err := security.CheckOwner(techID, techID); err != nil {
-		return err
+		return appErrors.Forbidden(c, err.Error())
 	}
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		return fiber.NewError(400, "file required")
+		return appErrors.BadRequest(c, "file required")
 	}
 
 	src, _ := file.Open()
@@ -272,7 +264,7 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 
 	key, err := h.store.UploadFile(c.Context(), src, filename, "avatars", file.Size, file.Header.Get("Content-Type"))
 	if err != nil {
-		return fiber.NewError(500, "upload failed")
+		return appErrors.InternalError(c, "upload failed", err)
 	}
 
 	_ = h.svc.UpdateAvatar(c.Context(), techID, key)

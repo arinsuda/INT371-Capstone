@@ -30,8 +30,12 @@ type TechnicianListItem struct {
 
 	RatingAvg   float64 `json:"rating_avg"`
 	RatingCount uint    `json:"rating_count"`
+	TotalJobs   uint    `json:"total_jobs"`
 
 	DistanceKm float64 `json:"distance_km"`
+
+	ServiceID    uint   `json:"service_id"`
+	CategoryName string `json:"category_name"`
 
 	Badges []BadgeResponse `json:"badges"`
 }
@@ -48,6 +52,7 @@ type TechnicianDetail struct {
 	Provinces   []string        `json:"provinces"`
 	Badges      []BadgeResponse `json:"badges"`
 	Services    []string        `json:"services"`
+	Categories  []string        `json:"categories"`
 }
 
 type BadgeResponse struct {

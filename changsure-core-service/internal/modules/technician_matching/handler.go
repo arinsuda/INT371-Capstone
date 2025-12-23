@@ -1,10 +1,10 @@
 package technicianmatching
 
 import (
-	"strconv"
-
 	"changsure-core-service/pkg/utils"
 	"github.com/gofiber/fiber/v3"
+
+	appErrors "changsure-core-service/internal/errors"
 )
 
 type Handler struct {
@@ -50,8 +50,10 @@ func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetTechnicianDetail(c fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
-
+	id, err := utils.ParseUintParam(c, "id")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
 	res, err := h.svc.GetTechnicianDetail(c.Context(), uint(id))
 	if err != nil {
 		return fiber.NewError(404, "technician not found")
