@@ -4,10 +4,13 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/minio/minio-go/v7"
 )
 
 type Storage interface {
-	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
+	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) (minio.UploadInfo, error)
+
 	PresignPut(ctx context.Context, key, contentType string, ttl time.Duration) (string, error)
 	PresignGet(ctx context.Context, key string, ttl time.Duration, asAttachment bool) (string, error)
 	PresignGetWithFilename(ctx context.Context, key string, ttl time.Duration, filename string) (string, error)

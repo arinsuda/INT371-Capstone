@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-var ErrTechnicianNotFound = errors.New("technician not found")
+var (
+	ErrBadgeAlreadyAssigned = errors.New("technician already has this badge")
+	ErrTechnicianNotFound   = errors.New("technician not found")
+)
 
 type TechnicianReader interface {
 	ExistsByID(ctx context.Context, id uint) (bool, error)
@@ -41,6 +44,14 @@ func (s *service) ensureTechExists(ctx context.Context, id uint) error {
 func (s *service) AssignBadge(ctx context.Context, techID, badgeID uint, exp *time.Time) (*TechnicianBadge, error) {
 	if err := s.ensureTechExists(ctx, techID); err != nil {
 		return nil, err
+	}
+
+	exists, err := s.repo.CheckBadgeExists(ctx, techID, badgeID)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrBadgeAlreadyAssigned
 	}
 
 	tb := &TechnicianBadge{

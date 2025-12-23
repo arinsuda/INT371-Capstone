@@ -1,8 +1,10 @@
 package technicianmatching
 
 import (
+	"changsure-core-service/pkg/storage"
 	"context"
 	"errors"
+	"time"
 )
 
 type Service interface {
@@ -12,14 +14,17 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo    Repository
+	storage storage.Storage
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, s storage.Storage) Service {
+	return &service{
+		repo:    repo,
+		storage: s,
+	}
 }
 
-// LIST
 func (s *service) ListTechnicians(ctx context.Context, customerID uint, q TechnicianSearchQuery) ([]TechnicianListItem, int64, error) {
 
 	custLat, custLng, err := s.repo.GetCustomerPrimaryAddress(ctx, customerID)
@@ -27,76 +32,102 @@ func (s *service) ListTechnicians(ctx context.Context, customerID uint, q Techni
 		return nil, 0, errors.New("customer has no primary address")
 	}
 
-	techs, err := s.repo.SearchTechnicians(ctx, q)
+	techsWithDist, total, err := s.repo.SearchTechnicians(ctx, custLat, custLng, q)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	items := make([]TechnicianListItem, 0)
+	for _, t := range techsWithDist {
 
-	for _, t := range techs {
+		distKm := t.DistanceMeters / 1000.0
 
-		techLat, techLng, err := s.repo.GetTechnicianPrimaryAddress(ctx, t.ID)
-		if err != nil {
-			continue
+		signedAvatar := ""
+		if t.AvatarURL != nil && *t.AvatarURL != "" {
+			url, err := s.storage.PresignGet(ctx, *t.AvatarURL, 15*time.Minute, false)
+			if err == nil {
+				signedAvatar = url
+			}
 		}
 
-		dist := HaversineKm(custLat, custLng, techLat, techLng)
+		badgeList := make([]BadgeResponse, 0)
+		for _, b := range t.Badges {
 
-		item := MapTechnicianToListItem(&t, dist)
+			signedIcon := ""
+			if b.Badge.IconURL != "" {
+				url, err := s.storage.PresignGet(ctx, b.Badge.IconURL, 15*time.Minute, false)
+				if err == nil {
+					signedIcon = url
+				}
+			}
 
-		if q.MinPrice != nil && item.PriceMin < *q.MinPrice {
-			continue
-		}
-		if q.MaxPrice != nil && item.PriceMax > *q.MaxPrice {
-			continue
-		}
-		if q.MinRating != nil && item.RatingAvg < *q.MinRating {
-			continue
+			badgeList = append(badgeList, BadgeResponse{
+				ID:          b.Badge.ID,
+				Name:        b.Badge.Name,
+				Description: b.Badge.Description,
+				IconURL:     signedIcon,
+				Level:       int(b.Badge.Level),
+				IsActive:    b.Badge.IsActive,
+				CreatedAt:   b.Badge.CreatedAt.Unix(),
+				UpdatedAt:   b.Badge.UpdatedAt.Unix(),
+			})
 		}
 
+		item := MapTechnicianToListItem(&t.Technician, distKm, signedAvatar, badgeList, q.ServiceID)
 		items = append(items, item)
 	}
 
-	total := int64(len(items))
-
-	items = sortTechnicians(items, q.Sort)
-
-	// pagination
-	start := (q.Page - 1) * q.PageSize
-	if start < 0 {
-		start = 0
-	}
-	end := start + q.PageSize
-	if end > len(items) {
-		end = len(items)
-	}
-
-	if start >= len(items) {
-		return []TechnicianListItem{}, total, nil
-	}
-
-	return items[start:end], total, nil
+	return items, total, nil
 }
 
-// DETAIL
 func (s *service) GetTechnicianDetail(ctx context.Context, id uint) (*TechnicianDetail, error) {
 	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	res := MapTechnicianToDetail(t)
+	signedAvatar := ""
+	if t.AvatarURL != nil && *t.AvatarURL != "" {
+		url, err := s.storage.PresignGet(ctx, *t.AvatarURL, 15*time.Minute, false)
+		if err == nil {
+			signedAvatar = url
+		}
+	}
+
+	badgeList := make([]BadgeResponse, 0)
+	for _, b := range t.Badges {
+
+		signedIcon := ""
+		if b.Badge.IconURL != "" {
+			url, err := s.storage.PresignGet(ctx, b.Badge.IconURL, 15*time.Minute, false)
+			if err == nil {
+				signedIcon = url
+			}
+		}
+
+		badgeList = append(badgeList, BadgeResponse{
+			ID:          b.Badge.ID,
+			Name:        b.Badge.Name,
+			Description: b.Badge.Description,
+			IconURL:     signedIcon,
+			Level:       int(b.Badge.Level),
+			IsActive:    b.Badge.IsActive,
+			CreatedAt:   b.Badge.CreatedAt.Unix(),
+			UpdatedAt:   b.Badge.UpdatedAt.Unix(),
+		})
+	}
+
+	res := MapTechnicianToDetail(t, signedAvatar, badgeList)
 	return &res, nil
 }
 
-// AUTO SELECT
 func (s *service) AutoSelectTechnician(ctx context.Context, customerID uint, req AutoSelectRequest) (*TechnicianListItem, error) {
 	q := TechnicianSearchQuery{
 		ServiceID:  &req.ServiceID,
 		ProvinceID: &req.ProvinceID,
 		Page:       1,
-		PageSize:   99999,
+		PageSize:   100,
+		Sort:       "dist_asc",
 	}
 
 	list, _, err := s.ListTechnicians(ctx, customerID, q)

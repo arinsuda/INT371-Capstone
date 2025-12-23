@@ -11,6 +11,8 @@ type Repository interface {
 	FindByTechnician(ctx context.Context, techID uint) ([]TechnicianBadge, error)
 	DeleteByTechAndBadge(ctx context.Context, techID, badgeID uint) error
 	PreloadBadge(ctx context.Context, tb *TechnicianBadge) error
+
+	CheckBadgeExists(ctx context.Context, techID, badgeID uint) (bool, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -42,4 +44,13 @@ func (r *repository) PreloadBadge(ctx context.Context, tb *TechnicianBadge) erro
 	return r.db.WithContext(ctx).
 		Preload("Badge").
 		First(tb, tb.ID).Error
+}
+
+func (r *repository) CheckBadgeExists(ctx context.Context, techID, badgeID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&TechnicianBadge{}).
+		Where("technician_id = ? AND badge_id = ?", techID, badgeID).
+		Count(&count).Error
+	return count > 0, err
 }

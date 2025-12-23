@@ -28,7 +28,7 @@ func ExtractRating(t technician.Technician) float64 {
 	if t.RatingAvg != nil {
 		return *t.RatingAvg
 	}
-	return 0
+	return 0.0
 }
 
 func SelectBestTechnician(list []technician.Technician, priority string) *technician.Technician {

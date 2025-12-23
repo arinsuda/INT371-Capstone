@@ -1,0 +1,2637 @@
+[
+  {
+    "technician_id": 1,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 399,
+    "price_max": 1155,
+    "is_active": true
+  },
+  {
+    "technician_id": 1,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 711,
+    "is_active": true
+  },
+  {
+    "technician_id": 1,
+    "service_id": 17,
+    "pricing_type": "RANGE",
+    "price_min": 726,
+    "price_max": 1564,
+    "is_active": true
+  },
+  {
+    "technician_id": 2,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 1040,
+    "is_active": true
+  },
+  {
+    "technician_id": 2,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 528,
+    "is_active": true
+  },
+  {
+    "technician_id": 3,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 604,
+    "is_active": true
+  },
+  {
+    "technician_id": 3,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 528,
+    "price_max": 1522,
+    "is_active": true
+  },
+  {
+    "technician_id": 3,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 799,
+    "price_max": 1647,
+    "is_active": true
+  },
+  {
+    "technician_id": 4,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 971,
+    "is_active": true
+  },
+  {
+    "technician_id": 4,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 583,
+    "is_active": true
+  },
+  {
+    "technician_id": 5,
+    "service_id": 27,
+    "pricing_type": "FIXED",
+    "price_fixed": 880,
+    "is_active": true
+  },
+  {
+    "technician_id": 5,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 549,
+    "price_max": 1014,
+    "is_active": true
+  },
+  {
+    "technician_id": 5,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 318,
+    "price_max": 983,
+    "is_active": true
+  },
+  {
+    "technician_id": 6,
+    "service_id": 10,
+    "pricing_type": "RANGE",
+    "price_min": 578,
+    "price_max": 1512,
+    "is_active": true
+  },
+  {
+    "technician_id": 6,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 432,
+    "price_max": 1165,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "service_id": 14,
+    "pricing_type": "RANGE",
+    "price_min": 527,
+    "price_max": 994,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 856,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 725,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 827,
+    "is_active": true
+  },
+  {
+    "technician_id": 7,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 329,
+    "price_max": 779,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "service_id": 3,
+    "pricing_type": "FIXED",
+    "price_fixed": 960,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "service_id": 21,
+    "pricing_type": "FIXED",
+    "price_fixed": 1127,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 1050,
+    "is_active": true
+  },
+  {
+    "technician_id": 8,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 729,
+    "price_max": 1711,
+    "is_active": true
+  },
+  {
+    "technician_id": 9,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 395,
+    "is_active": true
+  },
+  {
+    "technician_id": 9,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 1196,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 909,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "service_id": 19,
+    "pricing_type": "RANGE",
+    "price_min": 475,
+    "price_max": 842,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 569,
+    "price_max": 1528,
+    "is_active": true
+  },
+  {
+    "technician_id": 10,
+    "service_id": 27,
+    "pricing_type": "RANGE",
+    "price_min": 307,
+    "price_max": 1018,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 360,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 319,
+    "price_max": 770,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 630,
+    "price_max": 954,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 782,
+    "is_active": true
+  },
+  {
+    "technician_id": 11,
+    "service_id": 30,
+    "pricing_type": "RANGE",
+    "price_min": 610,
+    "price_max": 1327,
+    "is_active": true
+  },
+  {
+    "technician_id": 12,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 1066,
+    "is_active": true
+  },
+  {
+    "technician_id": 12,
+    "service_id": 14,
+    "pricing_type": "RANGE",
+    "price_min": 537,
+    "price_max": 1442,
+    "is_active": true
+  },
+  {
+    "technician_id": 13,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 495,
+    "price_max": 1445,
+    "is_active": true
+  },
+  {
+    "technician_id": 13,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 712,
+    "price_max": 1312,
+    "is_active": true
+  },
+  {
+    "technician_id": 14,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 300,
+    "is_active": true
+  },
+  {
+    "technician_id": 14,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 352,
+    "is_active": true
+  },
+  {
+    "technician_id": 14,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 670,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 783,
+    "price_max": 1384,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "service_id": 28,
+    "pricing_type": "RANGE",
+    "price_min": 420,
+    "price_max": 854,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 542,
+    "price_max": 1212,
+    "is_active": true
+  },
+  {
+    "technician_id": 15,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 754,
+    "is_active": true
+  },
+  {
+    "technician_id": 16,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 595,
+    "is_active": true
+  },
+  {
+    "technician_id": 16,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 528,
+    "price_max": 1477,
+    "is_active": true
+  },
+  {
+    "technician_id": 16,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 336,
+    "price_max": 1158,
+    "is_active": true
+  },
+  {
+    "technician_id": 16,
+    "service_id": 6,
+    "pricing_type": "FIXED",
+    "price_fixed": 992,
+    "is_active": true
+  },
+  {
+    "technician_id": 17,
+    "service_id": 14,
+    "pricing_type": "RANGE",
+    "price_min": 745,
+    "price_max": 1226,
+    "is_active": true
+  },
+  {
+    "technician_id": 17,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 1113,
+    "is_active": true
+  },
+  {
+    "technician_id": 18,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 791,
+    "is_active": true
+  },
+  {
+    "technician_id": 18,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 647,
+    "price_max": 1017,
+    "is_active": true
+  },
+  {
+    "technician_id": 19,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 743,
+    "is_active": true
+  },
+  {
+    "technician_id": 19,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 464,
+    "is_active": true
+  },
+  {
+    "technician_id": 20,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 411,
+    "price_max": 913,
+    "is_active": true
+  },
+  {
+    "technician_id": 20,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 1019,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 335,
+    "price_max": 1077,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 646,
+    "is_active": true
+  },
+  {
+    "technician_id": 21,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 1007,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "service_id": 24,
+    "pricing_type": "RANGE",
+    "price_min": 460,
+    "price_max": 1022,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 526,
+    "price_max": 1393,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 618,
+    "price_max": 956,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "service_id": 12,
+    "pricing_type": "FIXED",
+    "price_fixed": 841,
+    "is_active": true
+  },
+  {
+    "technician_id": 22,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 642,
+    "price_max": 1602,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 1019,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 480,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 547,
+    "is_active": true
+  },
+  {
+    "technician_id": 23,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 547,
+    "price_max": 1516,
+    "is_active": true
+  },
+  {
+    "technician_id": 24,
+    "service_id": 17,
+    "pricing_type": "FIXED",
+    "price_fixed": 1107,
+    "is_active": true
+  },
+  {
+    "technician_id": 24,
+    "service_id": 6,
+    "pricing_type": "RANGE",
+    "price_min": 664,
+    "price_max": 1015,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 1107,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 968,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 1120,
+    "is_active": true
+  },
+  {
+    "technician_id": 25,
+    "service_id": 17,
+    "pricing_type": "FIXED",
+    "price_fixed": 646,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "service_id": 4,
+    "pricing_type": "RANGE",
+    "price_min": 303,
+    "price_max": 721,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 1027,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "service_id": 5,
+    "pricing_type": "FIXED",
+    "price_fixed": 410,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 694,
+    "is_active": true
+  },
+  {
+    "technician_id": 26,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 685,
+    "price_max": 1257,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 950,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 448,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "service_id": 27,
+    "pricing_type": "RANGE",
+    "price_min": 460,
+    "price_max": 843,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "service_id": 4,
+    "pricing_type": "FIXED",
+    "price_fixed": 1037,
+    "is_active": true
+  },
+  {
+    "technician_id": 27,
+    "service_id": 28,
+    "pricing_type": "RANGE",
+    "price_min": 510,
+    "price_max": 1176,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 645,
+    "price_max": 1121,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 484,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 1132,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 408,
+    "price_max": 1317,
+    "is_active": true
+  },
+  {
+    "technician_id": 28,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 344,
+    "price_max": 943,
+    "is_active": true
+  },
+  {
+    "technician_id": 29,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 1048,
+    "is_active": true
+  },
+  {
+    "technician_id": 29,
+    "service_id": 6,
+    "pricing_type": "RANGE",
+    "price_min": 683,
+    "price_max": 1567,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 731,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 449,
+    "price_max": 1370,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 433,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "service_id": 7,
+    "pricing_type": "RANGE",
+    "price_min": 713,
+    "price_max": 1228,
+    "is_active": true
+  },
+  {
+    "technician_id": 30,
+    "service_id": 27,
+    "pricing_type": "RANGE",
+    "price_min": 601,
+    "price_max": 1018,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 1113,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "service_id": 23,
+    "pricing_type": "RANGE",
+    "price_min": 762,
+    "price_max": 1498,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "service_id": 28,
+    "pricing_type": "RANGE",
+    "price_min": 769,
+    "price_max": 1644,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 547,
+    "price_max": 1248,
+    "is_active": true
+  },
+  {
+    "technician_id": 31,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 835,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "service_id": 16,
+    "pricing_type": "FIXED",
+    "price_fixed": 342,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 1101,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "service_id": 28,
+    "pricing_type": "RANGE",
+    "price_min": 666,
+    "price_max": 1032,
+    "is_active": true
+  },
+  {
+    "technician_id": 32,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 624,
+    "is_active": true
+  },
+  {
+    "technician_id": 33,
+    "service_id": 12,
+    "pricing_type": "FIXED",
+    "price_fixed": 758,
+    "is_active": true
+  },
+  {
+    "technician_id": 33,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 687,
+    "is_active": true
+  },
+  {
+    "technician_id": 33,
+    "service_id": 6,
+    "pricing_type": "FIXED",
+    "price_fixed": 991,
+    "is_active": true
+  },
+  {
+    "technician_id": 34,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 520,
+    "is_active": true
+  },
+  {
+    "technician_id": 34,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 323,
+    "price_max": 852,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 557,
+    "price_max": 1284,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 804,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "service_id": 6,
+    "pricing_type": "FIXED",
+    "price_fixed": 370,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 512,
+    "price_max": 908,
+    "is_active": true
+  },
+  {
+    "technician_id": 35,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 906,
+    "is_active": true
+  },
+  {
+    "technician_id": 36,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 596,
+    "is_active": true
+  },
+  {
+    "technician_id": 36,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 581,
+    "price_max": 1128,
+    "is_active": true
+  },
+  {
+    "technician_id": 37,
+    "service_id": 6,
+    "pricing_type": "RANGE",
+    "price_min": 556,
+    "price_max": 1026,
+    "is_active": true
+  },
+  {
+    "technician_id": 37,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 614,
+    "price_max": 1294,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 1194,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 1132,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 1127,
+    "is_active": true
+  },
+  {
+    "technician_id": 38,
+    "service_id": 19,
+    "pricing_type": "RANGE",
+    "price_min": 301,
+    "price_max": 876,
+    "is_active": true
+  },
+  {
+    "technician_id": 39,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 404,
+    "is_active": true
+  },
+  {
+    "technician_id": 39,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 1137,
+    "is_active": true
+  },
+  {
+    "technician_id": 39,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 641,
+    "is_active": true
+  },
+  {
+    "technician_id": 40,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 391,
+    "is_active": true
+  },
+  {
+    "technician_id": 40,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 699,
+    "price_max": 1457,
+    "is_active": true
+  },
+  {
+    "technician_id": 40,
+    "service_id": 14,
+    "pricing_type": "FIXED",
+    "price_fixed": 688,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 545,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 777,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "service_id": 10,
+    "pricing_type": "FIXED",
+    "price_fixed": 931,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 514,
+    "price_max": 1334,
+    "is_active": true
+  },
+  {
+    "technician_id": 41,
+    "service_id": 4,
+    "pricing_type": "RANGE",
+    "price_min": 531,
+    "price_max": 898,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 387,
+    "price_max": 748,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 834,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 762,
+    "price_max": 1387,
+    "is_active": true
+  },
+  {
+    "technician_id": 42,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 745,
+    "is_active": true
+  },
+  {
+    "technician_id": 43,
+    "service_id": 18,
+    "pricing_type": "RANGE",
+    "price_min": 796,
+    "price_max": 1355,
+    "is_active": true
+  },
+  {
+    "technician_id": 43,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 515,
+    "is_active": true
+  },
+  {
+    "technician_id": 43,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 585,
+    "price_max": 1197,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 352,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "service_id": 16,
+    "pricing_type": "FIXED",
+    "price_fixed": 562,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 901,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 733,
+    "price_max": 1679,
+    "is_active": true
+  },
+  {
+    "technician_id": 44,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 556,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "service_id": 12,
+    "pricing_type": "FIXED",
+    "price_fixed": 883,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "service_id": 6,
+    "pricing_type": "FIXED",
+    "price_fixed": 831,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "service_id": 14,
+    "pricing_type": "FIXED",
+    "price_fixed": 796,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 486,
+    "price_max": 922,
+    "is_active": true
+  },
+  {
+    "technician_id": 45,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 322,
+    "price_max": 1096,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "service_id": 20,
+    "pricing_type": "RANGE",
+    "price_min": 438,
+    "price_max": 1009,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 944,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 331,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 730,
+    "price_max": 1181,
+    "is_active": true
+  },
+  {
+    "technician_id": 46,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 594,
+    "price_max": 1120,
+    "is_active": true
+  },
+  {
+    "technician_id": 47,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 968,
+    "is_active": true
+  },
+  {
+    "technician_id": 47,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 834,
+    "is_active": true
+  },
+  {
+    "technician_id": 47,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 534,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 700,
+    "price_max": 1202,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "service_id": 12,
+    "pricing_type": "RANGE",
+    "price_min": 605,
+    "price_max": 1230,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 1112,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 799,
+    "price_max": 1737,
+    "is_active": true
+  },
+  {
+    "technician_id": 48,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 663,
+    "price_max": 1306,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 685,
+    "price_max": 1450,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 671,
+    "is_active": true
+  },
+  {
+    "technician_id": 49,
+    "service_id": 27,
+    "pricing_type": "RANGE",
+    "price_min": 316,
+    "price_max": 1289,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 746,
+    "price_max": 1401,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 1028,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "service_id": 20,
+    "pricing_type": "RANGE",
+    "price_min": 507,
+    "price_max": 1232,
+    "is_active": true
+  },
+  {
+    "technician_id": 50,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 704,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 1056,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 981,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "service_id": 4,
+    "pricing_type": "RANGE",
+    "price_min": 368,
+    "price_max": 1302,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 442,
+    "price_max": 1300,
+    "is_active": true
+  },
+  {
+    "technician_id": 51,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 721,
+    "is_active": true
+  },
+  {
+    "technician_id": 52,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 634,
+    "price_max": 995,
+    "is_active": true
+  },
+  {
+    "technician_id": 52,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 1141,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 324,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 542,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "service_id": 21,
+    "pricing_type": "FIXED",
+    "price_fixed": 766,
+    "is_active": true
+  },
+  {
+    "technician_id": 53,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 758,
+    "price_max": 1458,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 989,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 811,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 806,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "service_id": 30,
+    "pricing_type": "RANGE",
+    "price_min": 566,
+    "price_max": 988,
+    "is_active": true
+  },
+  {
+    "technician_id": 54,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 734,
+    "price_max": 1458,
+    "is_active": true
+  },
+  {
+    "technician_id": 55,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 357,
+    "is_active": true
+  },
+  {
+    "technician_id": 55,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 1051,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 908,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 338,
+    "price_max": 1193,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 365,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 604,
+    "is_active": true
+  },
+  {
+    "technician_id": 56,
+    "service_id": 3,
+    "pricing_type": "FIXED",
+    "price_fixed": 504,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 1155,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "service_id": 3,
+    "pricing_type": "FIXED",
+    "price_fixed": 536,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 408,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "service_id": 22,
+    "pricing_type": "FIXED",
+    "price_fixed": 1107,
+    "is_active": true
+  },
+  {
+    "technician_id": 57,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 620,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 493,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 910,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 784,
+    "price_max": 1648,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 656,
+    "price_max": 1622,
+    "is_active": true
+  },
+  {
+    "technician_id": 58,
+    "service_id": 17,
+    "pricing_type": "RANGE",
+    "price_min": 362,
+    "price_max": 1120,
+    "is_active": true
+  },
+  {
+    "technician_id": 59,
+    "service_id": 27,
+    "pricing_type": "FIXED",
+    "price_fixed": 796,
+    "is_active": true
+  },
+  {
+    "technician_id": 59,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 467,
+    "is_active": true
+  },
+  {
+    "technician_id": 59,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 557,
+    "price_max": 1273,
+    "is_active": true
+  },
+  {
+    "technician_id": 59,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 588,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 483,
+    "price_max": 981,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 457,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 532,
+    "price_max": 1442,
+    "is_active": true
+  },
+  {
+    "technician_id": 60,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 424,
+    "price_max": 1125,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "service_id": 12,
+    "pricing_type": "RANGE",
+    "price_min": 636,
+    "price_max": 1477,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 636,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "service_id": 7,
+    "pricing_type": "RANGE",
+    "price_min": 542,
+    "price_max": 1232,
+    "is_active": true
+  },
+  {
+    "technician_id": 61,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 719,
+    "price_max": 1620,
+    "is_active": true
+  },
+  {
+    "technician_id": 62,
+    "service_id": 30,
+    "pricing_type": "RANGE",
+    "price_min": 678,
+    "price_max": 1216,
+    "is_active": true
+  },
+  {
+    "technician_id": 62,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 581,
+    "price_max": 1480,
+    "is_active": true
+  },
+  {
+    "technician_id": 63,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 981,
+    "is_active": true
+  },
+  {
+    "technician_id": 63,
+    "service_id": 27,
+    "pricing_type": "FIXED",
+    "price_fixed": 1006,
+    "is_active": true
+  },
+  {
+    "technician_id": 63,
+    "service_id": 7,
+    "pricing_type": "RANGE",
+    "price_min": 556,
+    "price_max": 958,
+    "is_active": true
+  },
+  {
+    "technician_id": 63,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 650,
+    "is_active": true
+  },
+  {
+    "technician_id": 64,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 355,
+    "price_max": 1107,
+    "is_active": true
+  },
+  {
+    "technician_id": 64,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 438,
+    "is_active": true
+  },
+  {
+    "technician_id": 64,
+    "service_id": 6,
+    "pricing_type": "RANGE",
+    "price_min": 428,
+    "price_max": 1250,
+    "is_active": true
+  },
+  {
+    "technician_id": 64,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 316,
+    "price_max": 947,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 658,
+    "price_max": 1231,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "service_id": 16,
+    "pricing_type": "FIXED",
+    "price_fixed": 1142,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "service_id": 12,
+    "pricing_type": "RANGE",
+    "price_min": 650,
+    "price_max": 1161,
+    "is_active": true
+  },
+  {
+    "technician_id": 65,
+    "service_id": 10,
+    "pricing_type": "RANGE",
+    "price_min": 793,
+    "price_max": 1623,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 1023,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "service_id": 4,
+    "pricing_type": "RANGE",
+    "price_min": 351,
+    "price_max": 1063,
+    "is_active": true
+  },
+  {
+    "technician_id": 66,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 366,
+    "price_max": 999,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 692,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 557,
+    "price_max": 1268,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "service_id": 14,
+    "pricing_type": "RANGE",
+    "price_min": 480,
+    "price_max": 1051,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 429,
+    "price_max": 858,
+    "is_active": true
+  },
+  {
+    "technician_id": 67,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 997,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 361,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "service_id": 16,
+    "pricing_type": "FIXED",
+    "price_fixed": 893,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "service_id": 17,
+    "pricing_type": "RANGE",
+    "price_min": 754,
+    "price_max": 1405,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 339,
+    "price_max": 1147,
+    "is_active": true
+  },
+  {
+    "technician_id": 68,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 628,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 702,
+    "price_max": 1302,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "service_id": 23,
+    "pricing_type": "RANGE",
+    "price_min": 311,
+    "price_max": 964,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 1058,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 757,
+    "price_max": 1326,
+    "is_active": true
+  },
+  {
+    "technician_id": 69,
+    "service_id": 27,
+    "pricing_type": "FIXED",
+    "price_fixed": 576,
+    "is_active": true
+  },
+  {
+    "technician_id": 70,
+    "service_id": 17,
+    "pricing_type": "FIXED",
+    "price_fixed": 1096,
+    "is_active": true
+  },
+  {
+    "technician_id": 70,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 707,
+    "price_max": 1429,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 870,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "service_id": 14,
+    "pricing_type": "RANGE",
+    "price_min": 369,
+    "price_max": 879,
+    "is_active": true
+  },
+  {
+    "technician_id": 71,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 456,
+    "is_active": true
+  },
+  {
+    "technician_id": 72,
+    "service_id": 15,
+    "pricing_type": "FIXED",
+    "price_fixed": 827,
+    "is_active": true
+  },
+  {
+    "technician_id": 72,
+    "service_id": 10,
+    "pricing_type": "RANGE",
+    "price_min": 402,
+    "price_max": 1089,
+    "is_active": true
+  },
+  {
+    "technician_id": 73,
+    "service_id": 5,
+    "pricing_type": "FIXED",
+    "price_fixed": 1152,
+    "is_active": true
+  },
+  {
+    "technician_id": 73,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 1118,
+    "is_active": true
+  },
+  {
+    "technician_id": 73,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 1116,
+    "is_active": true
+  },
+  {
+    "technician_id": 73,
+    "service_id": 30,
+    "pricing_type": "RANGE",
+    "price_min": 696,
+    "price_max": 1264,
+    "is_active": true
+  },
+  {
+    "technician_id": 74,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 880,
+    "is_active": true
+  },
+  {
+    "technician_id": 74,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 575,
+    "is_active": true
+  },
+  {
+    "technician_id": 74,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 747,
+    "price_max": 1252,
+    "is_active": true
+  },
+  {
+    "technician_id": 74,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 880,
+    "is_active": true
+  },
+  {
+    "technician_id": 75,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 588,
+    "is_active": true
+  },
+  {
+    "technician_id": 75,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 452,
+    "price_max": 1193,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "service_id": 18,
+    "pricing_type": "RANGE",
+    "price_min": 306,
+    "price_max": 712,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "service_id": 27,
+    "pricing_type": "FIXED",
+    "price_fixed": 431,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "service_id": 8,
+    "pricing_type": "FIXED",
+    "price_fixed": 479,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 1120,
+    "is_active": true
+  },
+  {
+    "technician_id": 76,
+    "service_id": 28,
+    "pricing_type": "RANGE",
+    "price_min": 602,
+    "price_max": 1491,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "service_id": 18,
+    "pricing_type": "FIXED",
+    "price_fixed": 1020,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "service_id": 21,
+    "pricing_type": "FIXED",
+    "price_fixed": 766,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 601,
+    "price_max": 1313,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 698,
+    "price_max": 1475,
+    "is_active": true
+  },
+  {
+    "technician_id": 77,
+    "service_id": 23,
+    "pricing_type": "RANGE",
+    "price_min": 431,
+    "price_max": 941,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 346,
+    "price_max": 1207,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "service_id": 19,
+    "pricing_type": "RANGE",
+    "price_min": 683,
+    "price_max": 1599,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "service_id": 9,
+    "pricing_type": "FIXED",
+    "price_fixed": 542,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 717,
+    "is_active": true
+  },
+  {
+    "technician_id": 78,
+    "service_id": 11,
+    "pricing_type": "FIXED",
+    "price_fixed": 1174,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 798,
+    "price_max": 1458,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 868,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 801,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "service_id": 24,
+    "pricing_type": "RANGE",
+    "price_min": 653,
+    "price_max": 1202,
+    "is_active": true
+  },
+  {
+    "technician_id": 79,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 456,
+    "price_max": 844,
+    "is_active": true
+  },
+  {
+    "technician_id": 80,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 540,
+    "price_max": 1296,
+    "is_active": true
+  },
+  {
+    "technician_id": 80,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 334,
+    "is_active": true
+  },
+  {
+    "technician_id": 81,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 1028,
+    "is_active": true
+  },
+  {
+    "technician_id": 81,
+    "service_id": 4,
+    "pricing_type": "RANGE",
+    "price_min": 725,
+    "price_max": 1651,
+    "is_active": true
+  },
+  {
+    "technician_id": 81,
+    "service_id": 20,
+    "pricing_type": "RANGE",
+    "price_min": 760,
+    "price_max": 1597,
+    "is_active": true
+  },
+  {
+    "technician_id": 82,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 442,
+    "is_active": true
+  },
+  {
+    "technician_id": 82,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 741,
+    "price_max": 1712,
+    "is_active": true
+  },
+  {
+    "technician_id": 83,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 670,
+    "is_active": true
+  },
+  {
+    "technician_id": 83,
+    "service_id": 10,
+    "pricing_type": "RANGE",
+    "price_min": 691,
+    "price_max": 1585,
+    "is_active": true
+  },
+  {
+    "technician_id": 83,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 531,
+    "is_active": true
+  },
+  {
+    "technician_id": 84,
+    "service_id": 20,
+    "pricing_type": "FIXED",
+    "price_fixed": 575,
+    "is_active": true
+  },
+  {
+    "technician_id": 84,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 309,
+    "is_active": true
+  },
+  {
+    "technician_id": 85,
+    "service_id": 10,
+    "pricing_type": "FIXED",
+    "price_fixed": 1175,
+    "is_active": true
+  },
+  {
+    "technician_id": 85,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 435,
+    "is_active": true
+  },
+  {
+    "technician_id": 85,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 405,
+    "price_max": 1179,
+    "is_active": true
+  },
+  {
+    "technician_id": 85,
+    "service_id": 12,
+    "pricing_type": "RANGE",
+    "price_min": 675,
+    "price_max": 1170,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "service_id": 22,
+    "pricing_type": "RANGE",
+    "price_min": 326,
+    "price_max": 656,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "service_id": 20,
+    "pricing_type": "RANGE",
+    "price_min": 782,
+    "price_max": 1252,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "service_id": 21,
+    "pricing_type": "FIXED",
+    "price_fixed": 889,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "service_id": 13,
+    "pricing_type": "RANGE",
+    "price_min": 727,
+    "price_max": 1583,
+    "is_active": true
+  },
+  {
+    "technician_id": 86,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 1082,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "service_id": 7,
+    "pricing_type": "FIXED",
+    "price_fixed": 952,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "service_id": 12,
+    "pricing_type": "FIXED",
+    "price_fixed": 343,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "service_id": 25,
+    "pricing_type": "RANGE",
+    "price_min": 501,
+    "price_max": 1130,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "service_id": 5,
+    "pricing_type": "FIXED",
+    "price_fixed": 302,
+    "is_active": true
+  },
+  {
+    "technician_id": 87,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 574,
+    "is_active": true
+  },
+  {
+    "technician_id": 88,
+    "service_id": 30,
+    "pricing_type": "FIXED",
+    "price_fixed": 857,
+    "is_active": true
+  },
+  {
+    "technician_id": 88,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 1125,
+    "is_active": true
+  },
+  {
+    "technician_id": 88,
+    "service_id": 3,
+    "pricing_type": "FIXED",
+    "price_fixed": 768,
+    "is_active": true
+  },
+  {
+    "technician_id": 89,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 1079,
+    "is_active": true
+  },
+  {
+    "technician_id": 89,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 765,
+    "price_max": 1470,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "service_id": 8,
+    "pricing_type": "RANGE",
+    "price_min": 440,
+    "price_max": 745,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 589,
+    "price_max": 1354,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 768,
+    "price_max": 1458,
+    "is_active": true
+  },
+  {
+    "technician_id": 90,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 301,
+    "price_max": 1130,
+    "is_active": true
+  },
+  {
+    "technician_id": 91,
+    "service_id": 12,
+    "pricing_type": "FIXED",
+    "price_fixed": 611,
+    "is_active": true
+  },
+  {
+    "technician_id": 91,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 624,
+    "price_max": 1024,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 636,
+    "price_max": 1138,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "service_id": 29,
+    "pricing_type": "FIXED",
+    "price_fixed": 1109,
+    "is_active": true
+  },
+  {
+    "technician_id": 92,
+    "service_id": 28,
+    "pricing_type": "FIXED",
+    "price_fixed": 559,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "service_id": 15,
+    "pricing_type": "RANGE",
+    "price_min": 430,
+    "price_max": 1323,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "service_id": 30,
+    "pricing_type": "RANGE",
+    "price_min": 519,
+    "price_max": 976,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "service_id": 5,
+    "pricing_type": "RANGE",
+    "price_min": 414,
+    "price_max": 840,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "service_id": 1,
+    "pricing_type": "RANGE",
+    "price_min": 567,
+    "price_max": 1548,
+    "is_active": true
+  },
+  {
+    "technician_id": 93,
+    "service_id": 2,
+    "pricing_type": "FIXED",
+    "price_fixed": 510,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "service_id": 25,
+    "pricing_type": "FIXED",
+    "price_fixed": 1148,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "service_id": 18,
+    "pricing_type": "RANGE",
+    "price_min": 352,
+    "price_max": 1220,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 929,
+    "is_active": true
+  },
+  {
+    "technician_id": 94,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 649,
+    "price_max": 1534,
+    "is_active": true
+  },
+  {
+    "technician_id": 95,
+    "service_id": 11,
+    "pricing_type": "RANGE",
+    "price_min": 608,
+    "price_max": 1339,
+    "is_active": true
+  },
+  {
+    "technician_id": 95,
+    "service_id": 26,
+    "pricing_type": "RANGE",
+    "price_min": 587,
+    "price_max": 1341,
+    "is_active": true
+  },
+  {
+    "technician_id": 95,
+    "service_id": 19,
+    "pricing_type": "FIXED",
+    "price_fixed": 692,
+    "is_active": true
+  },
+  {
+    "technician_id": 96,
+    "service_id": 27,
+    "pricing_type": "RANGE",
+    "price_min": 328,
+    "price_max": 1173,
+    "is_active": true
+  },
+  {
+    "technician_id": 96,
+    "service_id": 23,
+    "pricing_type": "FIXED",
+    "price_fixed": 1165,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "service_id": 21,
+    "pricing_type": "RANGE",
+    "price_min": 800,
+    "price_max": 1352,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "service_id": 24,
+    "pricing_type": "FIXED",
+    "price_fixed": 1116,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "service_id": 9,
+    "pricing_type": "RANGE",
+    "price_min": 777,
+    "price_max": 1707,
+    "is_active": true
+  },
+  {
+    "technician_id": 97,
+    "service_id": 29,
+    "pricing_type": "RANGE",
+    "price_min": 373,
+    "price_max": 1203,
+    "is_active": true
+  },
+  {
+    "technician_id": 98,
+    "service_id": 5,
+    "pricing_type": "FIXED",
+    "price_fixed": 824,
+    "is_active": true
+  },
+  {
+    "technician_id": 98,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 311,
+    "price_max": 1293,
+    "is_active": true
+  },
+  {
+    "technician_id": 99,
+    "service_id": 26,
+    "pricing_type": "FIXED",
+    "price_fixed": 931,
+    "is_active": true
+  },
+  {
+    "technician_id": 99,
+    "service_id": 13,
+    "pricing_type": "FIXED",
+    "price_fixed": 599,
+    "is_active": true
+  },
+  {
+    "technician_id": 99,
+    "service_id": 1,
+    "pricing_type": "FIXED",
+    "price_fixed": 813,
+    "is_active": true
+  },
+  {
+    "technician_id": 100,
+    "service_id": 3,
+    "pricing_type": "RANGE",
+    "price_min": 536,
+    "price_max": 1236,
+    "is_active": true
+  },
+  {
+    "technician_id": 100,
+    "service_id": 16,
+    "pricing_type": "RANGE",
+    "price_min": 544,
+    "price_max": 1490,
+    "is_active": true
+  },
+  {
+    "technician_id": 100,
+    "service_id": 2,
+    "pricing_type": "RANGE",
+    "price_min": 729,
+    "price_max": 1678,
+    "is_active": true
+  }
+]

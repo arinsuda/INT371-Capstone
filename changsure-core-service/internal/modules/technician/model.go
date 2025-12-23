@@ -3,9 +3,10 @@ package technician
 import (
 	"time"
 
-	technicianaddress "changsure-core-service/internal/modules/technician_service_area"
+	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	technicianbadge "changsure-core-service/internal/modules/technician_badge"
 	tsvc "changsure-core-service/internal/modules/technician_service"
+	technicianarea "changsure-core-service/internal/modules/technician_service_area"
 )
 
 type Technician struct {
@@ -28,9 +29,11 @@ type Technician struct {
 	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt   *time.Time `gorm:"index" json:"-"`
 
-	ServiceAreas []technicianaddress.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
-	Badges       []technicianbadge.TechnicianBadge          `gorm:"foreignKey:TechnicianID" json:"badges,omitempty"`
-	Services []tsvc.TechnicianService `gorm:"foreignKey:TechnicianID" json:"services,omitempty"`
+	Addresses []technicianaddress.TechnicianAddress `gorm:"foreignKey:TechnicianID" json:"addresses,omitempty"`
+
+	ServiceAreas []technicianarea.TechnicianServiceArea `gorm:"foreignKey:TechnicianID" json:"service_areas,omitempty"`
+	Badges       []technicianbadge.TechnicianBadge      `gorm:"foreignKey:TechnicianID" json:"badges,omitempty"`
+	Services     []tsvc.TechnicianService               `gorm:"foreignKey:TechnicianID" json:"services,omitempty"`
 }
 
 func (Technician) TableName() string { return "technicians" }

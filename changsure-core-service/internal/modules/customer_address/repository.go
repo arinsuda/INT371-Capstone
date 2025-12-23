@@ -26,6 +26,7 @@ func NewRepository(db *gorm.DB) Repository {
 func (r *repo) FindCustomerAddressByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error) {
 	var addr CustomerAddress
 	err := r.db.WithContext(ctx).
+		
 		Where("id = ? AND customer_id = ?", id, customerID).
 		First(&addr).Error
 
