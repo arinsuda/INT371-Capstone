@@ -6,10 +6,11 @@ final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
 /// sub pages ที่มีอยู่ในระบบ
 enum BottomSubPage {
   none,
+  addressPage,
+  
   technicianProfile,
   technicianViewProfile,
   technicianEditProfile,
-  technicianAddressPage,
 
   technicianViewActivity,
   technicianEditActivity,
@@ -18,7 +19,6 @@ enum BottomSubPage {
 
   customerProfile,
   customerEditProfile,
-  customerAddressPage,
   customerHistoryServicePage,
 }
 

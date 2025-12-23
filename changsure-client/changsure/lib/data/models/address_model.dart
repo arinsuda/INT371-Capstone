@@ -29,13 +29,13 @@ class AddressModel {
     this.isPrimary = false,
   });
 
-  String get fullAddress {
-    String address = houseNumber;
-    if (moo != null && moo!.isNotEmpty) address += ' หมู่ $moo';
-    if (village != null && village!.isNotEmpty) address += ' $village';
-    if (soi != null && soi!.isNotEmpty) address += ' ซ.$soi';
-    if (road != null && road!.isNotEmpty) address += ' ถ.$road';
-    return '$address ต.$subDistrict อ.$district จ.$province $postalCode';
+  String get combinedAddressInfo {
+    List<String> parts = [houseNumber];
+    if (moo != null && moo!.isNotEmpty) parts.add('หมู่ $moo');
+    if (village != null && village!.isNotEmpty) parts.add('$village');
+    if (soi != null && soi!.isNotEmpty) parts.add('ซ.$soi');
+    if (road != null && road!.isNotEmpty) parts.add('ถ.$road');
+    return parts.join(' ');
   }
 
   factory AddressModel.fromJson(Map<String, dynamic> json) {

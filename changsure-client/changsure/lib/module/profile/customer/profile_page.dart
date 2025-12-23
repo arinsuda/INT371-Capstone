@@ -90,7 +90,7 @@ class _ProfileState extends ConsumerState<UserProfile> {
                                 ref
                                     .read(bottomSubPageProvider.notifier)
                                     .state = const SubPageConfig(
-                                  page: BottomSubPage.customerAddressPage,
+                                  page: BottomSubPage.addressPage,
                                 );
                               } else if (item['label'] ==
                                   'ประวัติการรับบริการ') {

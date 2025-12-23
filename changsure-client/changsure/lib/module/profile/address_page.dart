@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/profile/address.dart';
 import 'package:changsure/data/models/address_model.dart';
 import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/state/user_provider.dart';
 
-class BookingAddress extends ConsumerWidget {
-  const BookingAddress({super.key});
+class AddressPage extends ConsumerWidget {
+  const AddressPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,22 +16,27 @@ class BookingAddress extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    List<AddressModel> addresses = [];
+    AddressModel? currentAddress;
+
     if (userState.role == UserRole.technician) {
-      addresses = userState.technicianProfile?.addresses ?? [];
+      if (userState.technicianProfile?.addresses != null &&
+          userState.technicianProfile!.addresses.isNotEmpty) {
+        currentAddress = userState.technicianProfile!.addresses.first;
+      }
     } else {
-      addresses = userState.addresses ?? [];
+      if (userState.addresses != null && userState.addresses!.isNotEmpty) {
+        currentAddress = userState.addresses!.firstWhere(
+          (element) => element.isPrimary,
+          orElse: () => userState.addresses!.first,
+        );
+      }
     }
 
-    final AddressModel? currentAddress = addresses.isNotEmpty
-        ? (addresses.firstWhere(
-            (element) => element.isPrimary,
-            orElse: () => addresses.first,
-          ))
-        : null;
-
     return Address(
-      houseNumber: currentAddress?.combinedAddressInfo ?? '',
+      houseNumber:
+          currentAddress?.houseNumber ??
+          currentAddress?.combinedAddressInfo ??
+          '',
       subDistrict: currentAddress?.subDistrict ?? '',
       district: currentAddress?.district ?? '',
       province: currentAddress?.province ?? '',
@@ -49,15 +53,20 @@ class BookingAddress extends ConsumerWidget {
         final notifier = ref.read(userProvider.notifier);
 
         if (userState.role == UserRole.technician) {
+          final int? addressId =
+              (currentAddress?.id != null && currentAddress!.id > 0)
+              ? currentAddress.id
+              : null;
+
           success = await notifier.saveTechnicianAddress(
-            id: currentAddress?.id,
+            id: addressId,
             houseNumber: houseNumber,
             subDistrict: subDistrict,
             district: district,
             province: province,
             zipCode: zipCode,
           );
-        } else if (userState.role == UserRole.customer) {
+        } else {
           success = await notifier.saveCustomerAddress(
             id: currentAddress?.id,
             houseNumber: houseNumber,
@@ -71,17 +80,14 @@ class BookingAddress extends ConsumerWidget {
         if (!success) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('บันทึกข้อมูลไม่สำเร็จ โปรดลองอีกครั้ง'),
-                backgroundColor: Colors.red,
-              ),
+              const SnackBar(content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่')),
             );
           }
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('บันทึกที่อยู่สำเร็จ')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')));
           }
         }
       },

@@ -7,14 +7,15 @@ import 'package:changsure/module/home/home_page.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 
+import 'package:changsure/module/profile/address_page.dart'
+    as shared_address;
+
 import 'package:changsure/module/profile/technician/profile_page.dart'
     as tech_profile;
 import 'package:changsure/module/profile/technician/viewProfile/view_profile_content.dart'
     as tech_view_profile;
 import 'package:changsure/module/profile/technician/edit_profile.dart'
     as tech_edit;
-import 'package:changsure/module/profile/technician/address_page.dart'
-    as tech_address;
 import 'package:changsure/module/profile/technician/view_activities.dart'
     as tech_view_list;
 import 'package:changsure/module/profile/technician/activities/post/post_activity_page.dart'
@@ -26,9 +27,8 @@ import 'package:changsure/module/profile/technician/activities/view_activity_by_
 
 import 'package:changsure/module/profile/customer/profile_page.dart'
     as user_profile;
-import 'package:changsure/module/profile/customer/edit_profile.dart' as user_edit;
-import 'package:changsure/module/profile/customer/address_page.dart'
-    as user_address;
+import 'package:changsure/module/profile/customer/edit_profile.dart'
+    as user_edit;
 import 'package:changsure/module/profile/customer/history_service_page.dart'
     as user_history;
 
@@ -101,19 +101,20 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
     final subConfig = ref.watch(bottomSubPageProvider);
     final user = ref.watch(userProvider);
     final userRole = user?.role;
-    
+
     Widget? subPage;
     if (subConfig != null) {
       switch (subConfig.page) {
+        case BottomSubPage.addressPage:
+          subPage = const shared_address.AddressPage();
+          break;
+
         // Technician
         case BottomSubPage.technicianViewProfile:
           subPage = const tech_view_profile.ViewProfileContent();
           break;
         case BottomSubPage.technicianEditProfile:
           subPage = const tech_edit.EditProfile();
-          break;
-        case BottomSubPage.technicianAddressPage:
-          subPage = const tech_address.AddressPage();
           break;
         case BottomSubPage.technicianViewActivity:
           subPage = const tech_view_list.ViewActivities();
@@ -135,9 +136,6 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         // Customer
         case BottomSubPage.customerEditProfile:
           subPage = const user_edit.EditProfile();
-          break;
-        case BottomSubPage.customerAddressPage:
-          subPage = const user_address.AddressPage();
           break;
         case BottomSubPage.customerHistoryServicePage:
           subPage = const user_history.HistoryServicePage();

@@ -55,7 +55,7 @@ class ActionButtonSection extends ConsumerWidget {
               }
               if (button['label'] == 'ที่อยู่ของฉัน') {
                 const config = SubPageConfig(
-                  page: BottomSubPage.technicianAddressPage,
+                  page: BottomSubPage.addressPage,
                 );
                 ref.read(bottomSubPageProvider.notifier).state = config;
               }

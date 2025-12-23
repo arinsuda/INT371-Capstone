@@ -10,7 +10,9 @@ import 'package:changsure/data/models/address_model.dart';
 
 import 'package:changsure/data/services/auth_service.dart';
 import 'package:changsure/data/services/address_service.dart';
-import 'package:changsure/data/services/technician_service.dart' as api;
+
+import 'package:changsure/data/services/technician_service.dart' as tech;
+import 'package:changsure/data/services/customer_service.dart' as cust;
 
 import '../data/models/customer/customer_model.dart';
 
@@ -86,7 +88,10 @@ class UserNotifier extends Notifier<UserModel?> {
 
     if (user.role == UserRole.technician) {
       await refreshUser();
+    } else if (user.role == UserRole.customer) {
+      await refreshUser();
     }
+
     await loadAddresses();
   }
 
@@ -146,7 +151,7 @@ class UserNotifier extends Notifier<UserModel?> {
     }
 
     try {
-      final service = api.TechnicianService();
+      final service = tech.TechnicianService();
 
       final success = await service.updateProfile(
         token: state!.token!,
@@ -195,51 +200,152 @@ class UserNotifier extends Notifier<UserModel?> {
     }
   }
 
-  Future<bool> saveAddress({
-    required int? id,
+  Future<bool> saveTechnicianAddress({
+    int? id,
     required String houseNumber,
     required String subDistrict,
     required String district,
     required String province,
     required String zipCode,
   }) async {
-    if (state == null || state!.token == null) return false;
+    final token = state?.token;
+    if (token == null) return false;
 
+    final service = tech.TechnicianService();
+
+    bool success;
     try {
-      final addressService = AddressService();
-
-      final addressData = AddressModel(
-        id: id ?? 0,
-        houseNumber: houseNumber,
-        subDistrict: subDistrict,
-        district: district,
-        province: province,
-        postalCode: zipCode,
-        isPrimary: true,
-      );
-
-      bool success;
-      if (id != null && id > 0) {
-        success = await addressService.updateAddress(
-          state!.token!,
-          state!.role,
-          addressData,
+      if (id != null) {
+        success = await service.updateAddress(
+          token: token,
+          addressId: id,
+          houseNumber: houseNumber,
+          subDistrict: subDistrict,
+          district: district,
+          province: province,
+          postCode: zipCode,
         );
       } else {
-        success = await addressService.createAddress(
-          state!.token!,
-          state!.role,
-          addressData,
+        success = await service.createAddress(
+          token: token,
+          houseNumber: houseNumber,
+          subDistrict: subDistrict,
+          district: district,
+          province: province,
+          postCode: zipCode,
+          isPrimary: true,
         );
       }
 
       if (success) {
         await loadAddresses();
-        return true;
       }
+      return success;
     } catch (e) {
       print("❌ Save Address Error: $e");
+      return false;
     }
-    return false;
+  }
+
+  Future<bool> deleteTechnicianAddress(int addressId) async {
+    final token = state?.token;
+    if (token == null || state?.role != UserRole.technician) {
+      return false;
+    }
+
+    final service = tech.TechnicianService();
+
+    try {
+      final success = await service.deleteAddress(
+        token: token,
+        addressId: addressId,
+      );
+
+      if (success) {
+        await loadAddresses();
+        print("✅ Delete Technician Address Success");
+      }
+
+      return success;
+    } catch (e) {
+      print("❌ Delete Technician Address Error: $e");
+      return false;
+    }
+  }
+
+  Future<bool> saveCustomerAddress({
+    int? id,
+    required String houseNumber,
+    required String subDistrict,
+    required String district,
+    required String province,
+    required String zipCode,
+  }) async {
+    final token = state?.token;
+    if (token == null || state?.role != UserRole.customer) {
+      return false;
+    }
+
+    final service = cust.CustomerService();
+
+    bool success = false;
+    try {
+      if (id != null) {
+        success = await service.updateAddress(
+          token: token,
+          addressId: id,
+          houseNumber: houseNumber,
+          subDistrict: subDistrict,
+          district: district,
+          province: province,
+          postCode: zipCode,
+        );
+      } else {
+        success = await service.createAddress(
+          token: token,
+          houseNumber: houseNumber,
+          subDistrict: subDistrict,
+          district: district,
+          province: province,
+          postCode: zipCode,
+          isPrimary: true,
+        );
+      }
+
+      if (success) {
+        await loadAddresses();
+      }
+
+      return success;
+    } catch (e) {
+      print("❌ Save Customer Address Error: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteCustomerAddress(int addressId) async {
+    final token = state?.token;
+    if (token == null || state?.role != UserRole.customer) {
+      return false;
+    }
+
+    final service = cust.CustomerService();
+
+    try {
+      final success = await service.deleteAddress(
+        token: token,
+        addressId: addressId,
+      );
+
+      if (success) {
+        await loadAddresses();
+        print("✅ Delete Customer Address Success");
+      }
+
+      return success;
+    } catch (e) {
+      print("❌ Delete Customer Address Error: $e");
+      return false;
+    }
   }
 }

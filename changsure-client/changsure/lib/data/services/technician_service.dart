@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:changsure/data/models/address_model.dart';
 import 'package:changsure/data/models/technician/post_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -243,6 +244,149 @@ class TechnicianService {
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       print("❌ Delete Post Error: $e");
+      return false;
+    }
+  }
+
+  // Address Service
+  Future<List<AddressModel>> getAddresses(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true && json['data'] != null) {
+          final List<dynamic> list = json['data'];
+          return list.map((e) => AddressModel.fromJson(e)).toList();
+        }
+      }
+    } catch (e) {
+      print("❌ Error fetching addresses: $e");
+    }
+    return [];
+  }
+
+  Future<bool> createAddress({
+    required String token,
+    required String houseNumber,
+    required String subDistrict,
+    required String district,
+    required String province,
+    required String postCode,
+    double? latitude,
+    double? longitude,
+    bool isPrimary = false,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'house_number': houseNumber,
+          'sub_district': subDistrict,
+          'district': district,
+          'province': province,
+          'postal_code': postCode,
+          if (latitude != null) 'latitude': latitude.toString(),
+          if (longitude != null) 'longitude': longitude.toString(),
+          'is_primary': isPrimary.toString(),
+        },
+      );
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("❌ Error creating address: $e");
+      return false;
+    }
+  }
+
+  Future<bool> updateAddress({
+    required String token,
+    required int addressId,
+    required String houseNumber,
+    required String subDistrict,
+    required String district,
+    required String province,
+    required String postCode,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
+    );
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'house_number': houseNumber,
+          'sub_district': subDistrict,
+          'district': district,
+          'province': province,
+          'postal_code': postCode,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('❌ Update Failed Body: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print("❌ Error updating address: $e");
+      return false;
+    }
+  }
+
+  Future<bool> setPrimaryAddress({
+    required String token,
+    required int addressId,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId/primary',
+    );
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("❌ Error setting primary address: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteAddress({
+    required String token,
+    required int addressId,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
+    );
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("❌ Error deleting address: $e");
       return false;
     }
   }

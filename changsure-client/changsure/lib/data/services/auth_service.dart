@@ -2,9 +2,7 @@ import 'dart:convert';
 
 import 'package:changsure/core/constants/api_constants.dart';
 import 'package:http/http.dart' as http;
-import 'package:jwt_decoder/jwt_decoder.dart';
 
-import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:changsure/data/models/customer/customer_model.dart';
 
