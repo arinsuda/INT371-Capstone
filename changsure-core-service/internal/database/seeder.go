@@ -236,16 +236,45 @@ func (s *Seeder) seedTechnicians() error {
 		return nil
 	}
 
-	var items []technician.Technician
-	if err := s.loadJSONFile(techniciansFile, &items); err != nil {
+	type TechnicianSeed struct {
+		FirstName    string  `json:"firstname"`
+		LastName     string  `json:"lastname"`
+		Email        *string `json:"email"`
+		PasswordHash string  `json:"password_hash"`
+		Bio          *string `json:"bio"`
+		Phone        *string `json:"phone"`
+		AvatarURL    *string `json:"avatar_url"`
+		IsAvailable  bool    `json:"is_available"`
+		IsVerified   bool    `json:"is_verified"`
+	}
+
+	var seeds []TechnicianSeed
+
+	if err := s.loadJSONFile(techniciansFile, &seeds); err != nil {
 		return fmt.Errorf("load technicians: %w", err)
 	}
 
-	if err := s.db.Create(&items).Error; err != nil {
+	data := make([]technician.Technician, 0, len(seeds))
+	for _, item := range seeds {
+		tech := technician.Technician{
+			FirstName:    item.FirstName,
+			LastName:     item.LastName,
+			Email:        item.Email,
+			PasswordHash: item.PasswordHash,
+			Bio:          item.Bio,
+			Phone:        item.Phone,
+			AvatarURL:    item.AvatarURL,
+			IsAvailable:  item.IsAvailable,
+			IsVerified:   item.IsVerified,
+		}
+		data = append(data, tech)
+	}
+
+	if err := s.db.Create(&data).Error; err != nil {
 		return fmt.Errorf("seed technicians: %w", err)
 	}
 
-	log.Printf("   ✓ Seeded %d technicians", len(items))
+	log.Printf("   ✓ Seeded %d technicians", len(data))
 	return nil
 }
 
