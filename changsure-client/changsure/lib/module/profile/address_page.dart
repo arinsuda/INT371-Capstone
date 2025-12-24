@@ -42,12 +42,19 @@ class AddressPage extends ConsumerWidget {
       province: currentAddress?.province ?? '',
       postCode: int.tryParse(currentAddress?.postalCode ?? '0') ?? 0,
 
+      initialLat: currentAddress?.latitude,
+      initialLng: currentAddress?.longitude,
+
       onSave: (Map<String, dynamic> data) async {
         final String houseNumber = data['house_number'] ?? '';
         final String subDistrict = data['sub_district'] ?? '';
         final String district = data['district'] ?? '';
         final String province = data['province'] ?? '';
         final String zipCode = data['postal_code'] ?? '';
+
+        final int? provinceId = data['province_id'];
+        final double? lat = data['lat'];
+        final double? lng = data['lng'];
 
         bool success = false;
         final notifier = ref.read(userProvider.notifier);
@@ -65,6 +72,10 @@ class AddressPage extends ConsumerWidget {
             district: district,
             province: province,
             zipCode: zipCode,
+
+            provinceId: provinceId,
+            lat: lat,
+            lng: lng,
           );
         } else {
           success = await notifier.saveCustomerAddress(
@@ -74,6 +85,10 @@ class AddressPage extends ConsumerWidget {
             district: district,
             province: province,
             zipCode: zipCode,
+
+            provinceId: provinceId,
+            lat: lat,
+            lng: lng,
           );
         }
 

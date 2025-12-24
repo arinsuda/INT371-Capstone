@@ -207,6 +207,10 @@ class UserNotifier extends Notifier<UserModel?> {
     required String district,
     required String province,
     required String zipCode,
+    // เพิ่มตัวแปร
+    int? provinceId,
+    double? lat,
+    double? lng,
   }) async {
     final token = state?.token;
     if (token == null) return false;
@@ -224,6 +228,10 @@ class UserNotifier extends Notifier<UserModel?> {
           district: district,
           province: province,
           postCode: zipCode,
+          // ส่งค่าไป Service (ต้องแน่ใจว่า Service รับค่าพวกนี้แล้ว)
+          provinceId: provinceId,
+          lat: lat,
+          lng: lng,
         );
       } else {
         success = await service.createAddress(
@@ -234,6 +242,10 @@ class UserNotifier extends Notifier<UserModel?> {
           province: province,
           postCode: zipCode,
           isPrimary: true,
+          // ส่งค่าไป Service
+          provinceId: provinceId,
+          lat: lat,
+          lng: lng,
         );
       }
 
@@ -280,6 +292,10 @@ class UserNotifier extends Notifier<UserModel?> {
     required String district,
     required String province,
     required String zipCode,
+    // เพิ่มตัวแปร
+    int? provinceId,
+    double? lat,
+    double? lng,
   }) async {
     final token = state?.token;
     if (token == null || state?.role != UserRole.customer) {
@@ -299,6 +315,10 @@ class UserNotifier extends Notifier<UserModel?> {
           district: district,
           province: province,
           postCode: zipCode,
+          // ส่งค่าไป Service (ต้องแน่ใจว่า Service รับค่าพวกนี้แล้ว)
+          provinceId: provinceId,
+          lat: lat,
+          lng: lng,
         );
       } else {
         success = await service.createAddress(
@@ -309,6 +329,10 @@ class UserNotifier extends Notifier<UserModel?> {
           province: province,
           postCode: zipCode,
           isPrimary: true,
+          // ส่งค่าไป Service
+          provinceId: provinceId,
+          lat: lat,
+          lng: lng,
         );
       }
 

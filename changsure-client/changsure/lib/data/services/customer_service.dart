@@ -51,34 +51,52 @@ class CustomerService {
     required String district,
     required String province,
     required String postCode,
+    int? provinceId,
+    double? lat,
+    double? lng,
     bool isPrimary = false,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/customers/me/addresses');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        "house_number": houseNumber,
-        "sub_district": subDistrict,
-        "district": district,
-        "province": province,
-        "zip_code": postCode,
-        "is_primary": isPrimary,
-      }),
-    );
+    final Map<String, dynamic> body = {
+      "house_number": houseNumber,
+      "sub_district": subDistrict,
+      "district": district,
+      "province": province,
+      "zip_code": postCode,
+      "is_primary": isPrimary,
+    };
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return true;
-    } else {
-      print('❌ Create Address Failed: ${response.body}');
+    
+    if (provinceId != null) body["province_id"] = provinceId;
+    if (lat != null) body["latitude"] = lat;
+    if (lng != null) body["longitude"] = lng;
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json', 
+        },
+        body: jsonEncode(body), 
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        print('❌ Create Address Failed: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print("❌ Exception creating address: $e");
       return false;
     }
   }
 
+  
+  
+  
   Future<bool> updateAddress({
     required String token,
     required int addressId,
@@ -87,30 +105,45 @@ class CustomerService {
     required String district,
     required String province,
     required String postCode,
+    int? provinceId,
+    double? lat,
+    double? lng,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/customers/me/addresses/$addressId',
     );
 
-    final response = await http.put(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        "house_number": houseNumber,
-        "sub_district": subDistrict,
-        "district": district,
-        "province": province,
-        "zip_code": postCode,
-      }),
-    );
+    final Map<String, dynamic> body = {
+      "house_number": houseNumber,
+      "sub_district": subDistrict,
+      "district": district,
+      "province": province,
+      "zip_code": postCode,
+    };
 
-    if (response.statusCode == 200) {
-      return true;
-    } else {
-      print('❌ Update Address Failed: ${response.body}');
+    
+    if (provinceId != null) body["province_id"] = provinceId;
+    if (lat != null) body["latitude"] = lat;
+    if (lng != null) body["longitude"] = lng;
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json', 
+        },
+        body: jsonEncode(body), 
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('❌ Update Address Failed: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print("❌ Exception updating address: $e");
       return false;
     }
   }

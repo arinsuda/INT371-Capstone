@@ -128,12 +128,6 @@ class TechnicianService {
         title ??
         (description.length > 20 ? description.substring(0, 20) : description);
 
-    // if (provinceId != null) {
-    //   request.fields['province_id'] = provinceId.toString();
-    // } else {
-    //   request.fields['province_id'] = "1";
-    // }
-
     request.fields['post_date'] = DateTime.now().toIso8601String();
 
     if (images != null) {
@@ -201,8 +195,6 @@ class TechnicianService {
     if (description != null) request.fields['description'] = description;
     if (categoryId != null)
       request.fields['service_category_id'] = categoryId.toString();
-    // if (provinceId != null)
-    //   request.fields['province_id'] = provinceId.toString();
 
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
       for (var id in imageIdsToDelete) {
@@ -248,7 +240,6 @@ class TechnicianService {
     }
   }
 
-  // Address Service
   Future<List<AddressModel>> getAddresses(String token) async {
     try {
       final response = await http.get(
@@ -276,34 +267,44 @@ class TechnicianService {
     required String district,
     required String province,
     required String postCode,
-    double? latitude,
-    double? longitude,
+    int? provinceId,
+    double? lat,
+    double? lng,
     bool isPrimary = false,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses');
 
     try {
+      final Map<String, dynamic> body = {
+        'house_number': houseNumber,
+        'sub_district': subDistrict,
+        'district': district,
+        'province': province,
+        'postal_code': postCode,
+        'is_primary': isPrimary,
+      };
+
+      if (provinceId != null) body['province_id'] = provinceId;
+      if (lat != null) body['latitude'] = lat;
+      if (lng != null) body['longitude'] = lng;
+
       final response = await http.post(
         url,
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: {
-          'house_number': houseNumber,
-          'sub_district': subDistrict,
-          'district': district,
-          'province': province,
-          'postal_code': postCode,
-          if (latitude != null) 'latitude': latitude.toString(),
-          if (longitude != null) 'longitude': longitude.toString(),
-          'is_primary': isPrimary.toString(),
-        },
+        body: jsonEncode(body),
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        print('❌ Create Error: ${response.statusCode} - ${response.body}');
+        return false;
+      }
     } catch (e) {
-      print("❌ Error creating address: $e");
+      print("❌ Exception creating address: $e");
       return false;
     }
   }
@@ -316,35 +317,44 @@ class TechnicianService {
     required String district,
     required String province,
     required String postCode,
+    int? provinceId,
+    double? lat,
+    double? lng,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
     );
 
     try {
+      final Map<String, dynamic> body = {
+        'house_number': houseNumber,
+        'sub_district': subDistrict,
+        'district': district,
+        'province': province,
+        'postal_code': postCode,
+      };
+
+      if (provinceId != null) body['province_id'] = provinceId;
+      if (lat != null) body['latitude'] = lat;
+      if (lng != null) body['longitude'] = lng;
+
       final response = await http.put(
         url,
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: {
-          'house_number': houseNumber,
-          'sub_district': subDistrict,
-          'district': district,
-          'province': province,
-          'postal_code': postCode,
-        },
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
         return true;
       } else {
-        print('❌ Update Failed Body: ${response.body}');
+        print('❌ Update Error: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      print("❌ Error updating address: $e");
+      print("❌ Exception updating address: $e");
       return false;
     }
   }

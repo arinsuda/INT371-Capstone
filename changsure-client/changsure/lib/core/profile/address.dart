@@ -3,29 +3,16 @@ import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/master_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
-
-final currentLocationProvider = FutureProvider.autoDispose<LatLng?>((
-  ref,
-) async {
-  LocationPermission permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied) {
-      return null;
-    }
-  }
-
-  final pos = await Geolocator.getCurrentPosition();
-  return LatLng(pos.latitude, pos.longitude);
-});
 
 class _PostCodeFormatter extends TextInputFormatter {
   @override
@@ -47,6 +34,9 @@ class Address extends ConsumerStatefulWidget {
   final String province;
   final int postCode;
 
+  final double? initialLat;
+  final double? initialLng;
+
   final Future<void> Function(Map<String, dynamic> data) onSave;
 
   const Address({
@@ -56,6 +46,8 @@ class Address extends ConsumerStatefulWidget {
     required this.district,
     required this.province,
     required this.postCode,
+    this.initialLat,
+    this.initialLng,
     required this.onSave,
   });
 
@@ -71,19 +63,19 @@ class _AddressPageState extends ConsumerState<Address> {
   late TextEditingController postCodeController;
 
   final _formKey = GlobalKey<FormState>();
+  final FocusNode _provinceFocusNode = FocusNode();
 
   int? _selectedProvinceId;
+  LatLng? _selectedCoordinates;
 
   bool hasChanged = false;
   bool allValid = false;
   bool _isLoading = false;
-
-  final FocusNode _provinceFocusNode = FocusNode();
+  bool _isMapLoading = false;
 
   @override
   void initState() {
     super.initState();
-
     houseNumberController = TextEditingController(text: widget.houseNumber);
     subDistrictController = TextEditingController(text: widget.subDistrict);
     districtController = TextEditingController(text: widget.district);
@@ -91,6 +83,10 @@ class _AddressPageState extends ConsumerState<Address> {
     postCodeController = TextEditingController(
       text: widget.postCode == 0 ? '' : widget.postCode.toString(),
     );
+
+    if (widget.initialLat != null && widget.initialLng != null) {
+      _selectedCoordinates = LatLng(widget.initialLat!, widget.initialLng!);
+    }
   }
 
   @override
@@ -104,19 +100,116 @@ class _AddressPageState extends ConsumerState<Address> {
     super.dispose();
   }
 
+  Future<LatLng?> _determinePosition() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return null;
+      }
+      if (permission == LocationPermission.deniedForever) return null;
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 3));
+
+      return LatLng(position.latitude, position.longitude);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<LatLng?> _getSmartStartingPoint() async {
+    try {
+      if (subDistrictController.text.isNotEmpty &&
+          districtController.text.isNotEmpty &&
+          provinceController.text.isNotEmpty) {
+        String query =
+            "${subDistrictController.text} ${districtController.text} ${provinceController.text}";
+        List<geo.Location> locs = await geo.locationFromAddress(query);
+        if (locs.isNotEmpty)
+          return LatLng(locs.first.latitude, locs.first.longitude);
+      }
+
+      if (districtController.text.isNotEmpty &&
+          provinceController.text.isNotEmpty) {
+        String query = "${districtController.text} ${provinceController.text}";
+        List<geo.Location> locs = await geo.locationFromAddress(query);
+        if (locs.isNotEmpty)
+          return LatLng(locs.first.latitude, locs.first.longitude);
+      }
+
+      if (provinceController.text.isNotEmpty) {
+        List<geo.Location> locs = await geo.locationFromAddress(
+          provinceController.text,
+        );
+        if (locs.isNotEmpty)
+          return LatLng(locs.first.latitude, locs.first.longitude);
+      }
+    } catch (e) {
+      debugPrint("Smart search failed: $e");
+    }
+    return null;
+  }
+
+  void _openMapPicker() async {
+    setState(() => _isMapLoading = true);
+
+    LatLng? initialPoint;
+
+    if (_selectedCoordinates != null) {
+      initialPoint = _selectedCoordinates;
+    } else {
+      initialPoint = await _getSmartStartingPoint();
+    }
+    if (initialPoint == null) {
+      initialPoint = await _determinePosition();
+    }
+    initialPoint ??= const LatLng(13.7649, 100.5383);
+
+    if (initialPoint.latitude > 21 ||
+        initialPoint.latitude < 5 ||
+        initialPoint.longitude < 97 ||
+        initialPoint.longitude > 106) {
+      initialPoint = const LatLng(13.7649, 100.5383);
+    }
+
+    setState(() => _isMapLoading = false);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MapPickerSheet(
+        initialCenter: initialPoint!,
+        onPicked: (pickedLatLng) {
+          setState(() {
+            _selectedCoordinates = pickedLatLng;
+            hasChanged = true;
+            _checkForm();
+          });
+        },
+      ),
+    );
+  }
+
   void _checkForm() {
     final changed =
         houseNumberController.text != widget.houseNumber ||
         subDistrictController.text != widget.subDistrict ||
         districtController.text != widget.district ||
         provinceController.text != widget.province ||
-        postCodeController.text != widget.postCode.toString();
+        postCodeController.text != widget.postCode.toString() ||
+        (_selectedCoordinates?.latitude != widget.initialLat ||
+            _selectedCoordinates?.longitude != widget.initialLng);
 
     bool valid = _formKey.currentState?.validate() ?? false;
-
-    if (_selectedProvinceId == null) {
-      valid = false;
-    }
+    if (_selectedProvinceId == null) valid = false;
 
     if (changed != hasChanged || valid != allValid) {
       setState(() {
@@ -130,19 +223,22 @@ class _AddressPageState extends ConsumerState<Address> {
     if (_formKey.currentState!.validate() && _selectedProvinceId != null) {
       setState(() => _isLoading = true);
       try {
+        LatLng? finalCoords = _selectedCoordinates;
+
+        if (finalCoords == null) {
+          finalCoords = await _getSmartStartingPoint();
+          finalCoords ??= await _determinePosition();
+        }
+
         final updateData = {
           'house_number': houseNumberController.text,
           'sub_district': subDistrictController.text,
           'district': districtController.text,
-
           'province_id': _selectedProvinceId,
-
           'postal_code': postCodeController.text,
           'country': 'Thailand',
-          'village': '',
-          'moo': '',
-          'soi': '',
-          'road': '',
+          'lat': finalCoords?.latitude,
+          'lng': finalCoords?.longitude,
         };
 
         await widget.onSave(updateData);
@@ -182,7 +278,6 @@ class _AddressPageState extends ConsumerState<Address> {
             );
             setState(() {
               _selectedProvinceId = match.id;
-
               _checkForm();
             });
           } catch (_) {}
@@ -204,7 +299,6 @@ class _AddressPageState extends ConsumerState<Address> {
                     ref.read(bottomSubPageProvider.notifier).state = null,
               ),
               const SizedBox(height: 16),
-
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
@@ -212,15 +306,9 @@ class _AddressPageState extends ConsumerState<Address> {
                     _buildTextArea(
                       "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
                       houseNumberController,
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return "กรุณากรอกบ้านเลขที่";
-                        }
-                        if (v.length > 500) {
-                          return "บ้านเลขที่ต้องไม่เกิน 500 ตัวอักษร";
-                        }
-                        return null;
-                      },
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? "กรุณากรอกบ้านเลขที่"
+                          : null,
                       onChanged: (_) => _checkForm(),
                     ),
                     _buildTextField(
@@ -269,20 +357,88 @@ class _AddressPageState extends ConsumerState<Address> {
                         _PostCodeFormatter(),
                       ],
                       validator: (v) {
-                        if (v == null || v.isEmpty) {
+                        if (v == null || v.isEmpty)
                           return "กรุณากรอกรหัสไปรษณีย์";
-                        }
-                        if (!RegExp(r"^[1-9][0-9]{4}$").hasMatch(v)) {
+                        if (!RegExp(r"^[1-9][0-9]{4}$").hasMatch(v))
                           return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
-                        }
                         return null;
                       },
                       onChanged: (_) => _checkForm(),
                     ),
+
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.colorStroke),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _selectedCoordinates != null
+                                ? Icons.location_on
+                                : Icons.location_off,
+                            color: _selectedCoordinates != null
+                                ? AppColors.colorError
+                                : Colors.grey,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _selectedCoordinates != null
+                                      ? "ปักหมุดตำแหน่งแล้ว"
+                                      : "ยังไม่ได้ระบุตำแหน่ง",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (_selectedCoordinates != null)
+                                  Text(
+                                    "${_selectedCoordinates!.latitude.toStringAsFixed(5)}, ${_selectedCoordinates!.longitude.toStringAsFixed(5)}",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+
+                          _isMapLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12.0),
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              : TextButton.icon(
+                                  onPressed: _openMapPicker,
+                                  icon: const Icon(
+                                    Icons.map_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text("เปิดแผนที่"),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                  ),
+                                ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -436,7 +592,7 @@ class _AddressPageState extends ConsumerState<Address> {
     TextEditingController controller,
     List<ProvinceModel> provinces, {
     required bool isLoading,
-    required FocusNode focusNode, // ✅ รับ Parameter เพิ่ม
+    required FocusNode focusNode,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -454,27 +610,16 @@ class _AddressPageState extends ConsumerState<Address> {
           const SizedBox(height: 6),
           RawAutocomplete<ProvinceModel>(
             textEditingController: controller,
-
-            // ✅ ใช้ FocusNode ที่รับมา (ห้ามสร้างใหม่ตรงนี้เด็ดขาด)
             focusNode: focusNode,
-
             displayStringForOption: (option) => option.nameTh,
-
-            // Logic การค้นหา
             optionsBuilder: (TextEditingValue textEditingValue) {
               if (isLoading) return [];
-
-              // ถ้าว่าง -> แสดงทั้งหมด
               if (textEditingValue.text.isEmpty) {
                 return provinces;
               }
-
-              // กรองข้อมูล
               final filtered = provinces.where((ProvinceModel option) {
                 return option.nameTh.contains(textEditingValue.text);
               }).toList();
-
-              // ถ้าไม่เจอ -> แสดง Dummy
               if (filtered.isEmpty) {
                 return [
                   ProvinceModel(
@@ -483,11 +628,8 @@ class _AddressPageState extends ConsumerState<Address> {
                   ),
                 ];
               }
-
               return filtered;
             },
-
-            // เมื่อเลือก
             onSelected: (ProvinceModel selection) {
               if (selection.id == -1) return;
               setState(() {
@@ -495,17 +637,12 @@ class _AddressPageState extends ConsumerState<Address> {
                 controller.text = selection.nameTh;
                 _checkForm();
               });
-              // ถ้าอยากให้เลือกแล้ว Keyboard หุบ ให้ uncomment บรรทัดล่าง
-              // focusNode.unfocus();
             },
-
-            // Input Field Builder
             fieldViewBuilder:
                 (
                   BuildContext context,
                   TextEditingController textEditingController,
-                  FocusNode
-                  fieldFocusNode, // RawAutocomplete จะส่ง node เดิมที่เราใส่เข้าไปกลับมาให้ใช้ตรงนี้
+                  FocusNode fieldFocusNode,
                   VoidCallback onFieldSubmitted,
                 ) {
                   return TextFormField(
@@ -513,19 +650,15 @@ class _AddressPageState extends ConsumerState<Address> {
                     focusNode: fieldFocusNode,
                     enabled: !isLoading,
                     onChanged: (val) {
-                      // ถ้าลบหมด -> เคลียร์ ID
                       if (val.isEmpty) {
                         setState(() {
                           _selectedProvinceId = null;
                         });
                       }
-                      // สำคัญ: สั่งให้ rebuild เพื่อ update สถานะปุ่ม
                       _checkForm();
                     },
-                    // ✅ เพิ่ม onTap: แตะปุ๊บ ถ้าว่างอยู่ให้โชว์เลย (เผื่อมันปิดไป)
                     onTap: () {
                       if (textEditingController.text.isEmpty) {
-                        // Trick: กำหนดค่าเดิมเข้าไปเพื่อกระตุ้นให้ List เด้งขึ้นมา
                         textEditingController.value =
                             textEditingController.value;
                       }
@@ -597,8 +730,6 @@ class _AddressPageState extends ConsumerState<Address> {
                     ),
                   );
                 },
-
-            // List View Builder (ส่วนแสดงผล)
             optionsViewBuilder:
                 (
                   BuildContext context,
@@ -612,15 +743,12 @@ class _AddressPageState extends ConsumerState<Address> {
                       borderRadius: BorderRadius.circular(10),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: 200, // สูงสุด 200
-                          maxWidth:
-                              MediaQuery.of(context).size.width -
-                              48, // กว้างเท่า Input
+                          maxHeight: 200,
+                          maxWidth: MediaQuery.of(context).size.width - 48,
                         ),
                         child: ListView.builder(
                           padding: EdgeInsets.zero,
-                          shrinkWrap:
-                              true, // ✅ หดความสูงเท่าข้อมูลจริง (1 บรรทัดก็สูงแค่ 1 บรรทัด)
+                          shrinkWrap: true,
                           itemCount: options.length,
                           itemBuilder: (BuildContext context, int index) {
                             final ProvinceModel option = options.elementAt(
@@ -652,6 +780,160 @@ class _AddressPageState extends ConsumerState<Address> {
                     ),
                   );
                 },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapPickerSheet extends StatefulWidget {
+  final LatLng initialCenter;
+  final Function(LatLng) onPicked;
+
+  const _MapPickerSheet({required this.initialCenter, required this.onPicked});
+
+  @override
+  State<_MapPickerSheet> createState() => _MapPickerSheetState();
+}
+
+class _MapPickerSheetState extends State<_MapPickerSheet> {
+  late MapController mapController;
+  late LatLng currentCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    mapController = MapController();
+    currentCenter = widget.initialCenter;
+  }
+
+  Future<void> _moveToCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      LatLng latLng = LatLng(position.latitude, position.longitude);
+
+      if (latLng.latitude > 21 ||
+          latLng.latitude < 5 ||
+          latLng.longitude < 97 ||
+          latLng.longitude > 106) {
+        latLng = const LatLng(13.7649, 100.5383);
+      }
+
+      mapController.move(latLng, 16.0);
+      setState(() => currentCenter = latLng);
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: widget.initialCenter,
+                initialZoom: 15.0,
+                onPositionChanged: (position, hasGesture) {
+                  if (position.center != null) {
+                    setState(() => currentCenter = position.center!);
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.changsure.app',
+                ),
+              ],
+            ),
+          ),
+
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 40),
+              child: Icon(
+                Icons.location_on,
+                size: 50,
+                color: AppColors.colorError,
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: 20,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 10),
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "เลื่อนแผนที่ให้หมุดตรงกับสถานที่จริง",
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          Positioned(
+            bottom: 30,
+            left: 20,
+            right: 20,
+            child: SafeArea(
+              child: PrimaryButton(
+                text: "ยืนยันตำแหน่งนี้",
+                onPressed: () {
+                  widget.onPicked(currentCenter);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: 10,
+            right: 10,
+            child: CircleAvatar(
+              backgroundColor: Colors.white,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+
+          Positioned(
+            bottom: 100,
+            right: 20,
+            child: FloatingActionButton(
+              backgroundColor: Colors.white,
+              mini: false,
+              onPressed: _moveToCurrentLocation,
+              child: const Icon(Icons.my_location, color: AppColors.primary),
+            ),
           ),
         ],
       ),
