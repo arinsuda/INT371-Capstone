@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
 
 	"changsure-core-service/internal/config"
@@ -114,6 +115,10 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 			PasswordHash: passwordHash,
 		}
 		if err := s.customers.Create(ctx, c); err != nil {
+
+			if isDuplicateError(err) {
+				return nil, ErrEmailAlreadyExists
+			}
 			return nil, err
 		}
 		userID = c.ID
@@ -126,6 +131,10 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 			PasswordHash: passwordHash,
 		}
 		if err := s.technicians.Create(ctx, t); err != nil {
+
+			if isDuplicateError(err) {
+				return nil, ErrEmailAlreadyExists
+			}
 			return nil, err
 		}
 		userID = t.ID
@@ -291,4 +300,12 @@ func (s *service) GenerateRefreshToken(ctx context.Context, refreshToken string)
 		ExpiresIn:    int64(s.accessTokenTTLHours() * 3600),
 		Role:         role,
 	}, nil
+}
+
+func isDuplicateError(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return true
+	}
+	return false
 }
