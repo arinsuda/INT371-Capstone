@@ -65,40 +65,30 @@ func (s *service) List(ctx context.Context, techID uint, q ListTechnicianPostsQu
 
 func (s *service) Create(ctx context.Context, techID uint, req CreateTechnicianPostDTO) (*TechnicianPostResponse, error) {
 
-	db := s.repo.DB()
-
 	post := &TechnicianPost{
 		TechnicianID:      techID,
 		Title:             req.Title,
 		Description:       req.Description,
 		ServiceCategoryID: req.ServiceCategoryID,
-		// ServiceID:    req.ServiceID,
-		// ProvinceID:   req.ProvinceID,
+
 		IsPublished: true,
 	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
+	if err := s.repo.CreatePost(ctx, post); err != nil {
+		return nil, fmt.Errorf("failed to create post: %w", err)
+	}
 
-		if err := s.repo.CreatePost(ctx, post); err != nil {
-			return fmt.Errorf("failed to create post: %w", err)
+	if len(req.Images) > 0 {
+
+		imgs, err := s.uploadAndBuildImages(ctx, post.ID, req.Images)
+		if err != nil {
+
+			return nil, err
 		}
 
-		if len(req.Images) > 0 {
-			imgs, err := s.uploadAndBuildImages(ctx, tx, post.ID, req.Images)
-			if err != nil {
-				return err
-			}
-
-			if err := s.repo.AddPostImages(ctx, imgs); err != nil {
-				return fmt.Errorf("failed to save images: %w", err)
-			}
+		if err := s.repo.AddPostImages(ctx, imgs); err != nil {
+			return nil, fmt.Errorf("failed to save images: %w", err)
 		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
 	}
 
 	full, _ := s.repo.GetPost(ctx, post.ID, techID)
@@ -107,17 +97,23 @@ func (s *service) Create(ctx context.Context, techID uint, req CreateTechnicianP
 
 func (s *service) Update(ctx context.Context, techID uint, postID uint, req UpdateTechnicianPostDTO) (*TechnicianPostResponse, error) {
 
-	db := s.repo.DB()
-
 	_, err := s.repo.GetPost(ctx, postID, techID)
 	if err != nil {
 		return nil, ErrPostNotFound
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	var newImages []TechnicianPostImage
+	if len(req.NewImages) > 0 {
+		uploadedImgs, err := s.uploadAndBuildImages(ctx, postID, req.NewImages)
+		if err != nil {
+			return nil, err
+		}
+		newImages = uploadedImgs
+	}
+
+	err = s.repo.DB().Transaction(func(tx *gorm.DB) error {
 
 		updateData := map[string]any{}
-
 		if req.Title != nil {
 			updateData["title"] = *req.Title
 		}
@@ -127,12 +123,7 @@ func (s *service) Update(ctx context.Context, techID uint, postID uint, req Upda
 		if req.ServiceCategoryID != nil {
 			updateData["service_category_id"] = *req.ServiceCategoryID
 		}
-		// if req.ServiceID != nil {
-		// 	updateData["service_id"] = *req.ServiceID
-		// }
-		// if req.ProvinceID != nil {
-		// 	updateData["province_id"] = *req.ProvinceID
-		// }
+
 		if req.IsPublished != nil {
 			updateData["is_published"] = *req.IsPublished
 		}
@@ -146,18 +137,14 @@ func (s *service) Update(ctx context.Context, techID uint, postID uint, req Upda
 		}
 
 		if len(req.ImageIDsToDelete) > 0 {
+
 			if err := s.repo.RemovePostImagesByID(ctx, postID, req.ImageIDsToDelete); err != nil {
 				return fmt.Errorf("failed to delete images: %w", err)
 			}
 		}
 
-		if len(req.NewImages) > 0 {
-			imgs, err := s.uploadAndBuildImages(ctx, tx, postID, req.NewImages)
-			if err != nil {
-				return err
-			}
-
-			if err := s.repo.AddPostImages(ctx, imgs); err != nil {
+		if len(newImages) > 0 {
+			if err := s.repo.AddPostImages(ctx, newImages); err != nil {
 				return fmt.Errorf("failed to save new images: %w", err)
 			}
 		}
@@ -184,7 +171,6 @@ func (s *service) Delete(ctx context.Context, techID uint, postID uint, hard boo
 
 func (s *service) uploadAndBuildImages(
 	ctx context.Context,
-	tx *gorm.DB,
 	postID uint,
 	files []*multipart.FileHeader,
 ) ([]TechnicianPostImage, error) {
@@ -197,6 +183,7 @@ func (s *service) uploadAndBuildImages(
 		if err != nil {
 			return nil, fmt.Errorf("failed to open file: %w", err)
 		}
+
 		defer src.Close()
 
 		filename := fmt.Sprintf("%d_%d_%s", postID, time.Now().UnixNano(), file.Filename)
@@ -210,6 +197,7 @@ func (s *service) uploadAndBuildImages(
 			file.Header.Get("Content-Type"),
 		)
 		if err != nil {
+
 			return nil, fmt.Errorf("upload failed: %w", err)
 		}
 
@@ -218,6 +206,7 @@ func (s *service) uploadAndBuildImages(
 			ImageURL:  key,
 			SortOrder: i,
 		})
+
 	}
 
 	return images, nil
