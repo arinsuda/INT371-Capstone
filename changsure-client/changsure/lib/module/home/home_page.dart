@@ -15,10 +15,17 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   String searchQuery = '';
+  int? selectedProvinceId = 1;
 
   void _onSearchChanged(String value) {
     setState(() {
       searchQuery = value.trim();
+    });
+  }
+
+  void _onProvinceChanged(int id) {
+    setState(() {
+      selectedProvinceId = id;
     });
   }
 
@@ -50,6 +57,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final serviceCategoriesAsync = ref.watch(serviceCategoriesProvider);
+    print(selectedProvinceId);
+
 
     return Scaffold(
       body: Stack(
@@ -57,7 +66,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           ListView(
             padding: EdgeInsets.zero,
             children: [
-              HomeBanner(onSearchChanged: _onSearchChanged),
+              HomeBanner(
+                onSearchChanged: _onSearchChanged,
+                onProvinceChanged: _onProvinceChanged,
+              ),
 
               if (searchQuery.isEmpty)
                 Padding(
@@ -75,8 +87,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      ServiceCategoryPage(category: category),
+                                  builder: (_) => ServiceCategoryPage(
+                                    category: category,
+                                    provinceId: selectedProvinceId,
+                                  ),
                                 ),
                               );
                             },
@@ -141,7 +155,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                               width:
                                   (MediaQuery.of(context).size.width / 2) - 20,
                               height: 220,
-                              child: ServiceCard(data: service),
+                              child: ServiceCard(
+                                data: service,
+                                provinceId: selectedProvinceId,
+                              ),
                             );
                           }).toList(),
                         ),
@@ -182,6 +199,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       MaterialPageRoute(
                                         builder: (_) => ServiceCategoryPage(
                                           category: mainCategory,
+                                          provinceId: selectedProvinceId,
                                         ),
                                       ),
                                     );
@@ -209,7 +227,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         ),
                                         child: SizedBox(
                                           height: 220,
-                                          child: ServiceCard(data: item),
+                                          child: ServiceCard(
+                                            data: item,
+                                            provinceId: selectedProvinceId,
+                                          ),
                                         ),
                                       ),
                                     );

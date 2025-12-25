@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/province.dart';
+import '../../../state/master_data_provider.dart';
 
-class HomeBanner extends StatefulWidget {
+class HomeBanner extends ConsumerStatefulWidget {
   final ValueChanged<String> onSearchChanged;
+  final ValueChanged<int> onProvinceChanged;
 
-  const HomeBanner({super.key, required this.onSearchChanged});
+  const HomeBanner({
+    super.key,
+    required this.onSearchChanged,
+    required this.onProvinceChanged,
+  });
 
   @override
-  State<HomeBanner> createState() => _HomeBannerState();
+  ConsumerState<HomeBanner> createState() => _HomeBannerState();
 }
 
-class _HomeBannerState extends State<HomeBanner> {
+class _HomeBannerState extends ConsumerState<HomeBanner> {
   String selectedProvince = "กรุงเทพมหานคร";
 
   void _openProvinceSelector() {
@@ -23,39 +28,59 @@ class _HomeBannerState extends State<HomeBanner> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return ListView(
-          shrinkWrap: true,
-          children: [
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(8),
+        final provincesAsync = ref.watch(provincesProvider);
+
+        return provincesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Error: $e'),
+          ),
+          data: (provinces) {
+            return ListView(
+              shrinkWrap: true,
+              children: [
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                "เลือกจังหวัดที่ต้องการรับบริการ",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...mockProvinces.map(
-              (p) => ListTile(
-                title: Text(p),
-                onTap: () {
-                  setState(() => selectedProvince = p);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-          ],
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "เลือกจังหวัดที่ต้องการรับบริการ",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                ...provinces.map(
+                  (p) => ListTile(
+                    title: Text(p.nameTh),
+                    onTap: () {
+                      setState(() {
+                        selectedProvince = p.nameTh;
+                      });
+
+                      widget.onProvinceChanged(p.id);
+                      Navigator.pop(context);
+                    },
+
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -165,8 +190,7 @@ class _HomeBannerState extends State<HomeBanner> {
                   BoxShadow(color: Colors.black12, blurRadius: 6),
                 ],
               ),
-              child:
-              TextField(
+              child: TextField(
                 onChanged: widget.onSearchChanged,
                 decoration: InputDecoration(
                   hintText: "ค้นหาบริการ...",
@@ -175,10 +199,7 @@ class _HomeBannerState extends State<HomeBanner> {
                     color: Color(0xFFAAAAAA),
                   ),
 
-                  suffixIcon: const Icon(
-                    Icons.search,
-                    color: Colors.grey,
-                  ),
+                  suffixIcon: const Icon(Icons.search, color: Colors.grey),
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
@@ -194,7 +215,6 @@ class _HomeBannerState extends State<HomeBanner> {
               ),
             ),
           ),
-
         ],
       ),
     );

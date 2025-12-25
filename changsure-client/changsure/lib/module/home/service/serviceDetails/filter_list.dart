@@ -1,11 +1,12 @@
 import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../../../core/button/primary_button.dart';
 import '../../../../core/theme.dart';
 
 class FilterList extends StatefulWidget {
-  const FilterList({super.key});
+  final Map<String, dynamic> initialFilter;
+
+  const FilterList({super.key, required this.initialFilter});
 
   @override
   State<FilterList> createState() => _FilterListState();
@@ -22,6 +23,20 @@ class _FilterListState extends State<FilterList> {
   bool recommended = false;
   bool highRating = false;
   bool fastResponse = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    selectedPrice = widget.initialFilter["price"] ?? "";
+    selectedRating = widget.initialFilter["rating"] ?? "";
+    selectedDistance = widget.initialFilter["distance"] ?? "";
+
+    topService = widget.initialFilter["topService"] ?? false;
+    recommended = widget.initialFilter["recommended"] ?? false;
+    highRating = widget.initialFilter["highRating"] ?? false;
+    fastResponse = widget.initialFilter["fastResponse"] ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -266,8 +281,7 @@ class _FilterListState extends State<FilterList> {
 
     return GestureDetector(
       onTap: () => onTap(label),
-      child:
-      Container(
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
@@ -342,7 +356,7 @@ class _FilterListState extends State<FilterList> {
           color: selected ? AppColors.primaryBGHover : const Color(0xFFF2F2F2),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppColors.primary : Color(0xFFF2F2F2)
+            color: selected ? AppColors.primary : Color(0xFFF2F2F2),
           ),
         ),
         child: Row(

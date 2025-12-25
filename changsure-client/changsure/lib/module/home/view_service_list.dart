@@ -10,8 +10,13 @@ import './homePage/service_card.dart';
 
 class ServiceCategoryPage extends StatelessWidget {
   final ServiceCategoryModel category;
+  final int? provinceId;
 
-  const ServiceCategoryPage({super.key, required this.category});
+  const ServiceCategoryPage({
+    super.key,
+    required this.category,
+    required this.provinceId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +42,10 @@ class ServiceCategoryPage extends StatelessWidget {
                   ),
                   itemCount: category.services.length,
                   itemBuilder: (context, index) {
-                    return ServiceCard(data: category.services[index]);
+                    return ServiceCard(
+                      data: category.services[index],
+                      provinceId: provinceId,
+                    );
                   },
                 ),
               ),

@@ -1,27 +1,136 @@
 import 'package:changsure/module/home/service/serviceDetails/technician_select_card.dart';
 import 'package:changsure/module/home/service/serviceDetails/filter_list.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/header.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/technician.dart';
+import '../../../data/models/master_data_models.dart';
+import '../../../state/master_data_provider.dart';
+import '../../../state/user_provider.dart';
 
-class CustomerChoose extends StatelessWidget {
+class CustomerChoose extends ConsumerStatefulWidget {
   final String serviceName;
   final int category;
+  final int serviceId;
+  final int? provinceId;
 
   const CustomerChoose({
     super.key,
     required this.serviceName,
     required this.category,
+    required this.serviceId,
+    required this.provinceId,
   });
 
   @override
-  Widget build(BuildContext context) {
+  ConsumerState<CustomerChoose> createState() => _CustomerChooseState();
+}
 
-    final List<Technician> filteredTechnicians = mockTechnicians
-        .where((tech) => tech.category == category)
-        .toList();
+class _CustomerChooseState extends ConsumerState<CustomerChoose> {
+  List<Technician> _allTechnicians = [];
+  List<Technician> _filteredTechnicians = [];
+  bool _isLoading = true;
+
+  bool _hasActiveBadge(Technician t, String badgeName) {
+    return t.badges.any((b) => b.isActive && b.name == badgeName);
+  }
+
+  Map<String, dynamic> _currentFilter = {
+    "price": "",
+    "rating": "",
+    "distance": "",
+    "topService": false,
+    "recommended": false,
+    "highRating": false,
+    "fastResponse": false,
+  };
+
+  void _applyFilter(Map<String, dynamic> filter) {
+    List<Technician> list = [..._allTechnicians];
+
+    /// -------- PRICE --------
+    if (filter['price'] == "ราคาสูง → ต่ำ") {
+      list.sort((a, b) => b.priceMin.compareTo(a.priceMin));
+    } else if (filter['price'] == "ราคาต่ำ → สูง") {
+      list.sort((a, b) => a.priceMin.compareTo(b.priceMin));
+    }
+
+    /// -------- RATING --------
+    if (filter['rating'] != "") {
+      final ratingStr = filter['rating'];
+      final minRating = ratingStr.startsWith("≥")
+          ? int.parse(ratingStr.replaceAll("≥", ""))
+          : int.parse(ratingStr); // กรณี "5"
+
+      list = list.where((t) => t.ratingAvg! >= minRating).toList();
+    }
+
+    /// -------- DISTANCE --------
+    if (filter['distance'] == "ระยะทางใกล้ - ไกล") {
+      list.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    } else if (filter['distance'] == "ระยะทางไกล - ใกล้") {
+      list.sort((a, b) => b.distanceKm.compareTo(a.distanceKm));
+    }
+
+    /// -------- BADGES --------
+    if (filter['recommended'] == true) {
+      list = list
+          .where((t) => _hasActiveBadge(t, "ChangSure Recommend"))
+          .toList();
+    }
+
+    if (filter['highRating'] == true) {
+      list = list
+          .where((t) => _hasActiveBadge(t, "High Rating"))
+          .toList();
+    }
+
+    if (filter['topService'] == true) {
+      list = list
+          .where((t) => _hasActiveBadge(t, "Top Service"))
+          .toList();
+    }
+
+    if (filter['fastResponse'] == true) {
+      list = list
+          .where((t) => _hasActiveBadge(t, "Fast Response"))
+          .toList();
+    }
+
+
+    setState(() {
+      _filteredTechnicians = list;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTechnicians();
+  }
+
+  Future<void> _loadTechnicians() async {
+    final user = ref.read(userProvider);
+
+    final result = await ref
+        .read(masterDataServiceProvider)
+        .getAllTechnician(
+          user?.token,
+          widget.serviceId,
+          widget.provinceId ?? 0,
+        );
+
+    setState(() {
+      _allTechnicians = result;
+      _filteredTechnicians = result;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    print(widget.serviceId);
+    print(widget.provinceId);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -44,7 +153,7 @@ class CustomerChoose extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    serviceName,
+                    widget.serviceName,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.normal,
@@ -73,22 +182,35 @@ class CustomerChoose extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () async {
-                      final result = await showModalBottomSheet<Map<String, dynamic>>(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                        ),
-                        builder: (_) => const FilterList(),
-                      );
+                      final result =
+                          await showModalBottomSheet<Map<String, dynamic>>(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(16),
+                              ),
+                            ),
+                            builder: (_) => FilterList(
+                              initialFilter: Map<String, dynamic>.from(
+                                _currentFilter,
+                              ),
+                            ),
+                          );
 
                       if (result != null) {
-                        print("ผลลัพธ์ฟิลเตอร์: $result");
-                        // TODO: นำ result ไปลุยกรอง technician ได้เลย
+                        setState(() {
+                          _currentFilter = result;
+                        });
+                        _applyFilter(result);
                       }
                     },
+
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryBGHover,
                         borderRadius: BorderRadius.circular(10),
@@ -114,7 +236,6 @@ class CustomerChoose extends StatelessWidget {
                       ),
                     ),
                   ),
-
                 ],
               ),
             ),
@@ -123,15 +244,41 @@ class CustomerChoose extends StatelessWidget {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: filteredTechnicians
-                    .map(
-                      (tech) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: TechnicianCardCTM(technician: tech),
+              child: Builder(
+                builder: (_) {
+                  if (_isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (_allTechnicians.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'ไม่พบช่างในพื้นที่นี้',
+                        style: TextStyle(color: AppColors.colorError),
                       ),
-                    )
-                    .toList(),
+                    );
+                  }
+
+                  if (_filteredTechnicians.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'ไม่พบช่างตามเงื่อนไข',
+                        style: TextStyle(color: AppColors.colorError),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: _filteredTechnicians
+                        .map(
+                          (tech) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: TechnicianCardCTM(technician: tech),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
               ),
             ),
           ],

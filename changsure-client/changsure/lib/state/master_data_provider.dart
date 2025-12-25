@@ -83,6 +83,70 @@ class MasterDataService {
     }
     return [];
   }
+
+  Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
+    final res = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/services?category_id=$categoryId'),
+    );
+
+    final body = jsonDecode(res.body);
+    final List list = body['data'] ?? [];
+
+    return list.map((e) => ServiceModel.fromJson(e)).toList();
+  }
+
+  Future<List<Technician>> getAllTechnician(
+    String? token,
+    int serviceId,
+    int provinceId,
+  ) async {
+    final response = await http.get(
+      Uri.parse(
+        '${ApiConstants.baseUrl}/technicians'
+        '?service_id=$serviceId&province_id=$provinceId',
+      ),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Server error (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body);
+    final List items = json['data']?['items'] ?? [];
+
+    return items.map((e) => Technician.fromJson(e)).toList();
+  }
+
+  Future<Technician?> getAutoSelectTechnician(
+    String? token,
+    int serviceId,
+    int provinceId, {
+    int? minPrice,
+    int? maxPrice,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${ApiConstants.baseUrl}/technicians/auto-select'),
+      headers: {..._getHeaders(token), 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "service_id": serviceId,
+        "province_id": provinceId,
+        if (minPrice != null) "min_price": minPrice,
+        if (maxPrice != null) "max_price": maxPrice,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Auto select failed');
+    }
+
+    final json = jsonDecode(response.body);
+    final data = json['data'];
+
+    if (data == null) return null;
+
+    return Technician.fromJson(data);
+  }
 }
 
 final masterDataServiceProvider = Provider((ref) => MasterDataService());
@@ -100,3 +164,40 @@ final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
       .read(masterDataServiceProvider)
       .getServiceCategoriesWithServices(user?.token);
 });
+
+final allTechnicianProvider =
+    FutureProvider.family<List<Technician>, TechnicianQuery>((
+      ref,
+      query,
+    ) async {
+      final user = ref.watch(userProvider);
+
+      return ref
+          .read(masterDataServiceProvider)
+          .getAllTechnician(user?.token, query.serviceId, query.provinceId);
+    });
+
+final servicesByCategoryProvider =
+    FutureProvider.family<List<ServiceModel>, int>((ref, categoryId) async {
+      return ref
+          .read(masterDataServiceProvider)
+          .getServicesByCategory(categoryId);
+    });
+
+final autoSelectTechnicianProvider =
+    FutureProvider.family<Technician?, AutoSelectTechnicianQuery>((
+      ref,
+      query,
+    ) async {
+      final user = ref.watch(userProvider);
+
+      return ref
+          .read(masterDataServiceProvider)
+          .getAutoSelectTechnician(
+            user?.token,
+            query.serviceId,
+            query.provinceId,
+            minPrice: query.minPrice,
+            maxPrice: query.maxPrice,
+          );
+    });

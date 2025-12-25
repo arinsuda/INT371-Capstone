@@ -6,8 +6,9 @@ import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
   final ServiceModel data;
+  final int? provinceId;
 
-  const ServiceCard({super.key, required this.data});
+  const ServiceCard({super.key, required this.data, required this.provinceId});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +18,8 @@ class ServiceCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ServiceDetail(id: data.id, data: data),
+            builder: (_) => ServiceDetail(id: data.id, data: data,
+              provinceId: provinceId,),
           ),
         );
       },

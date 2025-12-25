@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+
 class ProvinceModel {
   final int id;
   final String nameTh;
@@ -13,6 +15,7 @@ class ServiceCategoryModel {
   final int id;
   final String catName;
   final List<ServiceModel> services;
+
   ServiceCategoryModel({
     required this.id,
     required this.catName,
@@ -91,3 +94,122 @@ class ServicePrice {
     );
   }
 }
+
+class TechnicianQuery {
+  final int serviceId;
+  final int provinceId;
+
+  TechnicianQuery({required this.serviceId, required this.provinceId});
+}
+
+class BadgeModel {
+  final int id;
+  final String name;
+  final String description;
+  final String iconUrl;
+  final int level;
+  final bool isActive;
+
+  BadgeModel({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.iconUrl,
+    required this.level,
+    required this.isActive,
+  });
+
+  factory BadgeModel.fromJson(Map<String, dynamic> json) {
+    return BadgeModel(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      iconUrl: json['icon_url'] ?? '',
+      level: json['level'] ?? 0,
+      isActive: json['is_active'] ?? false,
+    );
+  }
+}
+
+class Technician {
+  final int id;
+  final String firstname;
+  final String lastname;
+  final String? avatarUrl;
+  final int priceMin;
+  final int priceMax;
+  final int? ratingAvg;
+  final int? ratingCount;
+  final double distanceKm;
+  final List<BadgeModel> badges;
+  final int totalJobs;
+  final String categoryName;
+
+  Technician({
+    required this.id,
+    required this.firstname,
+    required this.lastname,
+    this.avatarUrl,
+    required this.priceMin,
+    required this.priceMax,
+    this.ratingAvg = 0,
+    this.ratingCount = 0,
+    this.distanceKm = 0.0,
+    this.badges = const [],
+    this.totalJobs = 0,
+    required this.categoryName,
+  });
+
+  factory Technician.fromJson(Map<String, dynamic> json) {
+    return Technician(
+      id: json['id'] ?? 0,
+      firstname: json['firstname'] ?? '',
+      lastname: json['lastname'] ?? '',
+      avatarUrl: json['avatar_url'],
+      priceMin: json['price_min'] ?? 0,
+      priceMax: json['price_max'] ?? 0,
+      ratingAvg: json['rating_avg'] ?? 0,
+      ratingCount: json['rating_count'] ?? 0,
+      distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
+      badges:
+          (json['badges'] as List?)
+              ?.map((e) => BadgeModel.fromJson(e))
+              .toList() ??
+          [],
+      totalJobs: json['total_jobs'] ?? 0,
+      categoryName: json['category_name'],
+    );
+  }
+}
+
+@immutable
+class AutoSelectTechnicianQuery {
+  final int serviceId;
+  final int provinceId;
+  final int? minPrice;
+  final int? maxPrice;
+
+  const AutoSelectTechnicianQuery({
+    required this.serviceId,
+    required this.provinceId,
+    this.minPrice,
+    this.maxPrice,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is AutoSelectTechnicianQuery &&
+              serviceId == other.serviceId &&
+              provinceId == other.provinceId &&
+              minPrice == other.minPrice &&
+              maxPrice == other.maxPrice;
+
+  @override
+  int get hashCode =>
+      serviceId.hashCode ^
+      provinceId.hashCode ^
+      minPrice.hashCode ^
+      maxPrice.hashCode;
+}
+
