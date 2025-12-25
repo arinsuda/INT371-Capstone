@@ -1,0 +1,186 @@
+services:
+  database:
+    env_file:
+      - ./.env
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: changsure-database-prod
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Bangkok
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+    volumes:
+      - mysql_prod:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio:
+    env_file:
+      - ./.env
+    image: minio/minio:${MINIO_VERSION:-latest}
+    container_name: changsure-minio-prod
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Bangkok
+    volumes:
+      - minio_prod:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio-init:
+    env_file:
+      - ./.env
+    image: minio/mc:latest
+    container_name: changsure-minio-init-prod
+    depends_on:
+      - minio
+    networks:
+      - changsure-network
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        sleep 2;
+      done;
+      echo 'Creating bucket if not exists...';
+      mc mb -p local/${MINIO_BUCKET:-changsure-prod} || true;
+      mc anonymous set download local/${MINIO_BUCKET:-changsure-prod} || true;
+      mc ls local;
+      echo 'MinIO init done.';
+      exit 0;
+      "
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    env_file:
+      - ./.env
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: changsure-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_prod:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ocr:
+    env_file:
+      - ./.env
+    build:
+      context: ../../ocr-service
+      dockerfile: Dockerfile
+    container_name: changsure-ocr-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  core-service:
+    env_file:
+      - ./.env
+    image: ${REGISTRY:-docker.io}/${DOCKERHUB_USERNAME:-arynx}/changsure-core-service:${IMAGE_TAG:-latest}
+    container_name: changsure-core-service-prod
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  client:
+    env_file:
+      - ./.env
+    image: ${REGISTRY:-docker.io}/${DOCKERHUB_USERNAME:-arynx}/changsure-client:${IMAGE_TAG:-latest}
+    container_name: changsure-client-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      core-service:
+        condition: service_started
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  changsure-network:
+    driver: bridge
+
+volumes:
+  mysql_prod:
+  minio_prod:
+  redis_prod:

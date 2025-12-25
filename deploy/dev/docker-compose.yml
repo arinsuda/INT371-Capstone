@@ -1,0 +1,187 @@
+version: "3.9"
+
+services:
+  # ================================
+  # MySQL DATABASE
+  # ================================
+  database:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: changsure-database-dev
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Bangkok
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+    volumes:
+      - mysql_dev:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - changsure-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # MINIO STORAGE
+  # ================================
+  minio:
+    image: minio/minio:${MINIO_VERSION:-latest}
+    container_name: changsure-minio-dev
+    restart: unless-stopped
+    env_file: ./.env
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Bangkok
+    volumes:
+      - minio_dev:/data
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://minio:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # MINIO INITIALIZER
+  # ================================
+  minio-init:
+    image: minio/mc
+    container_name: changsure-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file: ./.env
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+
+      echo 'Creating bucket...';
+      mc mb -p local/${MINIO_BUCKET} || true;
+
+      echo 'Setting bucket private...';
+      mc anonymous set none local/${MINIO_BUCKET};
+
+      echo 'MinIO Init Completed!';
+      exit 0;
+      "
+    networks:
+      - changsure-network
+
+  # ================================
+  # REDIS
+  # ================================
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: changsure-redis-dev
+    restart: unless-stopped
+    env_file: ./.env
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_dev:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # OCR SERVICE
+  # ================================
+  ocr:
+    build:
+      context: ../../ocr-service
+      dockerfile: Dockerfile
+    container_name: changsure-ocr-dev
+    restart: unless-stopped
+    env_file: ./.env
+    ports:
+      - "8001:8000"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # CORE SERVICE (Golang API)
+  # ================================
+  core-service:
+    build:
+      context: ../../changsure-core-service
+      dockerfile: Dockerfile
+    container_name: changsure-core-service-dev
+    restart: unless-stopped
+    env_file: ./.env
+    ports:
+      - "8081:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ================================
+# NETWORKS & VOLUMES
+# ================================
+networks:
+  changsure-network:
+    driver: bridge
+
+volumes:
+  mysql_dev:
+  minio_dev:
+  redis_dev:

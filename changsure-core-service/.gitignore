@@ -1,0 +1,17 @@
+# Env files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# Ignore data folders
+minio_data/
+
+# Ignore tmp folder (ทั้งหมด)
+tmp/
+tmp/**
+
+# Ignore macOS metadata
+.DS_Store

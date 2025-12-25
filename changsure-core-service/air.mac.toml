@@ -1,0 +1,13 @@
+[build]
+cmd = "GOARCH=arm64 GOTOOLCHAIN=go1.25.3 go build -o ./tmp/main ./cmd/api"
+bin = "./tmp/main"
+
+include_ext = ["go", "mod", "sum", "env", "toml", "yaml", "yml"]
+exclude_dir = ["tmp", "vendor", "node_modules"]
+
+send_interrupt = true
+kill_delay = 500
+delay = 1000
+stop_on_error = true
+
+log = "build.log"
