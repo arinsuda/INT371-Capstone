@@ -17,6 +17,11 @@ type AutoSelectRequest struct {
 	ServiceID  uint   `json:"service_id"`
 	ProvinceID uint   `json:"province_id"`
 	Priority   string `json:"priority"`
+
+	MinPrice  *float64 `json:"min_price"`
+	MaxPrice  *float64 `json:"max_price"` 
+	MinRating *float64 `json:"min_rating"`
+	Search    string   `json:"search"` 
 }
 
 type TechnicianListItem struct {
@@ -38,6 +43,8 @@ type TechnicianListItem struct {
 	CategoryName string `json:"category_name"`
 
 	Badges []BadgeResponse `json:"badges"`
+
+	MatchPercentage float64 `json:"match_percentage"`
 }
 
 type TechnicianDetail struct {
