@@ -197,9 +197,8 @@ class TechnicianService {
       request.fields['service_category_id'] = categoryId.toString();
 
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
-      for (var id in imageIdsToDelete) {
-        request.fields['image_ids_to_delete[]'] = id.toString();
-      }
+      // ส่งเป็น "101,102,105" ให้ Backend ไป split เอง
+      request.fields['image_ids_to_delete'] = imageIdsToDelete.join(',');
     }
 
     if (newImages != null) {

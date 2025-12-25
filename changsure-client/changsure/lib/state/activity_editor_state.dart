@@ -132,14 +132,14 @@ class ActivityEditorNotifier
     if (post != null) {
       descriptionController.text = post.content;
 
-      List<int> mockIds = List.generate(post.images.length, (index) => 0);
+      List<int> realImageIds = post.imageIds;
 
       state = state.copyWith(
         isLoading: false,
         categoryId: post.categoryId,
         selectedCategory: post.categoryName,
         assetImages: post.images,
-        assetImageIds: mockIds,
+        assetImageIds: realImageIds,
         originalCategoryId: post.categoryId,
         originalDescription: post.content,
         currentDescription: post.content,

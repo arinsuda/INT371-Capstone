@@ -17,7 +17,9 @@ class EditActivityPage extends ConsumerWidget {
   const EditActivityPage({super.key, required this.id});
 
   void _navigateToView(WidgetRef ref) {
-    ref.read(bottomSubPageProvider.notifier).state = null;
+    ref.read(bottomSubPageProvider.notifier).state = const SubPageConfig(
+      page: BottomSubPage.technicianViewActivity,
+    );
   }
 
   @override
