@@ -6,9 +6,13 @@ import (
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/database"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+
+	_ = godotenv.Load()
+
 	var (
 		rollback   = flag.Bool("rollback", false, "Rollback all migrations")
 		withExtras = flag.Bool("extras", true, "Apply SQL extras (functions, views, procedures)")
@@ -33,14 +37,21 @@ func main() {
 		return
 	}
 
-	log.Println("🚀 Starting migrations...")
+	log.Println("🚀 Starting table migrations...")
+
+	if err := db.MigrateWithExtras(); err != nil {
+		log.Fatal("❌ Table migration failed: ", err)
+	}
+
 	if *withExtras {
-		if err := db.MigrateWithExtras(); err != nil {
-			log.Fatal("❌ Migration failed: ", err)
+		log.Println("🔧 Applying SQL extras (Views/Procedures)...")
+		if err := db.ApplyExtras(); err != nil {
+			log.Fatal("❌ SQL extras failed: ", err)
 		}
+
 		if *verify {
 			if err := db.VerifyExtras(); err != nil {
-				log.Fatal("❌ Verify extras failed: ", err)
+				log.Fatal("❌ Verification failed: ", err)
 			}
 		}
 	}

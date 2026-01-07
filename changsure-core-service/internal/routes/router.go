@@ -12,6 +12,9 @@ import (
 	"changsure-core-service/internal/middleware"
 	ocrroutes "changsure-core-service/internal/modules/ocr/routes"
 	"changsure-core-service/internal/registry"
+
+	realtime "changsure-core-service/internal/realtime"
+	"github.com/gofiber/contrib/v3/websocket"
 )
 
 // Router manages application route setup
@@ -20,11 +23,15 @@ type Router struct {
 	cfg       *config.Config
 	db        *gorm.DB
 	container *registry.Container
+
+	hub *realtime.Hub
 }
 
 // NewRouter creates a new router instance
 func NewRouter(app *fiber.App, cfg *config.Config, db *gorm.DB) (*Router, error) {
-	container, err := registry.NewContainer(db, cfg)
+	hub := realtime.NewHub()
+
+	container, err := registry.NewContainer(db, cfg, hub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container: %w", err)
 	}
@@ -34,6 +41,7 @@ func NewRouter(app *fiber.App, cfg *config.Config, db *gorm.DB) (*Router, error)
 		cfg:       cfg,
 		db:        db,
 		container: container,
+		hub:       hub,
 	}, nil
 }
 
@@ -44,6 +52,7 @@ func (r *Router) Setup() {
 
 	// Setup routes in order
 	r.setupHealthRoutes()
+	r.setupWebSocketRoutes()
 	r.setupPublicRoutes()
 	r.setupProtectedRoutes()
 	r.setup404Handler()
@@ -91,12 +100,36 @@ func (r *Router) setupProtectedRoutes() {
 	r.setupTechnicianMeRoutes(v1)
 }
 
+func (r *Router) setupWebSocketRoutes() {
+	verifyFn := func(token string) (uint, bool) {
+		// เรียกใช้ ValidateTechnicianToken จาก AuthService
+		techID, err := r.container.AuthService.ValidateTechnicianToken(token)
+		if err != nil {
+			return 0, false
+		}
+		return techID, true
+	}
+
+	wsHandler := realtime.NewWSHandler(r.hub, verifyFn)
+
+	r.app.Get("/ws/technicians", func(c fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	}, websocket.New(wsHandler.TechnicianWS))
+}
+
 // setupSharedResources configures resources available to all authenticated users
 func (r *Router) setupSharedResources(api fiber.Router) {
 	r.container.ProvinceHandler.RegisterRoutes(api)
+	r.container.DistrictHandler.RegisterRoutes(api)
+	r.container.SubDistrictHandler.RegisterRoutes(api)
 	r.container.ServiceCategoryHandler.RegisterRoutes(api)
 	r.container.ServiceHandler.RegisterRoutes(api)
 	r.container.BadgeHandler.RegisterRoutes(api)
+	r.container.BookingHandler.RegisterRoutes(api)
+	r.container.TimeSlotHandler.RegisterRoutes(api)
 
 	// OCR functionality
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
@@ -109,6 +142,7 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
+	r.container.TechnicianCalendarHandler.RegisterRoutes(technicians)
 	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
 	r.container.TechnicianMatchingHandler.RegisterRoutes(technicians)
@@ -127,6 +161,8 @@ func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.TechnicianPostHandler.RegisterRoutes(me)
+	r.container.TimeSlotHandler.RegisterTechnicianRoutes(me)
+	r.container.TechnicianScheduleHandler.RegisterRoutes(me)
 }
 
 // setupDevelopmentTools configures development-only endpoints

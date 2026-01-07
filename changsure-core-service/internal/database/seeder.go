@@ -8,30 +8,22 @@ import (
 
 	"gorm.io/gorm"
 
+	addressshared "changsure-core-service/internal/modules/address_shared"
 	badge "changsure-core-service/internal/modules/badge"
+	district "changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/province"
 	"changsure-core-service/internal/modules/service"
 	servicecategory "changsure-core-service/internal/modules/service_category"
+	subdistrict "changsure-core-service/internal/modules/sub_district"
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	technicianbadge "changsure-core-service/internal/modules/technician_badge"
 	technicianservice "changsure-core-service/internal/modules/technician_service"
 	technicianservicearea "changsure-core-service/internal/modules/technician_service_area"
+	timeslot "changsure-core-service/internal/modules/time_slot"
 )
 
-const (
-	seedsDir       = "./seeds"
-	provincesFile  = seedsDir + "/provinces/province.json"
-	categoriesFile = seedsDir + "/categories/category.json"
-	servicesFile   = seedsDir + "/services/service.json"
-	badgesFile     = seedsDir + "/badges/badge.json"
-
-	techniciansFile            = seedsDir + "/technicians/technician.json"
-	technicianAddressesFile    = seedsDir + "/technicians/technician_address.json"
-	technicianBadgesFile       = seedsDir + "/technicians/technician_badge.json"
-	technicianServicesFile     = seedsDir + "/technicians/technician_service.json"
-	technicianServiceAreasFile = seedsDir + "/technicians/technician_service_area.json"
-)
+const seedsDir = "./seeds"
 
 type Seeder struct {
 	db *gorm.DB
@@ -41,118 +33,173 @@ func NewSeeder(db *gorm.DB) *Seeder {
 	return &Seeder{db: db}
 }
 
+func loadSeedFile[T any](path string) ([]T, error) {
+	fullPath := fmt.Sprintf("%s/%s", seedsDir, path)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("read file %s: %w", fullPath, err)
+	}
+	var data []T
+	if err := json.Unmarshal(content, &data); err != nil {
+		return nil, fmt.Errorf("parse json %s: %w", fullPath, err)
+	}
+	return data, nil
+}
+
 func (d *Database) Seed() error {
 	log.Println("🌱 Starting Database Seeding Process...")
-	log.Println("==================================================")
-
-	seeder := NewSeeder(d.DB)
+	s := NewSeeder(d.DB)
 
 	steps := []struct {
 		Name string
-		Run  func() error
+		Fn   func() error
 	}{
-		{"Provinces", seeder.seedProvinces},
-		{"Service Categories", seeder.seedServiceCategories},
-		{"Services", seeder.seedServices},
-		{"Badges", seeder.seedBadges},
-
-		{"Technicians", seeder.seedTechnicians},
-		{"Technician Addresses", seeder.seedTechnicianAddresses},
-		{"Technician Services", seeder.seedTechnicianServices},
-		{"Technician Service Areas", seeder.seedTechnicianServiceAreas},
-		{"Technician Badges", seeder.seedTechnicianBadges},
+		{"Provinces", s.seedProvinces},
+		{"Districts", s.seedDistricts},
+		{"SubDistricts", s.seedSubDistricts},
+		{"Time Slots", s.seedTimeSlots},
+		{"Service Categories", s.seedServiceCategories},
+		{"Services", s.seedServices},
+		{"Badges", s.seedBadges},
+		{"Technicians", s.seedTechnicians},
+		{"Technician Addresses", s.seedTechnicianAddresses},
+		{"Technician Services", s.seedTechnicianServices},
+		{"Technician Service Areas", s.seedTechnicianServiceAreas},
+		{"Technician Badges", s.seedTechnicianBadges},
 	}
 
 	for _, step := range steps {
 		log.Printf("👉 Processing: %s...", step.Name)
-
-		if err := step.Run(); err != nil {
-			log.Printf("❌ Failed to seed %s: %v\n", step.Name, err)
-			return err
+		if err := step.Fn(); err != nil {
+			return fmt.Errorf("failed to seed %s: %w", step.Name, err)
 		}
-
-		log.Println("--------------------------------------------------")
 	}
 
 	log.Println("✅ All Seeding completed successfully!")
-	log.Println("==================================================")
 	return nil
 }
 
 func (s *Seeder) seedProvinces() error {
-	if s.isAlreadySeeded(&province.Province{}, "Provinces") {
+	if s.isSeeded(&province.Province{}) {
 		return nil
 	}
 
-	type provinceData struct {
+	items, err := loadSeedFile[struct {
 		NameTH string `json:"name_th"`
+	}]("provinces/province.json")
+	if err != nil {
+		return err
 	}
 
-	var items []provinceData
-	if err := s.loadJSONFile(provincesFile, &items); err != nil {
-		return fmt.Errorf("load provinces: %w", err)
-	}
-
-	data := make([]province.Province, 0, len(items))
+	var data []province.Province
 	for _, item := range items {
 		data = append(data, province.Province{NameTH: item.NameTH})
 	}
+	return s.db.CreateInBatches(data, 100).Error
+}
 
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed provinces: %w", err)
+func (s *Seeder) seedDistricts() error {
+	if s.isSeeded(&district.District{}) {
+		return nil
 	}
 
-	log.Printf("   ✓ Seeded %d provinces", len(data))
-	return nil
+	type DistrictInput struct {
+		NameTH         string `json:"name_th"`
+		ProvinceNameTH string `json:"province_name_th"`
+	}
+	items, err := loadSeedFile[DistrictInput]("districts/district.json")
+	if err != nil {
+		return err
+	}
+
+	provMap, err := s.getProvinceMap()
+	if err != nil {
+		return err
+	}
+
+	var data []district.District
+	for _, item := range items {
+		if item.NameTH == "" {
+			continue
+		}
+		pid, ok := provMap[item.ProvinceNameTH]
+		if !ok {
+			return fmt.Errorf("province %q not found", item.ProvinceNameTH)
+		}
+		data = append(data, district.District{NameTH: item.NameTH, ProvinceID: pid})
+	}
+	return s.db.CreateInBatches(data, 100).Error
+}
+
+func (s *Seeder) seedSubDistricts() error {
+	if s.isSeeded(&subdistrict.SubDistrict{}) {
+		return nil
+	}
+
+	type SubDistInput struct {
+		NameTH         string `json:"name_th"`
+		PostalCode     string `json:"postal_code"`
+		DistrictNameTH string `json:"district_name_th"`
+		ProvinceNameTH string `json:"province_name_th"`
+	}
+	items, err := loadSeedFile[SubDistInput]("sub_districts/sub_district.json")
+	if err != nil {
+		return err
+	}
+
+	var districts []district.District
+	if err := s.db.Preload("Province").Find(&districts).Error; err != nil {
+		return err
+	}
+
+	distMap := make(map[string]uint)
+	for _, d := range districts {
+		key := fmt.Sprintf("%s|%s", d.Province.NameTH, d.NameTH)
+		distMap[key] = d.ID
+	}
+
+	var data []subdistrict.SubDistrict
+	for _, item := range items {
+		key := fmt.Sprintf("%s|%s", item.ProvinceNameTH, item.DistrictNameTH)
+		did, ok := distMap[key]
+		if !ok {
+			continue
+		}
+
+		data = append(data, subdistrict.SubDistrict{
+			NameTH: item.NameTH, PostalCode: item.PostalCode, DistrictID: did,
+		})
+	}
+	return s.db.CreateInBatches(data, 100).Error
+}
+
+func (s *Seeder) seedTimeSlots() error {
+	if s.isSeeded(&timeslot.TimeSlot{}) {
+		return nil
+	}
+
+	items, err := loadSeedFile[timeslot.TimeSlot]("time_slots/time_slots_seed.json")
+	if err != nil {
+		return err
+	}
+
+	return s.db.CreateInBatches(&items, 100).Error
 }
 
 func (s *Seeder) seedServiceCategories() error {
-	if s.isAlreadySeeded(&servicecategory.ServiceCategory{}, "Service categories") {
+	if s.isSeeded(&servicecategory.ServiceCategory{}) {
 		return nil
 	}
-
-	type categoryData struct {
-		CatName string `json:"cat_name"`
-		CatDesc string `json:"cat_desc"`
-		IconURL string `json:"icon_url"`
-	}
-
-	var items []categoryData
-	if err := s.loadJSONFile(categoriesFile, &items); err != nil {
-		return fmt.Errorf("load categories: %w", err)
-	}
-
-	data := make([]servicecategory.ServiceCategory, 0, len(items))
-	for _, item := range items {
-		desc := item.CatDesc
-		icon := item.IconURL
-
-		data = append(data, servicecategory.ServiceCategory{
-			CatName:  item.CatName,
-			CatDesc:  &desc,
-			IconURL:  &icon,
-			IsActive: true,
-		})
-	}
-
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed service categories: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d service categories", len(data))
-	return nil
-}
-
-/* -------------------- Services -------------------- */
-
-func (s *Seeder) seedServices() error {
-	if s.isAlreadySeeded(&service.Service{}, "Services") {
-		return nil
-	}
-
-	categoryMap, err := s.loadCategoryMap()
+	items, err := loadSeedFile[servicecategory.ServiceCategory]("categories/category.json")
 	if err != nil {
 		return err
+	}
+	return s.db.Create(&items).Error
+}
+
+func (s *Seeder) seedServices() error {
+	if s.isSeeded(&service.Service{}) {
+		return nil
 	}
 
 	type serviceData struct {
@@ -166,19 +213,26 @@ func (s *Seeder) seedServices() error {
 		Duration     []string               `json:"working_duration"`
 	}
 
-	var items []serviceData
-	if err := s.loadJSONFile(servicesFile, &items); err != nil {
-		return fmt.Errorf("load services: %w", err)
+	items, err := loadSeedFile[serviceData]("services/service.json")
+	if err != nil {
+		return err
 	}
 
-	data := make([]service.Service, 0, len(items))
+	var cats []servicecategory.ServiceCategory
+	s.db.Find(&cats)
+	catMap := make(map[string]uint)
+	for _, c := range cats {
+		catMap[c.CatName] = c.ID
+	}
+
+	var data []service.Service
 	for _, item := range items {
-		categoryID, ok := categoryMap[item.Category]
+		cid, ok := catMap[item.Category]
 		if !ok {
-			return fmt.Errorf("category %q not found, please seed categories first", item.Category)
+			return fmt.Errorf("category %q not found", item.Category)
 		}
 
-		svc := service.Service{
+		data = append(data, service.Service{
 			SerName:         item.Name,
 			SerDescription:  item.Desc,
 			ImageURLs:       service.StringArray(item.ImageURLs),
@@ -187,302 +241,251 @@ func (s *Seeder) seedServices() error {
 			WorkingDuration: service.StringArray(item.Duration),
 			DefaultPrice:    item.DefaultPrice,
 			IsActive:        true,
-			CategoryID:      categoryID,
-		}
-
-		data = append(data, svc)
+			CategoryID:      cid,
+		})
 	}
-
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed services: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d services", len(data))
-	return nil
+	return s.db.Create(&data).Error
 }
 
 func (s *Seeder) seedBadges() error {
-	log.Println("   → Seeding badges")
-
-	type badgeData struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		IconURL     string `json:"icon_url"`
-		Level       uint   `json:"level"`
-		IsActive    bool   `json:"is_active"`
-	}
-
-	var items []badgeData
-	if err := s.loadJSONFile(badgesFile, &items); err != nil {
-		return fmt.Errorf("load badges: %w", err)
+	items, err := loadSeedFile[badge.Badge]("badges/badge.json")
+	if err != nil {
+		return err
 	}
 
 	for _, item := range items {
-		if err := s.upsertBadge(item.Name, item.Description, item.IconURL, item.Level, item.IsActive); err != nil {
-			return err
+		var existing badge.Badge
+		if err := s.db.Unscoped().Where("name = ?", item.Name).First(&existing).Error; err == nil {
+			existing.Description = item.Description
+			existing.IconURL = item.IconURL
+			existing.Level = item.Level
+			existing.IsActive = item.IsActive
+			existing.DeletedAt = gorm.DeletedAt{}
+			s.db.Save(&existing)
+		} else {
+			s.db.Create(&item)
 		}
 	}
-
-	var total int64
-	if err := s.db.Model(&badge.Badge{}).Count(&total).Error; err == nil {
-		log.Printf("   ✓ Seeded/updated badges (total now: %d)", total)
-	}
-
 	return nil
 }
 
 func (s *Seeder) seedTechnicians() error {
-	if s.isAlreadySeeded(&technician.Technician{}, "Technicians") {
+	if s.isSeeded(&technician.Technician{}) {
 		return nil
 	}
-
-	type TechnicianSeed struct {
-		FirstName    string  `json:"firstname"`
-		LastName     string  `json:"lastname"`
-		Email        *string `json:"email"`
-		PasswordHash string  `json:"password_hash"`
-		Bio          *string `json:"bio"`
-		Phone        *string `json:"phone"`
-		AvatarURL    *string `json:"avatar_url"`
-		IsAvailable  bool    `json:"is_available"`
-		IsVerified   bool    `json:"is_verified"`
+	items, err := loadSeedFile[technician.Technician]("technicians/technician.json")
+	if err != nil {
+		return err
 	}
-
-	var seeds []TechnicianSeed
-
-	if err := s.loadJSONFile(techniciansFile, &seeds); err != nil {
-		return fmt.Errorf("load technicians: %w", err)
-	}
-
-	data := make([]technician.Technician, 0, len(seeds))
-	for _, item := range seeds {
-		tech := technician.Technician{
-			FirstName:    item.FirstName,
-			LastName:     item.LastName,
-			Email:        item.Email,
-			PasswordHash: item.PasswordHash,
-			Bio:          item.Bio,
-			Phone:        item.Phone,
-			AvatarURL:    item.AvatarURL,
-			IsAvailable:  item.IsAvailable,
-			IsVerified:   item.IsVerified,
-		}
-		data = append(data, tech)
-	}
-
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed technicians: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d technicians", len(data))
-	return nil
+	return s.db.CreateInBatches(&items, 100).Error
 }
 
 func (s *Seeder) seedTechnicianAddresses() error {
-	if s.isAlreadySeeded(&technicianaddress.TechnicianAddress{}, "Technician addresses") {
+	if s.isSeeded(&technicianaddress.TechnicianAddress{}) {
 		return nil
 	}
 
-	var items []technicianaddress.TechnicianAddress
-	if err := s.loadJSONFile(technicianAddressesFile, &items); err != nil {
-		return fmt.Errorf("load technician addresses: %w", err)
+	type TechAddrInput struct {
+		TechnicianID    uint     `json:"technician_id"`
+		HouseNumber     string   `json:"house_number"`
+		Soi             *string  `json:"soi"`
+		Road            *string  `json:"road"`
+		SubDistrictName string   `json:"sub_district"`
+		DistrictName    string   `json:"district"`
+		ProvinceName    string   `json:"province"`
+		PostalCode      string   `json:"postal_code"`
+		Latitude        *float64 `json:"latitude"`
+		Longitude       *float64 `json:"longitude"`
+		IsPrimary       bool     `json:"is_primary"`
+		ProvinceID      uint     `json:"province_id"`
 	}
 
-	if err := s.db.Create(&items).Error; err != nil {
-		return fmt.Errorf("seed technician addresses: %w", err)
+	items, err := loadSeedFile[TechAddrInput]("technicians/technician_address.json")
+	if err != nil {
+		return err
 	}
 
-	log.Printf("   ✓ Seeded %d technician addresses", len(items))
-	return nil
+	lookup, err := newAddressLookup(s.db)
+	if err != nil {
+		return err
+	}
+
+	var data []technicianaddress.TechnicianAddress
+
+	for i, item := range items {
+		if item.TechnicianID == 0 {
+			continue
+		}
+
+		provID, distID, subID, err := lookup.resolve(item.ProvinceName, item.DistrictName, item.SubDistrictName, item.PostalCode)
+
+		if provID == 0 && item.ProvinceID != 0 {
+			provID = item.ProvinceID
+		}
+
+		if err != nil {
+			log.Printf("⚠️ Skip addr #%d (TechID %d): %v", i, item.TechnicianID, err)
+			continue
+		}
+
+		houseNum := item.HouseNumber
+
+		data = append(data, technicianaddress.TechnicianAddress{
+			TechnicianID: item.TechnicianID,
+			AddressFields: addressshared.AddressFields{
+				HouseNumber:   &houseNum,
+				Soi:           item.Soi,
+				Road:          item.Road,
+				ProvinceID:    &provID,
+				DistrictID:    &distID,
+				SubDistrictID: &subID,
+				Latitude:      item.Latitude,
+				Longitude:     item.Longitude,
+				IsPrimary:     item.IsPrimary,
+			},
+		})
+	}
+
+	return s.db.CreateInBatches(data, 100).Error
 }
 
 func (s *Seeder) seedTechnicianServices() error {
-	if s.isAlreadySeeded(&technicianservice.TechnicianService{}, "Technician services") {
+	if s.isSeeded(&technicianservice.TechnicianService{}) {
 		return nil
 	}
-
-	var items []technicianservice.TechnicianService
-	if err := s.loadJSONFile(technicianServicesFile, &items); err != nil {
-		return fmt.Errorf("load technician services: %w", err)
+	items, err := loadSeedFile[technicianservice.TechnicianService]("technicians/technician_service.json")
+	if err != nil {
+		return err
 	}
-
-	if err := s.db.Create(&items).Error; err != nil {
-		return fmt.Errorf("seed technician services: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d technician services", len(items))
-	return nil
+	return s.db.Create(&items).Error
 }
 
 func (s *Seeder) seedTechnicianServiceAreas() error {
-	if s.isAlreadySeeded(&technicianservicearea.TechnicianServiceArea{}, "Technician service areas") {
+	if s.isSeeded(&technicianservicearea.TechnicianServiceArea{}) {
 		return nil
 	}
-
-	type serviceAreaData struct {
-		TechnicianID uint `json:"technician_id"`
-		ProvinceID   uint `json:"province_id"`
-		IsActive     bool `json:"is_active"`
+	items, err := loadSeedFile[technicianservicearea.TechnicianServiceArea]("technicians/technician_service_area.json")
+	if err != nil {
+		return err
 	}
-
-	var items []serviceAreaData
-
-	if err := s.loadJSONFile(technicianServiceAreasFile, &items); err != nil {
-		return fmt.Errorf("load technician service areas: %w", err)
-	}
-
-	data := make([]technicianservicearea.TechnicianServiceArea, 0, len(items))
-	for _, item := range items {
-
-		if item.TechnicianID == 0 || item.ProvinceID == 0 {
-			log.Printf("⚠️ Skip item with 0 ID: TechID=%d, ProvID=%d", item.TechnicianID, item.ProvinceID)
-			continue
-		}
-
-		isActive := item.IsActive
-
-		data = append(data, technicianservicearea.TechnicianServiceArea{
-			TechnicianID: item.TechnicianID,
-			ProvinceID:   item.ProvinceID,
-			IsActive:     isActive,
-		})
-	}
-
-	if len(data) == 0 {
-		log.Println("   ⚠️ No valid service areas to seed (check JSON keys)")
-		return nil
-	}
-
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed technician service areas: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d technician service areas", len(data))
-	return nil
+	return s.db.Create(&items).Error
 }
 
 func (s *Seeder) seedTechnicianBadges() error {
-	if s.isAlreadySeeded(&technicianbadge.TechnicianBadge{}, "Technician badges") {
+	if s.isSeeded(&technicianbadge.TechnicianBadge{}) {
 		return nil
 	}
-
-	type techBadgeData struct {
-		TechnicianID uint `json:"technician_id"`
-		BadgeID      uint `json:"badge_id"`
-	}
-
-	var items []techBadgeData
-	if err := s.loadJSONFile(technicianBadgesFile, &items); err != nil {
-		return fmt.Errorf("load technician badges: %w", err)
-	}
-
-	data := make([]technicianbadge.TechnicianBadge, 0, len(items))
-	for _, item := range items {
-
-		if item.TechnicianID == 0 || item.BadgeID == 0 {
-			log.Printf("⚠️ Skip badge with 0 ID: TechID=%d, BadgeID=%d", item.TechnicianID, item.BadgeID)
-			continue
-		}
-
-		data = append(data, technicianbadge.TechnicianBadge{
-			TechnicianID: item.TechnicianID,
-			BadgeID:      item.BadgeID,
-		})
-	}
-
-	if len(data) == 0 {
-		log.Println("   ⚠️ No valid technician badges to seed")
-		return nil
-	}
-
-	if err := s.db.Create(&data).Error; err != nil {
-		return fmt.Errorf("seed technician badges: %w", err)
-	}
-
-	log.Printf("   ✓ Seeded %d technician badges", len(data))
-	return nil
-}
-
-func (s *Seeder) isAlreadySeeded(model interface{}, name string) bool {
-	var count int64
-	if err := s.db.Model(model).Count(&count).Error; err != nil {
-		log.Printf("   ⚠ Error checking %s: %v", name, err)
-		return false
-	}
-
-	if count > 0 {
-		log.Printf("   ⊘ %s already seeded, skipping", name)
-		return true
-	}
-	return false
-}
-
-func (s *Seeder) loadJSONFile(filepath string, target interface{}) error {
-	content, err := os.ReadFile(filepath)
+	items, err := loadSeedFile[technicianbadge.TechnicianBadge]("technicians/technician_badge.json")
 	if err != nil {
-		return fmt.Errorf("read file %s: %w", filepath, err)
+		return err
 	}
-
-	if err := json.Unmarshal(content, target); err != nil {
-		return fmt.Errorf("parse JSON from %s: %w", filepath, err)
-	}
-
-	return nil
+	return s.db.Create(&items).Error
 }
 
-func (s *Seeder) loadCategoryMap() (map[string]uint, error) {
-	var categories []servicecategory.ServiceCategory
-	if err := s.db.Find(&categories).Error; err != nil {
-		return nil, fmt.Errorf("read service categories: %w", err)
-	}
-
-	categoryMap := make(map[string]uint, len(categories))
-	for _, cat := range categories {
-		categoryMap[cat.CatName] = cat.ID
-	}
-
-	return categoryMap, nil
+func (s *Seeder) isSeeded(model interface{}) bool {
+	var count int64
+	s.db.Model(model).Count(&count)
+	return count > 0
 }
 
-func (s *Seeder) upsertBadge(name, description, iconURL string, level uint, isActive bool) error {
-	var existing badge.Badge
-	err := s.db.Unscoped().Where("name = ?", name).First(&existing).Error
+func (s *Seeder) getProvinceMap() (map[string]uint, error) {
+	var provs []province.Province
+	if err := s.db.Find(&provs).Error; err != nil {
+		return nil, err
+	}
+	m := make(map[string]uint)
+	for _, p := range provs {
+		m[p.NameTH] = p.ID
+	}
+	return m, nil
+}
 
-	switch {
-	case err == nil:
-		if existing.DeletedAt.Valid {
-			if err := s.db.Unscoped().
-				Model(&badge.Badge{}).
-				Where("id = ?", existing.ID).
-				Update("deleted_at", nil).Error; err != nil {
-				return fmt.Errorf("restore badge %q: %w", name, err)
-			}
-		}
+type addressLookup struct {
+	provMap            map[string]uint
+	distMap            map[string]uint
+	subDistMap         map[string]uint
+	subDistMapNoPostal map[string]uint
+}
 
-		existing.Description = description
-		existing.IconURL = iconURL
-		existing.Level = level
-		existing.IsActive = isActive
-
-		if err := s.db.Save(&existing).Error; err != nil {
-			return fmt.Errorf("update badge %q: %w", name, err)
-		}
-
-	case err == gorm.ErrRecordNotFound:
-		newBadge := badge.Badge{
-			Name:        name,
-			Description: description,
-			IconURL:     iconURL,
-			Level:       level,
-			IsActive:    isActive,
-		}
-		if err := s.db.Create(&newBadge).Error; err != nil {
-			return fmt.Errorf("create badge %q: %w", name, err)
-		}
-
-	default:
-		return fmt.Errorf("read badge %q: %w", name, err)
+func newAddressLookup(db *gorm.DB) (*addressLookup, error) {
+	l := &addressLookup{
+		provMap:            make(map[string]uint),
+		distMap:            make(map[string]uint),
+		subDistMap:         make(map[string]uint),
+		subDistMapNoPostal: make(map[string]uint),
 	}
 
-	return nil
+	var provs []province.Province
+	if err := db.Find(&provs).Error; err != nil {
+		return nil, err
+	}
+	for _, p := range provs {
+		l.provMap[normalizeTH(p.NameTH)] = p.ID
+	}
+
+	var dists []district.District
+	if err := db.Find(&dists).Error; err != nil {
+		return nil, err
+	}
+	for _, d := range dists {
+		normName := normalizeTH(d.NameTH)
+		l.distMap[fmt.Sprintf("%d|%s", d.ProvinceID, normName)] = d.ID
+
+		base := stripThaiPrefix(normName, "เขต", "อำเภอ")
+		if base != "" {
+			l.distMap[fmt.Sprintf("%d|%s", d.ProvinceID, base)] = d.ID
+		}
+	}
+
+	var subs []subdistrict.SubDistrict
+	if err := db.Find(&subs).Error; err != nil {
+		return nil, err
+	}
+	for _, s := range subs {
+		n := normalizeTH(s.NameTH)
+		p := normalizeTH(s.PostalCode)
+
+		l.subDistMap[fmt.Sprintf("%d|%s|%s", s.DistrictID, n, p)] = s.ID
+		l.subDistMapNoPostal[fmt.Sprintf("%d|%s", s.DistrictID, n)] = s.ID
+
+		base := stripThaiPrefix(n, "แขวง", "ตำบล")
+		if base != "" {
+			l.subDistMap[fmt.Sprintf("%d|%s|%s", s.DistrictID, base, p)] = s.ID
+			l.subDistMapNoPostal[fmt.Sprintf("%d|%s", s.DistrictID, base)] = s.ID
+		}
+	}
+	return l, nil
+}
+
+func (l *addressLookup) resolve(provName, distName, subName, postal string) (uint, uint, uint, error) {
+	provID, ok := l.provMap[normalizeTH(provName)]
+	if !ok {
+		return 0, 0, 0, fmt.Errorf("province not found: %s", provName)
+	}
+
+	distName = normalizeTH(distName)
+	distID, ok := l.distMap[fmt.Sprintf("%d|%s", provID, distName)]
+	if !ok {
+		base := stripThaiPrefix(distName, "เขต", "อำเภอ")
+		if base != "" {
+			distID, ok = l.distMap[fmt.Sprintf("%d|%s", provID, base)]
+		}
+	}
+	if !ok {
+		return provID, 0, 0, fmt.Errorf("district not found: %s", distName)
+	}
+
+	subName = normalizeTH(subName)
+	postal = normalizeTH(postal)
+
+	subID, ok := l.subDistMap[fmt.Sprintf("%d|%s|%s", distID, subName, postal)]
+	if !ok {
+		subID, ok = l.subDistMapNoPostal[fmt.Sprintf("%d|%s", distID, subName)]
+	}
+
+	if !ok {
+		return provID, distID, 0, fmt.Errorf("subdistrict not found: %s", subName)
+	}
+
+	return provID, distID, subID, nil
 }

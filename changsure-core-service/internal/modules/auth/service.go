@@ -7,9 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"changsure-core-service/internal/config"
@@ -22,6 +24,7 @@ type Service interface {
 	Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error)
 	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
 	GenerateRefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
+	ValidateTechnicianToken(tokenString string) (uint, error)
 }
 
 type CustomerReader interface {
@@ -308,4 +311,42 @@ func isDuplicateError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func (s *service) ValidateTechnicianToken(tokenString string) (uint, error) {
+	// Parse Token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// ตรวจสอบ Signing Method ว่าเป็น HMAC หรือไม่
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// ใช้ Secret Key จาก Config
+		return []byte(s.cfg.JWT.Secret), nil
+	})
+
+	if err != nil {
+		return 0, fmt.Errorf("parse token: %w", err)
+	}
+
+	// Validate Claims
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// เช็ค Role
+		role, ok := claims["role"].(string)
+		if !ok || role != "technician" {
+			return 0, fmt.Errorf("role is not technician")
+		}
+
+		// เช็ค User ID (JWT มักเก็บตัวเลขเป็น float64)
+		// **หมายเหตุ:** เช็ค key ใน JWT ของคุณว่าใช้ "user_id", "sub", หรือ "id"
+		var userID uint
+		if idFloat, ok := claims["user_id"].(float64); ok {
+			userID = uint(idFloat)
+		} else {
+			return 0, fmt.Errorf("invalid user id claim")
+		}
+
+		return userID, nil
+	}
+
+	return 0, fmt.Errorf("invalid token")
 }

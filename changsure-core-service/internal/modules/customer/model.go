@@ -14,7 +14,7 @@ type Customer struct {
 	PasswordHash string  `gorm:"type:varchar(255);not null" json:"-"`
 
 	Phone     *string    `gorm:"type:varchar(10)" json:"phone"`
-	AvatarURL *string    `gorm:"type:varchar(255)" json:"avatar_url"`
+	AvatarURL *string    `gorm:"type:varchar(500)" json:"avatar_url"`
 	CreatedAt time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"-"`
