@@ -158,10 +158,11 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initCustomerAddressModule()
 	c.initTechnicianMatchingModule()
 	c.initTechnicianScheduleModule()
-	c.initTechnicianCalendarModule()
 
 	c.initTimeSlotModule()
 	c.initBookingModule()
+
+	c.initTechnicianCalendarModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -330,6 +331,9 @@ func (c *Container) initBookingModule() {
 }
 
 func (c *Container) initTechnicianCalendarModule() {
+	if c.BookingRepo == nil || c.TimeSlotRepo == nil || c.TechnicianScheduleRepo == nil {
+		panic("technician_calendar: missing dependencies (BookingRepo/TimeSlotRepo/TechnicianScheduleRepo)")
+	}
 	service := techniciancalendar.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo)
 	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(service)
 }

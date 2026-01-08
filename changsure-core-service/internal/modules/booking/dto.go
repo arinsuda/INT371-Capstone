@@ -1,7 +1,7 @@
 package booking
 
 type CreateBookingRequest struct {
-	CustomerID          uint   `json:"customer_id" form:"customer_id"`
+	CustomerID          uint   `json:"-" form:"-"`
 	TechnicianID        uint   `json:"technician_id" validate:"required" form:"technician_id"`
 	TechnicianServiceID uint   `json:"technician_service_id" validate:"required" form:"technician_service_id"`
 	AddressID           uint   `json:"address_id" validate:"required" form:"address_id"`
@@ -21,4 +21,17 @@ type TimeSlotAvailability struct {
 	ID          uint   `json:"id"`
 	Label       string `json:"label"`
 	IsAvailable bool   `json:"is_available"`
+}
+
+type RejectBookingRequest struct {
+	Reason string `json:"reason,omitempty" validate:"max=255"`
+}
+
+type ListTechnicianBookingsQuery struct {
+	Status    string `query:"status" validate:"omitempty,oneof=PENDING ACCEPTED IN_PROGRESS WAITING_PAYMENT COMPLETED CANCELLED"`
+	StartDate string `query:"start_date" validate:"omitempty,datetime=2006-01-02"`
+	EndDate   string `query:"end_date" validate:"omitempty,datetime=2006-01-02"`
+
+	Page  int `query:"page" validate:"omitempty,min=1"`
+	Limit int `query:"limit" validate:"omitempty,min=1,max=100"`
 }

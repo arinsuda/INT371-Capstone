@@ -2,11 +2,13 @@ package booking
 
 import (
 	"context"
+	"time"
 
 	address "changsure-core-service/internal/modules/customer_address"
 	techService "changsure-core-service/internal/modules/technician_service"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository interface {
@@ -16,6 +18,9 @@ type Repository interface {
 	CreateImages(ctx context.Context, images []BookingImage) error
 	FindByID(ctx context.Context, id uint) (*Booking, error)
 
+	FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error)
+	UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error
+
 	GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error)
 	IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error)
 
@@ -24,6 +29,16 @@ type Repository interface {
 	GetBookingsByRange(ctx context.Context, technicianID uint, startDate, endDate string) ([]Booking, error)
 
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
+
+	ListTechnicianBookings(
+		ctx context.Context,
+		technicianID uint,
+		status string,
+		startDate string,
+		endDate string,
+		offset int,
+		limit int,
+	) ([]Booking, int64, error)
 }
 
 type bookingRepository struct {
@@ -121,4 +136,73 @@ func (r *bookingRepository) IsTechnicianServingProvince(ctx context.Context, tec
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *bookingRepository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error) {
+	var b Booking
+	err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&b, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (r *bookingRepository) UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"status":     status,
+			"updated_at": updatedAt,
+		}).Error
+}
+
+func (r *bookingRepository) ListTechnicianBookings(
+	ctx context.Context,
+	technicianID uint,
+	status string,
+	startDate string,
+	endDate string,
+	offset int,
+	limit int,
+) ([]Booking, int64, error) {
+
+	q := r.db.WithContext(ctx).Model(&Booking{}).
+		Where("technician_id = ?", technicianID)
+
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if startDate != "" && endDate != "" {
+		q = q.Where("appointment_date BETWEEN ? AND ?", startDate, endDate)
+	} else if startDate != "" {
+		q = q.Where("appointment_date >= ?", startDate)
+	} else if endDate != "" {
+		q = q.Where("appointment_date <= ?", endDate)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var bookings []Booking
+	err := q.
+		Preload("Images").
+		Preload("TimeSlot").
+		Preload("Technician").
+		Preload("TechnicianService").
+		Preload("TechnicianService.Service").
+		Order("appointment_date DESC").
+		Order("time_slot_id ASC").
+		Offset(offset).
+		Limit(limit).
+		Find(&bookings).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return bookings, total, nil
 }

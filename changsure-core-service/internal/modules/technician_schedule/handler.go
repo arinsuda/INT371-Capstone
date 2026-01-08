@@ -16,7 +16,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// PUT /api/v1/technicians/me/schedule/weekly
 func (h *Handler) UpdateWeeklySchedule(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
@@ -39,7 +38,6 @@ func (h *Handler) UpdateWeeklySchedule(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "weekly schedule updated"})
 }
 
-// GET /api/v1/technicians/me/schedule/weekly
 func (h *Handler) GetWeeklySchedule(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
@@ -51,16 +49,13 @@ func (h *Handler) GetWeeklySchedule(c fiber.Ctx) error {
 		return appErrors.InternalError(c, "failed to get schedule", err)
 	}
 
-	// ถ้ายังไม่เคยตั้งค่า ให้ Return Default เป็น 0-6 (ทำงานทุกวัน) หรือ [] (หยุดทุกวัน) ตาม Business Logic
-	// ในที่นี้สมมติว่าถ้าไม่ตั้งค่าคือ "ทำงานทุกวัน"
 	if len(days) == 0 {
-		// days = []int{0, 1, 2, 3, 4, 5, 6} // Uncomment ถ้าต้องการ Default ทำงานทุกวัน
+
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": days})
 }
 
-// POST /api/v1/technicians/me/schedule/leaves
 func (h *Handler) AddLeaveDate(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
@@ -83,7 +78,6 @@ func (h *Handler) AddLeaveDate(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "leave date added"})
 }
 
-// DELETE /api/v1/technicians/me/schedule/leaves
 func (h *Handler) RemoveLeaveDate(c fiber.Ctx) error {
 	techID := utils.GetUserID(c)
 	if techID == 0 {

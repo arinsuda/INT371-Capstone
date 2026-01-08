@@ -110,23 +110,26 @@ func (h *Handler) CreateBooking(c fiber.Ctx) error {
 	h.hydrateBookingMediaURLs(c.Context(), result)
 
 	if h.hub != nil {
-		go func(b *Booking) {
-			payloadData := map[string]any{
-				"booking_id":       b.ID,
-				"appointment_date": b.AppointmentDate.Format("2006-01-02"),
-				"time_slot":        b.TimeSlot.StartTime + " - " + b.TimeSlot.EndTime,
-				"price":            b.PriceAmount,
-				"service_name":     b.TechnicianService.Service.SerName,
+		payloadData := map[string]any{
+			"booking_id":       result.ID,
+			"appointment_date": result.AppointmentDate.Format("2006-01-02"),
+			"price":            result.PriceAmount,
+			"technician_id":    result.TechnicianID,
+		}
+
+		if result.TimeSlot.ID != 0 && result.TimeSlot.StartTime != "" {
+			payloadData["time_slot"] = result.TimeSlot.StartTime + " - " + result.TimeSlot.EndTime
+		}
+
+		if result.TechnicianService.ID != 0 && result.TechnicianService.Service.ID != 0 {
+			if result.TechnicianService.Service.SerName != "" {
+				payloadData["service_name"] = result.TechnicianService.Service.SerName
 			}
+		}
 
-			if b.TechnicianService.Service.SerName != "" {
-				payloadData["service_name"] = b.TechnicianService.Service.SerName
-			}
+		payload := realtime.MarshalEvent("BOOKING_CREATED", payloadData)
 
-			payload := realtime.MarshalEvent("BOOKING_CREATED", payloadData)
-			h.hub.BroadcastToTechnician(b.TechnicianID, payload)
-
-		}(result)
+		go h.hub.BroadcastToTechnician(result.TechnicianID, payload)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -171,14 +174,146 @@ func (h *Handler) GetBookingDetail(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": booking})
 }
 
+func (h *Handler) AcceptBooking(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	if techID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	booking, err := h.service.AcceptBooking(c.Context(), techID, bookingID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingNotFound):
+			return appErrors.NotFound(c, "booking not found")
+		case errors.Is(err, ErrForbiddenBooking):
+			return appErrors.Forbidden(c, "forbidden")
+		case errors.Is(err, ErrInvalidBookingStatus):
+			return appErrors.Conflict(c, "invalid booking status")
+		default:
+			return appErrors.InternalError(c, "failed to accept booking", err)
+		}
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), booking)
+
+	if h.hub != nil && booking.CustomerID != 0 {
+		payload := realtime.MarshalEvent("BOOKING_ACCEPTED", map[string]any{
+			"booking_id":       booking.ID,
+			"status":           booking.Status,
+			"technician_id":    booking.TechnicianID,
+			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
+		})
+		go h.hub.BroadcastToCustomer(booking.CustomerID, payload)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "รับงานสำเร็จ",
+		"data":    booking,
+	})
+}
+
+func (h *Handler) RejectBooking(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	if techID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	var req RejectBookingRequest
+	_ = c.Bind().Body(&req) // reason optional
+
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+
+	booking, err := h.service.RejectBooking(c.Context(), techID, bookingID, req.Reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingNotFound):
+			return appErrors.NotFound(c, "booking not found")
+		case errors.Is(err, ErrForbiddenBooking):
+			return appErrors.Forbidden(c, "forbidden")
+		case errors.Is(err, ErrInvalidBookingStatus):
+			return appErrors.Conflict(c, "invalid booking status")
+		default:
+			return appErrors.InternalError(c, "failed to reject booking", err)
+		}
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), booking)
+
+	if h.hub != nil && booking.CustomerID != 0 {
+		payload := realtime.MarshalEvent("BOOKING_REJECTED", map[string]any{
+			"booking_id":       booking.ID,
+			"status":           booking.Status,
+			"reason":           req.Reason,
+			"technician_id":    booking.TechnicianID,
+			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
+		})
+		go h.hub.BroadcastToCustomer(booking.CustomerID, payload)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "ปฏิเสธงานสำเร็จ",
+		"data":    booking,
+	})
+}
+
+func (h *Handler) ListTechnicianBookings(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	if techID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	var q ListTechnicianBookingsQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return appErrors.BadRequest(c, "Invalid query parameters")
+	}
+
+	if details, err := validation.ValidateStruct(q); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+
+	items, total, page, limit, err := h.service.ListTechnicianBookings(c.Context(), techID, q)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to fetch bookings", err)
+	}
+
+	for i := range items {
+		h.hydrateBookingMediaURLs(c.Context(), &items[i])
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"items": items,
+			"meta": fiber.Map{
+				"page":  page,
+				"limit": limit,
+				"total": total,
+			},
+		},
+	})
+}
+
 func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
-	if b == nil {
+	if b == nil || h.storage == nil {
 		return
 	}
 
-	ttl := 24 * time.Hour // ปรับได้
+	ttl := 24 * time.Hour
 
-	// 1) booking images
 	if len(b.Images) > 0 {
 		for i := range b.Images {
 			key := b.Images[i].ImageURL
@@ -192,8 +327,6 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
 		}
 	}
 
-	// 2) technician avatar
-	// (avatar_url อยู่ใน b.Technician ซึ่งเป็น struct ไม่ใช่ pointer)
 	if b.Technician.AvatarURL != nil && *b.Technician.AvatarURL != "" {
 		key := *b.Technician.AvatarURL
 		url, err := h.storage.PresignGet(ctx, key, ttl, false)
@@ -202,8 +335,6 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
 		}
 	}
 
-	// 3) service image_urls
-	// b.TechnicianService.Service.ImageURLs เป็น []string
 	if b.TechnicianService.Service.ImageURLs != nil && len(b.TechnicianService.Service.ImageURLs) > 0 {
 		for i := range b.TechnicianService.Service.ImageURLs {
 			key := b.TechnicianService.Service.ImageURLs[i]

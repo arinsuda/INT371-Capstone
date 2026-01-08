@@ -101,23 +101,45 @@ func (r *Router) setupProtectedRoutes() {
 }
 
 func (r *Router) setupWebSocketRoutes() {
-	verifyFn := func(token string) (uint, bool) {
-		// เรียกใช้ ValidateTechnicianToken จาก AuthService
-		techID, err := r.container.AuthService.ValidateTechnicianToken(token)
-		if err != nil {
-			return 0, false
+	verifyFn := func(token string) (uint, string, bool) {
+		token = strings.TrimSpace(strings.TrimPrefix(token, "Bearer "))
+		if token == "" {
+			return 0, "", false
 		}
-		return techID, true
+
+		claims, err := middleware.ParseToken(token, r.cfg.JWT.Secret)
+		if err != nil || claims == nil || claims.UserID == 0 || claims.Role == "" {
+			return 0, "", false
+		}
+
+		if claims.Role != "technician" && claims.Role != "customer" {
+			return 0, "", false
+		}
+		return claims.UserID, claims.Role, true
 	}
 
 	wsHandler := realtime.NewWSHandler(r.hub, verifyFn)
 
-	r.app.Get("/ws/technicians", func(c fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
-	}, websocket.New(wsHandler.TechnicianWS))
+	r.app.Get("/ws/technicians",
+		func(c fiber.Ctx) error {
+			if websocket.IsWebSocketUpgrade(c) {
+				return c.Next()
+			}
+			return fiber.ErrUpgradeRequired
+		},
+
+		websocket.New(wsHandler.TechnicianWS),
+	)
+
+	r.app.Get("/ws/customers",
+		func(c fiber.Ctx) error {
+			if websocket.IsWebSocketUpgrade(c) {
+				return c.Next()
+			}
+			return fiber.ErrUpgradeRequired
+		},
+		websocket.New(wsHandler.CustomerWS),
+	)
 }
 
 // setupSharedResources configures resources available to all authenticated users
@@ -158,6 +180,7 @@ func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
 	me := api.Group("/technicians/me", middleware.TechnicianOnly())
 
+	r.container.BookingHandler.RegisterTechnicianRoutes(me)
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.TechnicianPostHandler.RegisterRoutes(me)

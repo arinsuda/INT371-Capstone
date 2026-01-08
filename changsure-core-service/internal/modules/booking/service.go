@@ -22,6 +22,10 @@ var (
 	ErrTechnicianClosed      = errors.New("technician is not working on this date")
 	ErrInvalidTimeSlot       = errors.New("time slot is invalid or changed")
 	ErrServiceAreaNotCovered = errors.New("technician does not serve this area")
+
+	ErrBookingNotFound      = errors.New("booking not found")
+	ErrForbiddenBooking     = errors.New("forbidden booking")
+	ErrInvalidBookingStatus = errors.New("invalid booking status")
 )
 
 var bkkLoc *time.Location
@@ -39,6 +43,11 @@ type Service interface {
 
 	CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*Booking, error)
 	GetBookingDetail(ctx context.Context, bookingID uint) (*Booking, error)
+
+	AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*Booking, error)
+	RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error)
+
+	ListTechnicianBookings(ctx context.Context, technicianID uint, q ListTechnicianBookingsQuery) ([]Booking, int64, int, int, error)
 }
 
 type service struct {
@@ -98,19 +107,14 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 	}
 	dateStr := req.AppointmentDate
 
-	// ==========================================
-	// 🛡️ VALIDATION PHASE
-	// ==========================================
-
-	// 1. ✅ เช็คว่าช่างทำงานวันนั้นไหม (Weekly Schedule)
-	weekday := int(appointDate.Weekday()) // 0=Sun, 1=Mon
+	weekday := int(appointDate.Weekday())
 	workingDays, err := s.scheduleRepo.GetWeeklySchedule(ctx, req.TechnicianID)
 	if err != nil {
 		return nil, err
 	}
 	isWorkingDay := false
 	if len(workingDays) == 0 {
-		isWorkingDay = true // Default ถ้าไม่ตั้งค่าคือทำทุกวัน
+		isWorkingDay = true
 	} else {
 		for _, day := range workingDays {
 			if day == weekday {
@@ -123,8 +127,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, ErrTechnicianClosed
 	}
 
-	// 2. ✅ เช็คว่าวันนั้นลาไหม (Leave Date)
-	// ใช้ GetLeavesByRange แบบวันเดียว (Start=End)
 	leavesMap, err := s.scheduleRepo.GetLeavesByRange(ctx, req.TechnicianID, dateStr, dateStr)
 	if err != nil {
 		return nil, err
@@ -133,32 +135,25 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, ErrTechnicianClosed
 	}
 
-	// 3. ✅ เช็ค Time Slot Consistency (ป้องกันเคสช่างเปลี่ยนเวลาชนกับลูกค้าจอง)
 	targetSlot, err := s.timeSlotRepo.FindByID(ctx, req.TimeSlotID)
 	if err != nil {
-		// ถ้าหา ID ไม่เจอ แสดงว่าช่างลบไปแล้ว
+
 		return nil, ErrInvalidTimeSlot
 	}
 
-	// เช็คว่าเป็น Slot ของช่างคนนี้จริงไหม (หรือเป็น Default)
 	if targetSlot.TechnicianID != nil && *targetSlot.TechnicianID != req.TechnicianID {
 		return nil, ErrInvalidTimeSlot
 	}
-	// เช็คว่า Active ไหม
+
 	if !targetSlot.IsActive {
 		return nil, ErrInvalidTimeSlot
 	}
-
-	// ==========================================
-	// 💾 TRANSACTION PHASE
-	// ==========================================
 
 	var newBooking *Booking
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
 
-		// 4. เช็ค Double Booking (เหมือนเดิม)
 		isBooked, err := txRepo.IsSlotBooked(ctx, req.TechnicianID, req.AppointmentDate, req.TimeSlotID)
 		if err != nil {
 			return err
@@ -240,6 +235,135 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 
 func (s *service) GetBookingDetail(ctx context.Context, bookingID uint) (*Booking, error) {
 	return s.repo.FindByID(ctx, bookingID)
+}
+
+func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*Booking, error) {
+	var updated *Booking
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repo.WithTx(tx)
+
+		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrBookingNotFound
+			}
+			return err
+		}
+
+		if b.TechnicianID != technicianID {
+			return ErrForbiddenBooking
+		}
+
+		if b.Status != BookingStatusPending {
+			return ErrInvalidBookingStatus
+		}
+
+		now := time.Now()
+		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusAccepted, now); err != nil {
+			return err
+		}
+
+		updated = b
+		updated.Status = BookingStatusAccepted
+		updated.UpdatedAt = now
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	full, err := s.repo.FindByID(ctx, bookingID)
+	if err == nil {
+		return full, nil
+	}
+	return updated, nil
+}
+
+func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error) {
+	reason = strings.TrimSpace(reason)
+	if len(reason) > 255 {
+		reason = reason[:255]
+	}
+
+	var updated *Booking
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repo.WithTx(tx)
+
+		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrBookingNotFound
+			}
+			return err
+		}
+
+		if b.TechnicianID != technicianID {
+			return ErrForbiddenBooking
+		}
+
+		if b.Status != BookingStatusPending {
+			return ErrInvalidBookingStatus
+		}
+
+		now := time.Now()
+		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusCancelled, now); err != nil {
+			return err
+		}
+
+		updated = b
+		updated.Status = BookingStatusCancelled
+		updated.UpdatedAt = now
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	full, err := s.repo.FindByID(ctx, bookingID)
+	if err == nil {
+		return full, nil
+	}
+	return updated, nil
+}
+
+func (s *service) ListTechnicianBookings(
+	ctx context.Context,
+	technicianID uint,
+	q ListTechnicianBookingsQuery,
+) ([]Booking, int64, int, int, error) {
+
+	page := q.Page
+	limit := q.Limit
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := (page - 1) * limit
+
+	items, total, err := s.repo.ListTechnicianBookings(
+		ctx,
+		technicianID,
+		q.Status,
+		q.StartDate,
+		q.EndDate,
+		offset,
+		limit,
+	)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
+
+	return items, total, page, limit, nil
 }
 
 func getFinalPrice(fixed *float64, min *float64) float64 {

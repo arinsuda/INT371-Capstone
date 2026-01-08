@@ -4,23 +4,21 @@ import (
 	"time"
 )
 
-// WeeklySchedule เก็บ Pattern การทำงานรายสัปดาห์ (เช่น จันทร์, พุธ, ศุกร์)
 type WeeklySchedule struct {
 	ID           uint `gorm:"primaryKey" json:"id"`
 	TechnicianID uint `gorm:"index;not null" json:"-"`
 
-	DayOfWeek int  `gorm:"not null" json:"day_of_week"` // 0=Sun, 1=Mon, ..., 6=Sat
+	DayOfWeek int  `gorm:"not null" json:"day_of_week"`
 	IsWorking bool `gorm:"default:false" json:"is_working"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// LeaveDate เก็บวันหยุดพิเศษ (Specific Dates)
 type LeaveDate struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	TechnicianID uint      `gorm:"index;not null" json:"-"`
-	Date         time.Time `gorm:"type:date;index;not null" json:"date"` // 2026-04-13
+	Date         time.Time `gorm:"type:date;index;not null" json:"date"`
 	Reason       string    `gorm:"type:text" json:"reason"`
 
 	CreatedAt time.Time `json:"created_at"`

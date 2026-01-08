@@ -17,10 +17,9 @@ type Service interface {
 type service struct {
 	bookingRepo  booking.Repository
 	timeSlotRepo timeslot.Repository
-	scheduleRepo technicianschedule.Repository // ✅ Inject Schedule Repo
+	scheduleRepo technicianschedule.Repository
 }
 
-// ✅ อัปเดต Constructor
 func NewService(bRepo booking.Repository, tRepo timeslot.Repository, sRepo technicianschedule.Repository) Service {
 	return &service{
 		bookingRepo:  bRepo,
@@ -39,13 +38,11 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	lastOfMonth := firstOfMonth.AddDate(0, 1, -1)
 
-	// 1. ดึง Time Slots
 	techSlots, err := s.timeSlotRepo.GetSlotsForTechnician(ctx, q.TechnicianID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. ดึง Bookings
 	bookings, err := s.bookingRepo.GetBookingsByRange(
 		ctx,
 		q.TechnicianID,
@@ -56,26 +53,23 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 		return nil, err
 	}
 
-	// 3. ✅ ดึง Weekly Schedule
 	workingDays, err := s.scheduleRepo.GetWeeklySchedule(ctx, q.TechnicianID)
 	if err != nil {
 		return nil, err
 	}
-	// แปลงเป็น Map เพื่อให้เช็คง่าย
+
 	isWorkingDayMap := make(map[int]bool)
 	if len(workingDays) > 0 {
 		for _, day := range workingDays {
 			isWorkingDayMap[day] = true
 		}
 	} else {
-		// ถ้าไม่ตั้งค่า ถือว่าทำทุกวัน หรือ หยุดทุกวัน (เลือกตาม Business Logic)
-		// กรณีนี้สมมติ: ถ้าไม่ตั้งค่า = ทำงานทุกวัน (เพื่อไม่ให้ Calendar ว่างเปล่าตอนเริ่มใช้งาน)
+
 		for i := 0; i <= 6; i++ {
 			isWorkingDayMap[i] = true
 		}
 	}
 
-	// 4. ✅ ดึงวันลา (Leaves)
 	leavesMap, err := s.scheduleRepo.GetLeavesByRange(
 		ctx,
 		q.TechnicianID,
@@ -86,7 +80,6 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 		return nil, err
 	}
 
-	// Map Booking
 	bookedMap := make(map[string]map[uint]bool)
 	for _, b := range bookings {
 		dateKey := b.AppointmentDate.Format("2006-01-02")
@@ -101,12 +94,11 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 
 	for d := firstOfMonth; !d.After(lastOfMonth); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
-		weekday := int(d.Weekday()) // 0=Sun, 1=Mon
+		weekday := int(d.Weekday())
 
 		bookedInDay := bookedMap[dateStr]
 		bookedCount := len(bookedInDay)
 
-		// สร้าง Detail
 		slotDetails := make([]TimeSlotDetail, 0, totalSlotsCount)
 		for _, slot := range techSlots {
 			isBooked := false
@@ -120,18 +112,16 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 			})
 		}
 
-		// ✅ คำนวณ Status โดยรวม Schedule และ Leaves
 		status := "AVAILABLE"
 
-		// 1. เช็ควันหยุด (Weekly)
 		if !isWorkingDayMap[weekday] {
 			status = "CLOSED"
 		}
-		// 2. เช็ควันลา (Leaves)
+
 		if leavesMap[dateStr] {
 			status = "CLOSED"
 		}
-		// 3. เช็ค TimeSlot
+
 		if status != "CLOSED" {
 			if totalSlotsCount == 0 {
 				status = "CLOSED"

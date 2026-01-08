@@ -7,11 +7,9 @@ import (
 )
 
 type Repository interface {
-	// Weekly
 	UpdateWeeklySchedule(ctx context.Context, techID uint, workingDays []int) error
-	GetWeeklySchedule(ctx context.Context, techID uint) ([]int, error) // Return array of working days (0-6)
+	GetWeeklySchedule(ctx context.Context, techID uint) ([]int, error)
 
-	// Leaves
 	AddLeaveDate(ctx context.Context, leave *LeaveDate) error
 	RemoveLeaveDate(ctx context.Context, techID uint, dateStr string) error
 	GetLeavesByRange(ctx context.Context, techID uint, startDate, endDate string) (map[string]bool, error)
@@ -27,12 +25,11 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) UpdateWeeklySchedule(ctx context.Context, techID uint, workingDays []int) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 1. ลบ Schedule เก่าทั้งหมดของช่างคนนี้
+
 		if err := tx.Where("technician_id = ?", techID).Delete(&WeeklySchedule{}).Error; err != nil {
 			return err
 		}
 
-		// 2. ถ้ามีวันทำงานส่งมา ให้ Insert ใหม่
 		if len(workingDays) > 0 {
 			schedules := make([]WeeklySchedule, len(workingDays))
 			for i, day := range workingDays {
@@ -60,7 +57,7 @@ func (r *repository) GetWeeklySchedule(ctx context.Context, techID uint) ([]int,
 }
 
 func (r *repository) AddLeaveDate(ctx context.Context, leave *LeaveDate) error {
-	// ใช้ FirstOrCreate เพื่อป้องกันการลาซ้ำวันเดิม
+
 	return r.db.WithContext(ctx).
 		Where(LeaveDate{TechnicianID: leave.TechnicianID, Date: leave.Date}).
 		Assign(LeaveDate{Reason: leave.Reason}).

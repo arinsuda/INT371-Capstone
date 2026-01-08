@@ -19,7 +19,7 @@ func (h *Handler) GetTechnicianCalendar(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid query parameters")
 	}
 
-	// Validate ง่ายๆ (หรือจะใช้ Validator lib ก็ได้)
+	
 	if query.TechnicianID == 0 || query.Month == "" {
 		return appErrors.BadRequest(c, "technician_id and month are required")
 	}
