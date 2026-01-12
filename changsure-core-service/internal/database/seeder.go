@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	badge "changsure-core-service/internal/modules/badge"
@@ -187,14 +189,40 @@ func (s *Seeder) seedTimeSlots() error {
 }
 
 func (s *Seeder) seedServiceCategories() error {
-	if s.isSeeded(&servicecategory.ServiceCategory{}) {
-		return nil
+
+	type CategoryInput struct {
+		CatName string  `json:"cat_name"`
+		CatDesc *string `json:"cat_desc"`
+		IconURL *string `json:"icon_url"`
 	}
-	items, err := loadSeedFile[servicecategory.ServiceCategory]("categories/category.json")
+
+	items, err := loadSeedFile[CategoryInput]("categories/category.json")
 	if err != nil {
 		return err
 	}
-	return s.db.Create(&items).Error
+
+	data := make([]servicecategory.ServiceCategory, 0, len(items))
+	for _, it := range items {
+		name := strings.TrimSpace(it.CatName)
+		if name == "" {
+			continue
+		}
+		data = append(data, servicecategory.ServiceCategory{
+			CatName:  name,
+			CatDesc:  it.CatDesc,
+			IconURL:  it.IconURL,
+			IsActive: true,
+		})
+	}
+
+	if len(data) == 0 {
+		return fmt.Errorf("no valid service categories loaded from seeds/categories/category.json (check json keys)")
+	}
+
+	return s.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "cat_name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cat_description", "icon_url", "is_active", "updated_at"}),
+	}).Create(&data).Error
 }
 
 func (s *Seeder) seedServices() error {
@@ -364,27 +392,108 @@ func (s *Seeder) seedTechnicianServiceAreas() error {
 	if s.isSeeded(&technicianservicearea.TechnicianServiceArea{}) {
 		return nil
 	}
-	items, err := loadSeedFile[technicianservicearea.TechnicianServiceArea]("technicians/technician_service_area.json")
+
+	type Input struct {
+		TechnicianID uint   `json:"technician_id"`
+		ProvinceName string `json:"province"`
+		IsActive     *bool  `json:"is_active"`
+	}
+
+	items, err := loadSeedFile[Input]("technicians/technician_service_area.json")
 	if err != nil {
 		return err
 	}
-	return s.db.Create(&items).Error
+
+	provMap, err := s.getProvinceMap()
+	if err != nil {
+		return err
+	}
+
+	data := make([]technicianservicearea.TechnicianServiceArea, 0, len(items))
+
+	for i, it := range items {
+		if it.TechnicianID == 0 {
+			continue
+		}
+
+		name := strings.TrimSpace(it.ProvinceName)
+		if name == "" {
+			log.Printf("⚠️ Skip service_area #%d: empty province name (tech_id=%d)", i, it.TechnicianID)
+			continue
+		}
+
+		pid, ok := provMap[name]
+		if !ok {
+			return fmt.Errorf("province %q not found for technician_service_area (idx=%d tech_id=%d)", name, i, it.TechnicianID)
+		}
+
+		active := true
+		if it.IsActive != nil {
+			active = *it.IsActive
+		}
+
+		data = append(data, technicianservicearea.TechnicianServiceArea{
+			TechnicianID: it.TechnicianID,
+			ProvinceID:   pid,
+			IsActive:     active,
+		})
+	}
+
+	if len(data) == 0 {
+		log.Println("ℹ️ No technician service areas to seed")
+		return nil
+	}
+
+	return s.db.CreateInBatches(&data, 100).Error
 }
 
 func (s *Seeder) seedTechnicianBadges() error {
 	if s.isSeeded(&technicianbadge.TechnicianBadge{}) {
 		return nil
 	}
+
 	items, err := loadSeedFile[technicianbadge.TechnicianBadge]("technicians/technician_badge.json")
 	if err != nil {
 		return err
 	}
-	return s.db.Create(&items).Error
+
+	// โหลด technician ids ที่มีจริง
+	var techIDs []uint
+	if err := s.db.Model(&technician.Technician{}).Pluck("id", &techIDs).Error; err != nil {
+		return err
+	}
+	techSet := make(map[uint]struct{}, len(techIDs))
+	for _, id := range techIDs {
+		techSet[id] = struct{}{}
+	}
+
+	filtered := make([]technicianbadge.TechnicianBadge, 0, len(items))
+	for i, it := range items {
+		if it.TechnicianID == 0 {
+			continue
+		}
+		if _, ok := techSet[it.TechnicianID]; !ok {
+			log.Printf("⚠️ Skip technician_badge #%d: technician_id=%d not found", i, it.TechnicianID)
+			continue
+		}
+		filtered = append(filtered, it)
+	}
+
+	if len(filtered) == 0 {
+		log.Println("ℹ️ No technician badges to seed (all invalid or empty)")
+		return nil
+	}
+
+	return s.db.CreateInBatches(&filtered, 100).Error
 }
 
 func (s *Seeder) isSeeded(model interface{}) bool {
 	var count int64
-	s.db.Model(model).Count(&count)
+	tx := s.db.Model(model).Count(&count)
+	if tx.Error != nil {
+		log.Printf("⚠️ isSeeded count error: %v", tx.Error)
+		return false
+	}
 	return count > 0
 }
 
