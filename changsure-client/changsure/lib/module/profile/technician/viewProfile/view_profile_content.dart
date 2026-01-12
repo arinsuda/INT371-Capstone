@@ -32,16 +32,6 @@ class _ViewProfileContentState extends ConsumerState<ViewProfileContent> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            ref.read(bottomSubPageProvider.notifier).state = null;
-          },
-        ),
-      ),
       body: RefreshIndicator(
         color: AppColors.primary,
         backgroundColor: Colors.white,
@@ -53,10 +43,11 @@ class _ViewProfileContentState extends ConsumerState<ViewProfileContent> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-              child: Column(
+              child:
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
                   Center(
                     child: Stack(

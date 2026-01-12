@@ -21,15 +21,56 @@ class Service {
   });
 }
 
-class BookingCard extends StatelessWidget {
+class BookingDateResult {
+  final DateTime day;
+  final String time;
+
+  BookingDateResult({required this.day, required this.time});
+}
+
+class BookingCard extends StatefulWidget {
   final Technician technician;
   final Service service;
+  final Function(BookingDateResult) onDateSelected;
+  final bool readOnly;
+  final BookingDateResult? initialDate;
+
 
   const BookingCard({
     super.key,
     required this.technician,
     required this.service,
+    required this.onDateSelected,
+    this.readOnly = false,
+    this.initialDate,
   });
+
+  @override
+  State<BookingCard> createState() => _BookingCardState();
+}
+
+class _BookingCardState extends State<BookingCard> {
+  BookingDateResult? bookingDate;
+
+  String _formatBookingDate(DateTime day, String time) {
+    final thaiMonths = [
+      '',
+      'มกราคม',
+      'กุมภาพันธ์',
+      'มีนาคม',
+      'เมษายน',
+      'พฤษภาคม',
+      'มิถุนายน',
+      'กรกฎาคม',
+      'สิงหาคม',
+      'กันยายน',
+      'ตุลาคม',
+      'พฤศจิกายน',
+      'ธันวาคม',
+    ];
+
+    return '${day.day} ${thaiMonths[day.month]} ${day.year}, $time';
+  }
 
   Widget _buildCategoryTag(String name) {
     final colorMap = {
@@ -68,9 +109,258 @@ class BookingCard extends StatelessWidget {
     );
   }
 
+  Widget _buildEditableDateView() {
+    if (bookingDate == null) {
+      return OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          side: const BorderSide(color: AppColors.primary),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const BookingCalendar(),
+            ),
+          );
+
+          if (result != null && result is BookingDateResult) {
+            setState(() {
+              bookingDate = result;
+            });
+
+            widget.onDateSelected(result);
+          }
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset("assets/icons/calendar.svg", width: 16, height: 16),
+            const SizedBox(width: 8),
+            const Text(
+              "เลือกวันรับบริการ",
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return GestureDetector(
+        onTap: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BookingCalendar(
+                initialDay: bookingDate!.day,
+                initialTime: bookingDate!.time,
+              ),
+            ),
+          );
+
+          if (result != null && result is BookingDateResult) {
+            setState(() {
+              bookingDate = result;
+            });
+
+            widget.onDateSelected(result);
+          }
+        },
+        child: _buildDateDisplay(),
+      );
+    }
+  }
+
+  Widget _buildReadOnlyDateView() {
+    if (bookingDate == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            "ยังไม่ได้เลือกวันรับบริการ",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return _buildDateDisplay();
+  }
+
+  Widget _buildSelectButton() {
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        side: const BorderSide(color: AppColors.primary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const BookingCalendar(),
+          ),
+        );
+
+        if (result != null && result is BookingDateResult) {
+          setState(() {
+            bookingDate = result;
+          });
+
+          widget.onDateSelected(result);
+        }
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            "assets/icons/calendar.svg",
+            width: 16,
+            height: 16,
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            "เลือกวันรับบริการ",
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditableDate() {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BookingCalendar(
+              initialDay: bookingDate!.day,
+              initialTime: bookingDate!.time,
+            ),
+          ),
+        );
+
+        if (result != null && result is BookingDateResult) {
+          setState(() {
+            bookingDate = result;
+          });
+
+          widget.onDateSelected(result);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF7FF),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            SvgPicture.asset(
+              "assets/icons/calendar.svg",
+              width: 18,
+              height: 18,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _formatBookingDate(
+                bookingDate!.day,
+                bookingDate!.time,
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.primaryText,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.create_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildDateDisplay() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF7FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset("assets/icons/calendar.svg", width: 18, height: 18),
+          const SizedBox(width: 12),
+          Text(
+            _formatBookingDate(bookingDate!.day, bookingDate!.time),
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryText,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadonlyDate() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF7FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset("assets/icons/calendar.svg", width: 18, height: 18),
+          const SizedBox(width: 12),
+          Text(
+            _formatBookingDate(bookingDate!.day, bookingDate!.time),
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryText,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  @override
+  void initState() {
+    super.initState();
+    bookingDate = widget.initialDate; // ✅ รับค่าตั้งต้น
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tech = technician;
+    final tech = widget.technician;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -168,7 +458,7 @@ class BookingCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(service.image, width: 50, height: 50),
+              Image.asset(widget.service.image, width: 50, height: 50),
               const SizedBox(width: 12),
 
               SizedBox(
@@ -180,7 +470,7 @@ class BookingCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            service.serviceName,
+                            widget.service.serviceName,
                             style: const TextStyle(
                               color: AppColors.primaryText,
                               fontSize: 14,
@@ -188,7 +478,7 @@ class BookingCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'x${service.quantity}',
+                          'x${widget.service.quantity}',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w400,
@@ -199,7 +489,7 @@ class BookingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '฿${service.price}',
+                      '฿${widget.service.price}',
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 14,
@@ -216,42 +506,13 @@ class BookingCard extends StatelessWidget {
 
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BookingCalendar()),
-                );
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    "assets/icons/calendar.svg",
-                    width: 16,
-                    height: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "เลือกวันรับบริการ",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: widget.readOnly
+                ? (bookingDate == null
+                ? const SizedBox() // หรือไม่แสดงอะไร
+                : _buildReadonlyDate())
+                : (bookingDate == null ? _buildSelectButton() : _buildEditableDate()),
           ),
+
         ],
       ),
     );

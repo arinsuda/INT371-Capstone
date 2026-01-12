@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/button/primary_button.dart';
 import '../../../../core/theme.dart';
+import 'booking_card.dart';
 import 'calendar.dart';
 
 String _formatBookingDate(DateTime day, String time) {
@@ -27,7 +28,10 @@ String _formatBookingDate(DateTime day, String time) {
 }
 
 class BookingCalendar extends StatefulWidget {
-  const BookingCalendar({super.key});
+  final DateTime? initialDay;
+  final String? initialTime;
+
+  const BookingCalendar({super.key, this.initialDay, this.initialTime});
 
   @override
   State<BookingCalendar> createState() => _BookingCalendarState();
@@ -35,17 +39,24 @@ class BookingCalendar extends StatefulWidget {
 
 class _BookingCalendarState extends State<BookingCalendar> {
   String selectedTime = "";
-
   DateTime? selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedDay = widget.initialDay;
+    selectedTime = widget.initialTime ?? "";
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           children: [
-            const Header(header: "เลือกวันรับบริการ"),
+            Header(header: "เลือกวันรับบริการ"),
             Container(height: 24, color: AppColors.primaryBGHover),
 
             Calendar(
@@ -178,10 +189,13 @@ class _BookingCalendarState extends State<BookingCalendar> {
         ),
         child: PrimaryButton(
           text: "ยืนยัน",
-          onPressed: selectedTime.isEmpty
+          onPressed: (selectedTime.isEmpty || selectedDay == null)
               ? null
               : () {
-                  // TODO: submit booking
+                  Navigator.pop(
+                    context,
+                    BookingDateResult(day: selectedDay!, time: selectedTime),
+                  );
                 },
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),

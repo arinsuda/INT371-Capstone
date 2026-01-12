@@ -12,7 +12,7 @@ import 'package:changsure/module/profile/address_page.dart'
 
 import 'package:changsure/module/profile/technician/profile_page.dart'
     as tech_profile;
-import 'package:changsure/module/profile/technician/viewProfile/view_profile_content.dart'
+import 'package:changsure/module/profile/technician/view_profile_tab.dart'
     as tech_view_profile;
 import 'package:changsure/module/profile/technician/edit_profile.dart'
     as tech_edit;
@@ -111,7 +111,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
         // Technician
         case BottomSubPage.technicianViewProfile:
-          subPage = const tech_view_profile.ViewProfileContent();
+          subPage = const tech_view_profile.ViewProfilePage();
           break;
         case BottomSubPage.technicianEditProfile:
           subPage = const tech_edit.EditProfile();

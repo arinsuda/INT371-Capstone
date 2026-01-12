@@ -1,5 +1,7 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/module/home/booking/booking_success.dart';
 import 'package:changsure/module/home/booking/section/address_card.dart';
+import 'package:changsure/module/home/booking/section/address_list.dart';
 import 'package:changsure/module/home/booking/section/booking_card.dart';
 import 'package:changsure/module/home/booking/section/information_section.dart';
 import 'package:changsure/module/home/booking/section/payment_card.dart';
@@ -19,6 +21,22 @@ class BookingPage extends StatefulWidget {
 }
 
 class _BookingPageState extends State<BookingPage> {
+  BookingDateResult? selectedBookingDate;
+
+
+  Future<bool> _showExitConfirmDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DeleteConfirmationDialog(
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,13 +44,21 @@ class _BookingPageState extends State<BookingPage> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           children: [
-            Header(header: "จองบริการ"),
+            Header(
+              header: "จองบริการ",
+              onPressed: () async {
+                final shouldExit = await _showExitConfirmDialog();
+                if (shouldExit) {
+                  Navigator.pop(context);
+                }
+              },
+            ),
             Container(height: 24, color: AppColors.primaryBGHover),
             AddressCard(
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BookingAddress()),
+                  MaterialPageRoute(builder: (_) => const AddressList()),
                 );
               },
             ),
@@ -66,6 +92,11 @@ class _BookingPageState extends State<BookingPage> {
                 quantity: 1,
                 image: "assets/image/clean1.png",
               ),
+              onDateSelected: (result) {
+                setState(() {
+                  selectedBookingDate = result;
+                });
+              },
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
             PaymentCard(),
@@ -141,8 +172,93 @@ class _BookingPageState extends State<BookingPage> {
                 Expanded(
                   child: PrimaryButton(
                     text: "ยืนยัน",
-                    onPressed: () {},
+                    onPressed: selectedBookingDate == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingSuccess(bookingDate: selectedBookingDate!,),
+                              ),
+                            );
+                          },
                     padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteConfirmationDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _DeleteConfirmationDialog({
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ต้องการออกจากหน้านี้หรือไม่ ?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 220,
+              child: Text(
+                "ระบบจะไม่บันทึกข้อมูลที่คุณกรอกไว้ หากคุณออกจากหน้านี้",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "อยู่ต่อ",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFF5222D)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      foregroundColor: const Color(0xFFF5222D),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: onConfirm,
+                    child: const Text(
+                      "ออกจากหน้านี้",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],

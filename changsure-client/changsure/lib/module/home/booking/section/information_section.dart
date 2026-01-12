@@ -52,7 +52,8 @@ class _InformationCardState extends State<InformationCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return
+      Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

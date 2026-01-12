@@ -11,7 +11,8 @@ class AddressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
+      child:
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Stack(
           children: [

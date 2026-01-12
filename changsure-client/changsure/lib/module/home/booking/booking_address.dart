@@ -31,7 +31,8 @@ class BookingAddress extends ConsumerWidget {
           ))
         : null;
 
-    return Address(
+    return
+      Address(
       houseNumber: currentAddress?.combinedAddressInfo ?? '',
       subDistrict: currentAddress?.subDistrict ?? '',
       district: currentAddress?.district ?? '',

@@ -6,7 +6,8 @@ class PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return
+      Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
