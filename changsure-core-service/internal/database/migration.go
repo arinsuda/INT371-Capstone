@@ -10,11 +10,9 @@ import (
 func (d *Database) MigrateWithExtras(extraModels ...interface{}) error {
 	log.Println("🔄 Running database migrations...")
 
-	// โหลด models ทั้งหมดจาก registry
 	models := registry.AllModels()
 	models = append(models, extraModels...)
 
-	// ใช้ AutoMigrate ทีเดียว
 	if err := d.DB.AutoMigrate(models...); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}

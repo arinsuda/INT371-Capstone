@@ -7,26 +7,44 @@ import (
 )
 
 type Repository interface {
-	CreateCustomerAddress(ctx context.Context, addr *CustomerAddress) error
-	UpdateCustomerAddress(ctx context.Context, addr *CustomerAddress) error
-	DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error
-	FindCustomerAddressByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
-	FindCustomerAddresses(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
-	SetPrimaryCustomerAddress(ctx context.Context, customerID uint) error
+	Create(ctx context.Context, addr *CustomerAddress) error
+	Update(ctx context.Context, addr *CustomerAddress) error
+	Delete(ctx context.Context, id uint, customerID uint) error
+
+	FindByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
+	FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
+
+	SetPrimary(ctx context.Context, customerID uint, addressID uint) error
 }
 
-type repo struct {
+type repository struct {
 	db *gorm.DB
 }
 
 func NewRepository(db *gorm.DB) Repository {
-	return &repo{db: db}
+	return &repository{db: db}
 }
 
-func (r *repo) FindCustomerAddressByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error) {
+func (r *repository) Create(ctx context.Context, addr *CustomerAddress) error {
+	return r.db.WithContext(ctx).Create(addr).Error
+}
+
+func (r *repository) Update(ctx context.Context, addr *CustomerAddress) error {
+	return r.db.WithContext(ctx).Model(addr).Updates(addr).Error
+}
+
+func (r *repository) Delete(ctx context.Context, id uint, customerID uint) error {
+	return r.db.WithContext(ctx).
+		Where("id = ? AND customer_id = ?", id, customerID).
+		Delete(&CustomerAddress{}).Error
+}
+
+func (r *repository) FindByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error) {
 	var addr CustomerAddress
 	err := r.db.WithContext(ctx).
-		
+		Preload("SubDistrict").
+		Preload("District").
+		Preload("Province").
 		Where("id = ? AND customer_id = ?", id, customerID).
 		First(&addr).Error
 
@@ -36,56 +54,33 @@ func (r *repo) FindCustomerAddressByID(ctx context.Context, id uint, customerID 
 	return &addr, nil
 }
 
-func (r *repo) CreateCustomerAddress(ctx context.Context, addr *CustomerAddress) error {
-	return r.db.WithContext(ctx).
-		Create(addr).Error
-}
-
-func (r *repo) UpdateCustomerAddress(ctx context.Context, addr *CustomerAddress) error {
-	return r.db.WithContext(ctx).
-		Model(&CustomerAddress{}).
-		Where("id = ? AND customer_id = ?", addr.ID, addr.CustomerID).
-		Updates(map[string]any{
-			"house_number": addr.HouseNumber,
-			"village":      addr.Village,
-			"moo":          addr.Moo,
-			"soi":          addr.Soi,
-			"road":         addr.Road,
-
-			"sub_district": addr.SubDistrict,
-			"district":     addr.District,
-			"province":     addr.Province,
-
-			"postal_code": addr.PostalCode,
-			"country":     addr.Country,
-
-			"province_id": addr.ProvinceID,
-			"latitude":    addr.Latitude,
-			"longitude":   addr.Longitude,
-
-			"is_primary": addr.IsPrimary,
-		}).Error
-}
-
-func (r *repo) DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error {
-	return r.db.WithContext(ctx).
-		Where("id = ? AND customer_id = ?", id, customerID).
-		Delete(&CustomerAddress{}).Error
-}
-
-func (r *repo) FindCustomerAddresses(ctx context.Context, customerID uint) ([]*CustomerAddress, error) {
-	var out []*CustomerAddress
+func (r *repository) FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error) {
+	var addrs []*CustomerAddress
 	err := r.db.WithContext(ctx).
+		Preload("SubDistrict").
+		Preload("District").
+		Preload("Province").
 		Where("customer_id = ?", customerID).
-		Order("is_primary DESC").
-		Find(&out).Error
+		Order("is_primary DESC, created_at DESC").
+		Find(&addrs).Error
 
-	return out, err
+	return addrs, err
 }
 
-func (r *repo) SetPrimaryCustomerAddress(ctx context.Context, customerID uint) error {
-	return r.db.WithContext(ctx).
-		Model(&CustomerAddress{}).
-		Where("customer_id = ?", customerID).
-		Update("is_primary", false).Error
+func (r *repository) SetPrimary(ctx context.Context, customerID uint, addressID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+
+		if err := tx.Model(&CustomerAddress{}).
+			Where("customer_id = ?", customerID).
+			Update("is_primary", false).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&CustomerAddress{}).
+			Where("id = ? AND customer_id = ?", addressID, customerID).
+			Update("is_primary", true).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }

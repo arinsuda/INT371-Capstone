@@ -7,21 +7,28 @@ import (
 
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
+	"changsure-core-service/internal/modules/booking"
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
+	"changsure-core-service/internal/modules/district"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/province"
 	"changsure-core-service/internal/modules/service"
 	"changsure-core-service/internal/modules/service_category"
+	subdistrict "changsure-core-service/internal/modules/sub_district"
 	"changsure-core-service/internal/modules/technician"
 	"changsure-core-service/internal/modules/technician_address"
 	"changsure-core-service/internal/modules/technician_badge"
+	techniciancalendar "changsure-core-service/internal/modules/technician_calendar"
 	technicianmatching "changsure-core-service/internal/modules/technician_matching"
 	techworks "changsure-core-service/internal/modules/technician_post"
+	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	"changsure-core-service/internal/modules/technician_service"
 	"changsure-core-service/internal/modules/technician_service_area"
+	timeslot "changsure-core-service/internal/modules/time_slot"
+	"changsure-core-service/internal/realtime"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
@@ -32,6 +39,7 @@ type ContainerOption func(*Container) error
 type Container struct {
 	DB      *gorm.DB
 	Storage *storage.MinioStorage
+	Hub     *realtime.Hub
 
 	AuthRepo    auth.RefreshTokenRepository
 	AuthService auth.Service
@@ -49,9 +57,25 @@ type Container struct {
 	TechnicianMatchingService technicianmatching.Service
 	TechnicianMatchingHandler *technicianmatching.Handler
 
+	TimeSlotRepo    timeslot.Repository
+	TimeSlotService timeslot.Service
+	TimeSlotHandler *timeslot.Handler
+
+	BookingRepo    booking.Repository
+	BookingService booking.Service
+	BookingHandler *booking.Handler
+
 	ProvinceRepo    province.Repository
 	ProvinceService province.Service
 	ProvinceHandler *province.Handler
+
+	DistrictRepo    district.Repository
+	DistrictService district.Service
+	DistrictHandler *district.Handler
+
+	SubDistrictRepo    subdistrict.Repository
+	SubDistrictService subdistrict.Service
+	SubDistrictHandler *subdistrict.Handler
 
 	TechnicianRepo    technician.Repository
 	TechnicianService technician.Service
@@ -87,11 +111,17 @@ type Container struct {
 	TechnicianPostService techworks.Service
 	TechnicianPostHandler *techworks.Handler
 
+	TechnicianCalendarHandler *techniciancalendar.Handler
+
+	TechnicianScheduleRepo    technicianschedule.Repository
+	TechnicianScheduleService technicianschedule.Service
+	TechnicianScheduleHandler *technicianschedule.Handler
+
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
 }
 
-func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Container, error) {
+func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database connection is required")
 	}
@@ -99,7 +129,10 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 		return nil, fmt.Errorf("configuration is required")
 	}
 
-	c := &Container{DB: db}
+	c := &Container{
+		DB:  db,
+		Hub: hub,
+	}
 
 	if err := c.initStorage(cfg); err != nil {
 		return nil, err
@@ -107,6 +140,8 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 
 	c.initCustomerModule()
 	c.initProvinceModule()
+	c.initDistrictModule()
+	c.initSubDistrictModule()
 
 	c.initTechnicianServiceModule()
 	c.initTechnicianModule()
@@ -122,6 +157,12 @@ func NewContainer(db *gorm.DB, cfg *config.Config, opts ...ContainerOption) (*Co
 	c.initTechnicianAddressModule()
 	c.initCustomerAddressModule()
 	c.initTechnicianMatchingModule()
+	c.initTechnicianScheduleModule()
+
+	c.initTimeSlotModule()
+	c.initBookingModule()
+
+	c.initTechnicianCalendarModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -177,11 +218,24 @@ func (c *Container) initProvinceModule() {
 	c.ProvinceHandler = province.NewHandler(c.ProvinceService)
 }
 
+func (c *Container) initDistrictModule() {
+	c.DistrictRepo = district.NewRepository(c.DB)
+	c.DistrictService = district.NewService(c.DistrictRepo)
+	c.DistrictHandler = district.NewHandler(c.DistrictService)
+}
+
+func (c *Container) initSubDistrictModule() {
+	c.SubDistrictRepo = subdistrict.NewRepository(c.DB)
+	c.SubDistrictService = subdistrict.NewService(c.SubDistrictRepo)
+	c.SubDistrictHandler = subdistrict.NewHandler(c.SubDistrictService)
+}
+
 func (c *Container) initCustomerAddressModule() {
 	c.CustomerAddressRepo = customeraddresses.NewRepository(c.DB)
 	c.CustomerAddressService = customeraddresses.NewService(
 		c.CustomerAddressRepo,
-		c.TechnicianAddressRepo,
+		c.DistrictRepo,
+		c.SubDistrictRepo,
 	)
 	c.CustomerAddressHandler = customeraddresses.NewHandler(c.CustomerAddressService)
 }
@@ -258,8 +312,36 @@ func (c *Container) initTechnicianAddressModule() {
 	c.TechnicianAddressRepo = technicianaddress.NewRepository(c.DB)
 	c.TechnicianAddressService = technicianaddress.NewService(
 		c.TechnicianAddressRepo,
+		c.DistrictRepo,
+		c.SubDistrictRepo,
 	)
 	c.TechnicianAddressHandler = technicianaddress.NewHandler(c.TechnicianAddressService)
+}
+
+func (c *Container) initTimeSlotModule() {
+	c.TimeSlotRepo = timeslot.NewRepository(c.DB)
+	c.TimeSlotService = timeslot.NewService(c.TimeSlotRepo)
+	c.TimeSlotHandler = timeslot.NewHandler(c.TimeSlotService)
+}
+
+func (c *Container) initBookingModule() {
+	c.BookingRepo = booking.NewRepository(c.DB)
+	c.BookingService = booking.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo, c.DB)
+	c.BookingHandler = booking.NewHandler(c.BookingService, c.Storage, c.Hub)
+}
+
+func (c *Container) initTechnicianCalendarModule() {
+	if c.BookingRepo == nil || c.TimeSlotRepo == nil || c.TechnicianScheduleRepo == nil {
+		panic("technician_calendar: missing dependencies (BookingRepo/TimeSlotRepo/TechnicianScheduleRepo)")
+	}
+	service := techniciancalendar.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo)
+	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(service)
+}
+
+func (c *Container) initTechnicianScheduleModule() {
+	c.TechnicianScheduleRepo = technicianschedule.NewRepository(c.DB)
+	c.TechnicianScheduleService = technicianschedule.NewService(c.TechnicianScheduleRepo)
+	c.TechnicianScheduleHandler = technicianschedule.NewHandler(c.TechnicianScheduleService)
 }
 
 func AllModels() []interface{} {
@@ -268,19 +350,27 @@ func AllModels() []interface{} {
 	models = append(models, auth.Models()...)
 
 	models = append(models, province.Models()...)
+	models = append(models, district.Models()...)
+	models = append(models, subdistrict.Models()...)
+
 	models = append(models, servicecategory.Models()...)
 	models = append(models, service.Models()...)
-	models = append(models, customer.Models()...)
-	models = append(models, technician.Models()...)
 
+	models = append(models, customer.Models()...)
 	models = append(models, customeraddresses.Models()...)
+
+	models = append(models, technician.Models()...)
+	models = append(models, technicianaddress.Models()...)
 	models = append(models, technicianservice.Models()...)
 	models = append(models, technicianservicearea.Models()...)
-
-	models = append(models, badge.Models()...)
 	models = append(models, technicianbadge.Models()...)
 	models = append(models, techworks.Models()...)
-	models = append(models, technicianaddress.Models()...)
+	models = append(models, technicianschedule.Models()...)
+
+	models = append(models, badge.Models()...)
+
+	models = append(models, booking.Models()...)
+	models = append(models, timeslot.Models()...)
 
 	return models
 }

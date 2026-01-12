@@ -21,7 +21,6 @@ import (
 )
 
 func main() {
-
 	if err := validation.Init("th"); err != nil {
 		log.Fatalf("Failed to initialize validation: %v", err)
 	}
@@ -40,8 +39,13 @@ func main() {
 
 	if shouldRunMigrations(cfg) {
 		log.Println("🔄 Running database migrations...")
+
 		if err := db.MigrateWithExtras(); err != nil {
 			log.Fatalf("❌ Migration failed: %v", err)
+		}
+
+		if err := db.ApplyExtras(); err != nil {
+			log.Fatalf("❌ Apply SQL extras failed: %v", err)
 		}
 	} else {
 		log.Println("⊘ Skipping migrations (production mode)")
@@ -69,7 +73,7 @@ func main() {
 		EnableStackTrace: true,
 	}))
 
-	routes.Setup(app, cfg, db.Gorm())
+	routes.Setup(app, cfg, db.DB)
 
 	printStartupInfo(cfg)
 
@@ -171,29 +175,21 @@ func getErrorCode(statusCode int) string {
 
 func printStartupInfo(cfg *config.Config) {
 	printBanner()
-
 	log.Printf("✅ Server started successfully")
 	log.Printf("📦 Environment: %s", cfg.App.Environment)
 	log.Printf("🔌 Port: %s", cfg.App.Port)
-	log.Printf("💾 Database: %s@%s:%s/%s",
-		cfg.Database.Username,
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.DatabaseName,
-	)
 	log.Printf("📍 API Base: http://localhost:%s/api/v1", cfg.App.Port)
 	log.Printf("💚 Health Check: http://localhost:%s/health", cfg.App.Port)
-	log.Printf("🔍 OCR Endpoint: http://localhost:%s/api/v1/ocr/id-card", cfg.App.Port)
 	fmt.Println()
 }
 
 func printBanner() {
 	fmt.Println(`
-   ________                       _____                 
-  / ____/ /_  ____ _____  ____ _ / ___/__  __________ 
- / /   / __ \/ __ '/ __ \/ __ '/ \__ \/ / / / ___/ _ \
-/ /___/ / / / /_/ / / / / /_/ / ___/ / /_/ / /  /  __/
-\____/_/ /_/\__,_/_/ /_/\__, / /____/\__,_/_/   \___/ 
-                       /____/                           
+    ________                    _____                 
+   / ____/ /_  ____ _____  ____ _/ ___/__  __________ 
+  / /   / __ \/ __ '/ __ \/ __ '/ \__ \/ / / / ___/ _ \
+ / /___/ / / / /_/ / / / / /_/ / ___/ / /_/ / /  /  __/
+ \____/_/ /_/\__,_/_/ /_/\__, / /____/\__,_/_/   \___/ 
+                        /____/                         
 	`)
 }
