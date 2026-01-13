@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -8,9 +11,23 @@ import 'package:changsure/module/auth/login.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/footer/footer_bar.dart';
 
+class DevHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) => true;
+    return client;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('th_TH', null);
+
+  if (kDebugMode) {
+    HttpOverrides.global = DevHttpOverrides();
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
