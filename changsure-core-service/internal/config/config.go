@@ -139,7 +139,7 @@ func LoadConfig() *Config {
 			AllowDocTypesSet:   sliceToSet(allowDocTypes),
 			AllowMIMESet:       sliceToSet(allowMIME),
 			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN"),
-			PublicBaseURL:      os.Getenv("MINIO_PUBLIC_URL"),
+			PublicBaseURL:      os.Getenv("MINIO_PUBLIC_ENDPOINT"),
 		},
 		OCR: OCRConfig{
 			BaseURL: getEnv("OCR_BASE_URL"),

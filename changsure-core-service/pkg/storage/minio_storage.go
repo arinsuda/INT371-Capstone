@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"time"
 	"strings"
+	"time"
 
 	"changsure-core-service/internal/config"
 
@@ -19,9 +19,10 @@ import (
 // =============================
 
 type MinioStorage struct {
-	c      *minio.Client
-	bucket string
-	cfg    *config.MinioConfig
+	internal *minio.Client // 🔌 สำหรับ Upload/Delete (คุยกับ minio:9000 ภายใน)
+	signer   *minio.Client // ✍️ สำหรับสร้าง Presigned URL (คุยกับ Public Domain)
+	bucket   string
+	cfg      *config.MinioConfig
 }
 
 var GlobalMinio *MinioStorage
@@ -38,19 +39,43 @@ func MustInit(c config.MinioConfig) {
 	GlobalMinio = s
 }
 
+// ฟังก์ชันนี้ใช้สำหรับสร้าง MinIO แบบ Standalone (ถ้ามีใช้ที่อื่น)
 func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
-	client, err := minio.New(opt.Endpoint, &minio.Options{
-		Creds:        credentials.NewStaticV4(opt.AccessKey, opt.SecretKey, ""),
-		Secure:       opt.UseSSL,
-		Region:       opt.Region,
-		BucketLookup: minio.BucketLookupPath, 
+	// 1. Internal Client (minio:9000)
+	internal, err := minio.New(opt.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(opt.AccessKey, opt.SecretKey, ""),
+		Secure: false, // ภายในมักเป็น HTTP
+		Region: opt.Region,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("minio new client: %w", err)
+		return nil, fmt.Errorf("init internal client: %w", err)
 	}
 
-	s := &MinioStorage{c: client, bucket: opt.Bucket}
+	// 2. Signer Client (Public HTTPS)
+	publicHost := opt.PublicBaseURL
+	if publicHost == "" {
+		publicHost = opt.Endpoint
+	}
+	// Clean Host
+	publicHost = strings.TrimPrefix(publicHost, "http://")
+	publicHost = strings.TrimPrefix(publicHost, "https://")
 
+	signer, err := minio.New(publicHost, &minio.Options{
+		Creds:  credentials.NewStaticV4(opt.AccessKey, opt.SecretKey, ""),
+		Secure: opt.UseSSL, // ใช้ SSL ตาม Config (ควรเป็น true)
+		Region: opt.Region,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init signer client: %w", err)
+	}
+
+	s := &MinioStorage{
+		internal: internal,
+		signer:   signer,
+		bucket:   opt.Bucket,
+	}
+
+	// ใช้ Internal เช็ค Bucket
 	if err := s.ensureBucket(context.Background()); err != nil {
 		return nil, err
 	}
@@ -58,34 +83,44 @@ func NewMinioStorage(opt MinioOptions) (*MinioStorage, error) {
 	return s, nil
 }
 
+// ฟังก์ชันหลักที่ใช้กับ Config App
 func NewMinioFromConfig(c config.MinioConfig) (*MinioStorage, error) {
+	// 1. Setup Internal Client (HTTP -> minio:9000)
+	// ใช้สำหรับการทำงาน backend จริงๆ
+	internalClient, err := minio.New(c.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(c.AccessKey, c.SecretKey, ""),
+		Secure: false, // สำคัญ: ภายใน Docker คุยกันเองมักไม่ผ่าน SSL
+		Region: c.Region,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init internal client: %w", err)
+	}
 
+	// 2. Setup Signer Client (HTTPS -> cp25ssa1...:8081)
+	// ใช้สำหรับสร้าง URL ให้ Frontend เท่านั้น
 	publicHost := c.PublicBaseURL
 	if publicHost == "" {
 		publicHost = c.Endpoint
 	}
 
+	// ลบ http/https ออก เพราะ minio.New ต้องการแค่ host:port
 	publicHost = strings.TrimPrefix(publicHost, "http://")
 	publicHost = strings.TrimPrefix(publicHost, "https://")
 
-	internal := c.Endpoint
-
-	client, err := buildMinioClient(
-		publicHost,
-		internal,
-		c.AccessKey,
-		c.SecretKey,
-		c.Region,
-		c.UseSSL,
-	)
+	signerClient, err := minio.New(publicHost, &minio.Options{
+		Creds:  credentials.NewStaticV4(c.AccessKey, c.SecretKey, ""),
+		Secure: c.UseSSL, // ตรงนี้สำคัญ! ถ้า Public เป็น HTTPS ต้องเป็น true
+		Region: c.Region,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init signer client: %w", err)
 	}
 
 	s := &MinioStorage{
-		c:      client,
-		bucket: c.Bucket,
-		cfg:    &c,
+		internal: internalClient,
+		signer:   signerClient,
+		bucket:   c.Bucket,
+		cfg:      &c,
 	}
 
 	if err := s.ensureBucket(context.Background()); err != nil {
@@ -100,12 +135,13 @@ func NewMinioFromConfig(c config.MinioConfig) (*MinioStorage, error) {
 // =============================
 
 func (s *MinioStorage) ensureBucket(ctx context.Context) error {
-	exists, err := s.c.BucketExists(ctx, s.bucket)
+	// ใช้ Internal Client จัดการ Bucket
+	exists, err := s.internal.BucketExists(ctx, s.bucket)
 	if err != nil {
 		return fmt.Errorf("check bucket: %w", err)
 	}
 	if !exists {
-		if err := s.c.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
+		if err := s.internal.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
 			return fmt.Errorf("make bucket: %w", err)
 		}
 	}
@@ -124,7 +160,8 @@ func (s *MinioStorage) Put(
 	contentType string,
 ) (minio.UploadInfo, error) {
 
-	info, err := s.c.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{
+	// ใช้ Internal Client อัปโหลด (เร็ว + เสถียร)
+	info, err := s.internal.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
@@ -134,7 +171,7 @@ func (s *MinioStorage) Put(
 }
 
 // =============================
-//  Presigned URLs
+//  Presigned URLs (พระเอกของเรา)
 // =============================
 
 func (s *MinioStorage) PresignGet(
@@ -149,29 +186,14 @@ func (s *MinioStorage) PresignGet(
 		q.Set("response-content-disposition", "attachment")
 	}
 
-	u, err := s.c.PresignedGetObject(ctx, s.bucket, key, ttl, q)
+	// ✨ ใช้ Signer Client สร้าง URL
+	// ผลลัพธ์จะเป็น HTTPS และ Hostname ที่ถูกต้องทันที ไม่ต้องมานั่ง replace string
+	u, err := s.signer.PresignedGetObject(ctx, s.bucket, key, ttl, q)
 	if err != nil {
 		return "", err
 	}
 
-	raw := u.String()
-	fmt.Println("[MINIO RAW PRESIGNED]:", raw)
-
-	if s.cfg == nil || s.cfg.PublicBaseURL == "" {
-		fmt.Println("[MINIO FINAL URL]: (same as RAW)")
-		return raw, nil
-	}
-
-	parsed, _ := url.Parse(raw)
-
-	final := fmt.Sprintf("%s%s?%s",
-		s.cfg.PublicBaseURL,
-		parsed.Path,
-		parsed.RawQuery,
-	)
-
-	fmt.Println("[MINIO FINAL URL]:", final)
-	return final, nil
+	return u.String(), nil
 }
 
 func (s *MinioStorage) PresignGetWithFilename(
@@ -186,7 +208,8 @@ func (s *MinioStorage) PresignGetWithFilename(
 		q.Set("response-content-disposition", `attachment; filename="`+filename+`"`)
 	}
 
-	u, err := s.c.PresignedGetObject(ctx, s.bucket, key, ttl, q)
+	// ✨ ใช้ Signer Client
+	u, err := s.signer.PresignedGetObject(ctx, s.bucket, key, ttl, q)
 	if err != nil {
 		return "", err
 	}
@@ -200,7 +223,8 @@ func (s *MinioStorage) PresignPut(
 	ttl time.Duration,
 ) (string, error) {
 
-	u, err := s.c.PresignedPutObject(ctx, s.bucket, key, ttl)
+	// ✨ ใช้ Signer Client
+	u, err := s.signer.PresignedPutObject(ctx, s.bucket, key, ttl)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +232,7 @@ func (s *MinioStorage) PresignPut(
 }
 
 // =============================
-//  Upload File (Best Practice)
+//  Upload File
 // =============================
 
 func (s *MinioStorage) UploadFile(
@@ -224,6 +248,7 @@ func (s *MinioStorage) UploadFile(
 		key = folder + "/" + filename
 	}
 
+	// Put เรียก Internal Client อยู่แล้ว
 	_, err := s.Put(ctx, key, r, size, contentType)
 	if err != nil {
 		return "", err
@@ -237,7 +262,8 @@ func (s *MinioStorage) UploadFile(
 // =============================
 
 func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error) {
-	st, err := s.c.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	// ใช้ Internal Client
+	st, err := s.internal.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +271,8 @@ func (s *MinioStorage) Stat(ctx context.Context, key string) (*ObjectStat, error
 }
 
 func (s *MinioStorage) Delete(ctx context.Context, key string) error {
-	return s.c.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+	// ใช้ Internal Client
+	return s.internal.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
 }
 
 func (s *MinioStorage) Config() *config.MinioConfig {
