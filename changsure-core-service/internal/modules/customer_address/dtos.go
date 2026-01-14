@@ -5,6 +5,8 @@ import (
 )
 
 type CreateCustomerAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number" validate:"required"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -21,6 +23,8 @@ type CreateCustomerAddressRequest struct {
 }
 
 type UpdateCustomerAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -37,7 +41,10 @@ type UpdateCustomerAddressRequest struct {
 }
 
 type CustomerAddressResponse struct {
-	ID          uint    `json:"id"`
+	ID uint `json:"id"`
+
+	Label *string `json:"label,omitempty"`
+
 	HouseNumber *string `json:"house_number"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -68,6 +75,7 @@ func ToResponse(a *CustomerAddress) CustomerAddressResponse {
 
 	resp := CustomerAddressResponse{
 		ID:          a.ID,
+		Label:       a.Label,
 		HouseNumber: a.HouseNumber,
 		Village:     a.Village,
 		Moo:         a.Moo,

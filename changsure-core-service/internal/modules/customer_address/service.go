@@ -71,6 +71,7 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
+	addr.Label = req.Label
 	addr.HouseNumber = req.HouseNumber
 	addr.Village = req.Village
 	addr.Moo = req.Moo
@@ -112,6 +113,10 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 	if addr == nil {
 		return nil, ErrNotFound
+	}
+
+	if req.Label != nil {
+		addr.Label = req.Label
 	}
 
 	if req.HouseNumber != nil {

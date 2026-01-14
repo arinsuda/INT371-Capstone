@@ -6,6 +6,8 @@ import (
 )
 
 type CreateTechnicianAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number" validate:"required"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -23,6 +25,8 @@ type CreateTechnicianAddressRequest struct {
 }
 
 type UpdateTechnicianAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -45,6 +49,7 @@ type NearbyTechnicianRequest struct {
 
 type TechnicianAddressResponse struct {
 	ID          uint    `json:"id"`
+	Label       *string `json:"label,omitempty"`
 	HouseNumber *string `json:"house_number"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -75,6 +80,7 @@ func ToResponse(a *TechnicianAddress) TechnicianAddressResponse {
 
 	resp := TechnicianAddressResponse{
 		ID:          a.ID,
+		Label:       a.Label,
 		HouseNumber: a.HouseNumber,
 		Village:     a.Village,
 		Moo:         a.Moo,

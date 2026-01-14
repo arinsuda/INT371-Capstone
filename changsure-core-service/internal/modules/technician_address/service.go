@@ -84,6 +84,7 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 	addr := &TechnicianAddress{
 		TechnicianID: techID,
 		AddressFields: addressshared.AddressFields{
+			Label:         req.Label,
 			HouseNumber:   req.HouseNumber,
 			Village:       req.Village,
 			Moo:           req.Moo,
@@ -118,6 +119,10 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 	}
 	if addr == nil {
 		return nil, ErrAddressNotFound
+	}
+
+	if req.Label != nil {
+		addr.Label = req.Label
 	}
 
 	if req.HouseNumber != nil {
