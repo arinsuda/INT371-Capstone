@@ -15,6 +15,8 @@ type Repository interface {
 	FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
 
 	SetPrimary(ctx context.Context, customerID uint, addressID uint) error
+
+	GetCustomerPhone(ctx context.Context, customerID uint) (*string, error)
 }
 
 type repository struct {
@@ -83,4 +85,13 @@ func (r *repository) SetPrimary(ctx context.Context, customerID uint, addressID 
 		}
 		return nil
 	})
+}
+
+func (r *repository) GetCustomerPhone(ctx context.Context, customerID uint) (*string, error) {
+	var phone *string
+	err := r.db.WithContext(ctx).Table("customers").
+		Select("phone").
+		Where("id = ?", customerID).
+		Scan(&phone).Error
+	return phone, err
 }
