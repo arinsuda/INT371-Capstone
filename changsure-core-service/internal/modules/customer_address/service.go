@@ -71,6 +71,7 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
+	addr.Label = req.Label
 	addr.HouseNumber = req.HouseNumber
 	addr.Village = req.Village
 	addr.Moo = req.Moo
@@ -97,7 +98,8 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 	}
 
 	newAddr, _ := s.repo.FindByID(ctx, addr.ID, customerID)
-	resp := ToResponse(newAddr)
+	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	resp := ToResponse(newAddr, phone)
 	return &resp, nil
 }
 
@@ -112,6 +114,10 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 	if addr == nil {
 		return nil, ErrNotFound
+	}
+
+	if req.Label != nil {
+		addr.Label = req.Label
 	}
 
 	if req.HouseNumber != nil {
@@ -173,7 +179,8 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 
 	updatedAddr, _ := s.repo.FindByID(ctx, id, customerID)
-	resp := ToResponse(updatedAddr)
+	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	resp := ToResponse(updatedAddr, phone)
 	return &resp, nil
 }
 
@@ -210,7 +217,8 @@ func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerA
 		return nil, ErrNotFound
 	}
 
-	resp := ToResponse(addr)
+	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	resp := ToResponse(addr, phone)
 	return &resp, nil
 }
 
@@ -224,7 +232,8 @@ func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressR
 		return nil, err
 	}
 
-	return ToResponseList(addrs), nil
+	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	return ToResponseList(addrs, phone), nil
 }
 
 func (s *service) SetPrimary(ctx context.Context, id uint, customerID uint) error {

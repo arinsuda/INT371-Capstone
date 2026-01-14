@@ -177,7 +177,7 @@ func (s *service) mapToResponse(ctx context.Context, c *Customer) *CustomerRespo
 	if len(c.Addresses) > 0 {
 		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
 		for _, a := range c.Addresses {
-			resp.Addresses = append(resp.Addresses, customer_addresses.ToResponse(&a))
+			resp.Addresses = append(resp.Addresses, customer_addresses.ToResponse(&a, c.Phone))
 		}
 	}
 

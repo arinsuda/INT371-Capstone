@@ -10,6 +10,7 @@ import (
 	address "changsure-core-service/internal/modules/customer_address"
 	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	timeslot "changsure-core-service/internal/modules/time_slot"
+	"changsure-core-service/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -166,7 +167,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		if err != nil {
 			return ErrServiceNotFound
 		}
-		finalPrice := getFinalPrice(techSvc.PriceFixed, techSvc.PriceMin)
 
 		custAddr, err := txRepo.GetCustomerAddress(ctx, req.AddressID, customerID)
 		if err != nil {
@@ -184,19 +184,31 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 
 		fullAddress := formatAddressSnapshot(custAddr)
+		bookingNumber := utils.GenerateBookingNumber()
 
 		newBooking = &Booking{
+			BookingNumber:       bookingNumber,
 			CustomerID:          customerID,
 			TechnicianID:        req.TechnicianID,
 			TechnicianServiceID: req.TechnicianServiceID,
 			AddressID:           req.AddressID,
 			TimeSlotID:          req.TimeSlotID,
 			AppointmentDate:     appointDate,
-			PriceAmount:         finalPrice,
 			RecordedAddress:     fullAddress,
 			CustomerNote:        req.CustomerNote,
 			Status:              BookingStatusPending,
 			PaymentMethod:       PaymentMethodCOD,
+
+			PricingType: techSvc.PricingType,
+		}
+
+		if techSvc.PricingType == "FIXED" {
+			newBooking.QuotedPriceFixed = techSvc.PriceFixed
+			newBooking.FinalPrice = techSvc.PriceFixed
+		} else {
+			newBooking.QuotedPriceMin = techSvc.PriceMin
+			newBooking.QuotedPriceMax = techSvc.PriceMax
+			newBooking.FinalPrice = nil
 		}
 
 		if err := txRepo.Create(ctx, newBooking); err != nil {

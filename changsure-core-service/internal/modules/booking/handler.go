@@ -113,8 +113,15 @@ func (h *Handler) CreateBooking(c fiber.Ctx) error {
 		payloadData := map[string]any{
 			"booking_id":       result.ID,
 			"appointment_date": result.AppointmentDate.Format("2006-01-02"),
-			"price":            result.PriceAmount,
 			"technician_id":    result.TechnicianID,
+			"pricing_type":     result.PricingType,
+		}
+
+		if result.PricingType == "FIXED" && result.QuotedPriceFixed != nil {
+			payloadData["price"] = *result.QuotedPriceFixed
+		} else if result.PricingType == "RANGE" {
+			payloadData["price_min"] = result.QuotedPriceMin
+			payloadData["price_max"] = result.QuotedPriceMax
 		}
 
 		if result.TimeSlot.ID != 0 && result.TimeSlot.StartTime != "" {

@@ -22,6 +22,8 @@ const (
 type Booking struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 
+	BookingNumber string `gorm:"type:varchar(20);uniqueIndex;not null" json:"booking_number"`
+
 	CustomerID          uint `gorm:"not null;index" json:"-"`
 	TechnicianID        uint `gorm:"not null;index" json:"technician_id"`
 	TechnicianServiceID uint `gorm:"not null;index" json:"technician_service_id"`
@@ -34,10 +36,16 @@ type Booking struct {
 
 	RecordedAddress string `gorm:"type:text" json:"recorded_address"`
 
-	PriceAmount float64 `gorm:"type:decimal(10,2);not null" json:"price_amount"`
+	PricingType string `gorm:"type:enum('FIXED','RANGE');not null" json:"pricing_type"`
+
+	QuotedPriceFixed *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_fixed"`
+	QuotedPriceMin   *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_min"`
+	QuotedPriceMax   *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_max"`
 
 	PaymentMethod string `gorm:"type:varchar(20);default:'COD'" json:"payment_method"`
 	CustomerNote  string `gorm:"type:text" json:"customer_note"`
+
+	FinalPrice *float64 `gorm:"type:decimal(12,2)" json:"final_price"`
 
 	Status string `gorm:"type:varchar(20);default:'PENDING';index" json:"status"`
 

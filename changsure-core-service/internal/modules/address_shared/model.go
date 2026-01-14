@@ -7,6 +7,8 @@ import (
 )
 
 type AddressFields struct {
+	Label *string `gorm:"type:varchar(50)" json:"label"`
+
 	HouseNumber *string `gorm:"type:varchar(50)" json:"house_number"`
 	Village     *string `gorm:"type:varchar(100)" json:"village"`
 	Moo         *string `gorm:"type:varchar(10)" json:"moo"`

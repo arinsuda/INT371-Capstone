@@ -6,6 +6,8 @@ import (
 )
 
 type CreateTechnicianAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number" validate:"required"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -23,6 +25,8 @@ type CreateTechnicianAddressRequest struct {
 }
 
 type UpdateTechnicianAddressRequest struct {
+	Label *string `json:"label" validate:"omitempty,max=50"`
+
 	HouseNumber *string `json:"house_number"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -44,7 +48,11 @@ type NearbyTechnicianRequest struct {
 }
 
 type TechnicianAddressResponse struct {
-	ID          uint    `json:"id"`
+	ID uint `json:"id"`
+
+	Label       *string `json:"label,omitempty"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
+
 	HouseNumber *string `json:"house_number"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
@@ -68,13 +76,15 @@ type TechnicianAddressResponse struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
-func ToResponse(a *TechnicianAddress) TechnicianAddressResponse {
+func ToResponse(a *TechnicianAddress, phone *string) TechnicianAddressResponse {
 	if a == nil {
 		return TechnicianAddressResponse{}
 	}
 
 	resp := TechnicianAddressResponse{
 		ID:          a.ID,
+		Label:       a.Label,
+		PhoneNumber: phone,
 		HouseNumber: a.HouseNumber,
 		Village:     a.Village,
 		Moo:         a.Moo,
@@ -111,10 +121,10 @@ func ToResponse(a *TechnicianAddress) TechnicianAddressResponse {
 	return resp
 }
 
-func ToResponseList(items []*TechnicianAddress) []TechnicianAddressResponse {
+func ToResponseList(items []*TechnicianAddress, phone *string) []TechnicianAddressResponse {
 	out := make([]TechnicianAddressResponse, 0, len(items))
 	for _, item := range items {
-		out = append(out, ToResponse(item))
+		out = append(out, ToResponse(item, phone))
 	}
 	return out
 }

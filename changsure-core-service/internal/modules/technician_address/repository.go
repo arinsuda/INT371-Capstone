@@ -18,6 +18,7 @@ type Repository interface {
 	SetPrimaryAndCreate(ctx context.Context, addr *TechnicianAddress) error
 
 	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
+	GetTechnicianPhone(ctx context.Context, techID uint) (*string, error)
 }
 
 type repo struct {
@@ -128,4 +129,13 @@ func (r *repo) SetPrimaryAndCreate(ctx context.Context, addr *TechnicianAddress)
 		}
 		return nil
 	})
+}
+
+func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, error) {
+	var phone *string
+	err := r.db.WithContext(ctx).Table("technicians").
+		Select("phone").
+		Where("id = ?", techID).
+		Scan(&phone).Error
+	return phone, err
 }

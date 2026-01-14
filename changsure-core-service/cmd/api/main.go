@@ -14,6 +14,7 @@ import (
 	"changsure-core-service/internal/database"
 	"changsure-core-service/internal/routes"
 	"changsure-core-service/internal/validation"
+	"changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
 	recovermw "github.com/gofiber/fiber/v3/middleware/recover"
@@ -21,6 +22,11 @@ import (
 )
 
 func main() {
+
+	if err := utils.InitSnowflakeNode(1); err != nil {
+		log.Fatalf("Failed to init snowflake node: %v", err)
+	}
+
 	if err := validation.Init("th"); err != nil {
 		log.Fatalf("Failed to initialize validation: %v", err)
 	}
