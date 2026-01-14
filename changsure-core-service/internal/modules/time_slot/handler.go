@@ -4,6 +4,7 @@ import (
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/validation"
 	"changsure-core-service/pkg/utils"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -71,4 +72,19 @@ func (h *Handler) ResetMyTimeSlots(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "reset to default time slots"})
+}
+
+func (h *Handler) GetTimeSlotsByTechnicianID(c fiber.Ctx) error {
+	idParam := c.Params("technician_id")
+	techID, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	slots, err := h.service.GetTimeSlotsByTechnicianID(c.Context(), uint(techID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch time slots"})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": slots})
 }

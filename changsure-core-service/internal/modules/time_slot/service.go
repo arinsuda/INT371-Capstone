@@ -10,6 +10,8 @@ type Service interface {
 	GetTimeSlot(ctx context.Context, id uint) (*TimeSlot, error)
 
 	GetMyTimeSlots(ctx context.Context, technicianID uint) ([]TimeSlotResponse, error)
+	GetTimeSlotsByTechnicianID(ctx context.Context, technicianID uint) ([]TimeSlotResponse, error)
+
 	UpdateMyTimeSlots(ctx context.Context, technicianID uint, req UpsertTimeSlotsRequest) error
 	ResetMyTimeSlots(ctx context.Context, technicianID uint) error
 }
@@ -35,6 +37,14 @@ func (s *service) GetTimeSlot(ctx context.Context, id uint) (*TimeSlot, error) {
 }
 
 func (s *service) GetMyTimeSlots(ctx context.Context, technicianID uint) ([]TimeSlotResponse, error) {
+	slots, err := s.repo.GetSlotsForTechnician(ctx, technicianID)
+	if err != nil {
+		return nil, err
+	}
+	return s.mapToResponse(slots), nil
+}
+
+func (s *service) GetTimeSlotsByTechnicianID(ctx context.Context, technicianID uint) ([]TimeSlotResponse, error) {
 	slots, err := s.repo.GetSlotsForTechnician(ctx, technicianID)
 	if err != nil {
 		return nil, err
