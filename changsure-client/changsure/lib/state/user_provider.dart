@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
+import 'package:changsure/data/services/realtime_service.dart';
+
 import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
-import 'package:changsure/data/models/address_model.dart';
 
 import 'package:changsure/data/services/auth_service.dart';
 import 'package:changsure/data/services/address_service.dart';
@@ -15,6 +16,7 @@ import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
 
 import '../data/models/customer/customer_model.dart';
+import 'package:changsure/data/services/realtime_service.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();
@@ -26,6 +28,8 @@ class UserNotifier extends Notifier<UserModel?> {
     checkLoginStatus();
     return null;
   }
+
+  final RealtimeService _realtime = RealtimeService();
 
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
@@ -71,6 +75,13 @@ class UserNotifier extends Notifier<UserModel?> {
 
       await refreshUser();
       await loadAddresses();
+
+      _realtime.connect(
+        token: token,
+        role: state!.role == UserRole.technician
+            ? RealtimeRole.technician
+            : RealtimeRole.customer,
+      );
     } catch (e) {
       await logout();
     }
@@ -84,19 +95,23 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<void> login(UserModel user, String refreshToken) async {
     state = user;
+
     await _saveTokens(user.token!, refreshToken);
-
-    if (user.role == UserRole.technician) {
-      await refreshUser();
-    } else if (user.role == UserRole.customer) {
-      await refreshUser();
-    }
-
+    await refreshUser();
     await loadAddresses();
+
+    _realtime.connect(
+      token: user.token!,
+      role: user.role == UserRole.technician
+          ? RealtimeRole.technician
+          : RealtimeRole.customer,
+    );
   }
 
   Future<void> logout() async {
     state = null;
+    _realtime.disconnect();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
