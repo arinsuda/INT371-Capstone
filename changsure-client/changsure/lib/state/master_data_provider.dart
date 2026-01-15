@@ -37,6 +37,54 @@ class MasterDataService {
     return [];
   }
 
+  Future<List<DistrictModel>> getDistricts(
+    String? token,
+    int provinceId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/districts?province_id=$provinceId'),
+        headers: _getHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List data = json['data'] ?? [];
+        return data.map((e) => DistrictModel.fromJson(e)).toList();
+      } else {
+        print("District Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching districts: $e");
+    }
+    return [];
+  }
+
+  Future<List<SubDistrictModel>> getSubDistricts(
+    String? token,
+    int districtId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${ApiConstants.baseUrl}/sub-districts?district_id=$districtId',
+        ),
+        headers: _getHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List data = json['data'] ?? [];
+        return data.map((e) => SubDistrictModel.fromJson(e)).toList();
+      } else {
+        print("SubDistrict Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching sub-districts: $e");
+    }
+    return [];
+  }
+
   Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices(
     String? token,
   ) async {
@@ -155,6 +203,25 @@ final provincesProvider = FutureProvider<List<ProvinceModel>>((ref) async {
   final user = ref.watch(userProvider);
   return ref.read(masterDataServiceProvider).getProvinces(user?.token);
 });
+
+final districtsProvider = FutureProvider.family<List<DistrictModel>, int>((
+  ref,
+  provinceId,
+) async {
+  final user = ref.watch(userProvider);
+  return ref
+      .read(masterDataServiceProvider)
+      .getDistricts(user?.token, provinceId);
+});
+
+final subDistrictsProvider = FutureProvider.family<List<SubDistrictModel>, int>(
+  (ref, districtId) async {
+    final user = ref.watch(userProvider);
+    return ref
+        .read(masterDataServiceProvider)
+        .getSubDistricts(user?.token, districtId);
+  },
+);
 
 final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
