@@ -144,6 +144,7 @@ func (r *Router) setupWebSocketRoutes() {
 
 // setupSharedResources configures resources available to all authenticated users
 func (r *Router) setupSharedResources(api fiber.Router) {
+	r.container.NotificationHandler.RegisterRoutes(api)
 	r.container.ProvinceHandler.RegisterRoutes(api)
 	r.container.DistrictHandler.RegisterRoutes(api)
 	r.container.SubDistrictHandler.RegisterRoutes(api)
