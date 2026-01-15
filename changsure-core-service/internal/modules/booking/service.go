@@ -339,6 +339,7 @@ func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uin
 			EntityID:      full.ID,
 			Data: map[string]any{
 				"booking_id":       full.ID,
+				"booking_number":   full.BookingNumber,
 				"status":           full.Status,
 				"technician_id":    full.TechnicianID,
 				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
@@ -407,6 +408,7 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 			EntityID:      full.ID,
 			Data: map[string]any{
 				"booking_id":       full.ID,
+				"booking_number":   full.BookingNumber,
 				"status":           full.Status,
 				"reason":           reason,
 				"technician_id":    full.TechnicianID,
