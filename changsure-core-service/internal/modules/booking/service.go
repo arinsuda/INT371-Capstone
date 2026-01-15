@@ -8,6 +8,7 @@ import (
 	"time"
 
 	address "changsure-core-service/internal/modules/customer_address"
+	"changsure-core-service/internal/modules/notification"
 	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	timeslot "changsure-core-service/internal/modules/time_slot"
 	"changsure-core-service/pkg/utils"
@@ -56,14 +57,17 @@ type service struct {
 	timeSlotRepo timeslot.Repository
 	scheduleRepo technicianschedule.Repository
 	db           *gorm.DB
+
+	notif notification.Service
 }
 
-func NewService(repo Repository, timeSlotRepo timeslot.Repository, scheduleRepo technicianschedule.Repository, db *gorm.DB) Service {
+func NewService(repo Repository, timeSlotRepo timeslot.Repository, scheduleRepo technicianschedule.Repository, db *gorm.DB, notif notification.Service) Service {
 	return &service{
 		repo:         repo,
 		timeSlotRepo: timeSlotRepo,
 		scheduleRepo: scheduleRepo,
 		db:           db,
+		notif:        notif,
 	}
 }
 
@@ -240,8 +244,41 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 
 	created, err := s.repo.FindByID(ctx, newBooking.ID)
 	if err != nil {
-		return newBooking, nil
+		created = newBooking
 	}
+
+	if s.notif != nil && created != nil && created.TechnicianID != 0 {
+		data := map[string]any{
+			"booking_id":            created.ID,
+			"booking_number":        created.BookingNumber,
+			"status":                created.Status,
+			"customer_id":           created.CustomerID,
+			"technician_id":         created.TechnicianID,
+			"appointment_date":      created.AppointmentDate.Format("2006-01-02"),
+			"time_slot_id":          created.TimeSlotID,
+			"technician_service_id": created.TechnicianServiceID,
+			"pricing_type":          created.PricingType,
+		}
+
+		if created.PricingType == "FIXED" && created.QuotedPriceFixed != nil {
+			data["price"] = *created.QuotedPriceFixed
+		} else if created.PricingType == "RANGE" {
+			data["price_min"] = created.QuotedPriceMin
+			data["price_max"] = created.QuotedPriceMax
+		}
+
+		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
+			RecipientRole: notification.RoleTechnician,
+			RecipientID:   created.TechnicianID,
+			Type:          "BOOKING_CREATED",
+			Title:         "มีงานใหม่",
+			Message:       "มีลูกค้าจองบริการเข้ามา",
+			EntityType:    "booking",
+			EntityID:      created.ID,
+			Data:          data,
+		})
+	}
+
 	return created, nil
 }
 
@@ -287,10 +324,29 @@ func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uin
 	}
 
 	full, err := s.repo.FindByID(ctx, bookingID)
-	if err == nil {
-		return full, nil
+	if err != nil {
+		full = updated
 	}
-	return updated, nil
+
+	if s.notif != nil && full != nil && full.CustomerID != 0 {
+		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
+			RecipientRole: notification.RoleCustomer,
+			RecipientID:   full.CustomerID,
+			Type:          "BOOKING_ACCEPTED",
+			Title:         "ช่างรับงานแล้ว",
+			Message:       "ช่างตอบรับการจองของคุณแล้ว",
+			EntityType:    "booking",
+			EntityID:      full.ID,
+			Data: map[string]any{
+				"booking_id":       full.ID,
+				"status":           full.Status,
+				"technician_id":    full.TechnicianID,
+				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
+			},
+		})
+	}
+
+	return full, nil
 }
 
 func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error) {
@@ -336,10 +392,31 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 	}
 
 	full, err := s.repo.FindByID(ctx, bookingID)
-	if err == nil {
-		return full, nil
+	if err != nil {
+		full = updated
 	}
-	return updated, nil
+
+	if s.notif != nil && full != nil && full.CustomerID != 0 {
+		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
+			RecipientRole: notification.RoleCustomer,
+			RecipientID:   full.CustomerID,
+			Type:          "BOOKING_REJECTED",
+			Title:         "ช่างปฏิเสธงาน",
+			Message:       "ช่างปฏิเสธการจองของคุณ",
+			EntityType:    "booking",
+			EntityID:      full.ID,
+			Data: map[string]any{
+				"booking_id":       full.ID,
+				"status":           full.Status,
+				"reason":           reason,
+				"technician_id":    full.TechnicianID,
+				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
+			},
+		})
+	}
+
+	return full, nil
+
 }
 
 func (s *service) ListTechnicianBookings(

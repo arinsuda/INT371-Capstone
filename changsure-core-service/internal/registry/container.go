@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 
 	"changsure-core-service/internal/modules/auth"
@@ -11,6 +12,7 @@ import (
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/district"
+	"changsure-core-service/internal/modules/notification"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
@@ -44,6 +46,10 @@ type Container struct {
 	AuthRepo    auth.RefreshTokenRepository
 	AuthService auth.Service
 	AuthHandler *auth.Handler
+
+	NotificationRepo    notification.Repository
+	NotificationService notification.Service
+	NotificationHandler *notification.Handler
 
 	CustomerRepo    customer.Repository
 	CustomerService customer.Service
@@ -147,6 +153,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianModule()
 
 	c.initAuthModule(cfg)
+	c.initNotificationModule(cfg)
 	c.initOCRModule(cfg)
 
 	c.initServiceCategoryModule(cfg)
@@ -196,6 +203,28 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)
+}
+
+func (c *Container) initNotificationModule(cfg *config.Config) {
+	c.NotificationRepo = notification.NewRepository(c.DB)
+	c.NotificationService = notification.NewService(c.NotificationRepo, c.Hub)
+
+	getAuthUser := func(ctx fiber.Ctx) (notification.AuthUser, bool) {
+		uidAny := ctx.Locals("user_id")
+		roleAny := ctx.Locals("role")
+
+		uid, ok1 := uidAny.(uint)
+		roleStr, ok2 := roleAny.(string)
+		if !ok1 || !ok2 || uid == 0 {
+			return notification.AuthUser{}, false
+		}
+		return notification.AuthUser{
+			ID:   uid,
+			Role: notification.RecipientRole(roleStr),
+		}, true
+	}
+
+	c.NotificationHandler = notification.NewHandler(c.NotificationService, getAuthUser)
 }
 
 func (c *Container) initOCRModule(cfg *config.Config) {
@@ -326,7 +355,7 @@ func (c *Container) initTimeSlotModule() {
 
 func (c *Container) initBookingModule() {
 	c.BookingRepo = booking.NewRepository(c.DB)
-	c.BookingService = booking.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo, c.DB)
+	c.BookingService = booking.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo, c.DB, c.NotificationService)
 	c.BookingHandler = booking.NewHandler(c.BookingService, c.Storage, c.Hub)
 }
 
@@ -348,6 +377,7 @@ func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
 	models = append(models, auth.Models()...)
+	models = append(models, notification.Models()...)
 
 	models = append(models, province.Models()...)
 	models = append(models, district.Models()...)
