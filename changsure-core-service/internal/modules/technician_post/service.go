@@ -24,6 +24,7 @@ type Service interface {
 	List(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error)
 
 	ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error)
+	GetPublic(ctx context.Context, techID uint, postID uint) (*TechnicianPostResponse, error)
 }
 
 type service struct {
@@ -233,4 +234,12 @@ func (s *service) ListPublicPosts(ctx context.Context, techID uint, q ListTechni
 	}
 
 	return resp, total, nil
+}
+
+func (s *service) GetPublic(ctx context.Context, techID uint, postID uint) (*TechnicianPostResponse, error) {
+	post, err := s.repo.GetPublicPost(ctx, postID, techID)
+	if err != nil {
+		return nil, ErrPostNotFound
+	}
+	return ToPostResponse(post), nil
 }

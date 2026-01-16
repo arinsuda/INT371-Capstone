@@ -248,3 +248,25 @@ func (h *Handler) ListPublicPosts(c fiber.Ctx) error {
 		},
 	})
 }
+
+func (h *Handler) GetPublicPost(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technician_id")
+	if err != nil || techID == 0 {
+		return fiber.NewError(400, "invalid technician id")
+	}
+
+	postID, err := utils.ParseUintParam(c, "id")
+	if err != nil || postID == 0 {
+		return fiber.NewError(400, "invalid post id")
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.svc.GetPublic(ctx, techID, postID)
+	if err != nil {
+		return fiber.NewError(404, err.Error())
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": res})
+}
