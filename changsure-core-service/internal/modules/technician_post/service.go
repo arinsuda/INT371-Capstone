@@ -22,6 +22,8 @@ type Service interface {
 	Delete(ctx context.Context, techID uint, postID uint, hard bool) error
 	Get(ctx context.Context, techID uint, postID uint) (*TechnicianPostResponse, error)
 	List(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error)
+
+	ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error)
 }
 
 type service struct {
@@ -210,4 +212,25 @@ func (s *service) uploadAndBuildImages(
 	}
 
 	return images, nil
+}
+
+func (s *service) ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery) ([]TechnicianPostResponse, int64, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PerPage < 1 || q.PerPage > 100 {
+		q.PerPage = 20
+	}
+
+	posts, total, err := s.repo.ListPublicPosts(ctx, techID, q, q.Page, q.PerPage)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	resp := make([]TechnicianPostResponse, 0, len(posts))
+	for _, p := range posts {
+		resp = append(resp, *ToPostResponse(&p))
+	}
+
+	return resp, total, nil
 }

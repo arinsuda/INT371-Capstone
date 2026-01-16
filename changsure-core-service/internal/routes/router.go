@@ -94,7 +94,7 @@ func (r *Router) setupProtectedRoutes() {
 	r.setupSharedResources(v1)
 
 	// Domain-specific resources
-	r.setupTechnicianRoutes(v1)
+	r.setupTechnicianPublicRoutes(v1)
 	// r.setupCustomerRoutes(v1)
 	r.setupCustomerMeRoutes(v1)
 	r.setupTechnicianMeRoutes(v1)
@@ -162,13 +162,15 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 // 	customers := api.Group("/customers")
 // }
 
-func (r *Router) setupTechnicianRoutes(api fiber.Router) {
+func (r *Router) setupTechnicianPublicRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
 	r.container.TechnicianCalendarHandler.RegisterRoutes(technicians)
 	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
 	r.container.TechnicianMatchingHandler.RegisterRoutes(technicians)
+	r.container.TechnicianHandler.RegisterPublicRoutes(technicians)
+	r.container.TechnicianPostHandler.RegisterPublicRoutes(technicians)
 }
 
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
