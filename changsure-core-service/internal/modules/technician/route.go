@@ -5,13 +5,15 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-
 	router.Get("/profile", h.GetProfile)
 	router.Patch("/profile", h.UpdateProfile)
-
 	router.Patch("/provinces", h.PatchProvinces)
 	router.Post("/services", h.AddService)
 	router.Delete("/services/:id", h.RemoveService)
 	router.Patch("/services/:id", h.UpdateService)
 	router.Patch("/profile/avatar", h.UploadAvatar)
+}
+
+func (h *Handler) RegisterPublicRoutes(router fiber.Router) {
+	router.Get("/:id/profile", h.GetPublicProfile)
 }

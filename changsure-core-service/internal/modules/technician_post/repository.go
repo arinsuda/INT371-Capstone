@@ -21,6 +21,8 @@ type Repository interface {
 
 	SoftDeletePost(ctx context.Context, postID, technicianID uint) error
 	HardDeletePost(ctx context.Context, postID, technicianID uint) error
+
+	ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -154,4 +156,46 @@ func (r *repository) HardDeletePost(ctx context.Context, postID, technicianID ui
 			Where("id = ? AND technician_id = ?", postID, technicianID).
 			Delete(&TechnicianPost{}).Error
 	})
+}
+
+func (r *repository) ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error) {
+	var posts []TechnicianPost
+	var total int64
+
+	tx := r.db.WithContext(ctx).Model(&TechnicianPost{}).
+		Where("technician_posts.technician_id = ? AND technician_posts.is_published = ? AND technician_posts.deleted_at IS NULL", techID, true)
+
+	if q.CategoryID != nil {
+		tx = tx.Where("technician_posts.service_category_id = ?", *q.CategoryID)
+	}
+
+	if q.ServiceID != nil {
+		tx = tx.Where("technician_posts.service_id = ?", *q.ServiceID)
+	}
+
+	if q.ProvinceID != nil {
+		tx = tx.Where("technician_posts.province_id = ?", *q.ProvinceID)
+	}
+
+	if q.Search != "" {
+		keyword := "%" + q.Search + "%"
+		tx = tx.Where("(technician_posts.title LIKE ? OR technician_posts.description LIKE ?)", keyword, keyword)
+	}
+
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := tx.
+		Preload("Service").
+		Preload("Category").
+		Preload("Province").
+		Preload("Images", "deleted_at IS NULL").
+		Order("technician_posts.created_at DESC").
+		Limit(perPage).Offset((page - 1) * perPage).
+		Find(&posts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
 }

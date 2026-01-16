@@ -2,12 +2,14 @@ package technician
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
 
+	technicianposts "changsure-core-service/internal/modules/technician_post"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	"changsure-core-service/pkg/imageutil"
 	"changsure-core-service/pkg/security"
@@ -272,4 +274,78 @@ func (h *Handler) UploadAvatar(c fiber.Ctx) error {
 	url, _ := h.store.PresignGet(c.Context(), key, time.Hour, false)
 
 	return c.JSON(fiber.Map{"success": true, "url": url, "key": key})
+}
+
+func (h *Handler) GetPublicProfile(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "id")
+	if err != nil || techID == 0 {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	res, err := h.svc.GetPublicProfile(c.Context(), techID)
+	if err != nil {
+		return appErrors.NotFound(c, err.Error())
+	}
+
+	posts, err := h.getPublishedPosts(c.Context(), techID)
+	if err == nil {
+		res.Posts = posts
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    res,
+	})
+}
+
+func (h *Handler) getPublishedPosts(ctx context.Context, techID uint) ([]PublicPostSummary, error) {
+	var posts []technicianposts.TechnicianPost
+
+	err := h.svc.(*service).db.WithContext(ctx).
+		Where("technician_id = ? AND is_published = ? AND deleted_at IS NULL", techID, true).
+		Preload("Category").
+		Preload("Images", "deleted_at IS NULL").
+		Order("created_at DESC").
+		Limit(10).
+		Find(&posts).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PublicPostSummary, 0, len(posts))
+	for _, p := range posts {
+		var categoryName *string
+		if p.Category != nil {
+			categoryName = &p.Category.CatName
+		}
+
+		images := make([]technicianposts.TechnicianPostImageResponse, 0, len(p.Images))
+		for _, img := range p.Images {
+			url := img.ImageURL
+			if storage.GlobalMinio != nil && url != "" {
+				presigned, err := storage.GlobalMinio.PresignGet(ctx, url, time.Hour, false)
+				if err == nil {
+					url = presigned
+				}
+			}
+			images = append(images, technicianposts.TechnicianPostImageResponse{
+				ID:       img.ID,
+				ImageURL: url,
+				Order:    img.SortOrder,
+			})
+		}
+
+		result = append(result, PublicPostSummary{
+			ID:           p.ID,
+			Title:        p.Title,
+			Description:  p.Description,
+			CategoryID:   p.ServiceCategoryID,
+			CategoryName: categoryName,
+			Images:       images,
+			CreatedAt:    p.CreatedAt.Unix(),
+		})
+	}
+
+	return result, nil
 }

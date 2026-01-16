@@ -214,3 +214,37 @@ func (h *Handler) DeletePost(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"success": true, "message": "post deleted"})
 }
+
+func (h *Handler) ListPublicPosts(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technician_id")
+	if err != nil || techID == 0 {
+		return fiber.NewError(400, "invalid technician id")
+	}
+
+	var q ListTechnicianPostsQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return fiber.NewError(400, "invalid query")
+	}
+
+	// Force published posts only for public API
+	published := true
+	q.IsPublished = &published
+
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+	defer cancel()
+
+	items, total, err := h.svc.ListPublicPosts(ctx, techID, q)
+	if err != nil {
+		return fiber.NewError(500, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"items":    items,
+			"page":     q.Page,
+			"per_page": q.PerPage,
+			"total":    total,
+		},
+	})
+}

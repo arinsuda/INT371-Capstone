@@ -36,6 +36,7 @@ type Service interface {
 	UpdateService(ctx context.Context, techID uint, req tsvc.UpdateTechServiceReq) (*UpdatedTechServiceResult, error)
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
 	UpdateAvatar(ctx context.Context, techID uint, avatarPath string) error
+	GetPublicProfile(ctx context.Context, techID uint) (*PublicTechnicianProfileRes, error)
 }
 
 type service struct {
@@ -429,14 +430,11 @@ func (s *service) buildAvatarURL(ctx context.Context, avatarURL *string) *string
 		return &empty
 	}
 
-	// ถ้ามี Storage ให้ทำการ Generate URL (Presigned หรือ Full URL ตาม Config)
 	if s.storage != nil {
-		// กำหนดเวลา expire ไว้ 1 ชั่วโมง (หรือตามต้องการ)
 		url, err := s.storage.PresignGet(ctx, *avatarURL, time.Hour, false)
 		if err == nil {
 			return &url
 		}
-		// กรณี Error อาจจะ Log ไว้ แล้ว return path เดิมไปก่อน
 		fmt.Printf("failed to presign avatar url: %v\n", err)
 	}
 
@@ -615,5 +613,38 @@ func (s *service) buildServiceResult(techID uint, ts *tsvc.TechnicianService) Ad
 			PriceMin:    ts.PriceMin,
 			PriceMax:    ts.PriceMax,
 		},
+	}
+}
+
+func (s *service) GetPublicProfile(ctx context.Context, techID uint) (*PublicTechnicianProfileRes, error) {
+	if err := s.validateTechID(techID); err != nil {
+		return nil, err
+	}
+
+	tech, err := s.fetchTechnicianWithAssociations(ctx, techID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.buildPublicProfileResponse(ctx, tech), nil
+}
+
+func (s *service) buildPublicProfileResponse(ctx context.Context, tech *Technician) *PublicTechnicianProfileRes {
+	return &PublicTechnicianProfileRes{
+		ID:             tech.ID,
+		FirstName:      tech.FirstName,
+		LastName:       tech.LastName,
+		Bio:            tech.Bio,
+		AvatarURL:      s.buildAvatarURL(ctx, tech.AvatarURL),
+		RatingAvg:      tech.RatingAvg,
+		RatingCount:    tech.RatingCount,
+		TotalJobs:      tech.TotalJobs,
+		IsAvailable:    tech.IsAvailable,
+		IsVerified:     tech.IsVerified,
+		Provinces:      s.buildProvincesResponse(tech.ServiceAreas),
+		Services:       s.buildServicesResponse(tech.Services),
+		ServiceSummary: s.buildServiceSummary(tech.Services),
+		Badges:         s.buildBadgesResponse(tech.Badges),
+		Posts:          []PublicPostSummary{}, // จะดึงแยกใน handler
 	}
 }
