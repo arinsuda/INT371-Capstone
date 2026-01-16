@@ -23,6 +23,7 @@ type Repository interface {
 	HardDeletePost(ctx context.Context, postID, technicianID uint) error
 
 	ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery, page, perPage int) ([]TechnicianPost, int64, error)
+	GetPublicPost(ctx context.Context, postID, technicianID uint) (*TechnicianPost, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -198,4 +199,21 @@ func (r *repository) ListPublicPosts(ctx context.Context, techID uint, q ListTec
 	}
 
 	return posts, total, nil
+}
+
+func (r *repository) GetPublicPost(ctx context.Context, postID, technicianID uint) (*TechnicianPost, error) {
+	var post TechnicianPost
+
+	err := r.db.WithContext(ctx).
+		Preload("Service").
+		Preload("Category").
+		Preload("Province").
+		Preload("Images", "deleted_at IS NULL").
+		Where("id = ? AND technician_id = ? AND is_published = ? AND deleted_at IS NULL", postID, technicianID, true).
+		First(&post).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
 }

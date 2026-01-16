@@ -11,5 +11,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 func (h *Handler) RegisterPublicRoutes(router fiber.Router) {
-	router.Get("/technicians/:technician_id/posts", h.ListPublicPosts)
+	router.Get("/:technician_id/posts", h.ListPublicPosts)
+	router.Get("/:technician_id/posts/:id", h.GetPublicPost)
 }
