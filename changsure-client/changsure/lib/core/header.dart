@@ -1,3 +1,4 @@
+import 'package:changsure/state/bottom_subpage_history_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/bottom_nav_provider.dart';
@@ -22,9 +23,14 @@ class Header extends ConsumerWidget {
                 () {
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
-                  } else {
-                    ref.read(bottomSubPageProvider.notifier).state = null;
+                    return;
                   }
+
+                  final prev = ref
+                      .read(bottomSubPageHistoryProvider.notifier)
+                      .pop();
+
+                  ref.read(bottomSubPageProvider.notifier).state = prev;
                 },
           ),
           Expanded(

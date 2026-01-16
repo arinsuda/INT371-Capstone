@@ -7,22 +7,24 @@ import 'package:changsure/module/home/home_page.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 
-import 'package:changsure/module/profile/address_page.dart'
-    as shared_address;
+import 'package:changsure/module/profile/address_page.dart' as shared_address;
 
-import 'package:changsure/module/profile/technician/profile_page.dart'
+import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart'
+    as public_tech_profile;
+
+import 'package:changsure/module/profile/technician/owner/pages/technician_profile_page.dart'
     as tech_profile;
-import 'package:changsure/module/profile/technician/view_profile_tab.dart'
+import 'package:changsure/module/profile/technician/owner/pages/my_profile_page.dart'
     as tech_view_profile;
-import 'package:changsure/module/profile/technician/edit_profile.dart'
+import 'package:changsure/module/profile/technician/owner/pages/edit_profile_page.dart'
     as tech_edit;
-import 'package:changsure/module/profile/technician/view_activities.dart'
+import 'package:changsure/module/profile/technician/owner/activities/pages/activities_list_page.dart'
     as tech_view_list;
-import 'package:changsure/module/profile/technician/activities/post/post_activity_page.dart'
+import 'package:changsure/module/profile/technician/owner/activities/pages/post_activity_page.dart'
     as tech_post;
-import 'package:changsure/module/profile/technician/activities/edit/edit_activity_page.dart'
+import 'package:changsure/module/profile/technician/owner/activities/pages/edit_activity_page.dart'
     as tech_edit_act;
-import 'package:changsure/module/profile/technician/activities/view_activity_by_id.dart'
+import 'package:changsure/module/profile/technician/owner/activities/pages/activity_detail_page.dart'
     as tech_view_act;
 
 import 'package:changsure/module/profile/customer/profile_page.dart'
@@ -108,6 +110,13 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.addressPage:
           subPage = const shared_address.AddressPage();
           break;
+        case BottomSubPage.publicTechnicianProfile:
+          if (subConfig.technicianId != null) {
+            subPage = public_tech_profile.PublicTechnicianProfilePage(
+              technicianId: subConfig.technicianId!,
+            );
+          }
+          break;
 
         // Technician
         case BottomSubPage.technicianViewProfile:
@@ -124,7 +133,9 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
           break;
         case BottomSubPage.technicianViewActivityById:
           if (subConfig.activityId != null) {
-            subPage = tech_view_act.ViewActivityById(id: subConfig.activityId!);
+            subPage = tech_view_act.ActivityDetailPage(
+              id: subConfig.activityId!,
+            );
           }
           break;
         case BottomSubPage.technicianEditActivity:

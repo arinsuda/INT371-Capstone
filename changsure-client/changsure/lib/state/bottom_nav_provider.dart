@@ -7,7 +7,7 @@ final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
 enum BottomSubPage {
   none,
   addressPage,
-  
+
   technicianProfile,
   technicianViewProfile,
   technicianEditProfile,
@@ -20,14 +20,17 @@ enum BottomSubPage {
   customerProfile,
   customerEditProfile,
   customerHistoryServicePage,
+
+  publicTechnicianProfile,
 }
 
 /// config สำหรับหน้า subpage
 class SubPageConfig {
   final BottomSubPage page;
   final int? activityId;
+  final int? technicianId;
 
-  const SubPageConfig({required this.page, this.activityId});
+  const SubPageConfig({required this.page, this.activityId, this.technicianId});
 }
 
 /// provider สำหรับ subpage

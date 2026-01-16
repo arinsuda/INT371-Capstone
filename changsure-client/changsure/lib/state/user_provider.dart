@@ -16,7 +16,6 @@ import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
 
 import '../data/models/customer/customer_model.dart';
-import 'package:changsure/data/services/realtime_service.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();

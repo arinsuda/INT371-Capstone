@@ -71,11 +71,14 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   }
 
   void _onMapMoved(MapCamera camera, bool hasGesture) {
-    currentCenter = camera.center;
+    final safe = GeoBounds.clampOrDefault(camera.center);
+    currentCenter = safe;
+
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 450), () {
       _reverseGeocode(currentCenter);
     });
+
     setState(() {});
   }
 
@@ -124,6 +127,7 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
+    final w = MediaQuery.of(context).size.width;
 
     return Container(
       height: h * 0.88,
@@ -133,6 +137,7 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
       ),
       child: Stack(
         children: [
+          // แผนที่
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             child: FlutterMap(
@@ -141,22 +146,28 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                 initialCenter: widget.initialCenter,
                 initialZoom: 15.0,
                 onPositionChanged: _onMapMoved,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+                onTap: (tapPosition, latLng) {
+                  final dest = GeoBounds.clampOrDefault(latLng);
+                  mapController.move(dest, mapController.camera.zoom);
+                  setState(() => currentCenter = dest);
+                  _reverseGeocode(dest);
+                },
               ),
               children: [
                 TileLayer(
                   urlTemplate:
                       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                  subdomains: const [
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                  ], // ต้องใส่บรรทัดนี้ด้วย
+                  subdomains: const ['a', 'b', 'c', 'd'],
                   userAgentPackageName: 'com.changsure.app',
                 ),
               ],
             ),
           ),
+
+          // หมุดกลางหน้าจอ
           const Center(
             child: Padding(
               padding: EdgeInsets.only(bottom: 44),
@@ -167,13 +178,17 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
               ),
             ),
           ),
+
+          // ส่วนบนสุด: Search bar + Address display + Search results
           Positioned(
             top: 12,
             left: 12,
-            right: 12,
+            right: 68, // เว้นที่สำหรับปุ่ม Close
             child: SafeArea(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Search bar
                   Material(
                     elevation: 6,
                     shadowColor: Colors.black12,
@@ -221,8 +236,12 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 10),
+
+                  // Address display
                   Container(
+                    width: w - 24 - 56, // 24 = padding, 56 = เว้นปุ่ม Close
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
@@ -253,13 +272,18 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                       ],
                     ),
                   ),
+
+                  // Search results
                   if (_results.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Material(
                       elevation: 8,
                       borderRadius: BorderRadius.circular(14),
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: h * 0.32),
+                        constraints: BoxConstraints(
+                          maxHeight: h * 0.32,
+                          maxWidth: w - 24 - 56,
+                        ),
                         child: ListView.separated(
                           padding: EdgeInsets.zero,
                           shrinkWrap: true,
@@ -286,35 +310,55 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
               ),
             ),
           ),
+
+          // ปุ่มควบคุมแผนที่ (ขวา)
           Positioned(
             right: 14,
-            bottom: 120,
-            child: Column(
-              children: [
-                MapControlButton(icon: Icons.add, onTap: _zoomIn),
-                const SizedBox(height: 10),
-                MapControlButton(icon: Icons.remove, onTap: _zoomOut),
-                const SizedBox(height: 10),
-                MapControlButton(
-                  icon: Icons.my_location,
-                  onTap: _moveToCurrentLocation,
-                ),
-              ],
+            bottom: 180,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  MapControlButton(icon: Icons.add, onTap: _zoomIn),
+                  const SizedBox(height: 10),
+                  MapControlButton(icon: Icons.remove, onTap: _zoomOut),
+                  const SizedBox(height: 10),
+                  MapControlButton(
+                    icon: Icons.my_location,
+                    onTap: _moveToCurrentLocation,
+                  ),
+                ],
+              ),
             ),
           ),
+
+          // ปุ่มปิด (ขวาบน)
           Positioned(
-            top: 8,
-            right: 8,
+            top: 12,
+            right: 12,
             child: SafeArea(
-              child: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black),
-                  onPressed: () => Navigator.pop(context),
+              child: Material(
+                color: Colors.white,
+                elevation: 4,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.black87,
+                      size: 24,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
+
+          // ส่วนล่าง: แสดง Lat/Lng และปุ่มยืนยัน
           Positioned(
             left: 12,
             right: 12,
