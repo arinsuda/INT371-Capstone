@@ -126,9 +126,6 @@ func (h *Handler) DeleteAddress(c fiber.Ctx) error {
 		if errors.Is(err, ErrAddressNotFound) {
 			return customErr.NotFound(c, "address not found")
 		}
-		if errors.Is(err, ErrCannotDeletePrimary) {
-			return customErr.Conflict(c, "cannot delete primary address")
-		}
 		return customErr.InternalError(c, "failed to delete address", err)
 	}
 

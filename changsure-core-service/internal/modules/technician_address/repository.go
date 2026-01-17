@@ -2,9 +2,11 @@ package technicianaddress
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
+
 	"gorm.io/gorm"
 )
 
@@ -19,6 +21,9 @@ type Repository interface {
 
 	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
 	GetTechnicianPhone(ctx context.Context, techID uint) (*string, error)
+
+	SetPrimary(ctx context.Context, techID uint, addressID uint) error
+	DeleteAndReassignPrimary(ctx context.Context, techID uint, addressID uint) error
 }
 
 type repo struct {
@@ -65,7 +70,7 @@ func (r *repo) ListByTechnician(ctx context.Context, techID uint) ([]*Technician
 		Preload("District").
 		Preload("Province").
 		Where("technician_id = ?", techID).
-		Order("is_primary DESC").
+		Order("is_primary DESC, created_at DESC").
 		Find(&out).Error
 
 	return out, err
@@ -138,4 +143,66 @@ func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, er
 		Where("id = ?", techID).
 		Scan(&phone).Error
 	return phone, err
+}
+
+func (r *repo) SetPrimary(ctx context.Context, techID uint, addressID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
+			Where("technician_id = ?", techID).
+			Update("is_primary", false).Error; err != nil {
+			return err
+		}
+
+		return tx.WithContext(ctx).Model(&TechnicianAddress{}).
+			Where("id = ? AND technician_id = ?", addressID, techID).
+			Update("is_primary", true).Error
+	})
+}
+
+func (r *repo) DeleteAndReassignPrimary(ctx context.Context, techID uint, addressID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var current TechnicianAddress
+		if err := tx.WithContext(ctx).
+			Where("id = ? AND technician_id = ?", addressID, techID).
+			First(&current).Error; err != nil {
+			return err
+		}
+
+		wasPrimary := current.IsPrimary
+
+		if err := tx.WithContext(ctx).
+			Where("id = ? AND technician_id = ?", addressID, techID).
+			Delete(&TechnicianAddress{}).Error; err != nil {
+			return err
+		}
+
+		if wasPrimary {
+			var next TechnicianAddress
+			err := tx.WithContext(ctx).
+				Where("technician_id = ?", techID).
+				Order("created_at DESC").
+				First(&next).Error
+
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil
+				}
+				return err
+			}
+
+			if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
+				Where("technician_id = ?", techID).
+				Update("is_primary", false).Error; err != nil {
+				return err
+			}
+
+			if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
+				Where("id = ? AND technician_id = ?", next.ID, techID).
+				Update("is_primary", true).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

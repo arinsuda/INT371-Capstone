@@ -2,6 +2,7 @@ package customeraddress
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 )
@@ -13,6 +14,9 @@ type Repository interface {
 
 	FindByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
 	FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
+	FindNextPrimaryCandidateTx(ctx context.Context, tx *gorm.DB, customerID uint, excludeID uint) (*CustomerAddress, error)
+	DeleteTx(ctx context.Context, tx *gorm.DB, id uint, customerID uint) error
+	SetPrimaryTx(ctx context.Context, tx *gorm.DB, customerID uint, addressID uint) error
 
 	SetPrimary(ctx context.Context, customerID uint, addressID uint) error
 
@@ -94,4 +98,38 @@ func (r *repository) GetCustomerPhone(ctx context.Context, customerID uint) (*st
 		Where("id = ?", customerID).
 		Scan(&phone).Error
 	return phone, err
+}
+
+func (r *repository) DeleteTx(ctx context.Context, tx *gorm.DB, id uint, customerID uint) error {
+	return tx.WithContext(ctx).
+		Where("id = ? AND customer_id = ?", id, customerID).
+		Delete(&CustomerAddress{}).Error
+}
+
+func (r *repository) SetPrimaryTx(ctx context.Context, tx *gorm.DB, customerID uint, addressID uint) error {
+	if err := tx.WithContext(ctx).Model(&CustomerAddress{}).
+		Where("customer_id = ?", customerID).
+		Update("is_primary", false).Error; err != nil {
+		return err
+	}
+
+	return tx.WithContext(ctx).Model(&CustomerAddress{}).
+		Where("id = ? AND customer_id = ?", addressID, customerID).
+		Update("is_primary", true).Error
+}
+
+func (r *repository) FindNextPrimaryCandidateTx(ctx context.Context, tx *gorm.DB, customerID uint, excludeID uint) (*CustomerAddress, error) {
+	var next CustomerAddress
+	err := tx.WithContext(ctx).
+		Where("customer_id = ? AND id <> ?", customerID, excludeID).
+		Order("created_at DESC").
+		First(&next).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &next, nil
 }
