@@ -8,6 +8,8 @@ import (
 	"changsure-core-service/internal/modules/district"
 	subdistrict "changsure-core-service/internal/modules/sub_district"
 	"changsure-core-service/pkg/utils"
+
+	"gorm.io/gorm"
 )
 
 var (
@@ -55,9 +57,7 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
-	addr := &CustomerAddress{
-		CustomerID: customerID,
-	}
+	addr := &CustomerAddress{CustomerID: customerID}
 
 	pid, did, sdid, err := addressshared.NormalizeAndValidateLocation(
 		ctx,
@@ -86,15 +86,24 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 	addr.Longitude = req.Longitude
 
 	existing, _ := s.repo.FindAllByCustomerID(ctx, customerID)
-	if len(existing) == 0 {
-		addr.IsPrimary = true
-	} else if req.IsPrimary != nil && *req.IsPrimary {
-		addr.IsPrimary = true
 
+	shouldBePrimary := false
+	if len(existing) == 0 {
+		shouldBePrimary = true
+	} else if req.IsPrimary != nil && *req.IsPrimary {
+		shouldBePrimary = true
 	}
+
+	addr.IsPrimary = shouldBePrimary
 
 	if err := s.repo.Create(ctx, addr); err != nil {
 		return nil, err
+	}
+
+	if shouldBePrimary {
+		if err := s.repo.SetPrimary(ctx, customerID, addr.ID); err != nil {
+			return nil, err
+		}
 	}
 
 	newAddr, _ := s.repo.FindByID(ctx, addr.ID, customerID)
@@ -178,6 +187,11 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 		return nil, err
 	}
 
+	if req.IsPrimary != nil && *req.IsPrimary {
+		if err := s.repo.SetPrimary(ctx, customerID, id); err != nil {
+			return nil, err
+		}
+	}
 	updatedAddr, _ := s.repo.FindByID(ctx, id, customerID)
 	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
 	resp := ToResponse(updatedAddr, phone)
@@ -197,11 +211,25 @@ func (s *service) Delete(ctx context.Context, id uint, customerID uint) error {
 		return ErrNotFound
 	}
 
-	if addr.IsPrimary {
-		return ErrCannotDeletePrimary
-	}
+	return s.repo.(*repository).db.Transaction(func(tx *gorm.DB) error {
+		if err := s.repo.DeleteTx(ctx, tx, id, customerID); err != nil {
+			return err
+		}
 
-	return s.repo.Delete(ctx, id, customerID)
+		if addr.IsPrimary {
+			next, err := s.repo.FindNextPrimaryCandidateTx(ctx, tx, customerID, id)
+			if err != nil {
+				return err
+			}
+			if next != nil {
+				if err := s.repo.SetPrimaryTx(ctx, tx, customerID, next.ID); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
 }
 
 func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerAddressResponse, error) {

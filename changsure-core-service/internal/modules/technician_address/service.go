@@ -71,15 +71,15 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 
 	isPrimary := false
 	existing, _ := s.repo.ListByTechnician(ctx, techID)
-	if len(existing) == 0 {
-		isPrimary = true
-	} else if req.IsPrimary != nil && *req.IsPrimary {
 
-		if err := s.repo.ClearPrimary(ctx, techID); err != nil {
-			return nil, err
-		}
-		isPrimary = true
+	shouldBePrimary := false
+	if len(existing) == 0 {
+		shouldBePrimary = true
+	} else if req.IsPrimary != nil && *req.IsPrimary {
+		shouldBePrimary = true
 	}
+
+	isPrimary = shouldBePrimary
 
 	addr := &TechnicianAddress{
 		TechnicianID: techID,
@@ -105,7 +105,15 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 
 	newAddr, _ := s.repo.Get(ctx, addr.ID, techID)
 	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+
+	if shouldBePrimary {
+		if err := s.repo.SetPrimary(ctx, techID, addr.ID); err != nil {
+			return nil, err
+		}
+	}
+
 	resp := ToResponse(newAddr, phone)
+
 	return &resp, nil
 }
 
@@ -185,9 +193,8 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 	}
 
 	if req.IsPrimary != nil && *req.IsPrimary {
-		if !addr.IsPrimary {
-			_ = s.repo.ClearPrimary(ctx, techID)
-			addr.IsPrimary = true
+		if err := s.repo.SetPrimary(ctx, techID, id); err != nil {
+			return nil, err
 		}
 	}
 
@@ -205,6 +212,7 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 	if err := s.checkOwn(ctx, techID); err != nil {
 		return err
 	}
+
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return err
@@ -212,10 +220,12 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 	if addr == nil {
 		return ErrAddressNotFound
 	}
-	if addr.IsPrimary {
-		return ErrCannotDeletePrimary
+
+	if err := s.repo.DeleteAndReassignPrimary(ctx, techID, id); err != nil {
+		return err
 	}
-	return s.repo.Delete(ctx, id, techID)
+
+	return nil
 }
 
 func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAddressResponse, error) {
@@ -261,11 +271,7 @@ func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
 	if addr == nil {
 		return ErrAddressNotFound
 	}
-	if err := s.repo.ClearPrimary(ctx, techID); err != nil {
-		return err
-	}
-	addr.IsPrimary = true
-	return s.repo.Update(ctx, addr)
+	return s.repo.SetPrimary(ctx, techID, id)
 }
 
 func (s *service) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
