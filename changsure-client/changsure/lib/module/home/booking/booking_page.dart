@@ -23,6 +23,7 @@ class BookingPage extends StatefulWidget {
 class _BookingPageState extends State<BookingPage> {
   BookingDateResult? selectedBookingDate;
 
+  int? selectedAddressId;
 
   Future<bool> _showExitConfirmDialog() async {
     final result = await showDialog<bool>(
@@ -55,13 +56,23 @@ class _BookingPageState extends State<BookingPage> {
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
             AddressCard(
-              onTap: () {
-                Navigator.push(
+              selectedAddressId: selectedAddressId,
+              onTap: () async {
+                final pickedId = await Navigator.push<int>(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddressList()),
+                  MaterialPageRoute(
+                    builder: (_) => AddressList(
+                      initialSelectedAddressId: selectedAddressId,
+                    ),
+                  ),
                 );
+
+                if (pickedId != null) {
+                  setState(() => selectedAddressId = pickedId);
+                }
               },
             ),
+
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
               technician: Technician(
@@ -178,7 +189,9 @@ class _BookingPageState extends State<BookingPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => BookingSuccess(bookingDate: selectedBookingDate!,),
+                                builder: (context) => BookingSuccess(
+                                  bookingDate: selectedBookingDate!,
+                                ),
                               ),
                             );
                           },

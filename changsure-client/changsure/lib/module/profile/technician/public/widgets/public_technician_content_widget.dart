@@ -7,7 +7,6 @@ import '../../../../../core/theme.dart';
 import '../../../../../state/public_technician_provider.dart';
 import '../../../technician/owner/activities/shared/constants/activity_constants.dart';
 
-// ตรวจสอบ Path ของ TechnicianCard ให้ตรงกับในโปรเจคของคุณ
 import 'package:changsure/core/profile/technician_card.dart';
 
 class PublicTechnicianContent extends ConsumerStatefulWidget {
@@ -21,7 +20,6 @@ class PublicTechnicianContent extends ConsumerStatefulWidget {
 
 class _PublicTechnicianContentState
     extends ConsumerState<PublicTechnicianContent> {
-  // ใช้ String สำหรับเก็บชื่อหมวดหมู่ที่เลือก (เนื่องจากเราดึงจาก post.categoryName โดยตรง)
   String? _selectedCategoryName;
 
   @override
@@ -36,7 +34,6 @@ class _PublicTechnicianContentState
         color: AppColors.primary,
         backgroundColor: Colors.white,
         onRefresh: () async {
-          // รีเซ็ต Filter เมื่อรีเฟรช
           setState(() {
             _selectedCategoryName = null;
           });
@@ -95,13 +92,11 @@ class _PublicTechnicianContentState
             final services = p.services ?? const [];
             final allPosts = p.posts ?? const [];
 
-            // 1. สร้างรายการหมวดหมู่ (Unique) จากโพสต์ทั้งหมดที่มี
             final Set<String> categoriesSet = allPosts
                 .map((post) => post.categoryName ?? 'อื่นๆ')
                 .toSet();
             final List<String> categories = categoriesSet.toList();
 
-            // 2. กรองโพสต์ตามหมวดหมู่ที่เลือก
             final displayedPosts = _selectedCategoryName == null
                 ? allPosts
                 : allPosts
@@ -121,7 +116,6 @@ class _PublicTechnicianContentState
                     children: [
                       const SizedBox(height: 24),
 
-                      // ===== Avatar =====
                       Center(
                         child: Stack(
                           children: [
@@ -142,7 +136,6 @@ class _PublicTechnicianContentState
                       ),
                       const SizedBox(height: 10),
 
-                      // ===== Name + Verified =====
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -190,7 +183,7 @@ class _PublicTechnicianContentState
 
                       const SizedBox(height: 16),
 
-                      // ===== About =====
+                      
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
@@ -215,7 +208,7 @@ class _PublicTechnicianContentState
                       ),
                       const SizedBox(height: 16),
 
-                      // ===== Services Tags =====
+                      
                       if (services.isNotEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
@@ -266,7 +259,7 @@ class _PublicTechnicianContentState
                         const SizedBox(height: 16),
                       ],
 
-                      // ===== Header ผลงาน + Dropdown Filter =====
+                      
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -283,7 +276,7 @@ class _PublicTechnicianContentState
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            // Dropdown Filter
+                            
                             DropdownButtonHideUnderline(
                               child: DropdownButton2<String?>(
                                 isExpanded: false,
@@ -391,7 +384,7 @@ class _PublicTechnicianContentState
                   ),
                 ),
 
-                // ===== Grid Posts Content =====
+                
                 if (displayedPosts.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
@@ -412,16 +405,16 @@ class _PublicTechnicianContentState
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 12,
                             childAspectRatio:
-                                0.85, // ปรับ Ratio ให้เท่ากับ ActivitySection
+                                0.85, 
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final post = displayedPosts[index];
-                        // ใช้ TechnicianCard เพื่อให้เหมือนหน้า Owner เป๊ะๆ
+                        
                         return TechnicianCard(
                           id: post.id,
                           serviceCategoryName:
                               post.categoryName ?? 'ไม่ระบุหมวดหมู่',
-                          // ใช้ description ถ้ามี หรือ content เป็น fallback
+                          
                           description: post.description ?? 'ไม่มีรายละเอียด',
                           images: post.images
                               .map((img) => img.imageUrl)

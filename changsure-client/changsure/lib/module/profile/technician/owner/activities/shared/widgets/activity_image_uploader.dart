@@ -22,7 +22,6 @@ class ActivityImageUploader extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              // Asset/Remote Images (string อาจเป็น url หรือ asset path)
               ...state.assetImages.asMap().entries.map((entry) {
                 final path = entry.value;
 

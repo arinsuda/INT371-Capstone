@@ -107,7 +107,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
       final items = await ref.read(nominatimServiceProvider).search(query);
       if (mounted) setState(() => _results = items);
     } catch (_) {
-      // Handle error gracefully
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -137,7 +136,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
       ),
       child: Stack(
         children: [
-          // แผนที่
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             child: FlutterMap(
@@ -167,7 +165,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
             ),
           ),
 
-          // หมุดกลางหน้าจอ
           const Center(
             child: Padding(
               padding: EdgeInsets.only(bottom: 44),
@@ -179,16 +176,14 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
             ),
           ),
 
-          // ส่วนบนสุด: Search bar + Address display + Search results
           Positioned(
             top: 12,
             left: 12,
-            right: 68, // เว้นที่สำหรับปุ่ม Close
+            right: 68,
             child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Search bar
                   Material(
                     elevation: 6,
                     shadowColor: Colors.black12,
@@ -239,9 +234,8 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
 
                   const SizedBox(height: 10),
 
-                  // Address display
                   Container(
-                    width: w - 24 - 56, // 24 = padding, 56 = เว้นปุ่ม Close
+                    width: w - 24 - 56, 
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
@@ -273,7 +267,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                     ),
                   ),
 
-                  // Search results
                   if (_results.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Material(
@@ -311,7 +304,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
             ),
           ),
 
-          // ปุ่มควบคุมแผนที่ (ขวา)
           Positioned(
             right: 14,
             bottom: 180,
@@ -331,7 +323,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
             ),
           ),
 
-          // ปุ่มปิด (ขวาบน)
           Positioned(
             top: 12,
             right: 12,
@@ -358,7 +349,6 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
             ),
           ),
 
-          // ส่วนล่าง: แสดง Lat/Lng และปุ่มยืนยัน
           Positioned(
             left: 12,
             right: 12,

@@ -19,6 +19,7 @@ import 'widgets/labeled_text_area.dart';
 import 'widgets/map_preview.dart';
 
 class Address extends ConsumerStatefulWidget {
+  final int? addressId;
   final String houseNumber;
   final String subDistrict;
   final String district;
@@ -34,9 +35,11 @@ class Address extends ConsumerStatefulWidget {
   final double? initialLng;
 
   final Future<void> Function(Map<String, dynamic> data) onSave;
+  final Future<void> Function(int id)? onDelete;
 
   const Address({
     super.key,
+    this.addressId,
     required this.houseNumber,
     required this.subDistrict,
     required this.district,
@@ -51,6 +54,7 @@ class Address extends ConsumerStatefulWidget {
     this.initialLng,
 
     required this.onSave,
+    this.onDelete,
   });
 
   @override
@@ -74,6 +78,9 @@ class _AddressPageState extends ConsumerState<Address> {
 
   bool _hasInitialDataLoaded = false;
 
+  LatLng _defaultCenter = const LatLng(13.7563, 100.5018);
+  bool _isLoadingDefaultLocation = false;
+
   @override
   void initState() {
     super.initState();
@@ -85,12 +92,33 @@ class _AddressPageState extends ConsumerState<Address> {
       text: widget.postCode == 0 ? '' : widget.postCode.toString(),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      setState(() => _isLoadingDefaultLocation = true);
+
+      try {
+        final controller = ref.read(addressFormProvider.notifier);
+        final smartPoint = await controller.getSmartStartingPoint(
+          subDistrict: widget.subDistrict,
+          district: widget.district,
+          province: widget.province,
+        );
+
+        if (mounted) {
+          setState(() {
+            _defaultCenter = smartPoint;
+            _isLoadingDefaultLocation = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoadingDefaultLocation = false);
+        }
+      }
+
       LatLng? initialCoords;
       if (widget.initialLat != null && widget.initialLng != null) {
         initialCoords = LatLng(widget.initialLat!, widget.initialLng!);
       }
-
       ref
           .read(addressFormProvider.notifier)
           .setInitialData(
@@ -173,28 +201,77 @@ class _AddressPageState extends ConsumerState<Address> {
         await widget.onSave(updateData);
 
         if (mounted) {
-          ref.read(bottomSubPageProvider.notifier).state = null;
+          Navigator.of(context).pop();
         }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+        }
       } finally {
         if (mounted) ref.read(addressFormProvider.notifier).setLoading(false);
       }
     } else {
       String missing = '';
-      if (formState.selectedProvinceId == null)
+      if (formState.selectedProvinceId == null) {
         missing = 'จังหวัด';
-      else if (formState.selectedDistrictId == null)
+      } else if (formState.selectedDistrictId == null) {
         missing = 'เขต/อำเภอ';
-      else if (formState.selectedSubDistrictId == null)
+      } else if (formState.selectedSubDistrictId == null) {
         missing = 'แขวง/ตำบล';
+      }
 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('กรุณาเลือก$missingจากรายการ')));
+    }
+  }
+
+  Future<void> _onDelete() async {
+    if (widget.addressId == null || widget.onDelete == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('ยืนยันการลบ'),
+        content: const Text('คุณต้องการลบที่อยู่นี้ใช่หรือไม่?'),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ลบ'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await widget.onDelete!(widget.addressId!);
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ลบที่อยู่เรียบร้อยแล้ว')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+        }
+      }
     }
   }
 
@@ -267,6 +344,8 @@ class _AddressPageState extends ConsumerState<Address> {
       },
     );
 
+    final isEditing = widget.addressId != null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -276,8 +355,7 @@ class _AddressPageState extends ConsumerState<Address> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               child: Header(
                 header: "ที่อยู่ของฉัน",
-                onPressed: () =>
-                    ref.read(bottomSubPageProvider.notifier).state = null,
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
             Expanded(
@@ -288,9 +366,10 @@ class _AddressPageState extends ConsumerState<Address> {
                   children: [
                     MapPreview(
                       mapController: _previewMapController,
-                      defaultCenter: const LatLng(13.7563, 100.5018),
+                      defaultCenter: _defaultCenter,
                       selectedCoordinates: formState.selectedCoordinates,
-                      isMapLoading: formState.isMapLoading,
+                      isMapLoading:
+                          formState.isMapLoading || _isLoadingDefaultLocation,
                       onTapOpenPicker: _openMapPicker,
                       onTapCurrentLocation: () async {
                         try {
@@ -330,13 +409,26 @@ class _AddressPageState extends ConsumerState<Address> {
                             isLoading: provinceAsync.isLoading,
                             hasSelection: formState.selectedProvinceId != null,
                             displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) {
+                            onSelected: (item) async {
                               provinceCtrl.text = item.nameTh;
                               formNotifier.setProvinceId(item.id);
 
                               districtCtrl.clear();
                               subDistrictCtrl.clear();
                               postCodeCtrl.clear();
+
+                              try {
+                                final point = await formNotifier
+                                    .getSmartStartingPoint(
+                                      subDistrict: '',
+                                      district: '',
+                                      province: item.nameTh,
+                                    );
+                                formNotifier.setCoordinates(point);
+                                _previewMapController.move(point, 13.0);
+                              } catch (e) {
+                                print('Error geocoding province: $e');
+                              }
                             },
                             onChanged: (val) =>
                                 formNotifier.setProvinceId(null),
@@ -346,17 +438,29 @@ class _AddressPageState extends ConsumerState<Address> {
                             label: "เขต/อำเภอ",
                             controller: districtCtrl,
                             focusNode: _districtFocusNode,
-
                             options: districtAsync.value ?? [],
                             isLoading: districtAsync.isLoading,
                             hasSelection: formState.selectedDistrictId != null,
                             displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) {
+                            onSelected: (item) async {
                               districtCtrl.text = item.nameTh;
                               formNotifier.setDistrictId(item.id);
 
                               subDistrictCtrl.clear();
                               postCodeCtrl.clear();
+
+                              try {
+                                final point = await formNotifier
+                                    .getSmartStartingPoint(
+                                      subDistrict: '',
+                                      district: item.nameTh,
+                                      province: provinceCtrl.text,
+                                    );
+                                formNotifier.setCoordinates(point);
+                                _previewMapController.move(point, 14.0);
+                              } catch (e) {
+                                print('Error geocoding district: $e');
+                              }
                             },
                             onChanged: (val) =>
                                 formNotifier.setDistrictId(null),
@@ -371,7 +475,7 @@ class _AddressPageState extends ConsumerState<Address> {
                             hasSelection:
                                 formState.selectedSubDistrictId != null,
                             displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) {
+                            onSelected: (item) async {
                               subDistrictCtrl.text = item.nameTh;
                               formNotifier.setSubDistrictId(
                                 item.id,
@@ -379,6 +483,19 @@ class _AddressPageState extends ConsumerState<Address> {
                               );
 
                               postCodeCtrl.text = item.postalCode;
+
+                              try {
+                                final point = await formNotifier
+                                    .getSmartStartingPoint(
+                                      subDistrict: item.nameTh,
+                                      district: districtCtrl.text,
+                                      province: provinceCtrl.text,
+                                    );
+                                formNotifier.setCoordinates(point);
+                                _previewMapController.move(point, 15.0);
+                              } catch (e) {
+                                print('Error geocoding sub-district: $e');
+                              }
                             },
                             onChanged: (val) =>
                                 formNotifier.setSubDistrictId(null),
@@ -407,10 +524,34 @@ class _AddressPageState extends ConsumerState<Address> {
                         ],
                       ),
                     ),
+
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: PrimaryButton(text: "บันทึก", onPressed: _onSave),
                     ),
+
+                    if (isEditing && widget.onDelete != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: OutlinedButton(
+                          onPressed: _onDelete,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'ลบที่อยู่',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

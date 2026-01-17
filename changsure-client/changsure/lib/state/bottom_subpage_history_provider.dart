@@ -13,7 +13,6 @@ class BottomSubPageHistoryNotifier extends StateNotifier<List<SubPageConfig>> {
     state = [...state, page];
   }
 
-  /// return หน้าก่อนหน้า (ถ้ามี)
   SubPageConfig? pop() {
     if (state.isEmpty) return null;
 

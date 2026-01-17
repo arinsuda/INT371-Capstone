@@ -41,7 +41,7 @@ final publicTechnicianProvider =
 
 class PublicTechnicianNotifier
     extends StateNotifier<AsyncValue<PublicTechnicianProfile?>> {
-  final Ref ref; // ✅ เพิ่ม
+  final Ref ref;
   final int technicianId;
   final PublicTechnicianService _service = PublicTechnicianService();
 
@@ -118,7 +118,6 @@ class PublicPostsNotifier extends StateNotifier<AsyncValue<List<PublicPost>>> {
       );
 
       if (result == null) {
-        // ถ้า API ตอบไม่สำเร็จ ให้ถือว่าไม่มีเพิ่ม
         _hasMore = false;
         state = AsyncValue.data(state.value ?? []);
         return;

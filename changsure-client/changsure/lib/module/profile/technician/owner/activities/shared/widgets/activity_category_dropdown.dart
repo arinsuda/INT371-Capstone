@@ -18,7 +18,6 @@ class ActivityCategoryDropdown extends ConsumerWidget {
 
     final selectedCategory = state.selectedCategory;
 
-    // Use new constants API with legacy format for compatibility
     final colors = selectedCategory != null
         ? ActivityConstants.toLegacyFormat(selectedCategory)
         : null;
