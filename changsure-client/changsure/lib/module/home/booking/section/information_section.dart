@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class InformationCard extends StatefulWidget {
-  const InformationCard({super.key});
+  final void Function(String? note, List<File> images)? onChanged;
+  const InformationCard({super.key, this.onChanged});
 
   @override
   State<InformationCard> createState() => _InformationCardState();
@@ -23,7 +24,13 @@ class _InformationCardState extends State<InformationCard> {
 
     infoController.addListener(() {
       setState(() {});
+      _checkChanged();
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkChanged();
+    });
+
   }
 
   @override
@@ -33,7 +40,10 @@ class _InformationCardState extends State<InformationCard> {
   }
 
   void _checkChanged() {
-    // TODO: logic ถ้าต้องเช็คว่ามีการเปลี่ยนแปลงข้อมูล
+    widget.onChanged?.call(
+      infoController.text.isEmpty ? null : infoController.text,
+      selectedImages,
+    );
   }
 
   Future<void> pickImage() async {

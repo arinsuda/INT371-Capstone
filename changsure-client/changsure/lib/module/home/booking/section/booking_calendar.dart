@@ -68,6 +68,8 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
               onDaySelected: (day) {
                 setState(() {
                   selectedDay = day;
+                  selectedTime = "";
+                  selectedTimeSlotId = null;
                 });
               },
             ),
@@ -192,7 +194,10 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
         ),
         child: PrimaryButton(
           text: "ยืนยัน",
-          onPressed: (selectedTime.isEmpty || selectedDay == null)
+          onPressed:
+              (selectedTime.isEmpty ||
+                  selectedDay == null ||
+                  selectedTimeSlotId == null)
               ? null
               : () {
                   Navigator.pop(
@@ -204,6 +209,7 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
                     ),
                   );
                 },
+
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),

@@ -18,16 +18,28 @@ class BookingCreateRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = <String, dynamic>{
       "technician_id": technicianId,
       "technician_service_id": technicianServiceId,
       "address_id": addressId,
       "time_slot_id": timeSlotId,
       "appointment_date": appointmentDate,
-      "customer_note": customerNote,
-      "images": images,
     };
+
+    // ✅ ส่งเฉพาะตอนมี note จริง
+    if (customerNote != null && customerNote!.trim().isNotEmpty) {
+      map["customer_note"] = customerNote;
+    }
+
+    // ✅ ส่งเฉพาะตอนมีรูป
+    if (images != null && images!.isNotEmpty) {
+      map["images"] = images;
+    }
+
+    return map;
   }
+
+
 }
 
 class BookingResponse {
@@ -57,8 +69,8 @@ class BookingData {
   final int timeSlotId;
   final DateTime appointmentDate;
   final String recordedAddress;
-  final int priceAmount;
-  final String paymentMethod;
+  final int? priceAmount;
+  final String? paymentMethod;
   final String? customerNote;
   final String status;
   final DateTime createdAt;
@@ -91,8 +103,8 @@ class BookingData {
       timeSlotId: json['time_slot_id'],
       appointmentDate: DateTime.parse(json['appointment_date']),
       recordedAddress: json['recorded_address'] ?? '',
-      priceAmount: json['price_amount'],
-      paymentMethod: json['payment_method'],
+      priceAmount: json['price_amount'] as int?,
+      paymentMethod: json['payment_method']?.toString(),
       customerNote: json['customer_note'],
       status: json['status'],
       createdAt: DateTime.parse(json['created_at']),

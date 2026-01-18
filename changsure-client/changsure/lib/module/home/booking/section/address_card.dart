@@ -1,4 +1,4 @@
-eimport 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme.dart';
@@ -96,18 +96,17 @@ class AddressCard extends ConsumerWidget {
                         ),
                 ),
 
-                const SizedBox(width: 32), // เผื่อที่ให้ icon ขวา
+                const SizedBox(width: 32),
               ],
             ),
 
-            /// ➡️ ไอคอนขวา (ลอยกลางแนวตั้ง)
             const Positioned.fill(
               child: Align(
-                alignment: Alignment.centerRight, // ✅ กลางแนวตั้ง + ชิดขวา
+                alignment: Alignment.centerRight,
                 child: Icon(
                   Icons.arrow_forward_ios,
                   size: 18,
-                  color: AppColors.colorTertiaryText,
+                  color: AppColors.primaryBorder,
                 ),
               ),
             ),

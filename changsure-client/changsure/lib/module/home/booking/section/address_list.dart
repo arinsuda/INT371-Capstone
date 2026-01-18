@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/header.dart';
 import '../../../../core/theme.dart';
 import '../../../../data/models/users/users_model.dart';
-import '../../../../state/bottom_nav_provider.dart';
 import '../../../../state/user_provider.dart';
 
 class AddressList extends ConsumerStatefulWidget {
@@ -126,14 +125,6 @@ class _AddressListState extends ConsumerState<AddressList> {
       return a.id.compareTo(b.id);
     });
 
-    if (selectedAddressId == null && displayAddresses.isNotEmpty) {
-      final primary = displayAddresses.firstWhere(
-        (a) => a.isPrimary == true,
-        orElse: () => displayAddresses.first,
-      );
-      selectedAddressId = primary.id;
-    }
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -167,12 +158,10 @@ class _AddressListState extends ConsumerState<AddressList> {
                         itemBuilder: (context, index) {
                           final addr = displayAddresses[index];
                           final isLast = index == displayAddresses.length - 1;
-                          final isSelected = selectedAddressId == addr.id;
 
                           return Column(
                             key: ValueKey(addr.id),
                             children: [
-                              // 🧾 Card
                               InkWell(
                                 onTap: () async {
                                   setState(() {
@@ -210,23 +199,19 @@ class _AddressListState extends ConsumerState<AddressList> {
                                           );
                                     }
                                   }
-
-                                  if (mounted) {
-                                    Navigator.pop(context, addr.id);
-                                  }
                                 },
                                 child: Container(
                                   color: Colors.white,
-                                  padding: const EdgeInsets.only(
-                                    right: 18,
-                                    left: 18,
-                                    top: 24,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    18,
+                                    18,
+                                    18,
                                   ),
                                   child: Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // 🔘 Radio
                                       Icon(
                                         selectedAddressId == addr.id
                                             ? Icons.radio_button_checked
@@ -236,132 +221,59 @@ class _AddressListState extends ConsumerState<AddressList> {
 
                                       const SizedBox(width: 12),
 
-                                      // 📄 Content
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            RichText(
-                                              text: TextSpan(
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.bodyMedium,
-                                                children: [
-                                                  TextSpan(
-                                                    text:
-                                                        "ที่อยู่ ${index + 1}",
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  const TextSpan(text: "  "),
-                                                  const TextSpan(
-                                                    text: "90992948",
-                                                    style: TextStyle(
-                                                      color: AppColors
-                                                          .colorTertiaryText,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                            Row(
                                               children: [
-                                                Icon(
-                                                  selectedAddressId == addr.id
-                                                      ? Icons
-                                                            .radio_button_checked
-                                                      : Icons.radio_button_off,
-                                                  color: AppColors.primary,
+                                                Text(
+                                                  "ที่อยู่ ${index + 1}",
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
                                                 ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      RichText(
-                                                        text: TextSpan(
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyMedium,
-                                                          children: [
-                                                            TextSpan(
-                                                              text:
-                                                                  "ที่อยู่ ${index + 1}",
-                                                              style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                fontSize: 16,
-                                                              ),
-                                                            ),
-                                                            const TextSpan(
-                                                              text: "  ",
-                                                            ),
-                                                            TextSpan(
-                                                              text:
-                                                                  "#${addr.id}",
-                                                              style: const TextStyle(
-                                                                color: AppColors
-                                                                    .colorTertiaryText,
-                                                                fontSize: 12,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 6),
-                                                      Text(
-                                                        "${addr.combinedAddressInfo}\n"
-                                                        "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
-                                                        softWrap: true,
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          height: 1.35,
-                                                          color: AppColors
-                                                              .colorTertiaryText,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ],
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  "#${addr.id}",
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors
+                                                        .colorTertiaryText,
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                          ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              "${addr.combinedAddressInfo}\n"
+                                              "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                height: 1.35,
+                                                color:
+                                                    AppColors.colorTertiaryText,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
 
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
+                                      InkWell(
                                         onTap: () => _editAddress(addr),
-                                        child: Container(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            18,
-                                            18,
-                                            18,
-                                            18,
-                                          ),
-                                          child: const Icon(
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(8),
+                                          child: Icon(
                                             Icons.chevron_right,
                                             color: Colors.grey,
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
 

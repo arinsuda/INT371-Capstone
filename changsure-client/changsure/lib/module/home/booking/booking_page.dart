@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:changsure/core/header.dart';
 import 'package:changsure/module/home/booking/booking_success.dart';
 import 'package:changsure/module/home/booking/section/address_card.dart';
@@ -39,7 +41,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         selectedAddressId != null &&
         selectedTimeSlotId != null;
   }
-  int? selectedAddressId;
 
   Future<bool> _showExitConfirmDialog() async {
     final result = await showDialog<bool>(
@@ -89,32 +90,26 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               },
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
-           AddressCard(
-  selectedAddressId: selectedAddressId,
-  onTap: () async {
-    final pickedId = await Navigator.push<int>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddressList(
-          initialSelectedAddressId: selectedAddressId,
-        ),
-      ),
-    );
+            AddressCard(
+              selectedAddressId: selectedAddressId,
+              onTap: () async {
+                final pickedId = await Navigator.push<int>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddressList(
+                      initialSelectedAddressId: selectedAddressId,
+                    ),
+                  ),
+                );
 
-    if (pickedId != null) {
-      setState(() {
-        selectedAddressId = pickedId;
-      });
-    }
-  },
-  onAddressSelected: (id) {
-    setState(() {
-      selectedAddressId = id;
-    });
-  },
-  address: selectedAddress,
-),
+                if (pickedId != null) {
+                  setState(() {
+                    selectedAddressId = pickedId;
+                  });
+                }
+              },
 
+            ),
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
@@ -130,7 +125,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             Container(height: 24, color: AppColors.primaryBGHover),
             PaymentCard(),
             Container(height: 24, color: AppColors.primaryBGHover),
-            InformationCard(),
+            InformationCard(
+              onChanged: (note, pickedImages) {
+                customerNote = note;
+                images = pickedImages.map((e) => e.path).toList();
+              },
+            ),
+
           ],
         ),
       ),
@@ -152,7 +153,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // ✅ สำคัญมาก
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -216,15 +217,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               addressId: selectedAddressId!,
                               timeSlotId: selectedTimeSlotId!,
                               appointmentDate: formattedDate,
-                              customerNote: customerNote,
+                              customerNote: customerNote?.isEmpty == true ? null : customerNote,
                               images: images,
                             );
 
+                            debugPrint("BOOKING REQUEST => ${req.toJson()}");
                             try {
                               final result = await ref.read(
                                 createBookingProvider(req).future,
                               );
-
+                              debugPrint("BOOKING RESULT => $result");
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -238,6 +240,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                 ),
                               );
                             } catch (e) {
+                              debugPrint("BOOKING ERROR => $e");
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text("จองไม่สำเร็จ")),
                               );
