@@ -108,12 +108,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   });
                 }
               },
-              onAddressSelected: (id) {
-                setState(() {
-                  selectedAddressId = id;
-                });
-              },
-              address: selectedAddress,
             ),
 
             Container(height: 24, color: AppColors.primaryBGHover),
@@ -136,7 +130,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 images = pickedImages.map((e) => e.path).toList();
               },
             ),
-
           ],
         ),
       ),
@@ -222,7 +215,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               addressId: selectedAddressId!,
                               timeSlotId: selectedTimeSlotId!,
                               appointmentDate: formattedDate,
-                              customerNote: customerNote?.isEmpty == true ? null : customerNote,
+                              customerNote: customerNote?.isEmpty == true
+                                  ? null
+                                  : customerNote,
                               images: images,
                             );
 
