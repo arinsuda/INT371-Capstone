@@ -158,11 +158,8 @@ class _AddressListState extends ConsumerState<AddressList> {
                     : addresses.isEmpty
                     ? const Center(child: Text("ยังไม่มีที่อยู่"))
                     : ListView.builder(
-                        padding: EdgeInsets.only(
-                          top: 24,
-                          bottom:
-                              24 + 72 + MediaQuery.of(context).padding.bottom,
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+
                         itemCount: displayAddresses.length,
                         itemBuilder: (context, index) {
                           final addr = displayAddresses[index];
@@ -191,11 +188,11 @@ class _AddressListState extends ConsumerState<AddressList> {
                                             Navigator.pop(context, addr.id);
                                           },
                                           child: Container(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              18,
-                                              18,
-                                              12,
-                                              18,
+                                            color: Colors.white,
+                                            padding: const EdgeInsets.only(
+                                              right: 18,
+                                              left: 18,
+                                              top: 24,
                                             ),
                                             child: Row(
                                               crossAxisAlignment:
@@ -235,10 +232,9 @@ class _AddressListState extends ConsumerState<AddressList> {
                                                             const TextSpan(
                                                               text: "  ",
                                                             ),
-                                                            TextSpan(
-                                                              text:
-                                                                  "#${addr.id}",
-                                                              style: const TextStyle(
+                                                            const TextSpan(
+                                                              text: "90992948",
+                                                              style: TextStyle(
                                                                 color: AppColors
                                                                     .colorTertiaryText,
                                                                 fontSize: 12,
@@ -251,14 +247,12 @@ class _AddressListState extends ConsumerState<AddressList> {
                                                       Text(
                                                         "${addr.combinedAddressInfo}\n"
                                                         "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
-                                                        softWrap: true,
                                                         style: const TextStyle(
                                                           fontSize: 14,
-                                                          height: 1.35,
                                                           color: AppColors
                                                               .colorTertiaryText,
                                                           fontWeight:
-                                                              FontWeight.w600,
+                                                              FontWeight.bold,
                                                         ),
                                                       ),
                                                     ],
@@ -271,23 +265,9 @@ class _AddressListState extends ConsumerState<AddressList> {
                                       ),
                                     ),
 
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () => _editAddress(addr),
-                                        child: Container(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            18,
-                                            18,
-                                            18,
-                                            18,
-                                          ),
-                                          child: const Icon(
-                                            Icons.chevron_right,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Colors.grey,
                                     ),
                                   ],
                                 ),
