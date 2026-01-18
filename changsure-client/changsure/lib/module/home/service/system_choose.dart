@@ -1,3 +1,4 @@
+import 'package:changsure/module/profile/technician/owner/activities/shared/constants/activity_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/header.dart';
@@ -6,7 +7,7 @@ import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/master_data_models.dart';
 import '../../../state/master_data_provider.dart';
-import '../../profile/technician/view_profile_tab.dart';
+import '../../profile/technician/owner/pages/my_profile_page.dart';
 import '../booking/booking_page.dart';
 
 class SystemChoose extends ConsumerStatefulWidget {
@@ -56,40 +57,20 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
     );
   }
 
-  Widget _buildCategoryTag(String name) {
-    final colorMap = {
-      "ทาสี": {
-        "text": const Color(0xFFEB2F96),
-        "background": const Color(0xFFFFF0F6),
-        "border": const Color(0xFFFFADD2),
-      },
-      "ประปา": {
-        "text": const Color(0xFF36CFC9),
-        "background": const Color(0xFFE6FFFB),
-        "border": const Color(0xFF87E8DE),
-      },
-      "ไฟฟ้า": {
-        "text": const Color(0xFFFAAD14),
-        "background": const Color(0xFFFFFBE6),
-        "border": const Color(0xFFFFE58F),
-      },
-      "เครื่องใช้ไฟฟ้า": {
-        "text": const Color(0xFF722ED1),
-        "background": const Color(0xFFF9F0FF),
-        "border": const Color(0xFFD3ADF7),
-      },
-    };
-
-    final color = colorMap[name] ?? colorMap["ทาสี"]!;
+  Widget _buildCategoryTag(String categoryName) {
+    final colors = ActivityConstants.getColors(categoryName);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color["background"],
+        color: colors.background,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color["border"]!, width: 1),
+        border: Border.all(color: colors.border, width: 1),
       ),
-      child: Text(name, style: TextStyle(color: color["text"], fontSize: 12)),
+      child: Text(
+        categoryName,
+        style: TextStyle(color: colors.text, fontSize: 12),
+      ),
     );
   }
 

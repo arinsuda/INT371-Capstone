@@ -43,6 +43,12 @@ class UserModel {
     return null;
   }
 
+  String? get phone {
+    if (role == UserRole.technician) return technicianProfile?.phone;
+    if (role == UserRole.customer) return customerProfile?.phone;
+    return null;
+  }
+
   UserModel copyWith({
     int? id,
     String? email,

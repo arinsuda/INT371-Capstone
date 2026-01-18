@@ -39,6 +39,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         selectedAddressId != null &&
         selectedTimeSlotId != null;
   }
+  int? selectedAddressId;
 
   Future<bool> _showExitConfirmDialog() async {
     final result = await showDialog<bool>(
@@ -88,25 +89,32 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               },
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
-            AddressCard(
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddressList()),
-                );
-                if (result != null && result is int) {
-                  setState(() {
-                    selectedAddressId = result;
-                  });
-                }
-              },
-              onAddressSelected: (id) {
-                setState(() {
-                  selectedAddressId = id;
-                });
-              },
-              address: selectedAddress,
-            ),
+           AddressCard(
+  selectedAddressId: selectedAddressId,
+  onTap: () async {
+    final pickedId = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddressList(
+          initialSelectedAddressId: selectedAddressId,
+        ),
+      ),
+    );
+
+    if (pickedId != null) {
+      setState(() {
+        selectedAddressId = pickedId;
+      });
+    }
+  },
+  onAddressSelected: (id) {
+    setState(() {
+      selectedAddressId = id;
+    });
+  },
+  address: selectedAddress,
+),
+
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(

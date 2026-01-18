@@ -51,7 +51,11 @@ class CustomerService {
     required String district,
     required String province,
     required String postCode,
+
     int? provinceId,
+    int? districtId,
+    int? subDistrictId,
+
     double? lat,
     double? lng,
     bool isPrimary = false,
@@ -63,23 +67,34 @@ class CustomerService {
       "sub_district": subDistrict,
       "district": district,
       "province": province,
+
       "zip_code": postCode,
+      "postal_code": postCode,
+
       "is_primary": isPrimary,
     };
 
-    
     if (provinceId != null) body["province_id"] = provinceId;
-    if (lat != null) body["latitude"] = lat;
-    if (lng != null) body["longitude"] = lng;
+    if (districtId != null) body["district_id"] = districtId;
+    if (subDistrictId != null) body["sub_district_id"] = subDistrictId;
+
+    if (lat != null) {
+      body["latitude"] = lat;
+      body["lat"] = lat;
+    }
+    if (lng != null) {
+      body["longitude"] = lng;
+      body["lng"] = lng;
+    }
 
     try {
       final response = await http.post(
         url,
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json', 
+          'Content-Type': 'application/json',
         },
-        body: jsonEncode(body), 
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -94,9 +109,6 @@ class CustomerService {
     }
   }
 
-  
-  
-  
   Future<bool> updateAddress({
     required String token,
     required int addressId,
@@ -105,7 +117,11 @@ class CustomerService {
     required String district,
     required String province,
     required String postCode,
+
     int? provinceId,
+    int? districtId,
+    int? subDistrictId,
+
     double? lat,
     double? lng,
   }) async {
@@ -118,22 +134,32 @@ class CustomerService {
       "sub_district": subDistrict,
       "district": district,
       "province": province,
+
       "zip_code": postCode,
+      "postal_code": postCode,
     };
 
-    
     if (provinceId != null) body["province_id"] = provinceId;
-    if (lat != null) body["latitude"] = lat;
-    if (lng != null) body["longitude"] = lng;
+    if (districtId != null) body["district_id"] = districtId;
+    if (subDistrictId != null) body["sub_district_id"] = subDistrictId;
+
+    if (lat != null) {
+      body["latitude"] = lat;
+      body["lat"] = lat;
+    }
+    if (lng != null) {
+      body["longitude"] = lng;
+      body["lng"] = lng;
+    }
 
     try {
       final response = await http.put(
         url,
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json', 
+          'Content-Type': 'application/json',
         },
-        body: jsonEncode(body), 
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {

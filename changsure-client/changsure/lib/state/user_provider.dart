@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
+import 'package:changsure/data/services/realtime_service.dart';
+
 import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
-import 'package:changsure/data/models/address_model.dart';
 
 import 'package:changsure/data/services/auth_service.dart';
 import 'package:changsure/data/services/address_service.dart';
@@ -26,6 +27,8 @@ class UserNotifier extends Notifier<UserModel?> {
     checkLoginStatus();
     return null;
   }
+
+  final RealtimeService _realtime = RealtimeService();
 
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
@@ -71,6 +74,13 @@ class UserNotifier extends Notifier<UserModel?> {
 
       await refreshUser();
       await loadAddresses();
+
+      _realtime.connect(
+        token: token,
+        role: state!.role == UserRole.technician
+            ? RealtimeRole.technician
+            : RealtimeRole.customer,
+      );
     } catch (e) {
       await logout();
     }
@@ -84,19 +94,23 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<void> login(UserModel user, String refreshToken) async {
     state = user;
+
     await _saveTokens(user.token!, refreshToken);
-
-    if (user.role == UserRole.technician) {
-      await refreshUser();
-    } else if (user.role == UserRole.customer) {
-      await refreshUser();
-    }
-
+    await refreshUser();
     await loadAddresses();
+
+    _realtime.connect(
+      token: user.token!,
+      role: user.role == UserRole.technician
+          ? RealtimeRole.technician
+          : RealtimeRole.customer,
+    );
   }
 
   Future<void> logout() async {
     state = null;
+    _realtime.disconnect();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
@@ -207,8 +221,11 @@ class UserNotifier extends Notifier<UserModel?> {
     required String district,
     required String province,
     required String zipCode,
-    // เพิ่มตัวแปร
+
     int? provinceId,
+    int? districtId,
+    int? subDistrictId,
+
     double? lat,
     double? lng,
   }) async {
@@ -228,8 +245,11 @@ class UserNotifier extends Notifier<UserModel?> {
           district: district,
           province: province,
           postCode: zipCode,
-          // ส่งค่าไป Service (ต้องแน่ใจว่า Service รับค่าพวกนี้แล้ว)
+
           provinceId: provinceId,
+          districtId: districtId,
+          subDistrictId: subDistrictId,
+
           lat: lat,
           lng: lng,
         );
@@ -242,8 +262,11 @@ class UserNotifier extends Notifier<UserModel?> {
           province: province,
           postCode: zipCode,
           isPrimary: true,
-          // ส่งค่าไป Service
+
           provinceId: provinceId,
+          districtId: districtId,
+          subDistrictId: subDistrictId,
+
           lat: lat,
           lng: lng,
         );
@@ -292,8 +315,11 @@ class UserNotifier extends Notifier<UserModel?> {
     required String district,
     required String province,
     required String zipCode,
-    // เพิ่มตัวแปร
+
     int? provinceId,
+    int? districtId,
+    int? subDistrictId,
+
     double? lat,
     double? lng,
   }) async {
@@ -315,8 +341,11 @@ class UserNotifier extends Notifier<UserModel?> {
           district: district,
           province: province,
           postCode: zipCode,
-          // ส่งค่าไป Service (ต้องแน่ใจว่า Service รับค่าพวกนี้แล้ว)
+
           provinceId: provinceId,
+          districtId: districtId,
+          subDistrictId: subDistrictId,
+
           lat: lat,
           lng: lng,
         );
@@ -329,8 +358,11 @@ class UserNotifier extends Notifier<UserModel?> {
           province: province,
           postCode: zipCode,
           isPrimary: true,
-          // ส่งค่าไป Service
+
           provinceId: provinceId,
+          districtId: districtId,
+          subDistrictId: subDistrictId,
+
           lat: lat,
           lng: lng,
         );

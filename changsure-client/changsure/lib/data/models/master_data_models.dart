@@ -11,6 +11,49 @@ class ProvinceModel {
   }
 }
 
+class DistrictModel {
+  final int id;
+  final String nameTh;
+  final int provinceId;
+
+  DistrictModel({
+    required this.id,
+    required this.nameTh,
+    required this.provinceId,
+  });
+
+  factory DistrictModel.fromJson(Map<String, dynamic> json) {
+    return DistrictModel(
+      id: json['id'] ?? 0,
+      nameTh: json['name_th'] ?? '',
+      provinceId: json['province_id'] ?? 0,
+    );
+  }
+}
+
+class SubDistrictModel {
+  final int id;
+  final String nameTh;
+  final String postalCode;
+  final int districtId;
+
+  SubDistrictModel({
+    required this.id,
+    required this.nameTh,
+    required this.postalCode,
+    required this.districtId,
+  });
+
+  factory SubDistrictModel.fromJson(Map<String, dynamic> json) {
+    return SubDistrictModel(
+      id: json['id'] ?? 0,
+      nameTh: json['name_th'] ?? '',
+      postalCode: json['postal_code']?.toString() ?? '',
+      districtId: json['district_id'] ?? 0,
+    );
+  }
+}
+
 class ServiceCategoryModel {
   final int id;
   final String catName;
@@ -199,11 +242,11 @@ class AutoSelectTechnicianQuery {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-          other is AutoSelectTechnicianQuery &&
-              serviceId == other.serviceId &&
-              provinceId == other.provinceId &&
-              minPrice == other.minPrice &&
-              maxPrice == other.maxPrice;
+      other is AutoSelectTechnicianQuery &&
+          serviceId == other.serviceId &&
+          provinceId == other.provinceId &&
+          minPrice == other.minPrice &&
+          maxPrice == other.maxPrice;
 
   @override
   int get hashCode =>
@@ -212,4 +255,3 @@ class AutoSelectTechnicianQuery {
       minPrice.hashCode ^
       maxPrice.hashCode;
 }
-
