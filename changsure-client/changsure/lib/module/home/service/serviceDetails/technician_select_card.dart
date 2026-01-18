@@ -12,8 +12,13 @@ import '../../../../data/models/master_data_models.dart';
 
 class TechnicianCardCTM extends ConsumerWidget {
   final Technician technician;
+  final ServiceModel data;
 
-  const TechnicianCardCTM({super.key, required this.technician});
+  const TechnicianCardCTM({
+    super.key,
+    required this.technician,
+    required this.data,
+  });
 
   Widget _buildTag(String iconUrl, String text) {
     return Container(
@@ -269,7 +274,7 @@ class TechnicianCardCTM extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => (BookingPage()),
+                            builder: (context) => (BookingPage(data: data, technician: technician)),
                           ),
                         );
                       },

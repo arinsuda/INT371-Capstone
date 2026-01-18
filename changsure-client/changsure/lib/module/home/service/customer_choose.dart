@@ -13,6 +13,8 @@ class CustomerChoose extends ConsumerStatefulWidget {
   final int category;
   final int serviceId;
   final int? provinceId;
+  final ServiceModel data;
+
 
   const CustomerChoose({
     super.key,
@@ -20,6 +22,7 @@ class CustomerChoose extends ConsumerStatefulWidget {
     required this.category,
     required this.serviceId,
     required this.provinceId,
+    required this.data
   });
 
   @override
@@ -273,7 +276,7 @@ class _CustomerChooseState extends ConsumerState<CustomerChoose> {
                         .map(
                           (tech) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TechnicianCardCTM(technician: tech),
+                            child: TechnicianCardCTM(technician: tech, data:widget.data),
                           ),
                         )
                         .toList(),

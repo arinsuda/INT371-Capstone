@@ -16,6 +16,7 @@ class SystemChoose extends ConsumerStatefulWidget {
   final int maxPrice;
   final int serviceId;
   final int? provinceId;
+  final ServiceModel data;
 
   const SystemChoose({
     super.key,
@@ -24,6 +25,7 @@ class SystemChoose extends ConsumerStatefulWidget {
     required this.maxPrice,
     required this.serviceId,
     required this.provinceId,
+    required this.data,
   });
 
   @override
@@ -159,7 +161,11 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Stack(
                     children: [
-                      _TechnicianCard(tech: tech, buildTag: _buildTag),
+                      _TechnicianCard(
+                        tech: tech,
+                        buildTag: _buildTag,
+                        serviceData: widget.data,
+                      ),
                       Positioned(
                         top: 16,
                         right: 16,
@@ -182,8 +188,13 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
 class _TechnicianCard extends StatelessWidget {
   final Technician tech;
   final Widget Function(String, String) buildTag;
+  final ServiceModel serviceData;
 
-  const _TechnicianCard({required this.tech, required this.buildTag});
+  const _TechnicianCard({
+    required this.tech,
+    required this.buildTag,
+    required this.serviceData,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +338,10 @@ class _TechnicianCard extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => (BookingPage())),
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            (BookingPage(data: serviceData, technician: tech,)),
+                      ),
                     );
                   },
                   padding: EdgeInsets.symmetric(vertical: 6),

@@ -6,24 +6,39 @@ import 'package:changsure/module/home/booking/section/booking_card.dart';
 import 'package:changsure/module/home/booking/section/information_section.dart';
 import 'package:changsure/module/home/booking/section/payment_card.dart';
 import 'package:flutter/material.dart';
-
 import '../../../core/button/primary_button.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/technician.dart';
-import 'booking_address.dart';
+import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/master_data_models.dart';
+import '../../../data/models/users/users_model.dart';
+import '../../../state/booking_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../state/user_provider.dart';
+import 'package:collection/collection.dart';
 
-class BookingPage extends StatefulWidget {
-  const BookingPage({super.key});
+class BookingPage extends ConsumerStatefulWidget {
+  final ServiceModel data;
+  final Technician technician;
+
+  const BookingPage({super.key, required this.data, required this.technician});
 
   @override
-  State<BookingPage> createState() => _BookingPageState();
+  ConsumerState<BookingPage> createState() => _BookingPageState();
 }
 
-class _BookingPageState extends State<BookingPage> {
+class _BookingPageState extends ConsumerState<BookingPage> {
   BookingDateResult? selectedBookingDate;
-
   int? selectedAddressId;
+  int? selectedTimeSlotId;
+  String? customerNote;
+  List<String> images = [];
+
+  bool get isFormValid {
+    return selectedBookingDate != null &&
+        selectedAddressId != null &&
+        selectedTimeSlotId != null;
+  }
 
   Future<bool> _showExitConfirmDialog() async {
     final result = await showDialog<bool>(
@@ -40,6 +55,24 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProvider);
+    final addresses = user?.role == UserRole.technician
+        ? user?.technicianProfile?.addresses
+        : user?.addresses;
+
+    if (selectedAddressId == null &&
+        addresses != null &&
+        addresses.isNotEmpty) {
+      final primary = addresses.where((a) => a.isPrimary == true).toList();
+      if (primary.isNotEmpty) {
+        selectedAddressId = primary.first.id; // ✅ auto select
+      }
+    }
+
+    final selectedAddress = addresses?.firstWhereOrNull(
+      (a) => a.id == selectedAddressId,
+    );
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -68,44 +101,27 @@ class _BookingPageState extends State<BookingPage> {
                 );
 
                 if (pickedId != null) {
-                  setState(() => selectedAddressId = pickedId);
+                  setState(() {
+                    selectedAddressId = pickedId;
+                  });
                 }
               },
+              onAddressSelected: (id) {
+                setState(() {
+                  selectedAddressId = id;
+                });
+              },
+              address: selectedAddress,
             ),
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
-              technician: Technician(
-                firstName: "สมชาย",
-                lastName: "รักชาติ",
-                avatar: "assets/image/Technician.png",
-                distance: 2.0,
-                rating: 4.9,
-                jobsCompleted: 34,
-                price: 1000,
-                tags: [
-                  {
-                    "icon": "assets/icons/top_service.png",
-                    "text": "Top Service",
-                  },
-                  {
-                    "icon": "assets/icons/changSure_rec.png",
-                    "text": "ChangSure Recommend",
-                  },
-                ],
-                category: "ทาสี",
-                categoryTags: ["Top Service", "ChangSure Recommend"],
-              ),
-              service: Service(
-                id: 1,
-                serviceName: "บริการทาสีภายใน เกรดอัลตร้าพรีเมียม",
-                price: 400,
-                quantity: 1,
-                image: "assets/image/clean1.png",
-              ),
+              technician: widget.technician,
+              service: widget.data,
               onDateSelected: (result) {
                 setState(() {
                   selectedBookingDate = result;
+                  selectedTimeSlotId = result.timeSlotId;
                 });
               },
             ),
@@ -183,19 +199,50 @@ class _BookingPageState extends State<BookingPage> {
                 Expanded(
                   child: PrimaryButton(
                     text: "ยืนยัน",
-                    onPressed: selectedBookingDate == null
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => BookingSuccess(
-                                  bookingDate: selectedBookingDate!,
-                                ),
-                              ),
+                    onPressed: isFormValid
+                        ? () async {
+                            final date = selectedBookingDate!.day;
+
+                            final formattedDate =
+                                "${date.year.toString().padLeft(4, '0')}-"
+                                "${date.month.toString().padLeft(2, '0')}-"
+                                "${date.day.toString().padLeft(2, '0')}";
+
+                            final req = BookingCreateRequest(
+                              technicianId: widget.technician.id,
+                              technicianServiceId: widget.data.id,
+                              addressId: selectedAddressId!,
+                              timeSlotId: selectedTimeSlotId!,
+                              appointmentDate: formattedDate,
+                              customerNote: customerNote,
+                              images: images,
                             );
-                          },
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+
+                            try {
+                              final result = await ref.read(
+                                createBookingProvider(req).future,
+                              );
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BookingSuccess(
+                                    bookingDate: selectedBookingDate!,
+                                    technician: widget.technician,
+                                    service: widget.data,
+                                    response: result,
+                                    address: selectedAddress,
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("จองไม่สำเร็จ")),
+                              );
+                            }
+                          }
+                        : null,
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 8),
                   ),
                 ),
               ],

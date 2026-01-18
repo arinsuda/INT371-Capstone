@@ -1,14 +1,28 @@
 import 'package:changsure/module/home/booking/section/booking_card.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/header.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/technician.dart';
+import '../../../data/models/address_model.dart';
+import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/master_data_models.dart';
 
 class BookingSuccess extends StatefulWidget {
   final BookingDateResult bookingDate;
+  final Technician technician;
+  final ServiceModel service;
+  final BookingResponse response;
+  final AddressModel? address;
 
-  const BookingSuccess({super.key, required this.bookingDate});
+  const BookingSuccess({
+    super.key,
+    required this.bookingDate,
+    required this.technician,
+    required this.service,
+    required this.response,
+    required this.address
+  });
 
   @override
   State<BookingSuccess> createState() => _BookingSuccessState();
@@ -32,9 +46,21 @@ class _BookingSuccessState extends State<BookingSuccess> {
     "assets/image/clean1.png",
     "assets/image/clean2.png",
   ];
+  late String bookingDate;
+
+  @override
+  void initState() {
+    super.initState();
+
+    bookingDate = DateFormat(
+      "d MMM yy",
+      "th",
+    ).format(widget.response.data.createdAt);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final note = widget.response.data.customerNote;
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -109,7 +135,7 @@ class _BookingSuccessState extends State<BookingSuccess> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "126 บ้านธรรมรักษา ถนนประชาอุทิศ บางมด ทุ่งครุ กรุงเทพมหานคร 10140",
+                              "${widget.address!.combinedAddressInfo}\n",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -127,34 +153,8 @@ class _BookingSuccessState extends State<BookingSuccess> {
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
-              technician: Technician(
-                firstName: "สมชาย",
-                lastName: "รักชาติ",
-                avatar: "assets/image/Technician.png",
-                distance: 2.0,
-                rating: 4.9,
-                jobsCompleted: 34,
-                price: 1000,
-                tags: [
-                  {
-                    "icon": "assets/icons/top_service.png",
-                    "text": "Top Service",
-                  },
-                  {
-                    "icon": "assets/icons/changSure_rec.png",
-                    "text": "ChangSure Recommend",
-                  },
-                ],
-                category: "ทาสี",
-                categoryTags: ["Top Service", "ChangSure Recommend"],
-              ),
-              service: Service(
-                id: 1,
-                serviceName: "บริการทาสีภายใน เกรดอัลตร้าพรีเมียม",
-                price: 400,
-                quantity: 1,
-                image: "assets/image/clean1.png",
-              ),
+              technician: widget.technician,
+              service: widget.service,
               onDateSelected: (_) {},
               readOnly: true,
               initialDate: widget.bookingDate,
@@ -210,7 +210,7 @@ class _BookingSuccessState extends State<BookingSuccess> {
                       Text("วันที่จองบริการ"),
                       const Spacer(),
                       Text(
-                        "4 ธ.ค 25",
+                        bookingDate,
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.colorTertiaryText,
@@ -240,20 +240,29 @@ class _BookingSuccessState extends State<BookingSuccess> {
                   const Text("รูปภาพหน้างาน", style: TextStyle(fontSize: 14)),
                   const SizedBox(height: 8),
 
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: images.map((img) {
-                      return ClipRRect(
-                        child: Image.asset(
-                          img,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
+                  widget.response.data.images.isEmpty
+                      ? const Text(
+                          "ไม่มีรูปภาพเพิ่มเติม",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.colorTertiaryText,
+                          ),
+                        )
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: widget.response.data.images.map((img) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                img,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            );
+                          }).toList(),
                         ),
-                      );
-                    }).toList(),
-                  ),
 
                   const SizedBox(height: 16),
                   const Text(
@@ -261,9 +270,11 @@ class _BookingSuccessState extends State<BookingSuccess> {
                     style: TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    "ต้องการทาสีใหม่เป็นสีขาวควันบุหรี่ ผนังเดิมมีคราบ เหลืองเล็กน้อย อยากให้เก็บรอยแตกตามมุมผนัง ด้วยค่ะ เฟอร์นิเจอร์มีบางส่วน ไม่สามารถย้ายออกได้ อยากให้ช่างช่วยคลุมพลาสติกให้ด้วยค่ะ",
-                    style: TextStyle(
+                  Text(
+                    (note == null || note.trim().isEmpty)
+                        ? "ไม่มีรายละเอียดเพิ่มเติม"
+                        : note,
+                    style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.colorTertiaryText,
                     ),

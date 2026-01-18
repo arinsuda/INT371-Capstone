@@ -42,8 +42,9 @@ class AddressCard extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Stack(
           children: [
+            /// 🔹 Content หลัก
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start, // ซ้ายยังชิดบน
               children: [
                 Icon(Icons.location_on, size: 16, color: AppColors.primary),
                 const SizedBox(width: 8),
@@ -94,12 +95,15 @@ class AddressCard extends ConsumerWidget {
                           ],
                         ),
                 ),
+
+                const SizedBox(width: 32), // เผื่อที่ให้ icon ขวา
               ],
             ),
 
-            Positioned.fill(
+            /// ➡️ ไอคอนขวา (ลอยกลางแนวตั้ง)
+            const Positioned.fill(
               child: Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.centerRight, // ✅ กลางแนวตั้ง + ชิดขวา
                 child: Icon(
                   Icons.arrow_forward_ios,
                   size: 18,

@@ -159,120 +159,137 @@ class _AddressListState extends ConsumerState<AddressList> {
                     ? const Center(child: Text("ยังไม่มีที่อยู่"))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-
-                        itemCount: displayAddresses.length,
+                        itemCount: addresses.length,
                         itemBuilder: (context, index) {
-                          final addr = displayAddresses[index];
-                          final isLast = index == displayAddresses.length - 1;
-                          final isSelected = selectedAddressId == addr.id;
+                          final addr = addresses[index];
+                          final isLast = index == addresses.length - 1;
 
                           return Column(
-                            key: ValueKey(addr.id),
                             children: [
-                              Container(
-                                color: Colors.white,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          splashColor: AppColors.primary
-                                              .withOpacity(0.12),
-                                          highlightColor: AppColors.primary
-                                              .withOpacity(0.06),
-                                          onTap: () {
-                                            setState(
-                                              () => selectedAddressId = addr.id,
-                                            );
-                                            Navigator.pop(context, addr.id);
-                                          },
-                                          child: Container(
-                                            color: Colors.white,
-                                            padding: const EdgeInsets.only(
-                                              right: 18,
-                                              left: 18,
-                                              top: 24,
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Icon(
-                                                  selectedAddressId == addr.id
-                                                      ? Icons
-                                                            .radio_button_checked
-                                                      : Icons.radio_button_off,
-                                                  color: AppColors.primary,
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      RichText(
-                                                        text: TextSpan(
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyMedium,
-                                                          children: [
-                                                            TextSpan(
-                                                              text:
-                                                                  "ที่อยู่ ${index + 1}",
-                                                              style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                fontSize: 16,
-                                                              ),
-                                                            ),
-                                                            const TextSpan(
-                                                              text: "  ",
-                                                            ),
-                                                            const TextSpan(
-                                                              text: "90992948",
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .colorTertiaryText,
-                                                                fontSize: 12,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 6),
-                                                      Text(
-                                                        "${addr.combinedAddressInfo}\n"
-                                                        "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          color: AppColors
-                                                              .colorTertiaryText,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
+                              // 🧾 Card
+                              InkWell(
+                                onTap: () async {
+                                  setState(() {
+                                    selectedAddressId = addr.id;
+                                  });
+
+                                  if (addr.isPrimary != true) {
+                                    if (user!.role == UserRole.customer) {
+                                      await ref
+                                          .read(userProvider.notifier)
+                                          .saveCustomerAddress(
+                                            id: addr.id,
+                                            houseNumber: addr.houseNumber,
+                                            subDistrict: addr.subDistrict,
+                                            district: addr.district,
+                                            province: addr.province,
+                                            zipCode: addr.postalCode,
+                                            provinceId: null,
+                                            lat: addr.latitude,
+                                            lng: addr.longitude,
+                                          );
+                                    } else {
+                                      await ref
+                                          .read(userProvider.notifier)
+                                          .saveTechnicianAddress(
+                                            id: addr.id,
+                                            houseNumber: addr.houseNumber,
+                                            subDistrict: addr.subDistrict,
+                                            district: addr.district,
+                                            province: addr.province,
+                                            zipCode: addr.postalCode,
+                                            provinceId: null,
+                                            lat: addr.latitude,
+                                            lng: addr.longitude,
+                                          );
+                                    }
+                                  }
+
+                                  if (mounted) {
+                                    Navigator.pop(context, addr);
+                                  }
+                                },
+                                child: Container(
+                                  color: Colors.white,
+                                  padding: const EdgeInsets.only(
+                                    right: 18,
+                                    left: 18,
+                                    top: 24,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // 🔘 Radio
+                                      Icon(
+                                        selectedAddressId == addr.id
+                                            ? Icons.radio_button_checked
+                                            : Icons.radio_button_off,
+                                        color: AppColors.primary,
+                                      ),
+
+                                      const SizedBox(width: 12),
+
+                                      // 📄 Content
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            RichText(
+                                              text: TextSpan(
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                                children: [
+                                                  TextSpan(
+                                                    text:
+                                                        "ที่อยู่ ${index + 1}",
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                  const TextSpan(text: "  "),
+                                                  const TextSpan(
+                                                    text: "90992948",
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .colorTertiaryText,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
+
+                                            const SizedBox(height: 6),
+
+                                            Text(
+                                              "${addr.combinedAddressInfo}\n"
+                                              "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color:
+                                                    AppColors.colorTertiaryText,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
 
-                                    const Icon(
-                                      Icons.chevron_right,
-                                      color: Colors.grey,
-                                    ),
-                                  ],
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.grey,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
 
+                              // ➖ Divider (ถ้าไม่ใช่อันสุดท้าย)
                               if (!isLast)
                                 Divider(
                                   height: 1,
