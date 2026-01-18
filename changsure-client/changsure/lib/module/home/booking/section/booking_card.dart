@@ -1,40 +1,27 @@
 import 'package:changsure/module/home/booking/section/booking_calendar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../../../core/theme.dart';
-import '../../../../mockDB/technician.dart';
-
-class Service {
-  final int id;
-  final String serviceName;
-  final int price;
-  final int quantity;
-  final String image;
-
-  Service({
-    required this.id,
-    required this.serviceName,
-    required this.price,
-    required this.quantity,
-    required this.image,
-  });
-}
+import '../../../../data/models/master_data_models.dart';
 
 class BookingDateResult {
   final DateTime day;
   final String time;
+  final int timeSlotId;
 
-  BookingDateResult({required this.day, required this.time});
+  BookingDateResult({
+    required this.day,
+    required this.time,
+    required this.timeSlotId,
+  });
 }
 
 class BookingCard extends StatefulWidget {
   final Technician technician;
-  final Service service;
+  final ServiceModel service;
   final Function(BookingDateResult) onDateSelected;
   final bool readOnly;
   final BookingDateResult? initialDate;
-
 
   const BookingCard({
     super.key,
@@ -51,6 +38,13 @@ class BookingCard extends StatefulWidget {
 
 class _BookingCardState extends State<BookingCard> {
   BookingDateResult? bookingDate;
+
+  String _formatPrice(int min, int? max) {
+    if (max != null && max > min) {
+      return "฿$min - $max";
+    }
+    return "฿$min";
+  }
 
   String _formatBookingDate(DateTime day, String time) {
     final thaiMonths = [
@@ -122,9 +116,7 @@ class _BookingCardState extends State<BookingCard> {
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const BookingCalendar(),
-            ),
+            MaterialPageRoute(builder: (_) => const BookingCalendar()),
           );
 
           if (result != null && result is BookingDateResult) {
@@ -138,7 +130,11 @@ class _BookingCardState extends State<BookingCard> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset("assets/icons/calendar.svg", width: 16, height: 16),
+            SvgPicture.asset(
+              "assets/icons/calendar.svg",
+              width: 16,
+              height: 16,
+            ),
             const SizedBox(width: 8),
             const Text(
               "เลือกวันรับบริการ",
@@ -202,16 +198,12 @@ class _BookingCardState extends State<BookingCard> {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 10),
         side: const BorderSide(color: AppColors.primary),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       onPressed: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const BookingCalendar(),
-          ),
+          MaterialPageRoute(builder: (_) => const BookingCalendar()),
         );
 
         if (result != null && result is BookingDateResult) {
@@ -225,11 +217,7 @@ class _BookingCardState extends State<BookingCard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SvgPicture.asset(
-            "assets/icons/calendar.svg",
-            width: 16,
-            height: 16,
-          ),
+          SvgPicture.asset("assets/icons/calendar.svg", width: 16, height: 16),
           const SizedBox(width: 8),
           const Text(
             "เลือกวันรับบริการ",
@@ -280,10 +268,7 @@ class _BookingCardState extends State<BookingCard> {
             ),
             const SizedBox(width: 12),
             Text(
-              _formatBookingDate(
-                bookingDate!.day,
-                bookingDate!.time,
-              ),
+              _formatBookingDate(bookingDate!.day, bookingDate!.time),
               style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.primaryText,
@@ -301,7 +286,6 @@ class _BookingCardState extends State<BookingCard> {
       ),
     );
   }
-
 
   Widget _buildDateDisplay() {
     return Container(
@@ -351,11 +335,21 @@ class _BookingCardState extends State<BookingCard> {
     );
   }
 
-
   @override
   void initState() {
     super.initState();
     bookingDate = widget.initialDate; // ✅ รับค่าตั้งต้น
+  }
+
+  String _getDisplayCategoryName(String categoryName) {
+    final displayMap = {
+      "งานทาสี": "ทาสี",
+      "งานประปา": "ประปา",
+      "งานไฟฟ้า": "ไฟฟ้า",
+      "งานเครื่องใช้ไฟฟ้า": "เครื่องใช้ไฟฟ้า",
+    };
+
+    return displayMap[categoryName] ?? categoryName;
   }
 
   @override
@@ -373,8 +367,15 @@ class _BookingCardState extends State<BookingCard> {
                 children: [
                   CircleAvatar(
                     radius: 25,
-                    backgroundImage: AssetImage(tech.avatar),
+                    backgroundImage:
+                        tech.avatarUrl != null && tech.avatarUrl!.isNotEmpty
+                        ? NetworkImage(tech.avatarUrl!)
+                        : null,
+                    child: (tech.avatarUrl == null || tech.avatarUrl!.isEmpty)
+                        ? const Icon(Icons.person, size: 28)
+                        : null,
                   ),
+
                   const SizedBox(width: 12),
 
                   Expanded(
@@ -385,7 +386,7 @@ class _BookingCardState extends State<BookingCard> {
                           children: [
                             Flexible(
                               child: Text(
-                                'คุณ ${tech.firstName} ${tech.lastName}',
+                                'คุณ ${tech.firstname} ${tech.lastname}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: AppColors.primaryText,
@@ -410,7 +411,7 @@ class _BookingCardState extends State<BookingCard> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              "${tech.rating}",
+                              "${tech.ratingAvg}",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -429,7 +430,7 @@ class _BookingCardState extends State<BookingCard> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "จำนวนงานที่รับ: ${tech.jobsCompleted}",
+                              "จำนวนงานที่รับ: ${tech.totalJobs}",
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: AppColors.colorTertiaryText,
@@ -445,7 +446,9 @@ class _BookingCardState extends State<BookingCard> {
               Positioned(
                 top: 0,
                 right: 0,
-                child: _buildCategoryTag(tech.category),
+                child: _buildCategoryTag(
+                  _getDisplayCategoryName(tech.categoryName),
+                ),
               ),
             ],
           ),
@@ -458,7 +461,18 @@ class _BookingCardState extends State<BookingCard> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(widget.service.image, width: 50, height: 50),
+              Image(
+                width: 50,
+                height: 50,
+                image:
+                    (widget.service.imageUrls != null &&
+                        widget.service.imageUrls!.isNotEmpty)
+                    ? NetworkImage(widget.service.imageUrls!.first)
+                    : const AssetImage("assets/images/no_image.png")
+                          as ImageProvider,
+                fit: BoxFit.cover,
+              ),
+
               const SizedBox(width: 12),
 
               SizedBox(
@@ -470,26 +484,21 @@ class _BookingCardState extends State<BookingCard> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.service.serviceName,
+                            widget.service.serName,
                             style: const TextStyle(
                               color: AppColors.primaryText,
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        Text(
-                          'x${widget.service.quantity}',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w400,
-                            fontSize: 12,
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '฿${widget.service.price}',
+                      _formatPrice(
+                        widget.technician.priceMin,
+                        widget.technician.priceMax,
+                      ),
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 14,
@@ -508,11 +517,12 @@ class _BookingCardState extends State<BookingCard> {
             width: double.infinity,
             child: widget.readOnly
                 ? (bookingDate == null
-                ? const SizedBox() // หรือไม่แสดงอะไร
-                : _buildReadonlyDate())
-                : (bookingDate == null ? _buildSelectButton() : _buildEditableDate()),
+                      ? const SizedBox() // หรือไม่แสดงอะไร
+                      : _buildReadonlyDate())
+                : (bookingDate == null
+                      ? _buildSelectButton()
+                      : _buildEditableDate()),
           ),
-
         ],
       ),
     );

@@ -31,10 +31,11 @@ class AddressModel {
 
   String get combinedAddressInfo {
     List<String> parts = [houseNumber];
-    if (moo != null && moo!.isNotEmpty) parts.add('หมู่ $moo');
     if (village != null && village!.isNotEmpty) parts.add('$village');
+    if (moo != null && moo!.isNotEmpty) parts.add('หมู่ $moo');
     if (soi != null && soi!.isNotEmpty) parts.add('ซ.$soi');
     if (road != null && road!.isNotEmpty) parts.add('ถ.$road');
+
     return parts.join(' ');
   }
 

@@ -75,7 +75,6 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
 
   @override
   Widget build(BuildContext context) {
-    print(widget.provinceId);
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
 
@@ -565,6 +564,7 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                                                                           .id,
                                                                   provinceId: widget
                                                                       .provinceId,
+                                                                  data: widget.data
                                                                 ),
                                                               ),
                                                             );
@@ -586,6 +586,7 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                                                                           .id,
                                                                   provinceId: widget
                                                                       .provinceId,
+                                                                  data: widget.data,
                                                                 ),
                                                               ),
                                                             );

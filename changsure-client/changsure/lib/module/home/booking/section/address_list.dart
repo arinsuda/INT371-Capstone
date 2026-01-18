@@ -45,7 +45,7 @@ class _AddressListState extends ConsumerState<AddressList> {
               child: Header(
                 header: "เลือกที่อยู่",
                 onPressed: () {
-                  ref.read(bottomSubPageProvider.notifier).state = null;
+                  Navigator.pop(context, selectedAddressId);
                 },
               ),
             ),
@@ -107,7 +107,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                                   }
 
                                   if (mounted) {
-                                    Navigator.pop(context, addr);
+                                    Navigator.pop(context, addr.id);
                                   }
                                 },
                                 child: Container(

@@ -1,9 +1,11 @@
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/button/primary_button.dart';
 import '../../../../core/theme.dart';
+import '../../../../state/booking_provider.dart';
 import 'booking_card.dart';
 import 'calendar.dart';
 
@@ -27,17 +29,18 @@ String _formatBookingDate(DateTime day, String time) {
   return '${day.day} ${thaiMonths[day.month]} ${day.year}, $time';
 }
 
-class BookingCalendar extends StatefulWidget {
+class BookingCalendar extends ConsumerStatefulWidget {
   final DateTime? initialDay;
   final String? initialTime;
 
   const BookingCalendar({super.key, this.initialDay, this.initialTime});
 
   @override
-  State<BookingCalendar> createState() => _BookingCalendarState();
+  ConsumerState<BookingCalendar> createState() => _BookingCalendarState();
 }
 
-class _BookingCalendarState extends State<BookingCalendar> {
+class _BookingCalendarState extends ConsumerState<BookingCalendar> {
+  int? selectedTimeSlotId;
   String selectedTime = "";
   DateTime? selectedDay;
 
@@ -48,9 +51,10 @@ class _BookingCalendarState extends State<BookingCalendar> {
     selectedTime = widget.initialTime ?? "";
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final timeSlotsAsync = ref.watch(timeSlotsProvider);
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -85,26 +89,25 @@ class _BookingCalendarState extends State<BookingCalendar> {
                   ),
                   const SizedBox(height: 12),
 
-                  Row(
-                    children: [
-                      _selectTag(
-                        "9:00 - 12:00",
-                        selectedTime,
-                        (v) => setState(() => selectedTime = v),
-                      ),
-                      const SizedBox(width: 10),
-                      _selectTag(
-                        "13:00 - 16:00",
-                        selectedTime,
-                        (v) => setState(() => selectedTime = v),
-                      ),
-                      const SizedBox(width: 10),
-                      _selectTag(
-                        "17:00 - 20:00",
-                        selectedTime,
-                        (v) => setState(() => selectedTime = v),
-                      ),
-                    ],
+                  timeSlotsAsync.when(
+                    data: (slots) {
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: slots.map((slot) {
+                          return _selectTag(slot.displayText, selectedTime, (
+                            v,
+                          ) {
+                            setState(() {
+                              selectedTime = v;
+                              selectedTimeSlotId = slot.id; // ✅ เก็บ id จริง
+                            });
+                          });
+                        }).toList(),
+                      );
+                    },
+                    loading: () => const CircularProgressIndicator(),
+                    error: (e, _) => Text("โหลดช่วงเวลาไม่สำเร็จ: $e"),
                   ),
                 ],
               ),
@@ -194,7 +197,11 @@ class _BookingCalendarState extends State<BookingCalendar> {
               : () {
                   Navigator.pop(
                     context,
-                    BookingDateResult(day: selectedDay!, time: selectedTime),
+                    BookingDateResult(
+                      day: selectedDay!,
+                      time: selectedTime,
+                      timeSlotId: selectedTimeSlotId!,
+                    ),
                   );
                 },
           padding: const EdgeInsets.symmetric(vertical: 14),

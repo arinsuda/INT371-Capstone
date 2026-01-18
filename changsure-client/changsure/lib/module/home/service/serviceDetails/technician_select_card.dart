@@ -8,8 +8,13 @@ import '../../../profile/technician/view_profile_tab.dart';
 
 class TechnicianCardCTM extends StatelessWidget {
   final Technician technician;
+  final ServiceModel data;
 
-  const TechnicianCardCTM({super.key, required this.technician});
+  const TechnicianCardCTM({
+    super.key,
+    required this.technician,
+    required this.data,
+  });
 
   Widget _buildTag(String iconUrl, String text) {
     return Container(
@@ -282,7 +287,7 @@ class TechnicianCardCTM extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => (BookingPage()),
+                            builder: (context) => (BookingPage(data: data, technician: technician)),
                           ),
                         );
                       },
