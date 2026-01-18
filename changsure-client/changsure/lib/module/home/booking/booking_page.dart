@@ -108,7 +108,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   });
                 }
               },
-
+              onAddressSelected: (id) {
+                setState(() {
+                  selectedAddressId = id;
+                });
+              },
+              address: selectedAddress,
             ),
 
             Container(height: 24, color: AppColors.primaryBGHover),

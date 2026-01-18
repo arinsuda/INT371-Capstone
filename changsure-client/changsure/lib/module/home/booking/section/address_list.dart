@@ -149,18 +149,13 @@ class _AddressListState extends ConsumerState<AddressList> {
                     : addresses.isEmpty
                     ? const Center(child: Text("ยังไม่มีที่อยู่"))
                     : ListView.builder(
-                        padding: EdgeInsets.only(
-                          top: 24,
-                          bottom:
-                              24 + 72 + MediaQuery.of(context).padding.bottom,
-                        ),
-                        itemCount: displayAddresses.length,
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        itemCount: addresses.length,
                         itemBuilder: (context, index) {
-                          final addr = displayAddresses[index];
-                          final isLast = index == displayAddresses.length - 1;
+                          final addr = addresses[index];
+                          final isLast = index == addresses.length - 1;
 
                           return Column(
-                            key: ValueKey(addr.id),
                             children: [
                               InkWell(
                                 onTap: () async {
@@ -199,6 +194,10 @@ class _AddressListState extends ConsumerState<AddressList> {
                                           );
                                     }
                                   }
+
+                                  if (mounted) {
+                                    Navigator.pop(context, addr);
+                                  }
                                 },
                                 child: Container(
                                   color: Colors.white,
@@ -226,57 +225,60 @@ class _AddressListState extends ConsumerState<AddressList> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "ที่อยู่ ${index + 1}",
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
+                                            RichText(
+                                              text: TextSpan(
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                                children: [
+                                                  TextSpan(
+                                                    text:
+                                                        "ที่อยู่ ${index + 1}",
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  "#${addr.id}",
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: AppColors
-                                                        .colorTertiaryText,
+                                                  const TextSpan(text: "  "),
+                                                  const TextSpan(
+                                                    text: "90992948",
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .colorTertiaryText,
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
+
                                             const SizedBox(height: 6),
+
                                             Text(
                                               "${addr.combinedAddressInfo}\n"
                                               "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
                                               style: const TextStyle(
                                                 fontSize: 14,
-                                                height: 1.35,
                                                 color:
                                                     AppColors.colorTertiaryText,
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
 
-                                      InkWell(
-                                        onTap: () => _editAddress(addr),
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(8),
-                                          child: Icon(
-                                            Icons.chevron_right,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.grey,
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
 
+                              // ➖ Divider (ถ้าไม่ใช่อันสุดท้าย)
                               if (!isLast)
                                 Divider(
                                   height: 1,
