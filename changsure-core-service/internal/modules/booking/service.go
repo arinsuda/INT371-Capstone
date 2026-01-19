@@ -28,6 +28,8 @@ var (
 	ErrBookingNotFound      = errors.New("booking not found")
 	ErrForbiddenBooking     = errors.New("forbidden booking")
 	ErrInvalidBookingStatus = errors.New("invalid booking status")
+	ErrBookingIsStartedOrCompleted = errors.New("cannot cancel booking that is in progress or completed")
+	
 )
 
 var bkkLoc *time.Location
@@ -45,6 +47,7 @@ type Service interface {
 
 	CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*Booking, error)
 	GetBookingDetail(ctx context.Context, bookingID uint) (*Booking, error)
+	CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*Booking, error)
 
 	AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*Booking, error)
 	RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error)
@@ -457,14 +460,74 @@ func (s *service) ListTechnicianBookings(
 	return items, total, page, limit, nil
 }
 
-func getFinalPrice(fixed *float64, min *float64) float64 {
-	if fixed != nil {
-		return *fixed
+func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*Booking, error) {
+	reason = strings.TrimSpace(reason)
+	if len(reason) > 255 {
+		reason = reason[:255]
 	}
-	if min != nil {
-		return *min
+
+	var updated *Booking
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repo.WithTx(tx)
+
+		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrBookingNotFound
+			}
+			return err
+		}
+
+		if b.CustomerID != customerID {
+			return ErrForbiddenBooking
+		}
+
+		if b.Status != BookingStatusPending && b.Status != BookingStatusAccepted {
+			return ErrBookingIsStartedOrCompleted
+		}
+
+		now := time.Now()
+		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusCancelled, now); err != nil {
+			return err
+		}
+
+		updated = b
+		updated.Status = BookingStatusCancelled
+		updated.UpdatedAt = now
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
-	return 0.0
+
+	full, err := s.repo.FindByID(ctx, bookingID)
+	if err != nil {
+		full = updated
+	}
+
+	if s.notif != nil && full != nil && full.TechnicianID != 0 {
+		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
+			RecipientRole: notification.RoleTechnician,
+			RecipientID:   full.TechnicianID,
+			Type:          "BOOKING_CANCELLED",
+			Title:         "ลูกค้ากดยกเลิกงาน",
+			Message:       fmt.Sprintf("ลูกค้าได้ยกเลิกการจองหมายเลข %s", full.BookingNumber),
+			EntityType:    "booking",
+			EntityID:      full.ID,
+			Data: map[string]any{
+				"booking_id":       full.ID,
+				"booking_number":   full.BookingNumber,
+				"status":           full.Status,
+				"reason":           reason,
+				"customer_id":      full.CustomerID,
+				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
+			},
+		})
+	}
+
+	return full, nil
 }
 
 func formatAddressSnapshot(addr *address.CustomerAddress) string {

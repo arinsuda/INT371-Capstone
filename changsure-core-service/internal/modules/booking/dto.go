@@ -27,6 +27,10 @@ type RejectBookingRequest struct {
 	Reason string `json:"reason,omitempty" validate:"max=255"`
 }
 
+type CancelBookingRequest struct {
+	Reason string `json:"reason" validate:"max=255"`
+}
+
 type ListTechnicianBookingsQuery struct {
 	Status    string `query:"status" validate:"omitempty,oneof=PENDING ACCEPTED IN_PROGRESS WAITING_PAYMENT COMPLETED CANCELLED"`
 	StartDate string `query:"start_date" validate:"omitempty,datetime=2006-01-02"`

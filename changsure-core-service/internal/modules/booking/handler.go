@@ -355,3 +355,55 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
 		}
 	}
 }
+
+func (h *Handler) CancelBooking(c fiber.Ctx) error {
+	custID := utils.GetUserID(c)
+	if custID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	var req CancelBookingRequest
+	_ = c.Bind().Body(&req)
+
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+
+	booking, err := h.service.CancelBooking(c.Context(), custID, bookingID, req.Reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingNotFound):
+			return appErrors.NotFound(c, "ไม่พบข้อมูลการจอง")
+		case errors.Is(err, ErrForbiddenBooking):
+			return appErrors.Forbidden(c, "คุณไม่มีสิทธิ์ยกเลิกรายการนี้")
+		case errors.Is(err, ErrInvalidBookingStatus):
+			return appErrors.Conflict(c, "ไม่สามารถยกเลิกรายการนี้ได้ (สถานะไม่ถูกต้อง)")
+		default:
+			return appErrors.InternalError(c, "ไม่สามารถยกเลิกการจองได้", err)
+		}
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), booking)
+
+	if h.hub != nil && booking.TechnicianID != 0 {
+		payload := realtime.MarshalEvent("BOOKING_CANCELLED", map[string]any{
+			"booking_id":       booking.ID,
+			"status":           booking.Status,
+			"reason":           req.Reason,
+			"customer_id":      booking.CustomerID,
+			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
+		})
+		go h.hub.BroadcastToTechnician(booking.TechnicianID, payload)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "ยกเลิกการจองสำเร็จ",
+		"data":    booking,
+	})
+}

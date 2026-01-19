@@ -9,6 +9,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	group.Post("/", h.CreateBooking)
 	group.Get("/availability", h.CheckAvailability)
 	group.Get("/:id", h.GetBookingDetail)
+	group.Patch("/:id/cancel", h.CancelBooking)
 }
 
 func (h *Handler) RegisterTechnicianRoutes(router fiber.Router) {
