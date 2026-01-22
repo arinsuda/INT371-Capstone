@@ -32,7 +32,7 @@ type CancelBookingRequest struct {
 }
 
 type ListTechnicianBookingsQuery struct {
-	Status    string `query:"status" validate:"omitempty,oneof=PENDING ACCEPTED IN_PROGRESS WAITING_PAYMENT COMPLETED CANCELLED"`
+	Status    string `query:"status" validate:"omitempty"`
 	StartDate string `query:"start_date" validate:"omitempty,datetime=2006-01-02"`
 	EndDate   string `query:"end_date" validate:"omitempty,datetime=2006-01-02"`
 

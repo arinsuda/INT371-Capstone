@@ -33,7 +33,7 @@ type Repository interface {
 	ListTechnicianBookings(
 		ctx context.Context,
 		technicianID uint,
-		status string,
+		statuses []string,
 		startDate string,
 		endDate string,
 		offset int,
@@ -162,7 +162,7 @@ func (r *bookingRepository) UpdateStatus(ctx context.Context, id uint, status st
 func (r *bookingRepository) ListTechnicianBookings(
 	ctx context.Context,
 	technicianID uint,
-	status string,
+	statuses []string,
 	startDate string,
 	endDate string,
 	offset int,
@@ -172,9 +172,10 @@ func (r *bookingRepository) ListTechnicianBookings(
 	q := r.db.WithContext(ctx).Model(&Booking{}).
 		Where("technician_id = ?", technicianID)
 
-	if status != "" {
-		q = q.Where("status = ?", status)
+	if len(statuses) > 0 {
+		q = q.Where("status IN ?", statuses)
 	}
+
 	if startDate != "" && endDate != "" {
 		q = q.Where("appointment_date BETWEEN ? AND ?", startDate, endDate)
 	} else if startDate != "" {
