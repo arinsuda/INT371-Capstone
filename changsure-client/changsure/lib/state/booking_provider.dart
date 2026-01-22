@@ -21,6 +21,21 @@ final createBookingProvider =
       return service.createBooking(req, token);
     });
 
+final cancelBookingProvider = FutureProvider.family<BookingResponse, int>((
+  ref,
+  bookingId,
+) async {
+  final service = ref.read(bookingServiceProvider);
+  final user = ref.read(userProvider);
+
+  final token = user?.token;
+  if (token == null || token.isEmpty) {
+    throw Exception("No token, user not logged in");
+  }
+
+  return service.cancelBooking(token, bookingId);
+});
+
 final timeSlotServiceProvider = Provider((ref) => BookingService());
 
 final timeSlotsProvider = FutureProvider<List<TimeSlot>>((ref) async {

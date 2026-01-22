@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/master_data_models.dart';
-import '../../../mockDB/service_categories.dart';
 import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
@@ -18,8 +17,13 @@ class ServiceCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ServiceDetail(id: data.id, data: data,
-              provinceId: provinceId,categoryId: data.categoryId,),
+            settings: const RouteSettings(name: '/serviceDetail'),
+            builder: (_) => ServiceDetail(
+              id: data.id,
+              data: data,
+              provinceId: provinceId,
+              categoryId: data.categoryId,
+            ),
           ),
         );
       },

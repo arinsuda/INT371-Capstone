@@ -1,5 +1,6 @@
 import 'package:changsure/module/home/booking/section/booking_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/header.dart';
@@ -7,8 +8,9 @@ import '../../../core/theme.dart';
 import '../../../data/models/address_model.dart';
 import '../../../data/models/booking/booking_model.dart';
 import '../../../data/models/master_data_models.dart';
+import '../../../state/booking_provider.dart';
 
-class BookingSuccess extends StatefulWidget {
+class BookingSuccess extends ConsumerStatefulWidget {
   final BookingDateResult bookingDate;
   final Technician technician;
   final ServiceModel service;
@@ -25,22 +27,51 @@ class BookingSuccess extends StatefulWidget {
   });
 
   @override
-  State<BookingSuccess> createState() => _BookingSuccessState();
+  ConsumerState<BookingSuccess> createState() => _BookingSuccessState();
 }
 
-class _BookingSuccessState extends State<BookingSuccess> {
-  Future<bool> _showExitConfirmDialog() async {
-    final result = await showDialog<bool>(
+class _BookingSuccessState extends ConsumerState<BookingSuccess> {
+  Future<void> _showExitConfirmDialog() async {
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => _DeleteConfirmationDialog(
-        onConfirm: () => Navigator.of(context).pop(true),
+        onConfirm: () async {
+          Navigator.of(context).pop(); // ปิด dialog ก่อน
+
+          final bookingId = widget.response.data.id;
+
+          try {
+            final result = await ref.read(
+              cancelBookingProvider(bookingId).future,
+            );
+
+            if (!mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result.message ?? "ยกเลิกการจองสำเร็จ")),
+            );
+
+            Navigator.popUntil(
+              context,
+                  (route) => route.settings.name == '/serviceDetail',
+            );
+            debugPrint("CANCEL BOOKING Success");
+
+          } catch (e) {
+            debugPrint("CANCEL BOOKING ERROR => $e");
+            if (!mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ยกเลิกการจองไม่สำเร็จ")),
+            );
+          }
+        },
         onCancel: () => Navigator.of(context).pop(),
       ),
     );
-
-    return result ?? false;
   }
+
 
   final List<String> images = [
     "assets/image/clean1.png",
@@ -62,6 +93,7 @@ class _BookingSuccessState extends State<BookingSuccess> {
   Widget build(BuildContext context) {
     final note = widget.response.data.customerNote;
     debugPrint("IMAGES FROM API => ${widget.response.data.images}");
+    final bookingId = widget.response.data.id;
 
     return Scaffold(
       body: SafeArea(
@@ -318,10 +350,7 @@ class _BookingSuccessState extends State<BookingSuccess> {
                   child: TertiaryButton(
                     text: "ยกเลิกการจอง",
                     onPressed: () async {
-                      final shouldExit = await _showExitConfirmDialog();
-                      if (shouldExit) {
-                        Navigator.pop(context);
-                      }
+                      await _showExitConfirmDialog();
                     },
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),

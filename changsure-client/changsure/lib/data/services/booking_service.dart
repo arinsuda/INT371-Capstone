@@ -83,4 +83,23 @@ class BookingService {
       throw Exception("Failed to load booking detail");
     }
   }
+
+  Future<BookingResponse> cancelBooking(String token, int bookingId) async {
+    final uri = Uri.parse("${ApiConstants.baseUrl}/bookings/$bookingId/cancel");
+
+    final response = await http.patch(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return BookingResponse.fromJson(json);
+    } else {
+      throw Exception("Cancel booking failed: ${response.body}");
+    }
+  }
 }
