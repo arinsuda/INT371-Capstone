@@ -34,6 +34,7 @@ import (
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
+	"changsure-core-service/pkg/utils"
 )
 
 type ContainerOption func(*Container) error
@@ -210,14 +211,17 @@ func (c *Container) initNotificationModule(cfg *config.Config) {
 	c.NotificationService = notification.NewService(c.NotificationRepo, c.Hub)
 
 	getAuthUser := func(ctx fiber.Ctx) (notification.AuthUser, bool) {
-		uidAny := ctx.Locals("user_id")
-		roleAny := ctx.Locals("role")
-
-		uid, ok1 := uidAny.(uint)
-		roleStr, ok2 := roleAny.(string)
-		if !ok1 || !ok2 || uid == 0 {
+		uid := utils.GetUserID(ctx)
+		if uid == 0 {
 			return notification.AuthUser{}, false
 		}
+
+		roleAny := ctx.Locals("role")
+		roleStr, ok := roleAny.(string)
+		if !ok {
+			return notification.AuthUser{}, false
+		}
+
 		return notification.AuthUser{
 			ID:   uid,
 			Role: notification.RecipientRole(roleStr),
