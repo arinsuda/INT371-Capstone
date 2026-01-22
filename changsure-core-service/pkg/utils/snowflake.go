@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"strings"
+	"fmt"
 	"sync"
 
 	"github.com/bwmarrin/snowflake"
@@ -20,27 +20,18 @@ func InitSnowflakeNode(nodeID int64) error {
 	return err
 }
 
-func GenerateSnowflakeID() string {
-	if node == nil {
-		_ = InitSnowflakeNode(1)
-	}
-	return node.Generate().String()
-}
-
-func GenerateBookingNumber10() string {
+func GenerateBookingNumber10Digits() string {
 	if node == nil {
 		_ = InitSnowflakeNode(1)
 	}
 
-	code := strings.ToUpper(node.Generate().Base36())
+	id := int64(node.Generate())
 
-	if len(code) < 10 {
-		code = strings.Repeat("0", 10-len(code)) + code
+	const mod int64 = 10_000_000_000
+	n := id % mod
+	if n < 0 {
+		n = -n
 	}
 
-	if len(code) > 10 {
-		code = code[len(code)-10:]
-	}
-
-	return code
+	return fmt.Sprintf("%010d", n)
 }
