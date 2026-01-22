@@ -19,7 +19,7 @@ class ServiceCard extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (_) => ServiceDetail(id: data.id, data: data,
-              provinceId: provinceId,),
+              provinceId: provinceId,categoryId: data.categoryId,),
           ),
         );
       },

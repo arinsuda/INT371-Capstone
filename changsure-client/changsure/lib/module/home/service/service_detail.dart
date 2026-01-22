@@ -17,12 +17,14 @@ class ServiceDetail extends ConsumerStatefulWidget {
   final int id;
   final ServiceModel data;
   final int? provinceId;
+  final int categoryId;
 
   const ServiceDetail({
     super.key,
     required this.id,
     required this.data,
     required this.provinceId,
+    required this.categoryId,
   });
 
   @override
@@ -36,9 +38,7 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
   void initState() {
     super.initState();
 
-    _relatedFuture = MasterDataService().getServicesByCategory(
-      widget.data.categoryId,
-    );
+    _relatedFuture = MasterDataService().getAllServices(null);
   }
 
   Widget _priceTag({
@@ -77,6 +77,7 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
+    final allServicesAsync = ref.watch(allServicesProvider);
 
     return Scaffold(
       body: Stack(
@@ -229,33 +230,23 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                 ),
                 child: SizedBox(
                   height: 220,
-                  child: FutureBuilder<List<ServiceModel>>(
-                    future: _relatedFuture,
-                    builder: (context, snapshot) {
-                      for (final s in snapshot.data ?? []) {
-                        debugPrint("SERVICE: id=${s.id}, cat=${s.categoryId}");
-                      }
-                      debugPrint("CURRENT: id=${widget.data.id}, cat=${widget.data.categoryId}");
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (snapshot.hasError) {
-                        return const Center(child: Text('โหลดบริการไม่สำเร็จ'));
-                      }
-
-                      final services = (snapshot.data ?? [])
+                  child: allServicesAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) =>
+                        const Center(child: Text('โหลดบริการไม่สำเร็จ')),
+                    data: (allServices) {
+                      final services = allServices
                           .where(
                             (s) =>
-                                s.id != widget.data.id &&
-                                s.categoryId == widget.data.categoryId,
+                                s.categoryId == widget.data.categoryId &&
+                                s.id != widget.data.id,
                           )
                           .toList();
 
                       if (services.isEmpty) {
                         return const Center(child: Text("ไม่มีบริการแนะนำ"));
                       }
-
 
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,

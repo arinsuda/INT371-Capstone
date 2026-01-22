@@ -166,6 +166,32 @@ class MasterDataService {
     return items.map((e) => Technician.fromJson(e)).toList();
   }
 
+  Future<List<ServiceModel>> getAllServices(String? token) async {
+    try {
+      final headers = _getHeaders(token);
+
+      final serviceResponse = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/services/all'),
+        headers: headers,
+      );
+
+      if (serviceResponse.statusCode == 200) {
+        final serviceList = (jsonDecode(serviceResponse.body)['data'] as List)
+            .map((e) => ServiceModel.fromJson(e))
+            .toList();
+
+        return serviceList;
+      } else {
+        print("Service API Error: ${serviceResponse.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching services: $e");
+    }
+
+    return [];
+  }
+
+
   Future<Technician?> getAutoSelectTechnician(
     String? token,
     int serviceId,
@@ -222,6 +248,14 @@ final subDistrictsProvider = FutureProvider.family<List<SubDistrictModel>, int>(
         .getSubDistricts(user?.token, districtId);
   },
 );
+
+final allServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
+  final user = ref.watch(userProvider);
+  return ref
+      .read(masterDataServiceProvider)
+      .getAllServices(user?.token);
+});
+
 
 final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
