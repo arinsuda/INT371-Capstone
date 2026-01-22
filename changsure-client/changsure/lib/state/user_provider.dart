@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,8 +29,8 @@ class UserNotifier extends Notifier<UserModel?> {
     return null;
   }
 
-  final RealtimeService _realtime = RealtimeService();
-
+  RealtimeService get _realtime => ref.read(realtimeServiceProvider);
+  
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final accessToken = prefs.getString('access_token');

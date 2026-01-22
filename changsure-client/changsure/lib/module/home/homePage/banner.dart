@@ -1,3 +1,9 @@
+import 'dart:async';
+
+import 'package:changsure/data/models/notification_model.dart';
+import 'package:changsure/module/home/homePage/widgets/in_app_notification_banner.dart';
+import 'package:changsure/module/home/homePage/widgets/notification_badge_button.dart';
+import 'package:changsure/state/notifications/notification_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
@@ -19,6 +25,39 @@ class HomeBanner extends ConsumerStatefulWidget {
 
 class _HomeBannerState extends ConsumerState<HomeBanner> {
   String selectedProvince = "กรุงเทพมหานคร";
+  NotificationModel? _currentNotification;
+  Timer? _notificationTimer;
+  bool _showBanner = false;
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showNotificationBanner(NotificationModel notification) {
+    _notificationTimer?.cancel();
+
+    setState(() {
+      _currentNotification = notification;
+      _showBanner = true;
+    });
+
+    _notificationTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() {
+          _showBanner = false;
+        });
+      }
+    });
+  }
+
+  void _closeBanner() {
+    _notificationTimer?.cancel();
+    setState(() {
+      _showBanner = false;
+    });
+  }
 
   void _openProvinceSelector() {
     showModalBottomSheet(
@@ -75,7 +114,6 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
                       widget.onProvinceChanged(p.id);
                       Navigator.pop(context);
                     },
-
                   ),
                 ),
               ],
@@ -88,6 +126,14 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<NotificationState>(notificationProvider, (previous, next) {
+      if (previous != null && next.items.length > previous.items.length) {
+        if (next.items.isNotEmpty) {
+          _showNotificationBanner(next.items.first);
+        }
+      }
+    });
+
     return SizedBox(
       height: 320, // ความสูงรวม Banner + Search bar
       child: Stack(
@@ -167,9 +213,9 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  child: const Icon(Icons.notifications, color: Colors.white),
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: NotificationBadgeButton(),
                 ),
               ],
             ),
@@ -214,6 +260,23 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
                 ),
               ),
             ),
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+            top: _showBanner ? 40 : -150,
+            left: 0,
+            right: 0,
+            child: _currentNotification != null
+                ? InAppNotificationBanner(
+                    notification: _currentNotification!,
+                    onDismiss: _closeBanner,
+                    onTap: () {
+
+                      _closeBanner();
+                    },
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

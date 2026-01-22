@@ -5,9 +5,9 @@ import '../../core/constants/api_constants.dart';
 
 class BookingService {
   Future<BookingResponse> createBooking(
-      BookingCreateRequest req,
-      String token,
-      ) async {
+    BookingCreateRequest req,
+    String token,
+  ) async {
     final uri = Uri.parse("${ApiConstants.baseUrl}/bookings");
 
     final request = http.MultipartRequest("POST", uri);
@@ -27,9 +27,7 @@ class BookingService {
 
     // files
     for (final path in req.images) {
-      request.files.add(
-        await http.MultipartFile.fromPath("images", path),
-      );
+      request.files.add(await http.MultipartFile.fromPath("images", path));
     }
 
     final streamedResponse = await request.send();
@@ -44,9 +42,6 @@ class BookingService {
       throw Exception(json["message"] ?? "Create booking failed");
     }
   }
-
-
-
 
   Future<List<TimeSlot>> getTimeSlots(String token) async {
     final response = await http.get(
@@ -66,6 +61,26 @@ class BookingService {
     } else {
       print("❌ TIME SLOT ERROR: ${response.body}");
       throw Exception("Failed to load time slots");
+    }
+  }
+
+  Future<BookingData> getBookingDetail(String token, int bookingId) async {
+    final uri = Uri.parse("${ApiConstants.baseUrl}/bookings/$bookingId");
+
+    final response = await http.get(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return BookingData.fromJson(json['data']);
+    } else {
+      print("❌ GET BOOKING DETAIL ERROR: ${response.body}");
+      throw Exception("Failed to load booking detail");
     }
   }
 }

@@ -29,11 +29,26 @@ class RealtimeService {
         ? '/ws/technicians'
         : '/ws/customers';
 
-    final uri = Uri.parse(
-      ApiConstants.wsBaseUrl,
-    ).replace(path: rolePath, queryParameters: {'token': token});
+    Uri targetUri = Uri.parse(
+      ApiConstants.baseUrl,
+    );
 
-    _channel = WebSocketChannel.connect(uri);
+    String newScheme = targetUri.scheme;
+    if (targetUri.scheme == 'https') {
+      newScheme = 'wss';
+    } else if (targetUri.scheme == 'http') {
+      newScheme = 'ws';
+    }
+
+    final finalUri = targetUri.replace(
+      scheme: newScheme,
+      path: rolePath,
+      queryParameters: {'token': token},
+    );
+
+
+      _channel = WebSocketChannel.connect(finalUri);
+
 
     _sub = _channel!.stream.listen(
       (event) {
