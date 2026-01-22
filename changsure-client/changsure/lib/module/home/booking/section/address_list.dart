@@ -295,7 +295,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                                 Divider(
                                   height: 1,
                                   thickness: 1,
-                                  color: AppColors.primaryBorder,
+                                  color: AppColors.colorStroke,
                                 ),
                             ],
                           );
