@@ -195,11 +195,11 @@ func (r *bookingRepository) ListTechnicianBookings(
 		Preload("Technician").
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
-		Order("appointment_date DESC").
-		Order("time_slot_id ASC").
+		Order("created_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&bookings).Error
+
 	if err != nil {
 		return nil, 0, err
 	}
