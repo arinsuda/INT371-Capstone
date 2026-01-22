@@ -189,7 +189,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 
 		fullAddress := formatAddressSnapshot(custAddr)
-		bookingNumber := utils.GenerateBookingNumber10()
+		bookingNumber := utils.GenerateBookingNumber10Digits()
 
 		newBooking = &Booking{
 			BookingNumber:       bookingNumber,

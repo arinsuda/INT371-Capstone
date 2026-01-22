@@ -394,17 +394,12 @@ func (s *Seeder) seedTechnicianServiceAreas() error {
 	}
 
 	type Input struct {
-		TechnicianID uint   `json:"technician_id"`
-		ProvinceName string `json:"province"`
-		IsActive     *bool  `json:"is_active"`
+		TechnicianID uint  `json:"technician_id"`
+		ProvinceID   uint  `json:"province_id"`
+		IsActive     *bool `json:"is_active"`
 	}
 
 	items, err := loadSeedFile[Input]("technicians/technician_service_area.json")
-	if err != nil {
-		return err
-	}
-
-	provMap, err := s.getProvinceMap()
 	if err != nil {
 		return err
 	}
@@ -415,16 +410,9 @@ func (s *Seeder) seedTechnicianServiceAreas() error {
 		if it.TechnicianID == 0 {
 			continue
 		}
-
-		name := strings.TrimSpace(it.ProvinceName)
-		if name == "" {
-			log.Printf("⚠️ Skip service_area #%d: empty province name (tech_id=%d)", i, it.TechnicianID)
+		if it.ProvinceID == 0 {
+			log.Printf("⚠️ Skip service_area #%d: empty province_id (tech_id=%d)", i, it.TechnicianID)
 			continue
-		}
-
-		pid, ok := provMap[name]
-		if !ok {
-			return fmt.Errorf("province %q not found for technician_service_area (idx=%d tech_id=%d)", name, i, it.TechnicianID)
 		}
 
 		active := true
@@ -434,7 +422,7 @@ func (s *Seeder) seedTechnicianServiceAreas() error {
 
 		data = append(data, technicianservicearea.TechnicianServiceArea{
 			TechnicianID: it.TechnicianID,
-			ProvinceID:   pid,
+			ProvinceID:   it.ProvinceID,
 			IsActive:     active,
 		})
 	}
@@ -457,7 +445,6 @@ func (s *Seeder) seedTechnicianBadges() error {
 		return err
 	}
 
-	// โหลด technician ids ที่มีจริง
 	var techIDs []uint
 	if err := s.db.Model(&technician.Technician{}).Pluck("id", &techIDs).Error; err != nil {
 		return err
