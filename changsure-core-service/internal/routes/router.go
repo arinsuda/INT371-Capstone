@@ -93,11 +93,13 @@ func (r *Router) setupProtectedRoutes() {
 	// Shared resources
 	r.setupSharedResources(v1)
 
+	r.setupCustomerMeRoutes(v1)
+	r.setupTechnicianMeRoutes(v1)
+	
 	// Domain-specific resources
 	r.setupTechnicianPublicRoutes(v1)
 	// r.setupCustomerRoutes(v1)
-	r.setupCustomerMeRoutes(v1)
-	r.setupTechnicianMeRoutes(v1)
+
 }
 
 func (r *Router) setupWebSocketRoutes() {
