@@ -2,15 +2,13 @@ package technicianaddress
 
 import (
 	"errors"
-	"strconv"
 
 	customErr "changsure-core-service/internal/errors"
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	"changsure-core-service/internal/validation"
+	"changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
-
-	"changsure-core-service/pkg/utils"
 )
 
 type Handler struct {
@@ -21,86 +19,133 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-func (h *Handler) CreateAddress(c fiber.Ctx) error {
-	techID := utils.GetUserID(c) // ใช้ helper ถ้ามี
+// --- helpers ---
+
+func (h *Handler) mustTechID(c fiber.Ctx) (uint, error) {
+	techID := utils.GetUserID(c)
 	if techID == 0 {
-		return customErr.Unauthorized(c, "invalid token")
+		return 0, customErr.Unauthorized(c, "invalid token")
+	}
+	return techID, nil
+}
+
+func (h *Handler) mustUintParam(c fiber.Ctx, name string) (uint, error) {
+	id, err := utils.ParseUintParam(c, name)
+	if err != nil || id == 0 {
+		return 0, customErr.BadRequest(c, "invalid "+name)
+	}
+	return id, nil
+}
+
+func (h *Handler) bindAndValidate(c fiber.Ctx, dst any) error {
+	if err := c.Bind().Body(dst); err != nil {
+		return customErr.BadRequest(c, "invalid request body")
+	}
+	if details, err := validation.ValidateStruct(dst); err != nil {
+		return customErr.ValidationError(c, details)
+	}
+	return nil
+}
+
+func (h *Handler) mapServiceError(c fiber.Ctx, action string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, addressshared.ErrInvalidLocation) {
+		return customErr.BadRequest(c, err.Error())
+	}
+	if errors.Is(err, ErrAddressNotFound) {
+		return customErr.NotFound(c, "address not found")
+	}
+
+	// Auth errors from security.CheckOwner typically should map to 401
+	// (if your security.CheckOwner returns a specific sentinel error, you can errors.Is() it here)
+	// Fallback:
+	return customErr.InternalError(c, "failed to "+action, err)
+}
+
+// --- private routes (authenticated technician) ---
+
+func (h *Handler) CreateAddress(c fiber.Ctx) error {
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
 	}
 
 	var req CreateTechnicianAddressRequest
-	if err := c.Bind().Body(&req); err != nil {
-		return customErr.BadRequest(c, "invalid request body")
-	}
-
-	if details, err := validation.ValidateStruct(req); err != nil {
-		return customErr.ValidationError(c, details)
+	if err := h.bindAndValidate(c, &req); err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
 	resp, err := h.service.Create(ctx, techID, &req)
 	if err != nil {
-		if errors.Is(err, addressshared.ErrInvalidLocation) {
-			return customErr.BadRequest(c, err.Error())
-		}
-		return customErr.InternalError(c, "failed to create address", err)
+		return h.mapServiceError(c, "create address", err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": resp})
 }
 
 func (h *Handler) ListAddresses(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return customErr.Unauthorized(c, "invalid token")
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
 	list, err := h.service.List(ctx, techID)
 	if err != nil {
-		return customErr.InternalError(c, "failed to fetch addresses", err)
+		return h.mapServiceError(c, "fetch addresses", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": list})
 }
 
 func (h *Handler) GetAddress(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || techID == 0 {
-		return customErr.BadRequest(c, "invalid id or token")
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
+	}
+
+	id, err := h.mustUintParam(c, "id")
+	if err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
-	resp, err := h.service.Get(ctx, uint(id), techID)
+	resp, err := h.service.Get(ctx, id, techID)
 	if err != nil {
-		if errors.Is(err, ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to get address", err)
+		return h.mapServiceError(c, "get address", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
 func (h *Handler) UpdateAddress(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || techID == 0 {
-		return customErr.BadRequest(c, "invalid id or token")
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
+	}
+
+	id, err := h.mustUintParam(c, "id")
+	if err != nil {
+		return err
 	}
 
 	var req UpdateTechnicianAddressRequest
-	if err := c.Bind().Body(&req); err != nil {
-		return customErr.BadRequest(c, "invalid request body")
+	if err := h.bindAndValidate(c, &req); err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
-	resp, err := h.service.Update(ctx, uint(id), techID, &req)
+	resp, err := h.service.Update(ctx, id, techID, &req)
 	if err != nil {
+		// keep behavior similar to your previous: known errors map nicely, unknown update errors -> 400
 		if errors.Is(err, addressshared.ErrInvalidLocation) {
 			return customErr.BadRequest(c, err.Error())
 		}
@@ -114,50 +159,54 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 }
 
 func (h *Handler) DeleteAddress(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || techID == 0 {
-		return customErr.BadRequest(c, "invalid id or token")
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
+	}
+
+	id, err := h.mustUintParam(c, "id")
+	if err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
-	if err := h.service.Delete(ctx, uint(id), techID); err != nil {
-		if errors.Is(err, ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to delete address", err)
+	if err := h.service.Delete(ctx, id, techID); err != nil {
+		return h.mapServiceError(c, "delete address", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "address deleted"})
 }
 
 func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || techID == 0 {
-		return customErr.BadRequest(c, "invalid id or token")
+	techID, err := h.mustTechID(c)
+	if err != nil {
+		return err
+	}
+
+	id, err := h.mustUintParam(c, "id")
+	if err != nil {
+		return err
 	}
 
 	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
 
-	if err := h.service.SetPrimary(ctx, uint(id), techID); err != nil {
-		if errors.Is(err, ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to set primary address", err)
+	if err := h.service.SetPrimary(ctx, id, techID); err != nil {
+		return h.mapServiceError(c, "set primary address", err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "primary address updated"})
 }
 
+// --- public routes (no auth) ---
+
 func (h *Handler) ListPublicAddresses(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	techID, err := h.mustUintParam(c, "id")
 	if err != nil {
 		return customErr.BadRequest(c, "invalid technician id")
 	}
 
-	list, err := h.service.ListPublic(c.Context(), uint(id))
+	list, err := h.service.ListPublic(c.Context(), techID)
 	if err != nil {
 		return customErr.InternalError(c, "failed to fetch addresses", err)
 	}
@@ -186,6 +235,9 @@ func (h *Handler) SearchNearby(c fiber.Ctx) error {
 	var req addressshared.NearbyQuery
 	if err := c.Bind().Body(&req); err != nil {
 		return customErr.BadRequest(c, "invalid request body")
+	}
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return customErr.ValidationError(c, details)
 	}
 
 	results, err := h.service.FindNearby(c.Context(), req)

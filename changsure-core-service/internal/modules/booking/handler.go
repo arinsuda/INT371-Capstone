@@ -294,7 +294,7 @@ func (h *Handler) ListTechnicianBookings(c fiber.Ctx) error {
 
 	items, total, page, limit, err := h.service.ListTechnicianBookings(c.Context(), techID, q)
 	if err != nil {
-		return appErrors.InternalError(c, "failed to fetch bookings", err)
+		return appErrors.BadRequest(c, err.Error())
 	}
 
 	for i := range items {

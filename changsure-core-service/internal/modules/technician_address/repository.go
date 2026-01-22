@@ -6,24 +6,26 @@ import (
 	"fmt"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
-
 	"gorm.io/gorm"
 )
 
 type Repository interface {
+	WithTx(tx *gorm.DB) Repository
+	Transaction(ctx context.Context, fn func(r Repository) error) error
+
 	Create(ctx context.Context, addr *TechnicianAddress) error
 	Update(ctx context.Context, addr *TechnicianAddress) error
-	Delete(ctx context.Context, id uint, techID uint) error
+	DeleteTx(ctx context.Context, id uint, techID uint) error
+
 	Get(ctx context.Context, id uint, techID uint) (*TechnicianAddress, error)
 	ListByTechnician(ctx context.Context, techID uint) ([]*TechnicianAddress, error)
-	ClearPrimary(ctx context.Context, techID uint) error
-	SetPrimaryAndCreate(ctx context.Context, addr *TechnicianAddress) error
+	CountByTechnician(ctx context.Context, techID uint) (int64, error)
+
+	SetPrimaryTx(ctx context.Context, techID uint, addressID uint) error
+	FindNextPrimaryCandidateTx(ctx context.Context, techID uint, excludeID uint) (*TechnicianAddress, error)
 
 	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
 	GetTechnicianPhone(ctx context.Context, techID uint) (*string, error)
-
-	SetPrimary(ctx context.Context, techID uint, addressID uint) error
-	DeleteAndReassignPrimary(ctx context.Context, techID uint, addressID uint) error
 }
 
 type repo struct {
@@ -34,6 +36,16 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repo{db: db}
 }
 
+func (r *repo) WithTx(tx *gorm.DB) Repository {
+	return &repo{db: tx}
+}
+
+func (r *repo) Transaction(ctx context.Context, fn func(r Repository) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(r.WithTx(tx))
+	})
+}
+
 func (r *repo) Create(ctx context.Context, addr *TechnicianAddress) error {
 	return r.db.WithContext(ctx).Create(addr).Error
 }
@@ -42,7 +54,7 @@ func (r *repo) Update(ctx context.Context, addr *TechnicianAddress) error {
 	return r.db.WithContext(ctx).Save(addr).Error
 }
 
-func (r *repo) Delete(ctx context.Context, id uint, techID uint) error {
+func (r *repo) DeleteTx(ctx context.Context, id uint, techID uint) error {
 	return r.db.WithContext(ctx).
 		Where("id = ? AND technician_id = ?", id, techID).
 		Delete(&TechnicianAddress{}).Error
@@ -58,6 +70,9 @@ func (r *repo) Get(ctx context.Context, id uint, techID uint) (*TechnicianAddres
 		First(&addr).Error
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &addr, nil
@@ -72,68 +87,46 @@ func (r *repo) ListByTechnician(ctx context.Context, techID uint) ([]*Technician
 		Where("technician_id = ?", techID).
 		Order("is_primary DESC, created_at DESC").
 		Find(&out).Error
-
 	return out, err
 }
 
-func (r *repo) ClearPrimary(ctx context.Context, techID uint) error {
-	return r.db.WithContext(ctx).
+func (r *repo) CountByTechnician(ctx context.Context, techID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
 		Model(&TechnicianAddress{}).
 		Where("technician_id = ?", techID).
-		Update("is_primary", false).Error
+		Count(&count).Error
+	return count, err
 }
 
-func (r *repo) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-	if q.Limit <= 0 || q.Limit > 200 {
-		q.Limit = 50
+func (r *repo) SetPrimaryTx(ctx context.Context, techID uint, addressID uint) error {
+	// Clear all primary
+	if err := r.db.WithContext(ctx).Model(&TechnicianAddress{}).
+		Where("technician_id = ?", techID).
+		Update("is_primary", false).Error; err != nil {
+		return err
 	}
-	if q.KM <= 0 || q.KM > 300 {
-		q.KM = 30
-	}
 
-	distanceFormula := `
-        (6371 * acos(
-            cos(radians(?)) *
-            cos(radians(latitude)) *
-            cos(radians(longitude - ?)) +
-            sin(radians(?)) *
-            sin(radians(latitude))
-        ))
-    `
-
-	sql := fmt.Sprintf(`
-        SELECT 
-            t.technician_id,
-            %s AS distance_km,
-            p.name_th AS province,
-            d.name_th AS district
-        FROM technician_addresses t
-        LEFT JOIN provinces p ON t.province_id = p.id
-        LEFT JOIN districts d ON t.district_id = d.id
-        WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL
-        HAVING distance_km <= ?
-        ORDER BY distance_km ASC
-        LIMIT ?
-    `, distanceFormula)
-
-	var results []addressshared.NearbyTechnicianResult
-
-	err := r.db.Raw(sql, q.Lat, q.Lng, q.Lat, q.KM, q.Limit).Scan(&results).Error
-	return results, err
+	// Set target primary
+	return r.db.WithContext(ctx).Model(&TechnicianAddress{}).
+		Where("id = ? AND technician_id = ?", addressID, techID).
+		Update("is_primary", true).Error
 }
 
-func (r *repo) SetPrimaryAndCreate(ctx context.Context, addr *TechnicianAddress) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&TechnicianAddress{}).
-			Where("technician_id = ?", addr.TechnicianID).
-			Update("is_primary", false).Error; err != nil {
-			return err
+func (r *repo) FindNextPrimaryCandidateTx(ctx context.Context, techID uint, excludeID uint) (*TechnicianAddress, error) {
+	var next TechnicianAddress
+	err := r.db.WithContext(ctx).
+		Where("technician_id = ? AND id <> ?", techID, excludeID).
+		Order("created_at DESC").
+		First(&next).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
 		}
-		if err := tx.Create(addr).Error; err != nil {
-			return err
-		}
-		return nil
-	})
+		return nil, err
+	}
+	return &next, nil
 }
 
 func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, error) {
@@ -145,64 +138,48 @@ func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, er
 	return phone, err
 }
 
-func (r *repo) SetPrimary(ctx context.Context, techID uint, addressID uint) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
-			Where("technician_id = ?", techID).
-			Update("is_primary", false).Error; err != nil {
-			return err
-		}
+func (r *repo) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
+	// hard limits (defense in depth)
+	if q.Limit <= 0 || q.Limit > 200 {
+		q.Limit = 50
+	}
+	if q.KM <= 0 || q.KM > 300 {
+		q.KM = 30
+	}
 
-		return tx.WithContext(ctx).Model(&TechnicianAddress{}).
-			Where("id = ? AND technician_id = ?", addressID, techID).
-			Update("is_primary", true).Error
-	})
-}
+	// Haversine
+	distanceFormula := `
+	(6371 * acos(
+		cos(radians(?)) *
+		cos(radians(t.latitude)) *
+		cos(radians(t.longitude - ?)) +
+		sin(radians(?)) *
+		sin(radians(t.latitude))
+	))
+	`
 
-func (r *repo) DeleteAndReassignPrimary(ctx context.Context, techID uint, addressID uint) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		var current TechnicianAddress
-		if err := tx.WithContext(ctx).
-			Where("id = ? AND technician_id = ?", addressID, techID).
-			First(&current).Error; err != nil {
-			return err
-		}
+	sql := fmt.Sprintf(`
+		SELECT 
+			t.technician_id,
+			%s AS distance_km,
+			p.name_th AS province,
+			d.name_th AS district
+		FROM technician_addresses t
+		LEFT JOIN provinces p ON t.province_id = p.id
+		LEFT JOIN districts d ON t.district_id = d.id
+		WHERE 
+			t.is_primary = true
+			AND t.latitude IS NOT NULL 
+			AND t.longitude IS NOT NULL
+		HAVING distance_km <= ?
+		ORDER BY distance_km ASC
+		LIMIT ?
+	`, distanceFormula)
 
-		wasPrimary := current.IsPrimary
+	var results []addressshared.NearbyTechnicianResult
+	err := r.db.WithContext(ctx).
+		Raw(sql, q.Lat, q.Lng, q.Lat, q.KM, q.Limit).
+		Scan(&results).Error
 
-		if err := tx.WithContext(ctx).
-			Where("id = ? AND technician_id = ?", addressID, techID).
-			Delete(&TechnicianAddress{}).Error; err != nil {
-			return err
-		}
-
-		if wasPrimary {
-			var next TechnicianAddress
-			err := tx.WithContext(ctx).
-				Where("technician_id = ?", techID).
-				Order("created_at DESC").
-				First(&next).Error
-
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil
-				}
-				return err
-			}
-
-			if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
-				Where("technician_id = ?", techID).
-				Update("is_primary", false).Error; err != nil {
-				return err
-			}
-
-			if err := tx.WithContext(ctx).Model(&TechnicianAddress{}).
-				Where("id = ? AND technician_id = ?", next.ID, techID).
-				Update("is_primary", true).Error; err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+	return results, err
 }

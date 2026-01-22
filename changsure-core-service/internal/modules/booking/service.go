@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	address "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/notification"
 	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	timeslot "changsure-core-service/internal/modules/time_slot"
@@ -25,11 +24,10 @@ var (
 	ErrInvalidTimeSlot       = errors.New("time slot is invalid or changed")
 	ErrServiceAreaNotCovered = errors.New("technician does not serve this area")
 
-	ErrBookingNotFound      = errors.New("booking not found")
-	ErrForbiddenBooking     = errors.New("forbidden booking")
-	ErrInvalidBookingStatus = errors.New("invalid booking status")
+	ErrBookingNotFound             = errors.New("booking not found")
+	ErrForbiddenBooking            = errors.New("forbidden booking")
+	ErrInvalidBookingStatus        = errors.New("invalid booking status")
 	ErrBookingIsStartedOrCompleted = errors.New("cannot cancel booking that is in progress or completed")
-	
 )
 
 var bkkLoc *time.Location
@@ -191,7 +189,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 
 		fullAddress := formatAddressSnapshot(custAddr)
-		bookingNumber := utils.GenerateBookingNumber()
+		bookingNumber := utils.GenerateBookingNumber10()
 
 		newBooking = &Booking{
 			BookingNumber:       bookingNumber,
@@ -441,13 +439,17 @@ func (s *service) ListTechnicianBookings(
 	if limit > 100 {
 		limit = 100
 	}
-
 	offset := (page - 1) * limit
+
+	statuses, err := parseStatusFilter(q.Status)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
 
 	items, total, err := s.repo.ListTechnicianBookings(
 		ctx,
 		technicianID,
-		q.Status,
+		statuses,
 		q.StartDate,
 		q.EndDate,
 		offset,
@@ -528,40 +530,4 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 	}
 
 	return full, nil
-}
-
-func formatAddressSnapshot(addr *address.CustomerAddress) string {
-	subName := "-"
-	distName := "-"
-	provName := "-"
-	postal := "-"
-
-	if addr.SubDistrict != nil {
-		subName = addr.SubDistrict.NameTH
-		postal = addr.SubDistrict.PostalCode
-	}
-	if addr.District != nil {
-		distName = addr.District.NameTH
-	}
-	if addr.Province != nil {
-		provName = addr.Province.NameTH
-	}
-
-	return fmt.Sprintf("%s หมู่บ้าน %s ซอย %s ถนน %s แขวง %s เขต %s จ. %s %s",
-		getValue(addr.HouseNumber),
-		getValue(addr.Village),
-		getValue(addr.Soi),
-		getValue(addr.Road),
-		subName,
-		distName,
-		provName,
-		postal,
-	)
-}
-
-func getValue(s *string) string {
-	if s == nil {
-		return "-"
-	}
-	return *s
 }

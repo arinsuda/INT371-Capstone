@@ -22,7 +22,7 @@ const (
 type Booking struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 
-	BookingNumber string `gorm:"type:varchar(20);uniqueIndex;not null" json:"booking_number"`
+	BookingNumber string `gorm:"type:varchar(10);uniqueIndex;not null" json:"booking_number"`
 
 	CustomerID          uint `gorm:"not null;index" json:"-"`
 	TechnicianID        uint `gorm:"not null;index" json:"technician_id"`
