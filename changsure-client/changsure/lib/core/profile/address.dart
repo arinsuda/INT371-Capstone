@@ -1,3 +1,4 @@
+import 'package:changsure/core/profile/widgets/parese_address.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/master_data_provider.dart';
@@ -20,12 +21,18 @@ import 'widgets/map_preview.dart';
 
 class Address extends ConsumerStatefulWidget {
   final int? addressId;
+  final String? label;
   final String houseNumber;
+  final String? village;
+  final String? moo;
+  final String? soi;
+  final String? road;
   final String subDistrict;
   final String district;
   final String province;
 
   final int postCode;
+  final bool isPrimary;
 
   final int? provinceId;
   final int? districtId;
@@ -34,17 +41,23 @@ class Address extends ConsumerStatefulWidget {
   final double? initialLat;
   final double? initialLng;
 
-  final Future<void> Function(Map<String, dynamic> data) onSave;
+  final Future<bool> Function(Map<String, dynamic> data) onSave;
   final Future<void> Function(int id)? onDelete;
 
   const Address({
     super.key,
     this.addressId,
+    this.label,
     required this.houseNumber,
+    this.village,
+    this.moo,
+    this.soi,
+    this.road,
     required this.subDistrict,
     required this.district,
     required this.province,
     required this.postCode,
+    this.isPrimary = false,
 
     this.provinceId,
     this.districtId,
@@ -62,11 +75,18 @@ class Address extends ConsumerStatefulWidget {
 }
 
 class _AddressPageState extends ConsumerState<Address> {
+  late TextEditingController labelCtrl;
   late TextEditingController houseNumberCtrl;
+  late TextEditingController villageCtrl;
+  late TextEditingController mooCtrl;
+  late TextEditingController soiCtrl;
+  late TextEditingController roadCtrl;
   late TextEditingController subDistrictCtrl;
   late TextEditingController districtCtrl;
   late TextEditingController provinceCtrl;
   late TextEditingController postCodeCtrl;
+
+  bool _isPrimary = false;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -84,7 +104,20 @@ class _AddressPageState extends ConsumerState<Address> {
   @override
   void initState() {
     super.initState();
-    houseNumberCtrl = TextEditingController(text: widget.houseNumber);
+    _isPrimary = widget.isPrimary;
+    labelCtrl = TextEditingController(text: widget.label ?? '');
+
+    String combinedAddress = widget.houseNumber;
+    if (widget.moo != null && widget.moo!.isNotEmpty)
+      combinedAddress += " หมู่ ${widget.moo}";
+    if (widget.village != null && widget.village!.isNotEmpty)
+      combinedAddress += " ${widget.village}";
+    if (widget.soi != null && widget.soi!.isNotEmpty)
+      combinedAddress += " ซอย ${widget.soi}";
+    if (widget.road != null && widget.road!.isNotEmpty)
+      combinedAddress += " ถนน ${widget.road}";
+
+    houseNumberCtrl = TextEditingController(text: combinedAddress.trim());
     subDistrictCtrl = TextEditingController(text: widget.subDistrict);
     districtCtrl = TextEditingController(text: widget.district);
     provinceCtrl = TextEditingController(text: widget.province);
@@ -137,6 +170,7 @@ class _AddressPageState extends ConsumerState<Address> {
 
   @override
   void dispose() {
+    labelCtrl.dispose();
     houseNumberCtrl.dispose();
     subDistrictCtrl.dispose();
     districtCtrl.dispose();
@@ -176,55 +210,81 @@ class _AddressPageState extends ConsumerState<Address> {
   Future<void> _onSave() async {
     final formState = ref.read(addressFormProvider);
 
-    if (_formKey.currentState!.validate() &&
+    final parsed = parseThaiCombinedAddress(houseNumberCtrl.text);
+
+    final canSubmit =
+        _formKey.currentState!.validate() &&
         formState.selectedProvinceId != null &&
         formState.selectedDistrictId != null &&
-        formState.selectedSubDistrictId != null) {
-      ref.read(addressFormProvider.notifier).setLoading(true);
-      try {
-        final updateData = {
-          'house_number': houseNumberCtrl.text,
-          'sub_district': subDistrictCtrl.text,
-          'district': districtCtrl.text,
-          'province': provinceCtrl.text,
-          'postal_code': postCodeCtrl.text,
+        formState.selectedSubDistrictId != null &&
+        parsed.houseNumber.trim().isNotEmpty &&
+        formState.selectedCoordinates != null;
 
-          'province_id': formState.selectedProvinceId,
-          'district_id': formState.selectedDistrictId,
-          'sub_district_id': formState.selectedSubDistrictId,
-
-          'country': 'Thailand',
-          'lat': formState.selectedCoordinates?.latitude,
-          'lng': formState.selectedCoordinates?.longitude,
-        };
-
-        await widget.onSave(updateData);
-
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
-        }
-      } finally {
-        if (mounted) ref.read(addressFormProvider.notifier).setLoading(false);
-      }
-    } else {
+    if (!canSubmit) {
       String missing = '';
-      if (formState.selectedProvinceId == null) {
+      if (parsed.houseNumber.trim().isEmpty) {
+        missing = 'บ้านเลขที่';
+      } else if (formState.selectedProvinceId == null) {
         missing = 'จังหวัด';
       } else if (formState.selectedDistrictId == null) {
         missing = 'เขต/อำเภอ';
       } else if (formState.selectedSubDistrictId == null) {
         missing = 'แขวง/ตำบล';
+      } else if (formState.selectedCoordinates == null) {
+        missing = 'พิกัดแผนที่';
       }
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('กรุณาเลือก$missingจากรายการ')));
+      ).showSnackBar(SnackBar(content: Text('กรุณาระบุ$missingให้ครบถ้วน')));
+      return;
+    }
+
+    ref.read(addressFormProvider.notifier).setLoading(true);
+
+    try {
+      final payload = <String, dynamic>{
+        if (labelCtrl.text.trim().isNotEmpty) 'label': labelCtrl.text.trim(),
+        'is_primary': _isPrimary,
+
+        ...parsed.toApiMap(),
+
+        'province_id': formState.selectedProvinceId,
+        'district_id': formState.selectedDistrictId,
+        'sub_district_id': formState.selectedSubDistrictId,
+
+        'latitude': formState.selectedCoordinates!.latitude,
+        'longitude': formState.selectedCoordinates!.longitude,
+
+        if (postCodeCtrl.text.trim().isNotEmpty)
+          'postal_code': postCodeCtrl.text.trim(),
+      };
+
+      final ok = await widget.onSave(payload);
+
+      if (!mounted) return;
+
+      if (ok) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          ref.read(bottomSubPageProvider.notifier).state = const SubPageConfig(
+            page: BottomSubPage.customerProfile,
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+      }
+    } finally {
+      if (mounted) ref.read(addressFormProvider.notifier).setLoading(false);
     }
   }
 
@@ -355,7 +415,17 @@ class _AddressPageState extends ConsumerState<Address> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               child: Header(
                 header: "ที่อยู่ของฉัน",
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    ref
+                        .read(bottomSubPageProvider.notifier)
+                        .state = const SubPageConfig(
+                      page: BottomSubPage.customerProfile,
+                    );
+                  }
+                },
               ),
             ),
             Expanded(
@@ -392,6 +462,11 @@ class _AddressPageState extends ConsumerState<Address> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
+                          LabeledTextField(
+                            label: "ชื่อ (เช่น บ้าน, ที่ทำงาน)",
+                            controller: labelCtrl,
+                          ),
+                          const SizedBox(height: 12),
                           LabeledTextArea(
                             label:
                                 "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
@@ -521,6 +596,32 @@ class _AddressPageState extends ConsumerState<Address> {
 
                             onChanged: (val) => formNotifier.setZipCode(val),
                           ),
+                        ],
+                      ),
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text(
+                            "ตั้งเป็นที่อยู่หลัก",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Checkbox(
+                            value: _isPrimary,
+                            activeColor: Colors.blue,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _isPrimary = value ?? false;
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
                         ],
                       ),
                     ),

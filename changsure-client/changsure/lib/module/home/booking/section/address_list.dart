@@ -40,66 +40,136 @@ class _AddressListState extends ConsumerState<AddressList> {
       MaterialPageRoute(
         builder: (context) => Address(
           addressId: addr.id,
-          houseNumber: addr.houseNumber ?? '',
-          subDistrict: addr.subDistrict ?? '',
-          district: addr.district ?? '',
-          province: addr.province ?? '',
-          postCode: int.tryParse(addr.postalCode ?? '0') ?? 0,
+          label: addr.label,
+          isPrimary: addr.isPrimary,
+
+          houseNumber: addr.houseNumber,
+          village: addr.village,
+          moo: addr.moo,
+          soi: addr.soi,
+          road: addr.road,
+
+          subDistrict: addr.subDistrict,
+          district: addr.district,
+          province: addr.province,
+          postCode: int.tryParse(addr.postalCode) ?? 0,
+
           provinceId: addr.provinceId,
           districtId: addr.districtId,
           subDistrictId: addr.subDistrictId,
+
           initialLat: addr.latitude,
           initialLng: addr.longitude,
+
           onSave: (data) async {
-            final houseNumber = (data['house_number'] ?? '').toString();
-            final subDistrict = (data['sub_district'] ?? '').toString();
-            final district = (data['district'] ?? '').toString();
-            final province = (data['province'] ?? '').toString();
-            final zipCode = (data['postal_code'] ?? '').toString();
+            final userNow = ref.read(userProvider);
+            if (userNow == null) return false;
 
-            final provinceId = data['province_id'] as int?;
-            final districtId = data['district_id'] as int?;
-            final subDistrictId = data['sub_district_id'] as int?;
+            final String? label = (data['label'] as String?)?.trim();
+            final bool isPrimary = data['is_primary'] as bool? ?? false;
 
-            final lat = (data['lat'] as num?)?.toDouble();
-            final lng = (data['lng'] as num?)?.toDouble();
+            final String houseNumber = (data['house_number'] ?? '')
+                .toString()
+                .trim();
 
-            if (user.role == UserRole.customer) {
-              await ref
-                  .read(userProvider.notifier)
-                  .saveCustomerAddress(
-                    id: addr.id,
-                    houseNumber: houseNumber,
-                    subDistrict: subDistrict,
-                    district: district,
-                    province: province,
-                    zipCode: zipCode,
-                    provinceId: provinceId,
-                    districtId: districtId,
-                    subDistrictId: subDistrictId,
-                    lat: lat,
-                    lng: lng,
-                  );
-            } else {
-              await ref
-                  .read(userProvider.notifier)
-                  .saveTechnicianAddress(
-                    id: addr.id,
-                    houseNumber: houseNumber,
-                    subDistrict: subDistrict,
-                    district: district,
-                    province: province,
-                    zipCode: zipCode,
-                    provinceId: provinceId,
-                    districtId: districtId,
-                    subDistrictId: subDistrictId,
-                    lat: lat,
-                    lng: lng,
-                  );
+            final String? village = (data['village'] as String?)?.trim();
+            final String? moo = (data['moo'] as String?)?.trim();
+            final String? soi = (data['soi'] as String?)?.trim();
+            final String? road = (data['road'] as String?)?.trim();
+
+            final int? provinceId = data['province_id'] as int?;
+            final int? districtId = data['district_id'] as int?;
+            final int? subDistrictId = data['sub_district_id'] as int?;
+
+            final String zipCode = (data['postal_code'] ?? '')
+                .toString()
+                .trim();
+
+            final double? lat = (data['latitude'] as num?)?.toDouble();
+            final double? lng = (data['longitude'] as num?)?.toDouble();
+
+            if (houseNumber.isEmpty ||
+                zipCode.isEmpty ||
+                provinceId == null ||
+                districtId == null ||
+                subDistrictId == null ||
+                lat == null ||
+                lng == null) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'กรุณากรอกที่อยู่ให้ครบ และเลือกตำแหน่งบนแผนที่',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return false;
             }
+
+            final notifier = ref.read(userProvider.notifier);
+
+            final bool success = (userNow.role == UserRole.customer)
+                ? await notifier.saveCustomerAddress(
+                    id: addr.id,
+                    label: (label != null && label.isNotEmpty) ? label : null,
+                    isPrimary: isPrimary,
+
+                    houseNumber: houseNumber,
+                    village: (village != null && village.isNotEmpty)
+                        ? village
+                        : null,
+                    moo: (moo != null && moo.isNotEmpty) ? moo : null,
+                    soi: (soi != null && soi.isNotEmpty) ? soi : null,
+                    road: (road != null && road.isNotEmpty) ? road : null,
+
+                    zipCode: zipCode,
+                    provinceId: provinceId,
+                    districtId: districtId,
+                    subDistrictId: subDistrictId,
+
+                    lat: lat,
+                    lng: lng,
+                  )
+                : await notifier.saveTechnicianAddress(
+                    id: addr.id,
+                    label: (label != null && label.isNotEmpty) ? label : null,
+                    isPrimary: isPrimary,
+
+                    houseNumber: houseNumber,
+                    village: (village != null && village.isNotEmpty)
+                        ? village
+                        : null,
+                    moo: (moo != null && moo.isNotEmpty) ? moo : null,
+                    soi: (soi != null && soi.isNotEmpty) ? soi : null,
+                    road: (road != null && road.isNotEmpty) ? road : null,
+
+                    zipCode: zipCode,
+                    provinceId: provinceId,
+                    districtId: districtId,
+                    subDistrictId: subDistrictId,
+
+                    lat: lat,
+                    lng: lng,
+                  );
+
+            if (!success && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่'),
+                ),
+              );
+            }
+
+            return success;
           },
+
           onDelete: (id) async {
-            if (user.role == UserRole.customer) {
+            final userNow = ref.read(userProvider);
+            if (userNow == null) return;
+
+            if (userNow.role == UserRole.customer) {
               await ref.read(userProvider.notifier).deleteCustomerAddress(id);
             } else {
               await ref.read(userProvider.notifier).deleteTechnicianAddress(id);
@@ -122,7 +192,8 @@ class _AddressListState extends ConsumerState<AddressList> {
         : user?.addresses;
 
     final raw = addresses ?? [];
-    final displayAddresses = [...raw]..sort((a, b) => a.id.compareTo(b.id));
+    final displayAddresses = [...raw];
+
     displayAddresses.sort((a, b) {
       final ap = a.isPrimary == true ? 0 : 1;
       final bp = b.isPrimary == true ? 0 : 1;
@@ -141,76 +212,41 @@ class _AddressListState extends ConsumerState<AddressList> {
               child: Header(
                 header: "เลือกที่อยู่",
                 onPressed: () {
-                  Navigator.pop(context,selectedAddressId);
+                  Navigator.pop(context, selectedAddressId);
                 },
               ),
             ),
-
             Expanded(
               child: Container(
                 color: AppColors.primaryBGHover,
                 child: addresses == null
                     ? const Center(child: CircularProgressIndicator())
-                    : addresses.isEmpty
+                    : displayAddresses.isEmpty
                     ? const Center(child: Text("ยังไม่มีที่อยู่"))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        itemCount: addresses.length,
+                        itemCount: displayAddresses.length,
                         itemBuilder: (context, index) {
-                          final addr = addresses[index];
-                          final isLast = index == addresses.length - 1;
+                          final addr = displayAddresses[index];
+                          final isLast = index == displayAddresses.length - 1;
 
                           final bool isSelectable =
                               widget.provinceId == null ||
                               addr.provinceId == widget.provinceId;
 
+                          String displayName = "ที่อยู่ ${index + 1}";
+                          if (addr.label != null && addr.label!.isNotEmpty) {
+                            displayName = addr.label!;
+                          }
+
                           return Column(
                             children: [
                               InkWell(
                                 onTap: isSelectable
-                                    ? () async {
-                                        // setState(() {¬
-                                        //   selectedAddressId = addr.id;
-                                        // });
-
-                                        // if (addr.isPrimary != true) {
-                                        //   if (user!.role == UserRole.customer) {
-                                        //     await ref
-                                        //         .read(userProvider.notifier)
-                                        //         .saveCustomerAddress(
-                                        //           id: addr.id,
-                                        //           houseNumber: addr.houseNumber,
-                                        //           subDistrict: addr.subDistrict,
-                                        //           district: addr.district,
-                                        //           province: addr.province,
-                                        //           zipCode: addr.postalCode,
-                                        //           provinceId: null,
-                                        //           lat: addr.latitude,
-                                        //           lng: addr.longitude,
-                                        //         );
-                                        //   } else {
-                                        //     await ref
-                                        //         .read(userProvider.notifier)
-                                        //         .saveTechnicianAddress(
-                                        //           id: addr.id,
-                                        //           houseNumber: addr.houseNumber,
-                                        //           subDistrict: addr.subDistrict,
-                                        //           district: addr.district,
-                                        //           province: addr.province,
-                                        //           zipCode: addr.postalCode,
-                                        //           provinceId: null,
-                                        //           lat: addr.latitude,
-                                        //           lng: addr.longitude,
-                                        //         );
-                                        //   }
-                                        // }
-                                  Navigator.pop(context, addr.id); // ✅ pop ที่เดียว
-                                  // if (mounted) {
-                                  //   Navigator.pop(context, addr);
-                                  // }
+                                    ? () {
+                                        Navigator.pop(context, addr.id);
                                       }
-                                    : null, // 👈 ถ้าเลือกไม่ได้ = กดไม่ได้
-
+                                    : null,
                                 child: Opacity(
                                   opacity: isSelectable ? 1.0 : 0.4,
                                   child: Container(
@@ -235,24 +271,20 @@ class _AddressListState extends ConsumerState<AddressList> {
                                               ? AppColors.primary
                                               : Colors.grey,
                                         ),
-
                                         const SizedBox(width: 12),
-
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                "ที่อยู่ ${index + 1}",
+                                                displayName,
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 16,
                                                 ),
                                               ),
-
                                               const SizedBox(height: 6),
-
                                               Text(
                                                 "${addr.combinedAddressInfo} "
                                                 "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
@@ -263,7 +295,6 @@ class _AddressListState extends ConsumerState<AddressList> {
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
-
                                               if (!isSelectable)
                                                 const Padding(
                                                   padding: EdgeInsets.only(
@@ -280,17 +311,20 @@ class _AddressListState extends ConsumerState<AddressList> {
                                             ],
                                           ),
                                         ),
-
-                                        const Icon(
-                                          Icons.chevron_right,
-                                          color: Colors.grey,
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.chevron_right,
+                                            color: Colors.grey,
+                                          ),
+                                          onPressed: () => _editAddress(addr),
+                                          constraints: const BoxConstraints(),
+                                          padding: EdgeInsets.zero,
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
-
                               if (!isLast)
                                 Divider(
                                   height: 1,
@@ -306,7 +340,6 @@ class _AddressListState extends ConsumerState<AddressList> {
           ],
         ),
       ),
-
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
           left: 16,
@@ -323,66 +356,138 @@ class _AddressListState extends ConsumerState<AddressList> {
               MaterialPageRoute(
                 builder: (context) => Address(
                   addressId: null,
+                  label: '',
+                  isPrimary: false,
+
                   houseNumber: '',
+                  village: null,
+                  moo: null,
+                  soi: null,
+                  road: null,
+
                   subDistrict: '',
                   district: '',
                   province: '',
                   postCode: 0,
+
                   provinceId: null,
                   districtId: null,
                   subDistrictId: null,
+
                   initialLat: null,
                   initialLng: null,
+
                   onSave: (data) async {
-                    final user = ref.read(userProvider);
-                    if (user == null) return;
+                    final userNow = ref.read(userProvider);
+                    if (userNow == null) return false;
 
-                    final houseNumber = (data['house_number'] ?? '').toString();
-                    final subDistrict = (data['sub_district'] ?? '').toString();
-                    final district = (data['district'] ?? '').toString();
-                    final province = (data['province'] ?? '').toString();
-                    final zipCode = (data['postal_code'] ?? '').toString();
+                    final String? label = (data['label'] as String?)?.trim();
+                    final bool isPrimary = data['is_primary'] as bool? ?? false;
 
-                    final provinceId = data['province_id'] as int?;
-                    final districtId = data['district_id'] as int?;
-                    final subDistrictId = data['sub_district_id'] as int?;
+                    final String houseNumber = (data['house_number'] ?? '')
+                        .toString()
+                        .trim();
 
-                    final lat = (data['lat'] as num?)?.toDouble();
-                    final lng = (data['lng'] as num?)?.toDouble();
+                    final String? village = (data['village'] as String?)
+                        ?.trim();
+                    final String? moo = (data['moo'] as String?)?.trim();
+                    final String? soi = (data['soi'] as String?)?.trim();
+                    final String? road = (data['road'] as String?)?.trim();
 
-                    if (user.role == UserRole.customer) {
-                      await ref
-                          .read(userProvider.notifier)
-                          .saveCustomerAddress(
-                            id: null,
-                            houseNumber: houseNumber,
-                            subDistrict: subDistrict,
-                            district: district,
-                            province: province,
-                            zipCode: zipCode,
-                            provinceId: provinceId,
-                            districtId: districtId,
-                            subDistrictId: subDistrictId,
-                            lat: lat,
-                            lng: lng,
-                          );
-                    } else {
-                      await ref
-                          .read(userProvider.notifier)
-                          .saveTechnicianAddress(
-                            id: null,
-                            houseNumber: houseNumber,
-                            subDistrict: subDistrict,
-                            district: district,
-                            province: province,
-                            zipCode: zipCode,
-                            provinceId: provinceId,
-                            districtId: districtId,
-                            subDistrictId: subDistrictId,
-                            lat: lat,
-                            lng: lng,
-                          );
+                    final int? provinceId = data['province_id'] as int?;
+                    final int? districtId = data['district_id'] as int?;
+                    final int? subDistrictId = data['sub_district_id'] as int?;
+
+                    final String zipCode = (data['postal_code'] ?? '')
+                        .toString()
+                        .trim();
+
+                    final double? lat = (data['latitude'] as num?)?.toDouble();
+                    final double? lng = (data['longitude'] as num?)?.toDouble();
+
+                    if (houseNumber.isEmpty ||
+                        zipCode.isEmpty ||
+                        provinceId == null ||
+                        districtId == null ||
+                        subDistrictId == null ||
+                        lat == null ||
+                        lng == null) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'กรุณากรอกที่อยู่ให้ครบ และเลือกตำแหน่งบนแผนที่',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return false;
                     }
+
+                    final notifier = ref.read(userProvider.notifier);
+
+                    final bool success = (userNow.role == UserRole.customer)
+                        ? await notifier.saveCustomerAddress(
+                            id: null,
+                            label: (label != null && label.isNotEmpty)
+                                ? label
+                                : null,
+                            isPrimary: isPrimary,
+
+                            houseNumber: houseNumber,
+                            village: (village != null && village.isNotEmpty)
+                                ? village
+                                : null,
+                            moo: (moo != null && moo.isNotEmpty) ? moo : null,
+                            soi: (soi != null && soi.isNotEmpty) ? soi : null,
+                            road: (road != null && road.isNotEmpty)
+                                ? road
+                                : null,
+
+                            zipCode: zipCode,
+                            provinceId: provinceId,
+                            districtId: districtId,
+                            subDistrictId: subDistrictId,
+
+                            lat: lat,
+                            lng: lng,
+                          )
+                        : await notifier.saveTechnicianAddress(
+                            id: null,
+                            label: (label != null && label.isNotEmpty)
+                                ? label
+                                : null,
+                            isPrimary: isPrimary,
+
+                            houseNumber: houseNumber,
+                            village: (village != null && village.isNotEmpty)
+                                ? village
+                                : null,
+                            moo: (moo != null && moo.isNotEmpty) ? moo : null,
+                            soi: (soi != null && soi.isNotEmpty) ? soi : null,
+                            road: (road != null && road.isNotEmpty)
+                                ? road
+                                : null,
+
+                            zipCode: zipCode,
+                            provinceId: provinceId,
+                            districtId: districtId,
+                            subDistrictId: subDistrictId,
+
+                            lat: lat,
+                            lng: lng,
+                          );
+
+                    if (!success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่'),
+                        ),
+                      );
+                    }
+
+                    return success;
                   },
                 ),
               ),

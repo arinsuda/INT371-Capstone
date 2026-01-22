@@ -30,7 +30,7 @@ class UserNotifier extends Notifier<UserModel?> {
   }
 
   RealtimeService get _realtime => ref.read(realtimeServiceProvider);
-  
+
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final accessToken = prefs.getString('access_token');
@@ -217,68 +217,78 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> saveTechnicianAddress({
     int? id,
+
+    String? label,
+    bool? isPrimary,
+
     required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
+
     required String zipCode,
 
-    int? provinceId,
-    int? districtId,
-    int? subDistrictId,
+    required int provinceId,
+    required int districtId,
+    required int subDistrictId,
 
-    double? lat,
-    double? lng,
+    required double lat,
+    required double lng,
   }) async {
     final token = state?.token;
-    if (token == null) return false;
+    if (token == null || state?.role != UserRole.technician) return false;
 
     final service = tech.TechnicianService();
 
-    bool success;
     try {
-      if (id != null) {
-        success = await service.updateAddress(
-          token: token,
-          addressId: id,
-          houseNumber: houseNumber,
-          subDistrict: subDistrict,
-          district: district,
-          province: province,
-          postCode: zipCode,
+      final bool success = (id != null)
+          ? await service.updateAddress(
+              token: token,
+              addressId: id,
+              label: label,
+              isPrimary: isPrimary,
 
-          provinceId: provinceId,
-          districtId: districtId,
-          subDistrictId: subDistrictId,
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
 
-          lat: lat,
-          lng: lng,
-        );
-      } else {
-        success = await service.createAddress(
-          token: token,
-          houseNumber: houseNumber,
-          subDistrict: subDistrict,
-          district: district,
-          province: province,
-          postCode: zipCode,
-          isPrimary: true,
+              postCode: zipCode,
 
-          provinceId: provinceId,
-          districtId: districtId,
-          subDistrictId: subDistrictId,
+              provinceId: provinceId,
+              districtId: districtId,
+              subDistrictId: subDistrictId,
 
-          lat: lat,
-          lng: lng,
-        );
-      }
+              lat: lat,
+              lng: lng,
+            )
+          : await service.createAddress(
+              token: token,
+              label: label,
+              isPrimary: isPrimary,
 
-      if (success) {
-        await loadAddresses();
-      }
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
+
+              postCode: zipCode,
+
+              provinceId: provinceId,
+              districtId: districtId,
+              subDistrictId: subDistrictId,
+
+              lat: lat,
+              lng: lng,
+            );
+
+      if (success) await loadAddresses();
       return success;
     } catch (e) {
-      print("❌ Save Address Error: $e");
+      print("❌ Save Technician Address Error: $e");
       return false;
     }
   }
@@ -311,68 +321,77 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> saveCustomerAddress({
     int? id,
+
+    String? label,
+    bool? isPrimary,
+
     required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
+
     required String zipCode,
 
-    int? provinceId,
-    int? districtId,
-    int? subDistrictId,
+    required int provinceId,
+    required int districtId,
+    required int subDistrictId,
 
-    double? lat,
-    double? lng,
+    required double lat,
+    required double lng,
   }) async {
     final token = state?.token;
-    if (token == null || state?.role != UserRole.customer) {
-      return false;
-    }
+    if (token == null || state?.role != UserRole.customer) return false;
 
     final service = cust.CustomerService();
 
-    bool success = false;
     try {
-      if (id != null) {
-        success = await service.updateAddress(
-          token: token,
-          addressId: id,
-          houseNumber: houseNumber,
-          subDistrict: subDistrict,
-          district: district,
-          province: province,
-          postCode: zipCode,
+      final bool success = (id != null)
+          ? await service.updateAddress(
+              token: token,
+              addressId: id,
 
-          provinceId: provinceId,
-          districtId: districtId,
-          subDistrictId: subDistrictId,
+              label: label,
+              isPrimary: isPrimary,
 
-          lat: lat,
-          lng: lng,
-        );
-      } else {
-        success = await service.createAddress(
-          token: token,
-          houseNumber: houseNumber,
-          subDistrict: subDistrict,
-          district: district,
-          province: province,
-          postCode: zipCode,
-          isPrimary: true,
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
 
-          provinceId: provinceId,
-          districtId: districtId,
-          subDistrictId: subDistrictId,
+              postCode: zipCode,
 
-          lat: lat,
-          lng: lng,
-        );
-      }
+              provinceId: provinceId,
+              districtId: districtId,
+              subDistrictId: subDistrictId,
 
-      if (success) {
-        await loadAddresses();
-      }
+              lat: lat,
+              lng: lng,
+            )
+          : await service.createAddress(
+              token: token,
 
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
+
+              postCode: zipCode,
+
+              label: label,
+              isPrimary: isPrimary,
+
+              provinceId: provinceId,
+              districtId: districtId,
+              subDistrictId: subDistrictId,
+
+              lat: lat,
+              lng: lng,
+            );
+
+      if (success) await loadAddresses();
       return success;
     } catch (e) {
       print("❌ Save Customer Address Error: $e");

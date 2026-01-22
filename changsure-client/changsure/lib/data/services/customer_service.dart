@@ -46,77 +46,72 @@ class CustomerService {
 
   Future<bool> createAddress({
     required String token,
+
     required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
-    required String postCode,
 
-    int? provinceId,
-    int? districtId,
-    int? subDistrictId,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
 
-    double? lat,
-    double? lng,
-    bool isPrimary = false,
+    required int provinceId,
+    required int districtId,
+    required int subDistrictId,
+
+    required double lat,
+    required double lng,
+
+    String? label,
+    bool? isPrimary,
+    String? postCode,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/customers/me/addresses');
 
     final Map<String, dynamic> body = {
       "house_number": houseNumber,
-      "sub_district": subDistrict,
-      "district": district,
-      "province": province,
 
-      "zip_code": postCode,
-      "postal_code": postCode,
+      "province_id": provinceId,
+      "district_id": districtId,
+      "sub_district_id": subDistrictId,
 
-      "is_primary": isPrimary,
+      "latitude": lat,
+      "longitude": lng,
     };
 
-    if (provinceId != null) body["province_id"] = provinceId;
-    if (districtId != null) body["district_id"] = districtId;
-    if (subDistrictId != null) body["sub_district_id"] = subDistrictId;
+    if (label != null) body["label"] = label;
+    if (isPrimary != null) body["is_primary"] = isPrimary;
 
-    if (lat != null) {
-      body["latitude"] = lat;
-      body["lat"] = lat;
-    }
-    if (lng != null) {
-      body["longitude"] = lng;
-      body["lng"] = lng;
-    }
+    if (village != null) body["village"] = village;
+    if (moo != null) body["moo"] = moo;
+    if (soi != null) body["soi"] = soi;
+    if (road != null) body["road"] = road;
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      );
+    if (postCode != null) body["postal_code"] = postCode;
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      } else {
-        print('❌ Create Address Failed: ${response.body}');
-        return false;
-      }
-    } catch (e) {
-      print("❌ Exception creating address: $e");
-      return false;
-    }
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    return response.statusCode == 200 || response.statusCode == 201;
   }
 
   Future<bool> updateAddress({
     required String token,
     required int addressId,
-    required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
-    required String postCode,
+
+    String? label,
+    bool? isPrimary,
+
+    String? houseNumber,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
 
     int? provinceId,
     int? districtId,
@@ -124,54 +119,43 @@ class CustomerService {
 
     double? lat,
     double? lng,
+
+    String? postCode,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/customers/me/addresses/$addressId',
     );
 
-    final Map<String, dynamic> body = {
-      "house_number": houseNumber,
-      "sub_district": subDistrict,
-      "district": district,
-      "province": province,
+    final Map<String, dynamic> body = {};
 
-      "zip_code": postCode,
-      "postal_code": postCode,
-    };
+    if (label != null) body["label"] = label;
+    if (isPrimary != null) body["is_primary"] = isPrimary;
+
+    if (houseNumber != null) body["house_number"] = houseNumber;
+    if (village != null) body["village"] = village;
+    if (moo != null) body["moo"] = moo;
+    if (soi != null) body["soi"] = soi;
+    if (road != null) body["road"] = road;
 
     if (provinceId != null) body["province_id"] = provinceId;
     if (districtId != null) body["district_id"] = districtId;
     if (subDistrictId != null) body["sub_district_id"] = subDistrictId;
 
-    if (lat != null) {
-      body["latitude"] = lat;
-      body["lat"] = lat;
-    }
-    if (lng != null) {
-      body["longitude"] = lng;
-      body["lng"] = lng;
-    }
+    if (lat != null) body["latitude"] = lat;
+    if (lng != null) body["longitude"] = lng;
 
-    try {
-      final response = await http.put(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      );
+    if (postCode != null) body["postal_code"] = postCode;
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print('❌ Update Address Failed: ${response.body}');
-        return false;
-      }
-    } catch (e) {
-      print("❌ Exception updating address: $e");
-      return false;
-    }
+    final response = await http.put(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    return response.statusCode == 200;
   }
 
   Future<bool> deleteAddress({

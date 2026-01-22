@@ -31,41 +31,141 @@ class BookingAddress extends ConsumerWidget {
           ))
         : null;
 
-    return
-      Address(
-      houseNumber: currentAddress?.combinedAddressInfo ?? '',
+    return Address(
+      addressId: currentAddress?.id,
+      label: currentAddress?.label ?? '',
+      isPrimary: currentAddress?.isPrimary ?? false,
+
+      houseNumber: currentAddress?.houseNumber ?? '',
+      village: currentAddress?.village,
+      moo: currentAddress?.moo,
+      soi: currentAddress?.soi,
+      road: currentAddress?.road,
+
       subDistrict: currentAddress?.subDistrict ?? '',
       district: currentAddress?.district ?? '',
       province: currentAddress?.province ?? '',
       postCode: int.tryParse(currentAddress?.postalCode ?? '0') ?? 0,
 
+      provinceId: currentAddress?.provinceId,
+      districtId: currentAddress?.districtId,
+      subDistrictId: currentAddress?.subDistrictId,
+
+      initialLat: currentAddress?.latitude,
+      initialLng: currentAddress?.longitude,
+
       onSave: (Map<String, dynamic> data) async {
-        final String houseNumber = data['house_number'] ?? '';
-        final String subDistrict = data['sub_district'] ?? '';
-        final String district = data['district'] ?? '';
-        final String province = data['province'] ?? '';
-        final String zipCode = data['postal_code'] ?? '';
+        final notifier = ref.read(userProvider.notifier);
+
+        final String label = (data['label'] ?? currentAddress?.label ?? '')
+            .toString();
+        final bool isPrimary =
+            (data['is_primary'] as bool?) ??
+            (currentAddress?.isPrimary ?? false);
+
+        final String houseNumber =
+            (data['house_number'] ?? currentAddress?.houseNumber ?? '')
+                .toString();
+        final String? village =
+            (data['village'] as String?) ?? currentAddress?.village;
+        final String? moo = (data['moo'] as String?) ?? currentAddress?.moo;
+        final String? soi = (data['soi'] as String?) ?? currentAddress?.soi;
+        final String? road = (data['road'] as String?) ?? currentAddress?.road;
+
+        final String subDistrict =
+            (data['sub_district'] ?? currentAddress?.subDistrict ?? '')
+                .toString();
+        final String district =
+            (data['district'] ?? currentAddress?.district ?? '').toString();
+        final String province =
+            (data['province'] ?? currentAddress?.province ?? '').toString();
+
+        final String zipCode =
+            (data['postal_code'] ?? currentAddress?.postalCode ?? '')
+                .toString();
+
+        final int? provinceId =
+            (data['province_id'] as int?) ?? currentAddress?.provinceId;
+        final int? districtId =
+            (data['district_id'] as int?) ?? currentAddress?.districtId;
+        final int? subDistrictId =
+            (data['sub_district_id'] as int?) ?? currentAddress?.subDistrictId;
+
+        final double? lat =
+            ((data['lat'] as num?)?.toDouble()) ??
+            ((data['latitude'] as num?)?.toDouble()) ??
+            currentAddress?.latitude;
+
+        final double? lng =
+            ((data['lng'] as num?)?.toDouble()) ??
+            ((data['longitude'] as num?)?.toDouble()) ??
+            currentAddress?.longitude;
+
+        if (houseNumber.trim().isEmpty ||
+            subDistrict.trim().isEmpty ||
+            district.trim().isEmpty ||
+            province.trim().isEmpty ||
+            zipCode.trim().isEmpty ||
+            provinceId == null ||
+            districtId == null ||
+            subDistrictId == null ||
+            lat == null ||
+            lng == null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'ข้อมูลที่อยู่ไม่ครบ (ต้องมีจังหวัด/อำเภอ/ตำบล + พิกัด)',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return false;
+        }
 
         bool success = false;
-        final notifier = ref.read(userProvider.notifier);
 
         if (userState.role == UserRole.technician) {
           success = await notifier.saveTechnicianAddress(
             id: currentAddress?.id,
+            label: label,
+            isPrimary: isPrimary,
+
             houseNumber: houseNumber,
-            subDistrict: subDistrict,
-            district: district,
-            province: province,
+            village: village,
+            moo: moo,
+            soi: soi,
+            road: road,
+
             zipCode: zipCode,
+
+            provinceId: provinceId,
+            districtId: districtId,
+            subDistrictId: subDistrictId,
+
+            lat: lat,
+            lng: lng,
           );
         } else if (userState.role == UserRole.customer) {
           success = await notifier.saveCustomerAddress(
             id: currentAddress?.id,
+            label: label,
+            isPrimary: isPrimary,
+
             houseNumber: houseNumber,
-            subDistrict: subDistrict,
-            district: district,
-            province: province,
+            village: village,
+            moo: moo,
+            soi: soi,
+            road: road,
             zipCode: zipCode,
+
+            provinceId: provinceId,
+            districtId: districtId,
+            subDistrictId: subDistrictId,
+
+            lat: lat,
+            lng: lng,
           );
         }
 
@@ -85,6 +185,7 @@ class BookingAddress extends ConsumerWidget {
             );
           }
         }
+        return success;
       },
     );
   }

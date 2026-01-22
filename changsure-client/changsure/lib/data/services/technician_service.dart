@@ -197,7 +197,6 @@ class TechnicianService {
       request.fields['service_category_id'] = categoryId.toString();
 
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
-      // ส่งเป็น "101,102,105" ให้ Backend ไป split เอง
       request.fields['image_ids_to_delete'] = imageIdsToDelete.join(',');
     }
 
@@ -261,47 +260,46 @@ class TechnicianService {
 
   Future<bool> createAddress({
     required String token,
+
     required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
-    required String postCode,
+    required int provinceId,
+    required int districtId,
+    required int subDistrictId,
+    required double lat,
+    required double lng,
 
-    int? provinceId,
-    int? districtId,
-    int? subDistrictId,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
+    String? label,
+    bool? isPrimary,
 
-    double? lat,
-    double? lng,
-    bool isPrimary = false,
+    String? postCode,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses');
 
     try {
       final Map<String, dynamic> body = {
         'house_number': houseNumber,
-        'sub_district': subDistrict,
-        'district': district,
-        'province': province,
 
-        'postal_code': postCode,
-        'zip_code': postCode,
+        'province_id': provinceId,
+        'district_id': districtId,
+        'sub_district_id': subDistrictId,
 
-        'is_primary': isPrimary,
+        'latitude': lat,
+        'longitude': lng,
       };
 
-      if (provinceId != null) body['province_id'] = provinceId;
-      if (districtId != null) body['district_id'] = districtId;
-      if (subDistrictId != null) body['sub_district_id'] = subDistrictId;
+      if (label != null) body['label'] = label;
+      if (isPrimary != null) body['is_primary'] = isPrimary;
 
-      if (lat != null) {
-        body['latitude'] = lat;
-        body['lat'] = lat;
-      }
-      if (lng != null) {
-        body['longitude'] = lng;
-        body['lng'] = lng;
-      }
+      if (village != null) body['village'] = village;
+      if (moo != null) body['moo'] = moo;
+      if (soi != null) body['soi'] = soi;
+      if (road != null) body['road'] = road;
+
+      if (postCode != null) body['postal_code'] = postCode;
 
       final response = await http.post(
         url,
@@ -327,18 +325,22 @@ class TechnicianService {
   Future<bool> updateAddress({
     required String token,
     required int addressId,
+
     required String houseNumber,
-    required String subDistrict,
-    required String district,
-    required String province,
-    required String postCode,
+    required int provinceId,
+    required int districtId,
+    required int subDistrictId,
+    required double lat,
+    required double lng,
 
-    int? provinceId,
-    int? districtId,
-    int? subDistrictId,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
+    String? label,
+    bool? isPrimary,
 
-    double? lat,
-    double? lng,
+    String? postCode,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
@@ -347,26 +349,24 @@ class TechnicianService {
     try {
       final Map<String, dynamic> body = {
         'house_number': houseNumber,
-        'sub_district': subDistrict,
-        'district': district,
-        'province': province,
 
-        'postal_code': postCode,
-        'zip_code': postCode,
+        'province_id': provinceId,
+        'district_id': districtId,
+        'sub_district_id': subDistrictId,
+
+        'latitude': lat,
+        'longitude': lng,
       };
 
-      if (provinceId != null) body['province_id'] = provinceId;
-      if (districtId != null) body['district_id'] = districtId;
-      if (subDistrictId != null) body['sub_district_id'] = subDistrictId;
+      if (label != null) body['label'] = label;
+      if (isPrimary != null) body['is_primary'] = isPrimary;
 
-      if (lat != null) {
-        body['latitude'] = lat;
-        body['lat'] = lat;
-      }
-      if (lng != null) {
-        body['longitude'] = lng;
-        body['lng'] = lng;
-      }
+      if (village != null) body['village'] = village;
+      if (moo != null) body['moo'] = moo;
+      if (soi != null) body['soi'] = soi;
+      if (road != null) body['road'] = road;
+
+      if (postCode != null) body['postal_code'] = postCode;
 
       final response = await http.put(
         url,
