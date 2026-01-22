@@ -36,7 +36,7 @@ func (r *repository) Create(ctx context.Context, addr *CustomerAddress) error {
 }
 
 func (r *repository) Update(ctx context.Context, addr *CustomerAddress) error {
-	return r.db.WithContext(ctx).Model(addr).Updates(addr).Error
+	return r.db.WithContext(ctx).Save(addr).Error
 }
 
 func (r *repository) Delete(ctx context.Context, id uint, customerID uint) error {
