@@ -134,6 +134,9 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		addr.Label = req.Label
 	}
 
+	if req.IsPrimary != nil {
+		addr.IsPrimary = *req.IsPrimary
+	}
 	if req.HouseNumber != nil {
 		addr.HouseNumber = req.HouseNumber
 	}
@@ -192,14 +195,14 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		addr.Longitude = req.Longitude
 	}
 
-	if req.IsPrimary != nil && *req.IsPrimary {
+	if err := s.repo.Update(ctx, addr); err != nil {
+		return nil, err
+	}
+
+	if addr.IsPrimary {
 		if err := s.repo.SetPrimary(ctx, techID, id); err != nil {
 			return nil, err
 		}
-	}
-
-	if err := s.repo.Update(ctx, addr); err != nil {
-		return nil, err
 	}
 
 	updatedAddr, _ := s.repo.Get(ctx, id, techID)
