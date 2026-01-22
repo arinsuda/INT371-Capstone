@@ -5,7 +5,7 @@ class BookingCreateRequest {
   final int timeSlotId;
   final String appointmentDate;
   final String? customerNote;
-  final List<String> images;
+  final List<String> images; // path file
 
   BookingCreateRequest({
     required this.technicianId,
@@ -17,29 +17,22 @@ class BookingCreateRequest {
     required this.images,
   });
 
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{
-      "technician_id": technicianId,
-      "technician_service_id": technicianServiceId,
-      "address_id": addressId,
-      "time_slot_id": timeSlotId,
+  /// ❗ ใช้เฉพาะ fields ธรรมดา (ไม่รวม images)
+  Map<String, String> toFields() {
+    final map = <String, String>{
+      "technician_id": technicianId.toString(),
+      "technician_service_id": technicianServiceId.toString(),
+      "address_id": addressId.toString(),
+      "time_slot_id": timeSlotId.toString(),
       "appointment_date": appointmentDate,
     };
 
-    // ✅ ส่งเฉพาะตอนมี note จริง
     if (customerNote != null && customerNote!.trim().isNotEmpty) {
-      map["customer_note"] = customerNote;
-    }
-
-    // ✅ ส่งเฉพาะตอนมีรูป
-    if (images != null && images!.isNotEmpty) {
-      map["images"] = images;
+      map["customer_note"] = customerNote!;
     }
 
     return map;
   }
-
-
 }
 
 class BookingResponse {
@@ -75,7 +68,7 @@ class BookingData {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<String> images;
+  final List<BookingImage> images;
 
   BookingData({
     required this.id,
@@ -110,11 +103,31 @@ class BookingData {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       images: json['images'] == null
-          ? <String>[]
-          : List<String>.from(json['images']),
+          ? <BookingImage>[]
+          : (json['images'] as List)
+          .map((e) => BookingImage.fromJson(e))
+          .toList(),
     );
   }
 }
+
+class BookingImage {
+  final int id;
+  final String imageUrl;
+
+  BookingImage({
+    required this.id,
+    required this.imageUrl,
+  });
+
+  factory BookingImage.fromJson(Map<String, dynamic> json) {
+    return BookingImage(
+      id: json['id'],
+      imageUrl: json['image_url'],
+    );
+  }
+}
+
 
 class TimeSlot {
   final int id;

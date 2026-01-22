@@ -276,7 +276,7 @@ class _CustomerChooseState extends ConsumerState<CustomerChoose> {
                         .map(
                           (tech) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TechnicianCardCTM(technician: tech, data:widget.data),
+                            child: TechnicianCardCTM(technician: tech, data:widget.data, provinceId: widget.provinceId),
                           ),
                         )
                         .toList(),

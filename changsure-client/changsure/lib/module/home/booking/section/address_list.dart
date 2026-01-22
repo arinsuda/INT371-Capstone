@@ -10,8 +10,13 @@ import '../../../../state/user_provider.dart';
 
 class AddressList extends ConsumerStatefulWidget {
   final int? initialSelectedAddressId;
+  final int? provinceId;
 
-  const AddressList({super.key, this.initialSelectedAddressId});
+  const AddressList({
+    super.key,
+    this.initialSelectedAddressId,
+    this.provinceId,
+  });
 
   @override
   ConsumerState<AddressList> createState() => _AddressListState();
@@ -136,7 +141,7 @@ class _AddressListState extends ConsumerState<AddressList> {
               child: Header(
                 header: "เลือกที่อยู่",
                 onPressed: () {
-                  Navigator.pop(context, selectedAddressId);
+                  Navigator.pop(context,selectedAddressId);
                 },
               ),
             ),
@@ -155,130 +160,137 @@ class _AddressListState extends ConsumerState<AddressList> {
                           final addr = addresses[index];
                           final isLast = index == addresses.length - 1;
 
+                          final bool isSelectable =
+                              widget.provinceId == null ||
+                              addr.provinceId == widget.provinceId;
+
                           return Column(
                             children: [
                               InkWell(
-                                onTap: () async {
-                                  setState(() {
-                                    selectedAddressId = addr.id;
-                                  });
+                                onTap: isSelectable
+                                    ? () async {
+                                        // setState(() {¬
+                                        //   selectedAddressId = addr.id;
+                                        // });
 
-                                  if (addr.isPrimary != true) {
-                                    if (user!.role == UserRole.customer) {
-                                      await ref
-                                          .read(userProvider.notifier)
-                                          .saveCustomerAddress(
-                                            id: addr.id,
-                                            houseNumber: addr.houseNumber,
-                                            subDistrict: addr.subDistrict,
-                                            district: addr.district,
-                                            province: addr.province,
-                                            zipCode: addr.postalCode,
-                                            provinceId: null,
-                                            lat: addr.latitude,
-                                            lng: addr.longitude,
-                                          );
-                                    } else {
-                                      await ref
-                                          .read(userProvider.notifier)
-                                          .saveTechnicianAddress(
-                                            id: addr.id,
-                                            houseNumber: addr.houseNumber,
-                                            subDistrict: addr.subDistrict,
-                                            district: addr.district,
-                                            province: addr.province,
-                                            zipCode: addr.postalCode,
-                                            provinceId: null,
-                                            lat: addr.latitude,
-                                            lng: addr.longitude,
-                                          );
-                                    }
-                                  }
+                                        // if (addr.isPrimary != true) {
+                                        //   if (user!.role == UserRole.customer) {
+                                        //     await ref
+                                        //         .read(userProvider.notifier)
+                                        //         .saveCustomerAddress(
+                                        //           id: addr.id,
+                                        //           houseNumber: addr.houseNumber,
+                                        //           subDistrict: addr.subDistrict,
+                                        //           district: addr.district,
+                                        //           province: addr.province,
+                                        //           zipCode: addr.postalCode,
+                                        //           provinceId: null,
+                                        //           lat: addr.latitude,
+                                        //           lng: addr.longitude,
+                                        //         );
+                                        //   } else {
+                                        //     await ref
+                                        //         .read(userProvider.notifier)
+                                        //         .saveTechnicianAddress(
+                                        //           id: addr.id,
+                                        //           houseNumber: addr.houseNumber,
+                                        //           subDistrict: addr.subDistrict,
+                                        //           district: addr.district,
+                                        //           province: addr.province,
+                                        //           zipCode: addr.postalCode,
+                                        //           provinceId: null,
+                                        //           lat: addr.latitude,
+                                        //           lng: addr.longitude,
+                                        //         );
+                                        //   }
+                                        // }
+                                  Navigator.pop(context, addr.id); // ✅ pop ที่เดียว
+                                  // if (mounted) {
+                                  //   Navigator.pop(context, addr);
+                                  // }
+                                      }
+                                    : null, // 👈 ถ้าเลือกไม่ได้ = กดไม่ได้
 
-                                  if (mounted) {
-                                    Navigator.pop(context, addr);
-                                  }
-                                },
-                                child: Container(
-                                  color: Colors.white,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    18,
-                                    18,
-                                    18,
-                                    18,
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(
-                                        selectedAddressId == addr.id
-                                            ? Icons.radio_button_checked
-                                            : Icons.radio_button_off,
-                                        color: AppColors.primary,
-                                      ),
-
-                                      const SizedBox(width: 12),
-
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            RichText(
-                                              text: TextSpan(
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.bodyMedium,
-                                                children: [
-                                                  TextSpan(
-                                                    text:
-                                                        "ที่อยู่ ${index + 1}",
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  const TextSpan(text: "  "),
-                                                  const TextSpan(
-                                                    text: "90992948",
-                                                    style: TextStyle(
-                                                      color: AppColors
-                                                          .colorTertiaryText,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            const SizedBox(height: 6),
-
-                                            Text(
-                                              "${addr.combinedAddressInfo}\n"
-                                              "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color:
-                                                    AppColors.colorTertiaryText,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
+                                child: Opacity(
+                                  opacity: isSelectable ? 1.0 : 0.4,
+                                  child: Container(
+                                    color: Colors.white,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      18,
+                                      18,
+                                      18,
+                                      18,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          !isSelectable
+                                              ? Icons.block
+                                              : selectedAddressId == addr.id
+                                              ? Icons.radio_button_checked
+                                              : Icons.radio_button_off,
+                                          color: isSelectable
+                                              ? AppColors.primary
+                                              : Colors.grey,
                                         ),
-                                      ),
 
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.grey,
-                                      ),
-                                    ],
+                                        const SizedBox(width: 12),
+
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "ที่อยู่ ${index + 1}",
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+
+                                              const SizedBox(height: 6),
+
+                                              Text(
+                                                "${addr.combinedAddressInfo} "
+                                                "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: AppColors
+                                                      .colorTertiaryText,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+
+                                              if (!isSelectable)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                    top: 4,
+                                                  ),
+                                                  child: Text(
+                                                    "ที่อยู่นี้อยู่นอกพื้นที่ให้บริการ",
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.redAccent,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.grey,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
 
-                              // ➖ Divider (ถ้าไม่ใช่อันสุดท้าย)
                               if (!isLast)
                                 Divider(
                                   height: 1,

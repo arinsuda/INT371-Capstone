@@ -13,11 +13,13 @@ import '../../../../data/models/master_data_models.dart';
 class TechnicianCardCTM extends ConsumerWidget {
   final Technician technician;
   final ServiceModel data;
+  final int? provinceId;
 
   const TechnicianCardCTM({
     super.key,
     required this.technician,
     required this.data,
+    required this.provinceId,
   });
 
   Widget _buildTag(String iconUrl, String text) {
@@ -43,8 +45,6 @@ class TechnicianCardCTM extends ConsumerWidget {
       ),
     );
   }
-
-
 
   String _toActivityCategoryKey(String shortName) {
     const map = {
@@ -87,6 +87,7 @@ class TechnicianCardCTM extends ConsumerWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tech = technician;
@@ -289,7 +290,11 @@ class TechnicianCardCTM extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => (BookingPage(data: data, technician: technician)),
+                            builder: (context) => (BookingPage(
+                              data: data,
+                              technician: technician,
+                              provinceId: provinceId,
+                            )),
                           ),
                         );
                       },
@@ -305,9 +310,7 @@ class TechnicianCardCTM extends ConsumerWidget {
         Positioned(
           top: 16,
           right: 16,
-          child: _buildCategoryTag(
-            _getDisplayCategoryName(tech.categoryName),
-          ),
+          child: _buildCategoryTag(_getDisplayCategoryName(tech.categoryName)),
         ),
       ],
     );

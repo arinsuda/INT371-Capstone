@@ -19,7 +19,7 @@ class ActivityConstants {
       background: Color(0xFFFFFBE6),
       border: Color(0xFFFFE58F),
     ),
-    "งานซ่อมเครื่องใช้ไฟฟ้า": CategoryColorScheme(
+    "งานเครื่องใช้ไฟฟ้า": CategoryColorScheme(
       text: Color(0xFF722ED1),
       background: Color(0xFFF9F0FF),
       border: Color(0xFFD3ADF7),

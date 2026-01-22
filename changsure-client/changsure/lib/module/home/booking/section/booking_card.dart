@@ -71,9 +71,7 @@ class _BookingCardState extends State<BookingCard> {
   String _toActivityCategoryKey(String shortName) {
     const map = {
       "ทาสี": "งานทาสี",
-      "การประปา": "งานประปา",
       "ประปา": "งานประปา",
-      "การไฟฟ้า": "งานไฟฟ้า",
       "ไฟฟ้า": "งานไฟฟ้า",
       "เครื่องใช้ไฟฟ้า": "งานเครื่องใช้ไฟฟ้า",
     };

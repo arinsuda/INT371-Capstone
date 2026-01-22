@@ -21,7 +21,7 @@ class BookingSuccess extends StatefulWidget {
     required this.technician,
     required this.service,
     required this.response,
-    required this.address
+    required this.address,
   });
 
   @override
@@ -61,12 +61,19 @@ class _BookingSuccessState extends State<BookingSuccess> {
   @override
   Widget build(BuildContext context) {
     final note = widget.response.data.customerNote;
+    debugPrint("IMAGES FROM API => ${widget.response.data.images}");
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           children: [
-            Header(header: "จองบริการ"),
+            Header(
+              header: "จองบริการ",
+              onPressed: () {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+            ),
             const SizedBox(height: 24),
             Center(
               child: Column(
@@ -254,8 +261,8 @@ class _BookingSuccessState extends State<BookingSuccess> {
                           children: widget.response.data.images.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.asset(
-                                img,
+                              child: Image.network(
+                                img.imageUrl,
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,

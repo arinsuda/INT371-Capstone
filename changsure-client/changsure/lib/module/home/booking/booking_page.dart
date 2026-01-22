@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:changsure/core/header.dart';
 import 'package:changsure/module/home/booking/booking_success.dart';
 import 'package:changsure/module/home/booking/section/address_card.dart';
@@ -22,8 +20,14 @@ import 'package:collection/collection.dart';
 class BookingPage extends ConsumerStatefulWidget {
   final ServiceModel data;
   final Technician technician;
+  final int? provinceId;
 
-  const BookingPage({super.key, required this.data, required this.technician});
+  const BookingPage({
+    super.key,
+    required this.data,
+    required this.technician,
+    this.provinceId,
+  });
 
   @override
   ConsumerState<BookingPage> createState() => _BookingPageState();
@@ -35,11 +39,28 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   int? selectedTimeSlotId;
   String? customerNote;
   List<String> images = [];
+  bool _hasShownProvinceWarning = false;
 
   bool get isFormValid {
     return selectedBookingDate != null &&
         selectedAddressId != null &&
-        selectedTimeSlotId != null;
+        selectedTimeSlotId != null &&
+        isProvinceValid;
+  }
+
+  bool get isProvinceValid {
+    final user = ref.read(userProvider);
+    final addresses = user?.role == UserRole.technician
+        ? user?.technicianProfile?.addresses
+        : user?.addresses;
+
+    final selectedAddress = addresses?.firstWhereOrNull(
+      (a) => a.id == selectedAddressId,
+    );
+
+    if (widget.provinceId == null || selectedAddress == null) return true;
+
+    return selectedAddress.provinceId == widget.provinceId;
   }
 
   Future<bool> _showExitConfirmDialog() async {
@@ -98,6 +119,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   MaterialPageRoute(
                     builder: (_) => AddressList(
                       initialSelectedAddressId: selectedAddressId,
+                      provinceId: widget.provinceId,
                     ),
                   ),
                 );
@@ -108,7 +130,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   });
                 }
               },
+              provinceId: widget.provinceId,
             ),
+
+            if (!isProvinceValid)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16, left: 40),
+                child: Text(
+                  "ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
@@ -221,7 +257,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               images: images,
                             );
 
-                            debugPrint("BOOKING REQUEST => ${req.toJson()}");
                             try {
                               final result = await ref.read(
                                 createBookingProvider(req).future,

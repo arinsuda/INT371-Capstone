@@ -232,6 +232,10 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                   child: FutureBuilder<List<ServiceModel>>(
                     future: _relatedFuture,
                     builder: (context, snapshot) {
+                      for (final s in snapshot.data ?? []) {
+                        debugPrint("SERVICE: id=${s.id}, cat=${s.categoryId}");
+                      }
+                      debugPrint("CURRENT: id=${widget.data.id}, cat=${widget.data.categoryId}");
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
@@ -242,13 +246,16 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
 
                       final services = (snapshot.data ?? [])
                           .where(
-                            (s) => s.id != widget.data.id,
-                          ) // ❗ ตัดตัวเองออก
+                            (s) =>
+                                s.id != widget.data.id &&
+                                s.categoryId == widget.data.categoryId,
+                          )
                           .toList();
 
                       if (services.isEmpty) {
                         return const Center(child: Text("ไม่มีบริการแนะนำ"));
                       }
+
 
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
@@ -564,7 +571,8 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                                                                           .id,
                                                                   provinceId: widget
                                                                       .provinceId,
-                                                                  data: widget.data
+                                                                  data: widget
+                                                                      .data,
                                                                 ),
                                                               ),
                                                             );
@@ -586,7 +594,8 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                                                                           .id,
                                                                   provinceId: widget
                                                                       .provinceId,
-                                                                  data: widget.data,
+                                                                  data: widget
+                                                                      .data,
                                                                 ),
                                                               ),
                                                             );

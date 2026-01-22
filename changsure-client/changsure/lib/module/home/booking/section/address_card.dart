@@ -8,8 +8,9 @@ import '../../../../state/user_provider.dart';
 class AddressCard extends ConsumerWidget {
   final VoidCallback? onTap;
   final int? selectedAddressId;
+  final int? provinceId;
 
-  const AddressCard({super.key, this.onTap, this.selectedAddressId});
+  const AddressCard({super.key, this.onTap, this.selectedAddressId, this.provinceId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +40,7 @@ class AddressCard extends ConsumerWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 10),
         child: Stack(
           children: [
             /// 🔹 Content หลัก
