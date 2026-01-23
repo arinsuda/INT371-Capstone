@@ -3,14 +3,20 @@ import 'package:changsure/module/home/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/models/master_data_models.dart';
 import '../../mockDB/service_categories.dart';
-import '../../state/bottom_bar_state.dart';
+import '../../state/bottom_nav_provider.dart';
 import './homePage/service_card.dart';
 
 class ServiceCategoryPage extends StatelessWidget {
-  final ServiceCategories category;
+  final ServiceCategoryModel category;
+  final int? provinceId;
 
-  const ServiceCategoryPage({super.key, required this.category});
+  const ServiceCategoryPage({
+    super.key,
+    required this.category,
+    required this.provinceId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +25,7 @@ class ServiceCategoryPage extends StatelessWidget {
         child: Column(
           children: [
             Header(
-              header: category.name,
+              header: category.catName,
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -34,9 +40,12 @@ class ServiceCategoryPage extends StatelessWidget {
                     crossAxisSpacing: 10,
                     childAspectRatio: 0.72, // ปรับความสูงการ์ด
                   ),
-                  itemCount: category.subServices.length,
+                  itemCount: category.services.length,
                   itemBuilder: (context, index) {
-                    return ServiceCard(data: category.subServices[index]);
+                    return ServiceCard(
+                      data: category.services[index],
+                      provinceId: provinceId,
+                    );
                   },
                 ),
               ),

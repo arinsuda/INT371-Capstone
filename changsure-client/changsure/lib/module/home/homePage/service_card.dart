@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
-import '../../../mockDB/service_categories.dart';
+import '../../../data/models/master_data_models.dart';
 import '../service/service_detail.dart';
 
 class ServiceCard extends StatelessWidget {
-  final SubServiceDetail data;
+  final ServiceModel data;
+  final int? provinceId;
 
-  const ServiceCard({super.key, required this.data});
+  const ServiceCard({super.key, required this.data, required this.provinceId});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +17,13 @@ class ServiceCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ServiceDetail(id: data.id, data: data,),
+            settings: const RouteSettings(name: '/serviceDetail'),
+            builder: (_) => ServiceDetail(
+              id: data.id,
+              data: data,
+              provinceId: provinceId,
+              categoryId: data.categoryId,
+            ),
           ),
         );
       },
@@ -33,11 +40,19 @@ class ServiceCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(12),
                 ),
-                child: Image.asset(
-                  data.image,
+                child: Image.network(
+                  data.imageUrls.first,
                   width: double.infinity,
                   height: 120,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Image.asset(
+                      width: double.infinity,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      'assets/image/no_image.png',
+                    );
+                  },
                 ),
               ),
               Expanded(
@@ -50,8 +65,8 @@ class ServiceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        data.category,
-                        maxLines: 1,
+                        data.serName,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
@@ -74,7 +89,7 @@ class ServiceCard extends StatelessWidget {
                               ),
                             ),
                             TextSpan(
-                              text: "฿${data.price}",
+                              text: "฿${data.defaultPrice.min}",
                               style: const TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.bold,

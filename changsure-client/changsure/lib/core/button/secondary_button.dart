@@ -4,6 +4,8 @@ import 'package:changsure/core/theme.dart';
 class SecondaryButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
+  final IconData? icon;
+
 
   // --- ใหม่ ---
   final double fontSize;
@@ -17,6 +19,7 @@ class SecondaryButton extends StatefulWidget {
     this.fontSize = 16, // default
     this.padding = const EdgeInsets.symmetric(vertical: 14), // default
     this.borderRadius = 10, // default
+    this.icon,
   });
 
   @override
@@ -80,15 +83,32 @@ class _SecondaryButtonState extends State<SecondaryButton> {
             // ),
 
             // Text
-            Text(
-              widget.text,
-              style: TextStyle(
-                fontSize: widget.fontSize,
-                color: isDisabled
-                    ? AppColors.primaryBorder
-                    : AppColors.secondary,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(
+                    widget.icon,
+                    size: widget.fontSize + 2,
+                    color: isDisabled
+                        ? AppColors.primaryBorder
+                        : AppColors.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  widget.text,
+                  style: TextStyle(
+                    fontSize: widget.fontSize,
+                    color: isDisabled
+                        ? AppColors.primaryBorder
+                        : AppColors.secondary,
+                  ),
+                ),
+              ],
             ),
+
           ],
         ),
       ),

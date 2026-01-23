@@ -1,189 +1,249 @@
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/home/view_service_list.dart';
 import 'package:flutter/material.dart' hide Banner;
-import 'package:provider/provider.dart';
-import '../../mockDB/service_categories.dart';
-import '../../state/bottom_bar_state.dart';
-import './homePage/service_card.dart';
-import './homePage/banner.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:changsure/module/home/homePage/service_card.dart';
+import 'package:changsure/module/home/homePage/banner.dart';
+import '../../state/master_data_provider.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final buttonToCategory = {
-      'ทาสี': 'งานทาสี',
-      'การประปา': 'งานประปา',
-      'การไฟฟ้า': 'งานไฟฟ้า',
-      'เครื่องใช้ไฟฟ้า': 'งานซ่อมเครื่องใช้ไฟฟ้า',
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  String searchQuery = '';
+  int? selectedProvinceId = 1;
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      searchQuery = value.trim();
+    });
+  }
+
+  void _onProvinceChanged(int id) {
+    setState(() {
+      selectedProvinceId = id;
+    });
+  }
+
+  Widget _buildCategoryIcon(String name) {
+    const iconMap = {
+      'งานทาสี': 'assets/icons/painted.png',
+      'งานประปา': 'assets/icons/waterWork.png',
+      'งานไฟฟ้า': 'assets/icons/powerSupply.png',
+      'งานเครื่องใช้ไฟฟ้า': 'assets/icons/electric.png',
     };
 
-    final buttons = [
-      {'label': 'ทาสี', 'icon': 'assets/icons/painted.png'},
-      {'label': 'การประปา', 'icon': 'assets/icons/waterWork.png'},
-      // Asset
-      {'label': 'การไฟฟ้า', 'icon': 'assets/icons/powerSupply.png'},
-      // Asset
-      {'label': 'เครื่องใช้ไฟฟ้า', 'icon': 'assets/icons/electric.png'},
-      // Asset
-    ];
+    final path = iconMap[name];
+    if (path == null) {
+      return const Icon(Icons.build, size: 30);
+    }
+
+    return Image.asset(path, width: 30, height: 30);
+  }
+
+  List servicesFromCategories(List categories) {
+    return categories
+        .expand((c) => c.services)
+        .where(
+          (s) => s.serName.toLowerCase().contains(searchQuery.toLowerCase()),
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final serviceCategoriesAsync = ref.watch(serviceCategoriesProvider);
+    print(selectedProvinceId);
+
 
     return Scaffold(
       body: Stack(
         children: [
-          // ListView ที่มี HomeBanner เป็น item แรก
           ListView(
             padding: EdgeInsets.zero,
             children: [
-              HomeBanner(),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: buttons.map((button) {
-                    final icon = button['icon'];
-                    Widget iconWidget;
-                    if (icon is String) {
-                      iconWidget = Image.asset(
-                        icon,
-                        width: 30,
-                        height: 30,
-                        fit: BoxFit.contain,
-                      );
-                    } else {
-                      iconWidget = const SizedBox.shrink();
-                    }
-
-                    return GestureDetector(
-                      onTap: () {
-                        final categoryName = buttonToCategory[button['label']];
-                        if (categoryName == null) return;
-
-                        final selectedCategory = mockServiceCategories
-                            .firstWhere(
-                              (cat) => cat.name == categoryName,
-                              orElse: () =>
-                                  mockServiceCategories[0], // fallback หมวดแรก
-                            );
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ServiceCategoryPage(category: selectedCategory),
-                          ),
-                        );
-                      },
-
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryBGHover,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(child: iconWidget),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            button['label'] as String,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF737373),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
+              HomeBanner(
+                onSearchChanged: _onSearchChanged,
+                onProvinceChanged: _onProvinceChanged,
               ),
 
-              const SizedBox(height: 16),
+              if (searchQuery.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: serviceCategoriesAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Text('Error: $e'),
+                    data: (categories) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: categories.take(4).map((category) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ServiceCategoryPage(
+                                    category: category,
+                                    provinceId: selectedProvinceId,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryBGHover,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: _buildCategoryIcon(category.catName),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  category.catName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF737373),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 0),
-                child: Column(
-                  children: mockServiceCategories.map((mainCategory) {
+                child: serviceCategoriesAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, _) => const SizedBox.shrink(),
+                  data: (categories) {
+                    /// ====== 🔍 กำลัง search ======
+                    if (searchQuery.isNotEmpty) {
+                      final services = servicesFromCategories(categories);
+
+                      if (services.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('ไม่พบบริการที่ค้นหา')),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 12,
+                          children: services.map((service) {
+                            return SizedBox(
+                              width:
+                                  (MediaQuery.of(context).size.width / 2) - 20,
+                              height: 220,
+                              child: ServiceCard(
+                                data: service,
+                                provinceId: selectedProvinceId,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }
+
+                    /// ====== 🏠 โหมดปกติ (UI เดิมเป๊ะ) ======
                     return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header Category
-                        SizedBox(
-                          // ทำให้ Header ชิดซ้าย-ขวาเท่าการ์ด
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 18),
-                                child: Text(
-                                  mainCategory.name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                      children: categories.map((mainCategory) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                  ),
+                                  child: Text(
+                                    mainCategory.catName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.chevron_right,
                                     color: AppColors.primary,
                                   ),
-                                ),
-                              ),
-
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.chevron_right,
-                                  color: AppColors.primary,
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ServiceCategoryPage(
-                                        category: mainCategory,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ServiceCategoryPage(
+                                          category: mainCategory,
+                                          provinceId: selectedProvinceId,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // การ์ดโชว์ 2 ใบ
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Row(
-                            children: List.generate(
-                              mainCategory.subServices.length >= 2
-                                  ? 2
-                                  : mainCategory.subServices.length,
-                              (index) {
-                                final item = mainCategory.subServices[index];
-                                return Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-
-                                    // ช่วยให้ระยะห่างสวยขึ้น
-                                    child: SizedBox(
-                                      height: 220,
-                                      child: ServiceCard(data: item),
-                                    ),
-                                  ),
-                                );
-                              },
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
 
-                        const SizedBox(height: 24),
-                      ],
+                            // การ์ด 2 ใบ
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              child: Row(
+                                children: List.generate(
+                                  mainCategory.services.length >= 2
+                                      ? 2
+                                      : mainCategory.services.length,
+                                  (index) {
+                                    final item = mainCategory.services[index];
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        child: SizedBox(
+                                          height: 220,
+                                          child: ServiceCard(
+                                            data: item,
+                                            provinceId: selectedProvinceId,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
             ],

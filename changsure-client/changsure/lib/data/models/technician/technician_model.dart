@@ -1,0 +1,242 @@
+import 'dart:io';
+
+import 'package:changsure/data/models/master_data_models.dart';
+import 'package:changsure/data/models/address_model.dart';
+
+class TechnicianModel {
+  final int id;
+  final String firstName;
+  final String lastName;
+  final String? bio;
+  final String? phone;
+  final String? email;
+  final String? avatarUrl;
+  final double ratingAvg;
+  final int ratingCount;
+  final int totalJobs;
+  final bool isAvailable;
+  final bool isVerified;
+
+  final List<ProvinceModel> provinces;
+  final List<TechnicianService> services;
+  final List<BadgeModel> badges;
+  final List<AddressModel> addresses;
+  final List<ServiceSummary> serviceSummary;
+
+  TechnicianModel({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    this.bio,
+    this.phone,
+    this.email,
+    this.avatarUrl,
+    this.ratingAvg = 0.0,
+    this.ratingCount = 0,
+    this.totalJobs = 0,
+    this.isAvailable = true,
+    this.isVerified = false,
+    this.provinces = const [],
+    this.services = const [],
+    this.badges = const [],
+    this.addresses = const [],
+    this.serviceSummary = const [],
+  });
+
+  String get fullName => '$firstName $lastName';
+
+  // [เพิ่มส่วนนี้] จำเป็นสำหรับ UserNotifier ในการอัปเดต State
+  TechnicianModel copyWith({
+    int? id,
+    String? firstName,
+    String? lastName,
+    String? bio,
+    String? phone,
+    String? email,
+    String? avatarUrl,
+    double? ratingAvg,
+    int? ratingCount,
+    int? totalJobs,
+    bool? isAvailable,
+    bool? isVerified,
+    List<ProvinceModel>? provinces,
+    List<TechnicianService>? services,
+    List<BadgeModel>? badges,
+    List<AddressModel>? addresses,
+    List<ServiceSummary>? serviceSummary,
+  }) {
+    return TechnicianModel(
+      id: id ?? this.id,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      bio: bio ?? this.bio,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      ratingAvg: ratingAvg ?? this.ratingAvg,
+      ratingCount: ratingCount ?? this.ratingCount,
+      totalJobs: totalJobs ?? this.totalJobs,
+      isAvailable: isAvailable ?? this.isAvailable,
+      isVerified: isVerified ?? this.isVerified,
+      provinces: provinces ?? this.provinces,
+      services: services ?? this.services,
+      badges: badges ?? this.badges,
+      addresses: addresses ?? this.addresses,
+      serviceSummary: serviceSummary ?? this.serviceSummary,
+    );
+  }
+
+  factory TechnicianModel.fromJson(Map<String, dynamic> json) {
+    return TechnicianModel(
+      id: json['id'] ?? 0,
+      firstName: json['firstname'] ?? '',
+      lastName: json['lastname'] ?? '',
+      bio: json['bio'],
+      phone: json['phone'],
+      email: json['email'],
+      avatarUrl: json['avatar_url'],
+
+      // แปลงตัวเลข: JSON อาจมาเป็น int หรือ double ก็ได้
+      ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? 0.0,
+      ratingCount: json['rating_count'] ?? 0,
+      totalJobs: json['total_jobs'] ?? 0,
+      isAvailable: json['is_available'] ?? true,
+      isVerified: json['is_verified'] ?? false,
+
+      // แปลง Array ของข้อมูลย่อย
+      provinces:
+          (json['provinces'] as List<dynamic>?)
+              ?.map((e) => ProvinceModel.fromJson(e))
+              .toList() ??
+          [],
+
+      services:
+          (json['services'] as List<dynamic>?)
+              ?.map((e) => TechnicianService.fromJson(e))
+              .toList() ??
+          [],
+
+      badges:
+          (json['badges'] as List<dynamic>?)
+              ?.map((e) => BadgeModel.fromJson(e))
+              .toList() ??
+          [],
+      addresses:
+          (json['addresses'] as List<dynamic>?)
+              ?.map((e) => AddressModel.fromJson(e))
+              .toList() ??
+          [],
+      serviceSummary:
+          (json['service_summary'] as List<dynamic>?)
+              ?.map((e) => ServiceSummary.fromJson(e))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+// Sub-Classes
+
+class TechnicianService {
+  final int serviceId;
+  final String serviceName;
+  final String categoryName;
+  final String pricingType; // 'FIXED' or 'RANGE'
+  final double? priceFixed;
+  final double? priceMin;
+  final double? priceMax;
+
+  TechnicianService({
+    required this.serviceId,
+    required this.serviceName,
+    required this.categoryName,
+    required this.pricingType,
+    this.priceFixed,
+    this.priceMin,
+    this.priceMax,
+  });
+
+  factory TechnicianService.fromJson(Map<String, dynamic> json) {
+    return TechnicianService(
+      serviceId: json['service_id'] ?? 0,
+      serviceName: json['service_name'] ?? '',
+      categoryName: json['category_name'] ?? '',
+      pricingType: json['pricing_type'] ?? 'FIXED',
+      priceFixed: (json['price_fixed'] as num?)?.toDouble(),
+      priceMin: (json['price_min'] as num?)?.toDouble(),
+      priceMax: (json['price_max'] as num?)?.toDouble(),
+    );
+  }
+
+  Future<dynamic> updateProfile({
+    required String token,
+    required String firstName,
+    required String lastName,
+    required String phone,
+    String? bio,
+    List<int>? provinceIds,
+    List<Map<String, dynamic>>? services,
+    File? avatarFile,
+  }) async {}
+}
+
+class BadgeModel {
+  final int id;
+  final String name;
+  final String iconUrl;
+  final String description;
+
+  BadgeModel({
+    required this.id,
+    required this.name,
+    required this.iconUrl,
+    required this.description,
+  });
+
+  factory BadgeModel.fromJson(Map<String, dynamic> json) {
+    return BadgeModel(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      iconUrl: json['icon_url'] ?? '',
+      description: json['description'] ?? '',
+    );
+  }
+}
+
+class ServiceSummary {
+  final int? serviceCategoryId;
+  final String? serviceCategoryName;
+  final List<ServiceItem>? services;
+
+  ServiceSummary({
+    this.serviceCategoryId,
+    this.serviceCategoryName,
+    this.services,
+  });
+
+  factory ServiceSummary.fromJson(Map<String, dynamic> json) {
+    return ServiceSummary(
+      serviceCategoryId: json['service_category_id'],
+      serviceCategoryName: json['service_category_name'],
+      services: json['services'] != null
+          ? (json['services'] as List)
+                .map((i) => ServiceItem.fromJson(i))
+                .toList()
+          : null,
+    );
+  }
+}
+
+class ServiceItem {
+  final int? serviceId;
+  final String? serviceName;
+
+  ServiceItem({this.serviceId, this.serviceName});
+
+  factory ServiceItem.fromJson(Map<String, dynamic> json) {
+    return ServiceItem(
+      serviceId: json['service_id'],
+      serviceName: json['service_name'],
+    );
+  }
+}

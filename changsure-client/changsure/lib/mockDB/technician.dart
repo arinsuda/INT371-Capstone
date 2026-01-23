@@ -40,7 +40,7 @@ final List<Technician> mockTechnicians = [
       {"icon": "assets/icons/top_service.png", "text": "Top Service"},
       {"icon": "assets/icons/changSure_rec.png", "text": "ChangSure Recommend"},
     ],
-    category: "ทาสี",
+    category: "ทาสีภายในอาคาร",
     categoryTags: ["Top Service", "ChangSure Recommend"],
   ),
   Technician(

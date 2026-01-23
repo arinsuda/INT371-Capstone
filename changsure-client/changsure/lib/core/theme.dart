@@ -15,4 +15,5 @@ class AppColors {
   static const Color colorSecondaryText = Colors.white;
   static const Color colorStroke = Color(0xFFE8E8E8);
   static const Color colorError = Color(0xFFFF4D4F);
+  static const Color colorWarning = Color(0xFFFFF1B8);
 }

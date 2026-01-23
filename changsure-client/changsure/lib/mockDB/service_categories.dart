@@ -31,7 +31,7 @@ class ServiceCategories {
 
 final List<ServiceCategories> mockServiceCategories = [
   ServiceCategories(
-    name: "งานทาสี",
+    name: "ทาสี",
     subServices: [
       SubServiceDetail(
         id: 1,
@@ -115,7 +115,7 @@ final List<ServiceCategories> mockServiceCategories = [
     ],
   ),
   ServiceCategories(
-    name: "งานประปา",
+    name: "ประปา",
     subServices: [
       SubServiceDetail(
         id: 5,
@@ -144,7 +144,7 @@ final List<ServiceCategories> mockServiceCategories = [
     ],
   ),
   ServiceCategories(
-    name: "งานไฟฟ้า",
+    name: "ไฟฟ้า",
     subServices: [
       SubServiceDetail(
         id: 7,

@@ -1,23 +1,31 @@
-import 'package:changsure/core/footer/footer_bar.dart';
+import 'package:changsure/data/models/users/users_model.dart';
 import 'package:flutter/material.dart';
-import '../../core/button/primary_button.dart';
-import '../../core/theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:changsure/state/user_provider.dart';
+import 'package:changsure/data/services/auth_service.dart';
+
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/theme.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 double toLogicalPx(BuildContext context, double px) =>
     px / MediaQuery.of(context).devicePixelRatio;
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const Color googleButtonColor = Colors.white;
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -53,13 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     SizedBox(height: toLogicalPx(context, 32)),
+
                     _buildTextField(
-                      label: 'ชื่อผู้ใช้',
+                      label: 'อีเมล',
                       controller: _usernameController,
                     ),
                     SizedBox(height: toLogicalPx(context, 16)),
                     _buildPasswordField(),
                     SizedBox(height: toLogicalPx(context, 16)),
+
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
@@ -76,18 +86,74 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: toLogicalPx(context, 24)),
 
-                    // ✅ ปุ่มเข้าสู่ระบบ
                     Align(
                       alignment: Alignment.centerRight,
                       child: PrimaryButton(
-                        text: 'เข้าสู่ระบบ',
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const FooterBarTemplate()),
-                            );
-                          }
+                        text: _isLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ',
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                setState(() {
+                                  _isLoading = true;
+                                });
 
+                                final authService = AuthService();
+
+                                final Map<String, dynamic>? response =
+                                    await authService.login(
+                                      _usernameController.text.trim(),
+                                      _passwordController.text.trim(),
+                                    );
+
+                                if (mounted) {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
+
+                                if (response != null &&
+                                    response['data'] != null) {
+                                  final Map<String, dynamic> data =
+                                      response['data'];
+
+                                  final accessToken = data['access_token'];
+                                  final refreshToken = data['refresh_token'];
+
+                                  Map<String, dynamic> decodedToken =
+                                      JwtDecoder.decode(accessToken);
+
+                                  UserRole role = UserRole.customer;
+                                  if (decodedToken['role'] == 'technician') {
+                                    role = UserRole.technician;
+                                  }
+
+                                  final userId =
+                                      decodedToken['user_id'] ??
+                                      decodedToken['sub'] ??
+                                      0;
+
+                                  final userModel = UserModel(
+                                    id: userId,
+                                    token: accessToken,
+                                    role: role,
+                                  );
+
+                                  ref
+                                      .read(userProvider.notifier)
+                                      .login(userModel, refreshToken);
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
                       ),
                     ),
 
