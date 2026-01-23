@@ -31,6 +31,25 @@ class _AddressListState extends ConsumerState<AddressList> {
     selectedAddressId = widget.initialSelectedAddressId;
   }
 
+  String _formatThaiPhone(String? raw) {
+    if (raw == null) return '';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+
+    if (digits.length == 10 && digits.startsWith('0')) {
+      if (digits.startsWith('06') ||
+          digits.startsWith('08') ||
+          digits.startsWith('09')) {
+        return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+      }
+      if (digits.startsWith('02')) {
+        return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
+      }
+      return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+    }
+
+    return digits.isNotEmpty ? digits : raw.trim();
+  }
+
   Future<void> _editAddress(AddressModel addr) async {
     final user = ref.read(userProvider);
     if (user == null) return;
@@ -41,6 +60,7 @@ class _AddressListState extends ConsumerState<AddressList> {
         builder: (context) => Address(
           addressId: addr.id,
           label: addr.label,
+          phoneNumber: addr.phoneNumber,
           isPrimary: addr.isPrimary,
 
           houseNumber: addr.houseNumber,
@@ -66,6 +86,14 @@ class _AddressListState extends ConsumerState<AddressList> {
             if (userNow == null) return false;
 
             final String? label = (data['label'] as String?)?.trim();
+            final dynamic rawPhone = data.containsKey('phone_number')
+                ? data['phone_number']
+                : null;
+
+            final String? phoneNumber = rawPhone == null
+                ? null
+                : rawPhone.toString().trim();
+
             final bool isPrimary = data['is_primary'] as bool? ?? false;
 
             final String houseNumber = (data['house_number'] ?? '')
@@ -77,9 +105,10 @@ class _AddressListState extends ConsumerState<AddressList> {
             final String? soi = (data['soi'] as String?)?.trim();
             final String? road = (data['road'] as String?)?.trim();
 
-            final int? provinceId = data['province_id'] as int?;
-            final int? districtId = data['district_id'] as int?;
-            final int? subDistrictId = data['sub_district_id'] as int?;
+            final int? provinceId = (data['province_id'] as num?)?.toInt();
+            final int? districtId = (data['district_id'] as num?)?.toInt();
+            final int? subDistrictId = (data['sub_district_id'] as num?)
+                ?.toInt();
 
             final String zipCode = (data['postal_code'] ?? '')
                 .toString()
@@ -114,6 +143,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                 ? await notifier.saveCustomerAddress(
                     id: addr.id,
                     label: (label != null && label.isNotEmpty) ? label : null,
+                    phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
 
                     houseNumber: houseNumber,
@@ -135,6 +165,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                 : await notifier.saveTechnicianAddress(
                     id: addr.id,
                     label: (label != null && label.isNotEmpty) ? label : null,
+                    phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
 
                     houseNumber: houseNumber,
@@ -239,6 +270,14 @@ class _AddressListState extends ConsumerState<AddressList> {
                             displayName = addr.label!;
                           }
 
+                          final formattedPhone = _formatThaiPhone(
+                            addr.phoneNumber,
+                          );
+
+                          final displayTitle = formattedPhone.isNotEmpty
+                              ? '$displayName $formattedPhone'
+                              : displayName;
+
                           return Column(
                             children: [
                               InkWell(
@@ -277,13 +316,37 @@ class _AddressListState extends ConsumerState<AddressList> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                displayName,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
+                                              RichText(
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                text: TextSpan(
+                                                  children: [
+                                                    TextSpan(
+                                                      text: displayName,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 16,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                    if (formattedPhone
+                                                        .isNotEmpty)
+                                                      TextSpan(
+                                                        text:
+                                                            '  $formattedPhone',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.normal,
+                                                          fontSize: 14,
+                                                          color: AppColors
+                                                              .colorTertiaryText,
+                                                        ),
+                                                      ),
+                                                  ],
                                                 ),
                                               ),
+
                                               const SizedBox(height: 6),
                                               Text(
                                                 "${addr.combinedAddressInfo} "
@@ -357,6 +420,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                 builder: (context) => Address(
                   addressId: null,
                   label: '',
+                  phoneNumber: '',
                   isPrimary: false,
 
                   houseNumber: '',
@@ -382,6 +446,14 @@ class _AddressListState extends ConsumerState<AddressList> {
                     if (userNow == null) return false;
 
                     final String? label = (data['label'] as String?)?.trim();
+                    final dynamic rawPhone = data.containsKey('phone_number')
+                        ? data['phone_number']
+                        : null;
+
+                    final String? phoneNumber = rawPhone == null
+                        ? null
+                        : rawPhone.toString().trim();
+
                     final bool isPrimary = data['is_primary'] as bool? ?? false;
 
                     final String houseNumber = (data['house_number'] ?? '')
@@ -394,9 +466,12 @@ class _AddressListState extends ConsumerState<AddressList> {
                     final String? soi = (data['soi'] as String?)?.trim();
                     final String? road = (data['road'] as String?)?.trim();
 
-                    final int? provinceId = data['province_id'] as int?;
-                    final int? districtId = data['district_id'] as int?;
-                    final int? subDistrictId = data['sub_district_id'] as int?;
+                    final int? provinceId = (data['province_id'] as num?)
+                        ?.toInt();
+                    final int? districtId = (data['district_id'] as num?)
+                        ?.toInt();
+                    final int? subDistrictId = (data['sub_district_id'] as num?)
+                        ?.toInt();
 
                     final String zipCode = (data['postal_code'] ?? '')
                         .toString()
@@ -433,6 +508,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                             label: (label != null && label.isNotEmpty)
                                 ? label
                                 : null,
+                            phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
 
                             houseNumber: houseNumber,
@@ -458,6 +534,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                             label: (label != null && label.isNotEmpty)
                                 ? label
                                 : null,
+                            phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
 
                             houseNumber: houseNumber,

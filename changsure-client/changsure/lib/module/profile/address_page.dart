@@ -58,15 +58,21 @@ class AddressPage extends ConsumerWidget {
       onSave: (Map<String, dynamic> data) async {
         final notifier = ref.read(userProvider.notifier);
 
-        
         final String label = (data['label'] ?? '').toString().trim();
+        final dynamic rawPhone = data.containsKey('phone_number')
+            ? data['phone_number']
+            : null;
+
+        final String? phoneNumber = rawPhone == null
+            ? null
+            : rawPhone.toString().trim();
+
         final bool isPrimary = data['is_primary'] as bool? ?? false;
 
         final String houseNumber = (data['house_number'] ?? '')
             .toString()
             .trim();
 
-        
         final String? village = (data['village'] as String?)?.trim();
         final String? moo = (data['moo'] as String?)?.trim();
         final String? soi = (data['soi'] as String?)?.trim();
@@ -74,16 +80,13 @@ class AddressPage extends ConsumerWidget {
 
         final String zipCode = (data['postal_code'] ?? '').toString().trim();
 
-        
         final int? provinceIdN = (data['province_id'] as num?)?.toInt();
         final int? districtIdN = (data['district_id'] as num?)?.toInt();
         final int? subDistrictIdN = (data['sub_district_id'] as num?)?.toInt();
 
-        
         final double? latN = (data['latitude'] as num?)?.toDouble();
         final double? lngN = (data['longitude'] as num?)?.toDouble();
 
-        
         final missing = <String>[];
         if (houseNumber.isEmpty) missing.add('บ้านเลขที่');
         if (zipCode.isEmpty) missing.add('รหัสไปรษณีย์');
@@ -104,7 +107,6 @@ class AddressPage extends ConsumerWidget {
           return false;
         }
 
-        
         final int provinceId = provinceIdN!;
         final int districtId = districtIdN!;
         final int subDistrictId = subDistrictIdN!;
@@ -114,7 +116,6 @@ class AddressPage extends ConsumerWidget {
         bool success = false;
 
         if (userState.role == UserRole.technician) {
-          
           final int? addressId =
               (currentAddress?.id != null && (currentAddress!.id) > 0)
               ? currentAddress!.id
@@ -123,6 +124,7 @@ class AddressPage extends ConsumerWidget {
           success = await notifier.saveTechnicianAddress(
             id: addressId,
             label: label.isNotEmpty ? label : null,
+            phoneNumber: phoneNumber,
             isPrimary: isPrimary,
 
             houseNumber: houseNumber,
@@ -143,6 +145,7 @@ class AddressPage extends ConsumerWidget {
         } else {
           success = await notifier.saveCustomerAddress(
             id: currentAddress?.id,
+            phoneNumber: phoneNumber,
             label: label.isNotEmpty ? label : null,
             isPrimary: isPrimary,
 

@@ -218,8 +218,10 @@ class UserNotifier extends Notifier<UserModel?> {
   Future<bool> saveTechnicianAddress({
     int? id,
 
-    String? label,
     bool? isPrimary,
+
+    String? label,
+    String? phoneNumber,
 
     required String houseNumber,
     String? village,
@@ -247,6 +249,7 @@ class UserNotifier extends Notifier<UserModel?> {
               token: token,
               addressId: id,
               label: label,
+              phoneNumber: phoneNumber,
               isPrimary: isPrimary,
 
               houseNumber: houseNumber,
@@ -267,6 +270,7 @@ class UserNotifier extends Notifier<UserModel?> {
           : await service.createAddress(
               token: token,
               label: label,
+              phoneNumber: phoneNumber,
               isPrimary: isPrimary,
 
               houseNumber: houseNumber,
@@ -322,10 +326,13 @@ class UserNotifier extends Notifier<UserModel?> {
   Future<bool> saveCustomerAddress({
     int? id,
 
-    String? label,
     bool? isPrimary,
 
+    String? label,
+    String? phoneNumber,
+
     required String houseNumber,
+
     String? village,
     String? moo,
     String? soi,
@@ -352,6 +359,8 @@ class UserNotifier extends Notifier<UserModel?> {
               addressId: id,
 
               label: label,
+              phoneNumber: phoneNumber,
+
               isPrimary: isPrimary,
 
               houseNumber: houseNumber,
@@ -373,6 +382,8 @@ class UserNotifier extends Notifier<UserModel?> {
               token: token,
 
               houseNumber: houseNumber,
+              phoneNumber: phoneNumber,
+
               village: village,
               moo: moo,
               soi: soi,

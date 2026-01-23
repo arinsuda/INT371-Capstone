@@ -6,83 +6,145 @@ import '../data/models/master_data_models.dart';
 import '../core/constants/api_constants.dart';
 import 'user_provider.dart';
 
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
+
+  ApiException(this.message, [this.statusCode]);
+
+  @override
+  String toString() => 'ApiException: $message (Status: $statusCode)';
+}
+
 class MasterDataService {
+  final http.Client _client;
+
+  MasterDataService({http.Client? client}) : _client = client ?? http.Client();
+
   Map<String, String> _getHeaders(String? token) {
-    if (token != null && token.isNotEmpty) {
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
+    final headers = <String, String>{'Content-Type': 'application/json'};
+
+    if (token?.isNotEmpty ?? false) {
+      headers['Authorization'] = 'Bearer $token';
     }
-    return {'Content-Type': 'application/json'};
+
+    return headers;
+  }
+
+  Future<T> _get<T>({
+    required String endpoint,
+    required T Function(dynamic data) parser,
+    String? token,
+    Map<String, String>? queryParams,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '${ApiConstants.baseUrl}$endpoint',
+      ).replace(queryParameters: queryParams);
+
+      final response = await _client.get(uri, headers: _getHeaders(token));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return parser(json['data']);
+      }
+
+      throw ApiException(
+        'Failed to fetch data from $endpoint',
+        response.statusCode,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network error: $e');
+    }
+  }
+
+  Future<T> _post<T>({
+    required String endpoint,
+    required T Function(dynamic data) parser,
+    required Map<String, dynamic> body,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+
+      final response = await _client.post(
+        uri,
+        headers: _getHeaders(token),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return parser(json['data']);
+      }
+
+      throw ApiException(
+        'Failed to post data to $endpoint',
+        response.statusCode,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network error: $e');
+    }
   }
 
   Future<List<ProvinceModel>> getProvinces(String? token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/provinces'),
-        headers: _getHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List data = json['data'];
-        return data.map((e) => ProvinceModel.fromJson(e)).toList();
-      } else {
-        print("Province Error: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching provinces: $e");
-    }
-    return [];
+    return _get(
+      endpoint: '/provinces',
+      token: token,
+      parser: (data) =>
+          (data as List).map((e) => ProvinceModel.fromJson(e)).toList(),
+    );
   }
 
-  Future<List<DistrictModel>> getDistricts(
-    String? token,
-    int provinceId,
-  ) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/districts?province_id=$provinceId'),
-        headers: _getHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List data = json['data'] ?? [];
-        return data.map((e) => DistrictModel.fromJson(e)).toList();
-      } else {
-        print("District Error: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching districts: $e");
-    }
-    return [];
+  Future<List<DistrictModel>> getDistricts({
+    required String? token,
+    required int provinceId,
+  }) async {
+    return _get(
+      endpoint: '/districts',
+      token: token,
+      queryParams: {'province_id': provinceId.toString()},
+      parser: (data) =>
+          ((data ?? []) as List).map((e) => DistrictModel.fromJson(e)).toList(),
+    );
   }
 
-  Future<List<SubDistrictModel>> getSubDistricts(
-    String? token,
-    int districtId,
-  ) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '${ApiConstants.baseUrl}/sub-districts?district_id=$districtId',
-        ),
-        headers: _getHeaders(token),
-      );
+  Future<List<SubDistrictModel>> getSubDistricts({
+    required String? token,
+    required int districtId,
+  }) async {
+    return _get(
+      endpoint: '/sub-districts',
+      token: token,
+      queryParams: {'district_id': districtId.toString()},
+      parser: (data) => ((data ?? []) as List)
+          .map((e) => SubDistrictModel.fromJson(e))
+          .toList(),
+    );
+  }
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List data = json['data'] ?? [];
-        return data.map((e) => SubDistrictModel.fromJson(e)).toList();
-      } else {
-        print("SubDistrict Error: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching sub-districts: $e");
+  Future<List<ServiceModel>> getAllServices(String? token) async {
+    if (token?.trim().isEmpty ?? true) {
+      throw ApiException('Authentication token is required');
     }
-    return [];
+
+    return _get(
+      endpoint: '/services/all',
+      token: token,
+      parser: (data) =>
+          (data as List).map((e) => ServiceModel.fromJson(e)).toList(),
+    );
+  }
+
+  Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
+    return _get(
+      endpoint: '/services',
+      queryParams: {'category_id': categoryId.toString()},
+      parser: (data) =>
+          ((data ?? []) as List).map((e) => ServiceModel.fromJson(e)).toList(),
+    );
   }
 
   Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices(
@@ -91,192 +153,155 @@ class MasterDataService {
     try {
       final headers = _getHeaders(token);
 
-      final catResponse = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/service-categories'),
-        headers: headers,
-      );
+      final results = await Future.wait([
+        _client.get(
+          Uri.parse('${ApiConstants.baseUrl}/service-categories'),
+          headers: headers,
+        ),
+        _client.get(
+          Uri.parse('${ApiConstants.baseUrl}/services/all'),
+          headers: headers,
+        ),
+      ]);
 
-      final serviceResponse = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/services/all'),
-        headers: headers,
-      );
+      final catResponse = results[0];
+      final serviceResponse = results[1];
 
-      if (catResponse.statusCode == 200 && serviceResponse.statusCode == 200) {
-        final catList = (jsonDecode(catResponse.body)['data'] as List)
-            .map((e) => ServiceCategoryModel.fromJson(e))
-            .toList();
-
-        final serviceList = (jsonDecode(serviceResponse.body)['data'] as List)
-            .map((e) => ServiceModel.fromJson(e))
-            .toList();
-
-        List<ServiceCategoryModel> result = [];
-        for (var cat in catList) {
-          final matchingServices = serviceList
-              .where((s) => s.categoryId == cat.id)
-              .toList();
-
-          if (matchingServices.isNotEmpty) {
-            result.add(cat.copyWith(services: matchingServices));
-          } else {}
-        }
-        return result;
-      } else {
-        print(
-          "Service API Error: Cat=${catResponse.statusCode}, Ser=${serviceResponse.statusCode}",
+      if (catResponse.statusCode != 200 || serviceResponse.statusCode != 200) {
+        throw ApiException(
+          'Failed to fetch categories or services',
+          catResponse.statusCode,
         );
       }
+
+      final categories = (jsonDecode(catResponse.body)['data'] as List)
+          .map((e) => ServiceCategoryModel.fromJson(e))
+          .toList();
+
+      final services = (jsonDecode(serviceResponse.body)['data'] as List)
+          .map((e) => ServiceModel.fromJson(e))
+          .toList();
+
+      return categories
+          .map((category) {
+            final categoryServices = services
+                .where((service) => service.categoryId == category.id)
+                .toList();
+
+            return categoryServices.isNotEmpty
+                ? category.copyWith(services: categoryServices)
+                : null;
+          })
+          .whereType<ServiceCategoryModel>()
+          .toList();
     } catch (e) {
-      print("Error fetching categories/services: $e");
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to fetch categories with services: $e');
     }
-    return [];
   }
 
-  Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
-    final res = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/services?category_id=$categoryId'),
+  Future<List<Technician>> getAllTechnicians({
+    required String? token,
+    required int serviceId,
+    required int provinceId,
+  }) async {
+    return _get(
+      endpoint: '/technicians',
+      token: token,
+      queryParams: {
+        'service_id': serviceId.toString(),
+        'province_id': provinceId.toString(),
+      },
+      parser: (data) => ((data?['items'] ?? []) as List)
+          .map((e) => Technician.fromJson(e))
+          .toList(),
     );
-
-    final body = jsonDecode(res.body);
-    final List list = body['data'] ?? [];
-
-    return list.map((e) => ServiceModel.fromJson(e)).toList();
   }
 
-  Future<List<Technician>> getAllTechnician(
-    String? token,
-    int serviceId,
-    int provinceId,
-  ) async {
-    final response = await http.get(
-      Uri.parse(
-        '${ApiConstants.baseUrl}/technicians'
-        '?service_id=$serviceId&province_id=$provinceId',
-      ),
-      headers: _getHeaders(token),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Server error (${response.statusCode})');
-    }
-
-    final json = jsonDecode(response.body);
-    final List items = json['data']?['items'] ?? [];
-
-    return items.map((e) => Technician.fromJson(e)).toList();
-  }
-
-  Future<List<ServiceModel>> getAllServices(String? token) async {
-    try {
-      final headers = _getHeaders(token);
-
-      final serviceResponse = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/services/all'),
-        headers: headers,
-      );
-
-      if (serviceResponse.statusCode == 200) {
-        final serviceList = (jsonDecode(serviceResponse.body)['data'] as List)
-            .map((e) => ServiceModel.fromJson(e))
-            .toList();
-
-        return serviceList;
-      } else {
-        print("Service API Error: ${serviceResponse.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching services: $e");
-    }
-
-    return [];
-  }
-
-
-  Future<Technician?> getAutoSelectTechnician(
-    String? token,
-    int serviceId,
-    int provinceId, {
+  Future<Technician?> getAutoSelectTechnician({
+    required String? token,
+    required int serviceId,
+    required int provinceId,
     int? minPrice,
     int? maxPrice,
   }) async {
-    final response = await http.post(
-      Uri.parse('${ApiConstants.baseUrl}/technicians/auto-select'),
-      headers: {..._getHeaders(token), 'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "service_id": serviceId,
-        "province_id": provinceId,
-        if (minPrice != null) "min_price": minPrice,
-        if (maxPrice != null) "max_price": maxPrice,
-      }),
+    final body = <String, dynamic>{
+      'service_id': serviceId,
+      'province_id': provinceId,
+      if (minPrice != null) 'min_price': minPrice,
+      if (maxPrice != null) 'max_price': maxPrice,
+    };
+
+    return _post(
+      endpoint: '/technicians/auto-select',
+      token: token,
+      body: body,
+      parser: (data) => data != null ? Technician.fromJson(data) : null,
     );
+  }
 
-    if (response.statusCode != 200) {
-      throw Exception('Auto select failed');
-    }
-
-    final json = jsonDecode(response.body);
-    final data = json['data'];
-
-    if (data == null) return null;
-
-    return Technician.fromJson(data);
+  void dispose() {
+    _client.close();
   }
 }
 
-final masterDataServiceProvider = Provider((ref) => MasterDataService());
+final masterDataServiceProvider = Provider((ref) {
+  final service = MasterDataService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+final tokenProvider = Provider<String?>(
+  (ref) => ref.watch(userProvider.select((u) => u?.token?.trim())),
+);
 
 final provincesProvider = FutureProvider<List<ProvinceModel>>((ref) async {
-  final user = ref.watch(userProvider);
-  return ref.read(masterDataServiceProvider).getProvinces(user?.token);
+  final token = ref.watch(tokenProvider);
+  return ref.read(masterDataServiceProvider).getProvinces(token);
 });
 
 final districtsProvider = FutureProvider.family<List<DistrictModel>, int>((
   ref,
   provinceId,
 ) async {
-  final user = ref.watch(userProvider);
+  final token = ref.watch(tokenProvider);
   return ref
       .read(masterDataServiceProvider)
-      .getDistricts(user?.token, provinceId);
+      .getDistricts(token: token, provinceId: provinceId);
 });
 
 final subDistrictsProvider = FutureProvider.family<List<SubDistrictModel>, int>(
   (ref, districtId) async {
-    final user = ref.watch(userProvider);
+    final token = ref.watch(tokenProvider);
     return ref
         .read(masterDataServiceProvider)
-        .getSubDistricts(user?.token, districtId);
+        .getSubDistricts(token: token, districtId: districtId);
   },
 );
 
 final allServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
-  final user = ref.watch(userProvider);
-  return ref
-      .read(masterDataServiceProvider)
-      .getAllServices(user?.token);
-});
+  final token = ref.watch(tokenProvider);
 
+  if (token == null || token.isEmpty) {
+    return [];
+  }
+
+  return ref.read(masterDataServiceProvider).getAllServices(token);
+});
 
 final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
 ) async {
-  final user = ref.watch(userProvider);
+  final token = ref.watch(tokenProvider);
+
+  if (token == null || token.isEmpty) {
+    return [];
+  }
+
   return ref
       .read(masterDataServiceProvider)
-      .getServiceCategoriesWithServices(user?.token);
+      .getServiceCategoriesWithServices(token);
 });
-
-final allTechnicianProvider =
-    FutureProvider.family<List<Technician>, TechnicianQuery>((
-      ref,
-      query,
-    ) async {
-      final user = ref.watch(userProvider);
-
-      return ref
-          .read(masterDataServiceProvider)
-          .getAllTechnician(user?.token, query.serviceId, query.provinceId);
-    });
 
 final servicesByCategoryProvider =
     FutureProvider.family<List<ServiceModel>, int>((ref, categoryId) async {
@@ -285,19 +310,33 @@ final servicesByCategoryProvider =
           .getServicesByCategory(categoryId);
     });
 
+final allTechniciansProvider =
+    FutureProvider.family<List<Technician>, TechnicianQuery>((
+      ref,
+      query,
+    ) async {
+      final token = ref.watch(tokenProvider);
+      return ref
+          .read(masterDataServiceProvider)
+          .getAllTechnicians(
+            token: token,
+            serviceId: query.serviceId,
+            provinceId: query.provinceId,
+          );
+    });
+
 final autoSelectTechnicianProvider =
     FutureProvider.family<Technician?, AutoSelectTechnicianQuery>((
       ref,
       query,
     ) async {
-      final user = ref.watch(userProvider);
-
+      final token = ref.watch(tokenProvider);
       return ref
           .read(masterDataServiceProvider)
           .getAutoSelectTechnician(
-            user?.token,
-            query.serviceId,
-            query.provinceId,
+            token: token,
+            serviceId: query.serviceId,
+            provinceId: query.provinceId,
             minPrice: query.minPrice,
             maxPrice: query.maxPrice,
           );

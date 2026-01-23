@@ -1,6 +1,7 @@
 class AddressModel {
   final int id;
   final String? label;
+  final String phoneNumber;
 
   final String houseNumber;
   final String? village;
@@ -28,6 +29,7 @@ class AddressModel {
   AddressModel({
     required this.id,
     this.label,
+    required this.phoneNumber,
     required this.houseNumber,
     this.village,
     this.moo,
@@ -60,6 +62,7 @@ class AddressModel {
       id: json['id'] ?? 0,
 
       label: json['label'],
+      phoneNumber: (json['phone_number'] ?? '').toString(),
 
       houseNumber: json['house_number'] ?? '',
       village: json['village'],
@@ -86,6 +89,8 @@ class AddressModel {
     return {
       'id': id,
       'label': label,
+      'phone_number': phoneNumber,
+
       'house_number': houseNumber,
       'village': village,
       'moo': moo,

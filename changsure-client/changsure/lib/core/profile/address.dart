@@ -22,6 +22,7 @@ import 'widgets/map_preview.dart';
 class Address extends ConsumerStatefulWidget {
   final int? addressId;
   final String? label;
+  final String? phoneNumber;
   final String houseNumber;
   final String? village;
   final String? moo;
@@ -48,6 +49,7 @@ class Address extends ConsumerStatefulWidget {
     super.key,
     this.addressId,
     this.label,
+    this.phoneNumber,
     required this.houseNumber,
     this.village,
     this.moo,
@@ -76,6 +78,7 @@ class Address extends ConsumerStatefulWidget {
 
 class _AddressPageState extends ConsumerState<Address> {
   late TextEditingController labelCtrl;
+  late TextEditingController phoneCtrl;
   late TextEditingController houseNumberCtrl;
   late TextEditingController villageCtrl;
   late TextEditingController mooCtrl;
@@ -87,6 +90,7 @@ class _AddressPageState extends ConsumerState<Address> {
   late TextEditingController postCodeCtrl;
 
   bool _isPrimary = false;
+  bool _phoneTouched = false;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -117,6 +121,7 @@ class _AddressPageState extends ConsumerState<Address> {
     if (widget.road != null && widget.road!.isNotEmpty)
       combinedAddress += " ถนน ${widget.road}";
 
+    phoneCtrl = TextEditingController(text: widget.phoneNumber ?? '');
     houseNumberCtrl = TextEditingController(text: combinedAddress.trim());
     subDistrictCtrl = TextEditingController(text: widget.subDistrict);
     districtCtrl = TextEditingController(text: widget.district);
@@ -171,6 +176,7 @@ class _AddressPageState extends ConsumerState<Address> {
   @override
   void dispose() {
     labelCtrl.dispose();
+    phoneCtrl.dispose();
     houseNumberCtrl.dispose();
     subDistrictCtrl.dispose();
     districtCtrl.dispose();
@@ -246,6 +252,8 @@ class _AddressPageState extends ConsumerState<Address> {
       final payload = <String, dynamic>{
         if (labelCtrl.text.trim().isNotEmpty) 'label': labelCtrl.text.trim(),
         'is_primary': _isPrimary,
+
+        if (_phoneTouched) 'phone_number': phoneCtrl.text.trim(),
 
         ...parsed.toApiMap(),
 
@@ -596,6 +604,27 @@ class _AddressPageState extends ConsumerState<Address> {
 
                             onChanged: (val) => formNotifier.setZipCode(val),
                           ),
+
+                          LabeledTextField(
+                            label: "เบอร์โทรสำหรับที่อยู่นี้ (ไม่บังคับ)",
+                            controller: phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
+                            validator: (v) {
+                              final value = (v ?? '').trim();
+                              if (value.isEmpty) return null;
+                              if (value.length != 10)
+                                return "เบอร์โทรต้องมี 10 หลัก";
+                              return null;
+                            },
+                            onChanged: (_) {
+                              _phoneTouched = true;
+                            },
+                          ),
+                          const SizedBox(height: 12),
                         ],
                       ),
                     ),

@@ -46,9 +46,9 @@ class CustomerService {
 
   Future<bool> createAddress({
     required String token,
-
     required String houseNumber,
 
+    String? phoneNumber,
     String? village,
     String? moo,
     String? soi,
@@ -79,14 +79,16 @@ class CustomerService {
     };
 
     if (label != null) body["label"] = label;
-    if (isPrimary != null) body["is_primary"] = isPrimary;
-
+    if (phoneNumber != null) {
+      final p = phoneNumber.trim();
+      if (p.isNotEmpty) body["phone_number"] = p;
+    }
     if (village != null) body["village"] = village;
     if (moo != null) body["moo"] = moo;
     if (soi != null) body["soi"] = soi;
     if (road != null) body["road"] = road;
-
     if (postCode != null) body["postal_code"] = postCode;
+    if (isPrimary != null) body["is_primary"] = isPrimary;
 
     final response = await http.post(
       url,
@@ -105,7 +107,7 @@ class CustomerService {
     required int addressId,
 
     String? label,
-    bool? isPrimary,
+    String? phoneNumber,
 
     String? houseNumber,
     String? village,
@@ -121,6 +123,8 @@ class CustomerService {
     double? lng,
 
     String? postCode,
+
+    bool? isPrimary,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/customers/me/addresses/$addressId',
@@ -129,6 +133,10 @@ class CustomerService {
     final Map<String, dynamic> body = {};
 
     if (label != null) body["label"] = label;
+    if (phoneNumber != null) {
+      final p = phoneNumber.trim();
+      body["phone_number"] = p.isEmpty ? null : p;
+    }
     if (isPrimary != null) body["is_primary"] = isPrimary;
 
     if (houseNumber != null) body["house_number"] = houseNumber;

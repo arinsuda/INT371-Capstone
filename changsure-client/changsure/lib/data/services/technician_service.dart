@@ -268,6 +268,7 @@ class TechnicianService {
     required double lat,
     required double lng,
 
+    String? phoneNumber,
     String? village,
     String? moo,
     String? soi,
@@ -292,6 +293,11 @@ class TechnicianService {
       };
 
       if (label != null) body['label'] = label;
+      if (phoneNumber != null) {
+        final p = phoneNumber.trim();
+        if (p.isNotEmpty) body['phone_number'] = p;
+      }
+
       if (isPrimary != null) body['is_primary'] = isPrimary;
 
       if (village != null) body['village'] = village;
@@ -333,6 +339,7 @@ class TechnicianService {
     required double lat,
     required double lng,
 
+    String? phoneNumber,
     String? village,
     String? moo,
     String? soi,
@@ -359,6 +366,11 @@ class TechnicianService {
       };
 
       if (label != null) body['label'] = label;
+      if (phoneNumber != null) {
+        final p = phoneNumber.trim();
+        body['phone_number'] = p.isEmpty ? null : p;
+      }
+
       if (isPrimary != null) body['is_primary'] = isPrimary;
 
       if (village != null) body['village'] = village;
