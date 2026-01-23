@@ -99,3 +99,10 @@ func ToResponseList(items []*TechnicianAddress, phone *string) []TechnicianAddre
 	}
 	return out
 }
+
+func resolvePhone(addrPhone *string, defaultPhone *string) *string {
+	if addrPhone != nil && *addrPhone != "" {
+		return addrPhone
+	}
+	return defaultPhone
+}
