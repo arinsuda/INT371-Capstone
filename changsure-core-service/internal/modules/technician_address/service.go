@@ -167,8 +167,8 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 	}
 
 	newAddr, _ := s.repo.Get(ctx, addr.ID, techID)
-	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	resp := ToResponse(newAddr, phone)
+	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+	resp := ToResponse(newAddr, defaultPhone)
 	return &resp, nil
 }
 
@@ -211,8 +211,8 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 	}
 
 	updatedAddr, _ := s.repo.Get(ctx, id, techID)
-	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	resp := ToResponse(updatedAddr, phone)
+	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+	resp := ToResponse(updatedAddr, defaultPhone)
 	return &resp, nil
 }
 
@@ -262,8 +262,8 @@ func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAdd
 		return nil, ErrAddressNotFound
 	}
 
-	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	resp := ToResponse(addr, phone)
+	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+	resp := ToResponse(addr, defaultPhone)
 	return &resp, nil
 }
 
@@ -277,8 +277,8 @@ func (s *service) List(ctx context.Context, techID uint) ([]TechnicianAddressRes
 		return nil, err
 	}
 
-	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	return ToResponseList(addrs, phone), nil
+	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+	return ToResponseList(addrs, defaultPhone), nil
 }
 
 func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
@@ -310,6 +310,6 @@ func (s *service) ListPublic(ctx context.Context, techID uint) ([]TechnicianAddr
 		return nil, err
 	}
 
-	phone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	return ToResponseList(addrs, phone), nil
+	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
+	return ToResponseList(addrs, defaultPhone), nil
 }

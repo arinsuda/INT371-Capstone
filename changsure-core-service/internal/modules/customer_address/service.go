@@ -77,6 +77,10 @@ func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAd
 		addr.Label = req.Label
 	}
 
+	if req.PhoneNumber != nil {
+		addr.PhoneNumber = req.PhoneNumber
+	}
+
 	if req.HouseNumber != nil {
 		addr.HouseNumber = req.HouseNumber
 	}
@@ -140,6 +144,7 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		CustomerID: customerID,
 		AddressFields: addressshared.AddressFields{
 			Label:         req.Label,
+			PhoneNumber:   req.PhoneNumber,
 			HouseNumber:   req.HouseNumber,
 			Village:       req.Village,
 			Moo:           req.Moo,
@@ -168,9 +173,10 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 	}
 
 	newAddr, _ := s.repo.FindByID(ctx, addr.ID, customerID)
-	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
 
-	resp := ToResponse(newAddr, phone)
+	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+
+	resp := ToResponse(newAddr, defaultPhone)
 	return &resp, nil
 }
 
@@ -213,9 +219,9 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 
 	updatedAddr, _ := s.repo.FindByID(ctx, id, customerID)
-	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
 
-	resp := ToResponse(updatedAddr, phone)
+	resp := ToResponse(updatedAddr, defaultPhone)
 	return &resp, nil
 }
 
@@ -266,8 +272,8 @@ func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerA
 		return nil, ErrNotFound
 	}
 
-	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
-	resp := ToResponse(addr, phone)
+	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	resp := ToResponse(addr, defaultPhone)
 	return &resp, nil
 }
 
@@ -281,8 +287,8 @@ func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressR
 		return nil, err
 	}
 
-	phone, _ := s.repo.GetCustomerPhone(ctx, customerID)
-	return ToResponseList(addrs, phone), nil
+	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	return ToResponseList(addrs, defaultPhone), nil
 }
 
 func (s *service) SetPrimary(ctx context.Context, id uint, customerID uint) error {

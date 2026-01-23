@@ -5,7 +5,8 @@ import (
 )
 
 type CreateCustomerAddressRequest struct {
-	Label *string `json:"label" validate:"omitempty,max=50"`
+	Label       *string `json:"label" validate:"omitempty,max=50"`
+	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
 
 	HouseNumber *string `json:"house_number" validate:"required"`
 	Village     *string `json:"village"`
@@ -23,7 +24,8 @@ type CreateCustomerAddressRequest struct {
 }
 
 type UpdateCustomerAddressRequest struct {
-	Label *string `json:"label" validate:"omitempty,max=50"`
+	Label       *string `json:"label" validate:"omitempty,max=50"`
+	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
 
 	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village"`
@@ -44,15 +46,17 @@ type CustomerAddressResponse struct {
 	addressshared.BaseAddressResponse
 }
 
-func ToResponse(a *CustomerAddress, phone *string) CustomerAddressResponse {
+func ToResponse(a *CustomerAddress, defaultPhone *string) CustomerAddressResponse {
 	if a == nil {
 		return CustomerAddressResponse{}
 	}
 
+	finalPhone := resolvePhone(a.PhoneNumber, defaultPhone)
+
 	resp := addressshared.BaseAddressResponse{
 		ID:          a.ID,
 		Label:       addressshared.StrOrEmpty(a.Label),
-		PhoneNumber: addressshared.StrOrEmpty(phone),
+		PhoneNumber: addressshared.StrOrEmpty(finalPhone),
 
 		HouseNumber: addressshared.StrOrEmpty(a.HouseNumber),
 		Village:     addressshared.StrOrEmpty(a.Village),
@@ -86,10 +90,17 @@ func ToResponse(a *CustomerAddress, phone *string) CustomerAddressResponse {
 	return CustomerAddressResponse{BaseAddressResponse: resp}
 }
 
-func ToResponseList(items []*CustomerAddress, phone *string) []CustomerAddressResponse {
+func ToResponseList(items []*CustomerAddress, defaultPhone *string) []CustomerAddressResponse {
 	out := make([]CustomerAddressResponse, len(items))
 	for i, item := range items {
-		out[i] = ToResponse(item, phone)
+		out[i] = ToResponse(item, defaultPhone)
 	}
 	return out
+}
+
+func resolvePhone(addrPhone *string, defaultPhone *string) *string {
+	if addrPhone != nil && *addrPhone != "" {
+		return addrPhone
+	}
+	return defaultPhone
 }
