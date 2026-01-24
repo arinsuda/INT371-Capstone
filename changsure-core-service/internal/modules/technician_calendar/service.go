@@ -20,7 +20,11 @@ type service struct {
 	scheduleRepo technicianschedule.Repository
 }
 
-func NewService(bRepo booking.Repository, tRepo timeslot.Repository, sRepo technicianschedule.Repository) Service {
+func NewService(
+	bRepo booking.Repository,
+	tRepo timeslot.Repository,
+	sRepo technicianschedule.Repository,
+) Service {
 	return &service{
 		bookingRepo:  bRepo,
 		timeSlotRepo: tRepo,
@@ -43,12 +47,11 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 		return nil, err
 	}
 
-	bookings, err := s.bookingRepo.GetBookingsByRange(
-		ctx,
-		q.TechnicianID,
-		firstOfMonth.Format("2006-01-02"),
-		lastOfMonth.Format("2006-01-02"),
-	)
+	bookingDateStart := firstOfMonth.Format("2006-01-02")
+	bookingDateEnd := lastOfMonth.Format("2006-01-02")
+
+	var bookings []booking.Booking
+	bookings, err = s.getBookingsByRange(ctx, q.TechnicianID, bookingDateStart, bookingDateEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +76,8 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 	leavesMap, err := s.scheduleRepo.GetLeavesByRange(
 		ctx,
 		q.TechnicianID,
-		firstOfMonth.Format("2006-01-02"),
-		lastOfMonth.Format("2006-01-02"),
+		bookingDateStart,
+		bookingDateEnd,
 	)
 	if err != nil {
 		return nil, err
@@ -144,4 +147,18 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 		Month: q.Month,
 		Days:  days,
 	}, nil
+}
+
+func (s *service) getBookingsByRange(ctx context.Context, technicianID uint, start, end string) ([]booking.Booking, error) {
+
+	bookings, _, err := s.bookingRepo.ListByTechnician(
+		ctx,
+		technicianID,
+		nil,
+		start,
+		end,
+		0,
+		10000,
+	)
+	return bookings, err
 }

@@ -17,7 +17,6 @@ type Repository interface {
 	Create(ctx context.Context, booking *Booking) error
 	CreateImages(ctx context.Context, images []BookingImage) error
 	FindByID(ctx context.Context, id uint) (*Booking, error)
-
 	FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error)
 	UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error
 
@@ -26,11 +25,19 @@ type Repository interface {
 
 	GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error)
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
-	GetBookingsByRange(ctx context.Context, technicianID uint, startDate, endDate string) ([]Booking, error)
-
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
 
-	ListTechnicianBookings(
+	ListByCustomer(
+		ctx context.Context,
+		customerID uint,
+		statuses []string,
+		startDate string,
+		endDate string,
+		offset int,
+		limit int,
+	) ([]Booking, int64, error)
+
+	ListByTechnician(
 		ctx context.Context,
 		technicianID uint,
 		statuses []string,
@@ -41,27 +48,27 @@ type Repository interface {
 	) ([]Booking, int64, error)
 }
 
-type bookingRepository struct {
+type repository struct {
 	db *gorm.DB
 }
 
 func NewRepository(db *gorm.DB) Repository {
-	return &bookingRepository{db: db}
+	return &repository{db: db}
 }
 
-func (r *bookingRepository) WithTx(tx *gorm.DB) Repository {
-	return &bookingRepository{db: tx}
+func (r *repository) WithTx(tx *gorm.DB) Repository {
+	return &repository{db: tx}
 }
 
-func (r *bookingRepository) Create(ctx context.Context, booking *Booking) error {
+func (r *repository) Create(ctx context.Context, booking *Booking) error {
 	return r.db.WithContext(ctx).Create(booking).Error
 }
 
-func (r *bookingRepository) CreateImages(ctx context.Context, images []BookingImage) error {
+func (r *repository) CreateImages(ctx context.Context, images []BookingImage) error {
 	return r.db.WithContext(ctx).Create(&images).Error
 }
 
-func (r *bookingRepository) FindByID(ctx context.Context, id uint) (*Booking, error) {
+func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 	var booking Booking
 	err := r.db.WithContext(ctx).
 		Preload("Images").
@@ -76,7 +83,28 @@ func (r *bookingRepository) FindByID(ctx context.Context, id uint) (*Booking, er
 	return &booking, nil
 }
 
-func (r *bookingRepository) GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error) {
+func (r *repository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error) {
+	var b Booking
+	err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&b, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (r *repository) UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"status":     status,
+			"updated_at": updatedAt,
+		}).Error
+}
+
+func (r *repository) GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error) {
 	var slotIDs []uint
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
@@ -85,7 +113,7 @@ func (r *bookingRepository) GetBookedSlotIDs(ctx context.Context, technicianID u
 	return slotIDs, err
 }
 
-func (r *bookingRepository) IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error) {
+func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
@@ -95,7 +123,7 @@ func (r *bookingRepository) IsSlotBooked(ctx context.Context, technicianID uint,
 	return count > 0, err
 }
 
-func (r *bookingRepository) GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error) {
+func (r *repository) GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error) {
 	var svc techService.TechnicianService
 	if err := r.db.WithContext(ctx).First(&svc, serviceID).Error; err != nil {
 		return nil, err
@@ -103,7 +131,7 @@ func (r *bookingRepository) GetTechnicianService(ctx context.Context, serviceID 
 	return &svc, nil
 }
 
-func (r *bookingRepository) GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error) {
+func (r *repository) GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error) {
 	var addr address.CustomerAddress
 	if err := r.db.WithContext(ctx).
 		Preload("Province").
@@ -116,16 +144,7 @@ func (r *bookingRepository) GetCustomerAddress(ctx context.Context, addressID ui
 	return &addr, nil
 }
 
-func (r *bookingRepository) GetBookingsByRange(ctx context.Context, technicianID uint, startDate, endDate string) ([]Booking, error) {
-	var bookings []Booking
-	err := r.db.WithContext(ctx).
-		Where("technician_id = ? AND appointment_date BETWEEN ? AND ? AND status != ?",
-			technicianID, startDate, endDate, BookingStatusCancelled).
-		Find(&bookings).Error
-	return bookings, err
-}
-
-func (r *bookingRepository) IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error) {
+func (r *repository) IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Table("technician_service_areas").
@@ -138,28 +157,56 @@ func (r *bookingRepository) IsTechnicianServingProvince(ctx context.Context, tec
 	return count > 0, nil
 }
 
-func (r *bookingRepository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error) {
-	var b Booking
-	err := r.db.WithContext(ctx).
-		Clauses(clause.Locking{Strength: "UPDATE"}).
-		First(&b, id).Error
-	if err != nil {
-		return nil, err
+func (r *repository) ListByCustomer(
+	ctx context.Context,
+	customerID uint,
+	statuses []string,
+	startDate string,
+	endDate string,
+	offset int,
+	limit int,
+) ([]Booking, int64, error) {
+
+	q := r.db.WithContext(ctx).Model(&Booking{}).
+		Where("customer_id = ?", customerID)
+
+	if len(statuses) > 0 {
+		q = q.Where("status IN ?", statuses)
 	}
-	return &b, nil
+
+	if startDate != "" && endDate != "" {
+		q = q.Where("appointment_date BETWEEN ? AND ?", startDate, endDate)
+	} else if startDate != "" {
+		q = q.Where("appointment_date >= ?", startDate)
+	} else if endDate != "" {
+		q = q.Where("appointment_date <= ?", endDate)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var bookings []Booking
+	err := q.
+		Preload("Images").
+		Preload("TimeSlot").
+		Preload("Technician").
+		Preload("TechnicianService").
+		Preload("TechnicianService.Service").
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&bookings).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return bookings, total, nil
 }
 
-func (r *bookingRepository) UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error {
-	return r.db.WithContext(ctx).
-		Model(&Booking{}).
-		Where("id = ?", id).
-		Updates(map[string]any{
-			"status":     status,
-			"updated_at": updatedAt,
-		}).Error
-}
-
-func (r *bookingRepository) ListTechnicianBookings(
+func (r *repository) ListByTechnician(
 	ctx context.Context,
 	technicianID uint,
 	statuses []string,
