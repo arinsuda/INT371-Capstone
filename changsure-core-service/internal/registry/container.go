@@ -11,6 +11,7 @@ import (
 	"changsure-core-service/internal/modules/booking"
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
+	customerbooking "changsure-core-service/internal/modules/customer_booking"
 	"changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/notification"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
@@ -23,6 +24,7 @@ import (
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	technicianbadge "changsure-core-service/internal/modules/technician_badge"
+	technicianbooking "changsure-core-service/internal/modules/technician_booking"
 	techniciancalendar "changsure-core-service/internal/modules/technician_calendar"
 	technicianmatching "changsure-core-service/internal/modules/technician_matching"
 	techworks "changsure-core-service/internal/modules/technician_post"
@@ -68,9 +70,13 @@ type Container struct {
 	TimeSlotService timeslot.Service
 	TimeSlotHandler *timeslot.Handler
 
-	BookingRepo    booking.Repository
-	BookingService booking.Service
-	BookingHandler *booking.Handler
+	BookingRepo booking.Repository
+
+	CustomerBookingService customerbooking.Service
+	CustomerBookingHandler *customerbooking.Handler
+
+	TechnicianBookingService technicianbooking.Service
+	TechnicianBookingHandler *technicianbooking.Handler
 
 	ProvinceRepo    province.Repository
 	ProvinceService province.Service
@@ -168,8 +174,9 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianScheduleModule()
 
 	c.initTimeSlotModule()
-	c.initBookingModule()
-
+	c.initBookingCoreModule()
+	c.initCustomerBookingModule()
+	c.initTechnicianBookingModule()
 	c.initTechnicianCalendarModule()
 
 	for _, opt := range opts {
@@ -357,10 +364,55 @@ func (c *Container) initTimeSlotModule() {
 	c.TimeSlotHandler = timeslot.NewHandler(c.TimeSlotService)
 }
 
-func (c *Container) initBookingModule() {
+// Core booking module (shared repository)
+func (c *Container) initBookingCoreModule() {
 	c.BookingRepo = booking.NewRepository(c.DB)
-	c.BookingService = booking.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo, c.DB, c.NotificationService)
-	c.BookingHandler = booking.NewHandler(c.BookingService, c.Storage, c.Hub)
+}
+
+// Customer booking module
+func (c *Container) initCustomerBookingModule() {
+	if c.BookingRepo == nil {
+		panic("customer_booking: BookingRepo must be initialized first")
+	}
+	if c.TimeSlotRepo == nil {
+		panic("customer_booking: TimeSlotRepo is required")
+	}
+	if c.TechnicianScheduleRepo == nil {
+		panic("customer_booking: TechnicianScheduleRepo is required")
+	}
+
+	c.CustomerBookingService = customerbooking.NewService(
+		c.BookingRepo,
+		c.TimeSlotRepo,
+		c.TechnicianScheduleRepo,
+		c.DB,
+		c.NotificationService,
+	)
+
+	c.CustomerBookingHandler = customerbooking.NewHandler(
+		c.CustomerBookingService,
+		c.Storage,
+		c.Hub,
+	)
+}
+
+// Technician booking module
+func (c *Container) initTechnicianBookingModule() {
+	if c.BookingRepo == nil {
+		panic("technician_booking: BookingRepo must be initialized first")
+	}
+
+	c.TechnicianBookingService = technicianbooking.NewService(
+		c.BookingRepo,
+		c.DB,
+		c.NotificationService,
+	)
+
+	c.TechnicianBookingHandler = technicianbooking.NewHandler(
+		c.TechnicianBookingService,
+		c.Storage,
+		c.Hub,
+	)
 }
 
 func (c *Container) initTechnicianCalendarModule() {

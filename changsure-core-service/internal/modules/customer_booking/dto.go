@@ -1,4 +1,4 @@
-package booking
+package customerbooking
 
 type CreateBookingRequest struct {
 	CustomerID          uint   `json:"-" form:"-"`
@@ -23,15 +23,11 @@ type TimeSlotAvailability struct {
 	IsAvailable bool   `json:"is_available"`
 }
 
-type RejectBookingRequest struct {
-	Reason string `json:"reason,omitempty" validate:"max=255"`
-}
-
 type CancelBookingRequest struct {
 	Reason string `json:"reason" validate:"max=255"`
 }
 
-type ListTechnicianBookingsQuery struct {
+type ListBookingsQuery struct {
 	Status    string `query:"status" validate:"omitempty"`
 	StartDate string `query:"start_date" validate:"omitempty,datetime=2006-01-02"`
 	EndDate   string `query:"end_date" validate:"omitempty,datetime=2006-01-02"`

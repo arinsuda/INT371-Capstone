@@ -95,7 +95,7 @@ func (r *Router) setupProtectedRoutes() {
 
 	r.setupCustomerMeRoutes(v1)
 	r.setupTechnicianMeRoutes(v1)
-	
+
 	// Domain-specific resources
 	r.setupTechnicianPublicRoutes(v1)
 	// r.setupCustomerRoutes(v1)
@@ -153,7 +153,6 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 	r.container.ServiceCategoryHandler.RegisterRoutes(api)
 	r.container.ServiceHandler.RegisterRoutes(api)
 	r.container.BadgeHandler.RegisterRoutes(api)
-	r.container.BookingHandler.RegisterRoutes(api)
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 
 	// OCR functionality
@@ -178,6 +177,7 @@ func (r *Router) setupTechnicianPublicRoutes(api fiber.Router) {
 func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 	me := api.Group("/customers/me", middleware.CustomerOnly())
 
+	r.container.CustomerBookingHandler.RegisterRoutes(me)
 	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.CustomerHandler.RegisterRoutes(me)
 }
@@ -185,7 +185,7 @@ func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
 func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
 	me := api.Group("/technicians/me", middleware.TechnicianOnly())
 
-	r.container.BookingHandler.RegisterTechnicianRoutes(me)
+	r.container.TechnicianBookingHandler.RegisterRoutes(me)
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.TechnicianPostHandler.RegisterRoutes(me)

@@ -15,7 +15,7 @@ var allowedBookingStatuses = map[string]bool{
 	BookingStatusCancelled:      true,
 }
 
-func parseStatusFilter(raw string) ([]string, error) {
+func ParseStatusFilter(raw string) ([]string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil, nil
@@ -45,7 +45,7 @@ func parseStatusFilter(raw string) ([]string, error) {
 	return out, nil
 }
 
-func formatAddressSnapshot(addr *address.CustomerAddress) string {
+func FormatAddressSnapshot(addr *address.CustomerAddress) string {
 	subName := "-"
 	distName := "-"
 	provName := "-"
@@ -63,10 +63,10 @@ func formatAddressSnapshot(addr *address.CustomerAddress) string {
 	}
 
 	return fmt.Sprintf("%s หมู่บ้าน %s ซอย %s ถนน %s แขวง %s เขต %s จ. %s %s",
-		getValue(addr.HouseNumber),
-		getValue(addr.Village),
-		getValue(addr.Soi),
-		getValue(addr.Road),
+		GetValue(addr.HouseNumber),
+		GetValue(addr.Village),
+		GetValue(addr.Soi),
+		GetValue(addr.Road),
 		subName,
 		distName,
 		provName,
@@ -74,7 +74,7 @@ func formatAddressSnapshot(addr *address.CustomerAddress) string {
 	)
 }
 
-func getValue(s *string) string {
+func GetValue(s *string) string {
 	if s == nil {
 		return "-"
 	}

@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	BookingStatusPending        = "PENDING"         // รอช่างรับงาน
-	BookingStatusAccepted       = "ACCEPTED"        // ช่างรับงานแล้ว
-	BookingStatusInProgress     = "IN_PROGRESS"     // ช่างกำลังดำเนินการ
-	BookingStatusWaitingPayment = "WAITING_PAYMENT" // รอชำระเงิน
-	BookingStatusCompleted      = "COMPLETED"       // เสร็จสิ้น
-	BookingStatusCancelled      = "CANCELLED"       // ยกเลิก
+	BookingStatusPending        = "PENDING"
+	BookingStatusAccepted       = "ACCEPTED"
+	BookingStatusInProgress     = "IN_PROGRESS"
+	BookingStatusWaitingPayment = "WAITING_PAYMENT"
+	BookingStatusCompleted      = "COMPLETED"
+	BookingStatusCancelled      = "CANCELLED"
 
 	PaymentMethodCOD = "COD"
 )

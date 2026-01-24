@@ -1,4 +1,4 @@
-package booking
+package customerbooking
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/notification"
 	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	timeslot "changsure-core-service/internal/modules/time_slot"
@@ -26,7 +27,6 @@ var (
 
 	ErrBookingNotFound             = errors.New("booking not found")
 	ErrForbiddenBooking            = errors.New("forbidden booking")
-	ErrInvalidBookingStatus        = errors.New("invalid booking status")
 	ErrBookingIsStartedOrCompleted = errors.New("cannot cancel booking that is in progress or completed")
 )
 
@@ -42,27 +42,27 @@ func init() {
 
 type Service interface {
 	GetAvailableTimeSlots(ctx context.Context, technicianID uint, dateStr string) ([]TimeSlotAvailability, error)
-
-	CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*Booking, error)
-	GetBookingDetail(ctx context.Context, bookingID uint) (*Booking, error)
-	CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*Booking, error)
-
-	AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*Booking, error)
-	RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error)
-
-	ListTechnicianBookings(ctx context.Context, technicianID uint, q ListTechnicianBookingsQuery) ([]Booking, int64, int, int, error)
+	CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*booking.Booking, error)
+	GetBookingDetail(ctx context.Context, bookingID uint) (*booking.Booking, error)
+	CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*booking.Booking, error)
+	ListBookings(ctx context.Context, customerID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error)
 }
 
 type service struct {
-	repo         Repository
+	repo         booking.Repository
 	timeSlotRepo timeslot.Repository
 	scheduleRepo technicianschedule.Repository
 	db           *gorm.DB
-
-	notif notification.Service
+	notif        notification.Service
 }
 
-func NewService(repo Repository, timeSlotRepo timeslot.Repository, scheduleRepo technicianschedule.Repository, db *gorm.DB, notif notification.Service) Service {
+func NewService(
+	repo booking.Repository,
+	timeSlotRepo timeslot.Repository,
+	scheduleRepo technicianschedule.Repository,
+	db *gorm.DB,
+	notif notification.Service,
+) Service {
 	return &service{
 		repo:         repo,
 		timeSlotRepo: timeSlotRepo,
@@ -80,7 +80,6 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 	allSlots, err := s.timeSlotRepo.GetSlotsForTechnician(ctx, technicianID)
 	if err != nil {
 		return nil, err
-
 	}
 
 	bookedSlotIDs, err := s.repo.GetBookedSlotIDs(ctx, technicianID, dateStr)
@@ -105,8 +104,7 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 	return result, nil
 }
 
-func (s *service) CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*Booking, error) {
-
+func (s *service) CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*booking.Booking, error) {
 	appointDate, err := time.ParseInLocation("2006-01-02", req.AppointmentDate, bkkLoc)
 	if err != nil {
 		return nil, ErrInvalidDateFormat
@@ -143,7 +141,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 
 	targetSlot, err := s.timeSlotRepo.FindByID(ctx, req.TimeSlotID)
 	if err != nil {
-
 		return nil, ErrInvalidTimeSlot
 	}
 
@@ -155,7 +152,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, ErrInvalidTimeSlot
 	}
 
-	var newBooking *Booking
+	var newBooking *booking.Booking
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
@@ -188,10 +185,10 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			}
 		}
 
-		fullAddress := formatAddressSnapshot(custAddr)
+		fullAddress := booking.FormatAddressSnapshot(custAddr)
 		bookingNumber := utils.GenerateBookingNumber10Digits()
 
-		newBooking = &Booking{
+		newBooking = &booking.Booking{
 			BookingNumber:       bookingNumber,
 			CustomerID:          customerID,
 			TechnicianID:        req.TechnicianID,
@@ -201,10 +198,9 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			AppointmentDate:     appointDate,
 			RecordedAddress:     fullAddress,
 			CustomerNote:        req.CustomerNote,
-			Status:              BookingStatusPending,
-			PaymentMethod:       PaymentMethodCOD,
-
-			PricingType: techSvc.PricingType,
+			Status:              booking.BookingStatusPending,
+			PaymentMethod:       booking.PaymentMethodCOD,
+			PricingType:         techSvc.PricingType,
 		}
 
 		if techSvc.PricingType == "FIXED" {
@@ -224,9 +220,9 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 
 		if len(req.ImageURLs) > 0 {
-			images := make([]BookingImage, 0, len(req.ImageURLs))
+			images := make([]booking.BookingImage, 0, len(req.ImageURLs))
 			for _, url := range req.ImageURLs {
-				images = append(images, BookingImage{
+				images = append(images, booking.BookingImage{
 					BookingID: newBooking.ID,
 					ImageURL:  url,
 				})
@@ -283,192 +279,17 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 	return created, nil
 }
 
-func (s *service) GetBookingDetail(ctx context.Context, bookingID uint) (*Booking, error) {
+func (s *service) GetBookingDetail(ctx context.Context, bookingID uint) (*booking.Booking, error) {
 	return s.repo.FindByID(ctx, bookingID)
 }
 
-func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*Booking, error) {
-	var updated *Booking
-
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txRepo := s.repo.WithTx(tx)
-
-		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrBookingNotFound
-			}
-			return err
-		}
-
-		if b.TechnicianID != technicianID {
-			return ErrForbiddenBooking
-		}
-
-		if b.Status != BookingStatusPending {
-			return ErrInvalidBookingStatus
-		}
-
-		now := time.Now()
-		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusAccepted, now); err != nil {
-			return err
-		}
-
-		updated = b
-		updated.Status = BookingStatusAccepted
-		updated.UpdatedAt = now
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	full, err := s.repo.FindByID(ctx, bookingID)
-	if err != nil {
-		full = updated
-	}
-
-	if s.notif != nil && full != nil && full.CustomerID != 0 {
-		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
-			RecipientRole: notification.RoleCustomer,
-			RecipientID:   full.CustomerID,
-			Type:          "BOOKING_ACCEPTED",
-			Title:         "ช่างรับงานแล้ว",
-			Message:       "ช่างตอบรับการจองของคุณแล้ว",
-			EntityType:    "booking",
-			EntityID:      full.ID,
-			Data: map[string]any{
-				"booking_id":       full.ID,
-				"booking_number":   full.BookingNumber,
-				"status":           full.Status,
-				"technician_id":    full.TechnicianID,
-				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
-			},
-		})
-	}
-
-	return full, nil
-}
-
-func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*Booking, error) {
+func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*booking.Booking, error) {
 	reason = strings.TrimSpace(reason)
 	if len(reason) > 255 {
 		reason = reason[:255]
 	}
 
-	var updated *Booking
-
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txRepo := s.repo.WithTx(tx)
-
-		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrBookingNotFound
-			}
-			return err
-		}
-
-		if b.TechnicianID != technicianID {
-			return ErrForbiddenBooking
-		}
-
-		if b.Status != BookingStatusPending {
-			return ErrInvalidBookingStatus
-		}
-
-		now := time.Now()
-		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusCancelled, now); err != nil {
-			return err
-		}
-
-		updated = b
-		updated.Status = BookingStatusCancelled
-		updated.UpdatedAt = now
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	full, err := s.repo.FindByID(ctx, bookingID)
-	if err != nil {
-		full = updated
-	}
-
-	if s.notif != nil && full != nil && full.CustomerID != 0 {
-		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
-			RecipientRole: notification.RoleCustomer,
-			RecipientID:   full.CustomerID,
-			Type:          "BOOKING_REJECTED",
-			Title:         "ช่างปฏิเสธงาน",
-			Message:       "ช่างปฏิเสธการจองของคุณ",
-			EntityType:    "booking",
-			EntityID:      full.ID,
-			Data: map[string]any{
-				"booking_id":       full.ID,
-				"booking_number":   full.BookingNumber,
-				"status":           full.Status,
-				"reason":           reason,
-				"technician_id":    full.TechnicianID,
-				"appointment_date": full.AppointmentDate.Format("2006-01-02"),
-			},
-		})
-	}
-
-	return full, nil
-
-}
-
-func (s *service) ListTechnicianBookings(
-	ctx context.Context,
-	technicianID uint,
-	q ListTechnicianBookingsQuery,
-) ([]Booking, int64, int, int, error) {
-
-	page := q.Page
-	limit := q.Limit
-	if page <= 0 {
-		page = 1
-	}
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	offset := (page - 1) * limit
-
-	statuses, err := parseStatusFilter(q.Status)
-	if err != nil {
-		return nil, 0, page, limit, err
-	}
-
-	items, total, err := s.repo.ListTechnicianBookings(
-		ctx,
-		technicianID,
-		statuses,
-		q.StartDate,
-		q.EndDate,
-		offset,
-		limit,
-	)
-	if err != nil {
-		return nil, 0, page, limit, err
-	}
-
-	return items, total, page, limit, nil
-}
-
-func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint, reason string) (*Booking, error) {
-	reason = strings.TrimSpace(reason)
-	if len(reason) > 255 {
-		reason = reason[:255]
-	}
-
-	var updated *Booking
+	var updated *booking.Booking
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
@@ -485,17 +306,17 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 			return ErrForbiddenBooking
 		}
 
-		if b.Status != BookingStatusPending && b.Status != BookingStatusAccepted {
+		if b.Status != booking.BookingStatusPending && b.Status != booking.BookingStatusAccepted {
 			return ErrBookingIsStartedOrCompleted
 		}
 
 		now := time.Now()
-		if err := txRepo.UpdateStatus(ctx, bookingID, BookingStatusCancelled, now); err != nil {
+		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusCancelled, now); err != nil {
 			return err
 		}
 
 		updated = b
-		updated.Status = BookingStatusCancelled
+		updated.Status = booking.BookingStatusCancelled
 		updated.UpdatedAt = now
 		return nil
 	})
@@ -528,6 +349,44 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 			},
 		})
 	}
-
 	return full, nil
+}
+
+func (s *service) ListBookings(
+	ctx context.Context,
+	customerID uint,
+	q ListBookingsQuery,
+) ([]booking.Booking, int64, int, int, error) {
+	page := q.Page
+	limit := q.Limit
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	statuses, err := booking.ParseStatusFilter(q.Status)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
+
+	items, total, err := s.repo.ListByCustomer(
+		ctx,
+		customerID,
+		statuses,
+		q.StartDate,
+		q.EndDate,
+		offset,
+		limit,
+	)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
+
+	return items, total, page, limit, nil
 }

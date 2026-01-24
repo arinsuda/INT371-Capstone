@@ -1,4 +1,4 @@
-package booking
+package customerbooking
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/realtime"
 	"changsure-core-service/internal/validation"
 	"changsure-core-service/pkg/storage"
@@ -45,7 +46,6 @@ func (h *Handler) CreateBooking(c fiber.Ctx) error {
 
 	form, err := c.MultipartForm()
 	if err == nil && form.File != nil {
-
 		files := form.File["images"]
 
 		for _, fileHeader := range files {
@@ -171,19 +171,19 @@ func (h *Handler) GetBookingDetail(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid booking id")
 	}
 
-	booking, err := h.service.GetBookingDetail(c.Context(), uint(id))
+	bkg, err := h.service.GetBookingDetail(c.Context(), uint(id))
 	if err != nil {
 		return appErrors.NotFound(c, "booking not found")
 	}
 
-	h.hydrateBookingMediaURLs(c.Context(), booking)
+	h.hydrateBookingMediaURLs(c.Context(), bkg)
 
-	return c.JSON(fiber.Map{"success": true, "data": booking})
+	return c.JSON(fiber.Map{"success": true, "data": bkg})
 }
 
-func (h *Handler) AcceptBooking(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
+func (h *Handler) CancelBooking(c fiber.Ctx) error {
+	custID := utils.GetUserID(c)
+	if custID == 0 {
 		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
@@ -192,98 +192,54 @@ func (h *Handler) AcceptBooking(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid booking id")
 	}
 
-	booking, err := h.service.AcceptBooking(c.Context(), techID, bookingID)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrBookingNotFound):
-			return appErrors.NotFound(c, "booking not found")
-		case errors.Is(err, ErrForbiddenBooking):
-			return appErrors.Forbidden(c, "forbidden")
-		case errors.Is(err, ErrInvalidBookingStatus):
-			return appErrors.Conflict(c, "invalid booking status")
-		default:
-			return appErrors.InternalError(c, "failed to accept booking", err)
-		}
-	}
-
-	h.hydrateBookingMediaURLs(c.Context(), booking)
-
-	if h.hub != nil && booking.CustomerID != 0 {
-		payload := realtime.MarshalEvent("BOOKING_ACCEPTED", map[string]any{
-			"booking_id":       booking.ID,
-			"status":           booking.Status,
-			"technician_id":    booking.TechnicianID,
-			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
-		})
-		go h.hub.BroadcastToCustomer(booking.CustomerID, payload)
-	}
-
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "รับงานสำเร็จ",
-		"data":    booking,
-	})
-}
-
-func (h *Handler) RejectBooking(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	bookingID, err := utils.ParseUintParam(c, "id")
-	if err != nil || bookingID == 0 {
-		return appErrors.BadRequest(c, "invalid booking id")
-	}
-
-	var req RejectBookingRequest
-	_ = c.Bind().Body(&req) // reason optional
+	var req CancelBookingRequest
+	_ = c.Bind().Body(&req)
 
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
 
-	booking, err := h.service.RejectBooking(c.Context(), techID, bookingID, req.Reason)
+	bkg, err := h.service.CancelBooking(c.Context(), custID, bookingID, req.Reason)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrBookingNotFound):
-			return appErrors.NotFound(c, "booking not found")
+			return appErrors.NotFound(c, "ไม่พบข้อมูลการจอง")
 		case errors.Is(err, ErrForbiddenBooking):
-			return appErrors.Forbidden(c, "forbidden")
-		case errors.Is(err, ErrInvalidBookingStatus):
-			return appErrors.Conflict(c, "invalid booking status")
+			return appErrors.Forbidden(c, "คุณไม่มีสิทธิ์ยกเลิกรายการนี้")
+		case errors.Is(err, ErrBookingIsStartedOrCompleted):
+			return appErrors.Conflict(c, "ไม่สามารถยกเลิกรายการนี้ได้ (สถานะไม่ถูกต้อง)")
 		default:
-			return appErrors.InternalError(c, "failed to reject booking", err)
+			return appErrors.InternalError(c, "ไม่สามารถยกเลิกการจองได้", err)
 		}
 	}
 
-	h.hydrateBookingMediaURLs(c.Context(), booking)
+	h.hydrateBookingMediaURLs(c.Context(), bkg)
 
-	if h.hub != nil && booking.CustomerID != 0 {
-		payload := realtime.MarshalEvent("BOOKING_REJECTED", map[string]any{
-			"booking_id":       booking.ID,
-			"status":           booking.Status,
+	if h.hub != nil && bkg.TechnicianID != 0 {
+		payload := realtime.MarshalEvent("BOOKING_CANCELLED", map[string]any{
+			"booking_id":       bkg.ID,
+			"status":           bkg.Status,
 			"reason":           req.Reason,
-			"technician_id":    booking.TechnicianID,
-			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
+			"customer_id":      bkg.CustomerID,
+			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
 		})
-		go h.hub.BroadcastToCustomer(booking.CustomerID, payload)
+		go h.hub.BroadcastToTechnician(bkg.TechnicianID, payload)
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "ปฏิเสธงานสำเร็จ",
-		"data":    booking,
+		"message": "ยกเลิกการจองสำเร็จ",
+		"data":    bkg,
 	})
 }
 
-func (h *Handler) ListTechnicianBookings(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
+func (h *Handler) ListBookings(c fiber.Ctx) error {
+	custID := utils.GetUserID(c)
+	if custID == 0 {
 		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
-	var q ListTechnicianBookingsQuery
+	var q ListBookingsQuery
 	if err := c.Bind().Query(&q); err != nil {
 		return appErrors.BadRequest(c, "Invalid query parameters")
 	}
@@ -292,7 +248,7 @@ func (h *Handler) ListTechnicianBookings(c fiber.Ctx) error {
 		return appErrors.ValidationError(c, details)
 	}
 
-	items, total, page, limit, err := h.service.ListTechnicianBookings(c.Context(), techID, q)
+	items, total, page, limit, err := h.service.ListBookings(c.Context(), custID, q)
 	if err != nil {
 		return appErrors.BadRequest(c, err.Error())
 	}
@@ -314,7 +270,7 @@ func (h *Handler) ListTechnicianBookings(c fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
+func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Booking) {
 	if b == nil || h.storage == nil {
 		return
 	}
@@ -354,56 +310,4 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *Booking) {
 			}
 		}
 	}
-}
-
-func (h *Handler) CancelBooking(c fiber.Ctx) error {
-	custID := utils.GetUserID(c)
-	if custID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	bookingID, err := utils.ParseUintParam(c, "id")
-	if err != nil || bookingID == 0 {
-		return appErrors.BadRequest(c, "invalid booking id")
-	}
-
-	var req CancelBookingRequest
-	_ = c.Bind().Body(&req)
-
-	if details, err := validation.ValidateStruct(req); err != nil {
-		return appErrors.ValidationError(c, details)
-	}
-
-	booking, err := h.service.CancelBooking(c.Context(), custID, bookingID, req.Reason)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrBookingNotFound):
-			return appErrors.NotFound(c, "ไม่พบข้อมูลการจอง")
-		case errors.Is(err, ErrForbiddenBooking):
-			return appErrors.Forbidden(c, "คุณไม่มีสิทธิ์ยกเลิกรายการนี้")
-		case errors.Is(err, ErrInvalidBookingStatus):
-			return appErrors.Conflict(c, "ไม่สามารถยกเลิกรายการนี้ได้ (สถานะไม่ถูกต้อง)")
-		default:
-			return appErrors.InternalError(c, "ไม่สามารถยกเลิกการจองได้", err)
-		}
-	}
-
-	h.hydrateBookingMediaURLs(c.Context(), booking)
-
-	if h.hub != nil && booking.TechnicianID != 0 {
-		payload := realtime.MarshalEvent("BOOKING_CANCELLED", map[string]any{
-			"booking_id":       booking.ID,
-			"status":           booking.Status,
-			"reason":           req.Reason,
-			"customer_id":      booking.CustomerID,
-			"appointment_date": booking.AppointmentDate.Format("2006-01-02"),
-		})
-		go h.hub.BroadcastToTechnician(booking.TechnicianID, payload)
-	}
-
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "ยกเลิกการจองสำเร็จ",
-		"data":    booking,
-	})
 }
