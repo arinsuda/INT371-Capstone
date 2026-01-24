@@ -8,7 +8,9 @@ type CreateCustomerAddressRequest struct {
 	Label       *string `json:"label" validate:"omitempty,max=50"`
 	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
 
-	HouseNumber *string `json:"house_number" validate:"required"`
+	AddressLine *string `json:"address_line" validate:"required_without=HouseNumber,max=255"`
+
+	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village"`
 	Moo         *string `json:"moo"`
 	Soi         *string `json:"soi"`
@@ -26,6 +28,8 @@ type CreateCustomerAddressRequest struct {
 type UpdateCustomerAddressRequest struct {
 	Label       *string `json:"label" validate:"omitempty,max=50"`
 	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
+
+	AddressLine *string `json:"address_line" validate:"omitempty,max=255"`
 
 	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village"`
@@ -57,6 +61,11 @@ func ToResponse(a *CustomerAddress, defaultPhone *string) CustomerAddressRespons
 		ID:          a.ID,
 		Label:       addressshared.StrOrEmpty(a.Label),
 		PhoneNumber: addressshared.StrOrEmpty(finalPhone),
+
+		AddressLine: addressshared.FirstNonEmpty(
+			addressshared.StrOrEmpty(a.AddressLine),
+			addressshared.BuildAddressLine(a.HouseNumber, a.Moo, a.Village, a.Soi, a.Road),
+		),
 
 		HouseNumber: addressshared.StrOrEmpty(a.HouseNumber),
 		Village:     addressshared.StrOrEmpty(a.Village),

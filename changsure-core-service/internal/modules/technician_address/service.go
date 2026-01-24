@@ -75,6 +75,15 @@ func (s *service) applyUpdateFields(addr *TechnicianAddress, req *UpdateTechnici
 	if req.Label != nil {
 		addr.Label = req.Label
 	}
+
+	if req.PhoneNumber != nil {
+		addr.PhoneNumber = req.PhoneNumber
+	}
+
+	if req.AddressLine != nil {
+		addr.AddressLine = req.AddressLine
+	}
+
 	if req.HouseNumber != nil {
 		addr.HouseNumber = req.HouseNumber
 	}
@@ -139,6 +148,8 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 		TechnicianID: techID,
 		AddressFields: addressshared.AddressFields{
 			Label:         req.Label,
+			PhoneNumber:   req.PhoneNumber,
+			AddressLine:   req.AddressLine,
 			HouseNumber:   req.HouseNumber,
 			Village:       req.Village,
 			Moo:           req.Moo,
@@ -151,6 +162,23 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 			Longitude:     req.Longitude,
 			IsPrimary:     primary,
 		},
+	}
+
+	if req.AddressLine != nil {
+		if req.HouseNumber == nil {
+			addr.HouseNumber = nil
+		}
+		if req.Moo == nil {
+			addr.Moo = nil
+		}
+		if req.Soi == nil {
+			addr.Soi = nil
+		}
+		if req.Road == nil {
+			addr.Road = nil
+		}
+
+		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 	}
 
 	// Atomic: create + (optional) set primary in one transaction
@@ -186,6 +214,23 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 	}
 
 	locationChanged := s.applyUpdateFields(addr, req)
+
+	if req.AddressLine != nil {
+		if req.HouseNumber == nil {
+			addr.HouseNumber = nil
+		}
+		if req.Moo == nil {
+			addr.Moo = nil
+		}
+		if req.Soi == nil {
+			addr.Soi = nil
+		}
+		if req.Road == nil {
+			addr.Road = nil
+		}
+
+		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+	}
 
 	if locationChanged {
 		pid, did, sdid, err := s.normalizeLocation(ctx, addr.ProvinceID, addr.DistrictID, addr.SubDistrictID)

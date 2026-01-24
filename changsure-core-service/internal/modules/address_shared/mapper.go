@@ -1,6 +1,9 @@
 package addressshared
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 func StrOrEmpty(v *string) string {
 	if v == nil {
@@ -36,6 +39,8 @@ type BaseAddressResponse struct {
 	Label       string `json:"label"`
 	PhoneNumber string `json:"phone_number"`
 
+	AddressLine string `json:"address_line"`
+
 	HouseNumber string `json:"house_number"`
 	Village     string `json:"village"`
 	Moo         string `json:"moo"`
@@ -57,4 +62,35 @@ type BaseAddressResponse struct {
 
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+}
+
+func BuildAddressLine(house, moo, village, soi, road *string) string {
+	parts := []string{}
+
+	if house != nil && *house != "" {
+		parts = append(parts, *house)
+	}
+	if moo != nil && *moo != "" {
+		parts = append(parts, "หมู่ "+*moo)
+	}
+	if village != nil && *village != "" {
+		parts = append(parts, *village)
+	}
+	if soi != nil && *soi != "" {
+		parts = append(parts, "ซ."+*soi)
+	}
+	if road != nil && *road != "" {
+		parts = append(parts, "ถ."+*road)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func FirstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }

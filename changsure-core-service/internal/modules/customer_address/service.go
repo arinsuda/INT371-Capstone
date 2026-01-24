@@ -81,6 +81,10 @@ func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAd
 		addr.PhoneNumber = req.PhoneNumber
 	}
 
+	if req.AddressLine != nil {
+		addr.AddressLine = req.AddressLine
+	}
+
 	if req.HouseNumber != nil {
 		addr.HouseNumber = req.HouseNumber
 	}
@@ -137,7 +141,11 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
-	existing, _ := s.repo.FindAllByCustomerID(ctx, customerID)
+	existing, err := s.repo.FindAllByCustomerID(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
 	primary := shouldBePrimaryOnCreate(len(existing), req.IsPrimary)
 
 	addr := &CustomerAddress{
@@ -146,6 +154,7 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 			Label:         req.Label,
 			PhoneNumber:   req.PhoneNumber,
 			HouseNumber:   req.HouseNumber,
+			AddressLine:   req.AddressLine,
 			Village:       req.Village,
 			Moo:           req.Moo,
 			Soi:           req.Soi,
@@ -158,6 +167,26 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 			IsPrimary:     primary,
 		},
 	}
+
+	if req.AddressLine != nil {
+		if req.HouseNumber == nil {
+			addr.HouseNumber = nil
+		}
+		if req.Moo == nil {
+			addr.Moo = nil
+		}
+		if req.Soi == nil {
+			addr.Soi = nil
+		}
+		if req.Road == nil {
+			addr.Road = nil
+		}
+		if req.Village == nil {
+			addr.Village = nil
+		}
+	}
+
+	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 
 	// Ensure primary uniqueness atomically.
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
@@ -172,9 +201,15 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
-	newAddr, _ := s.repo.FindByID(ctx, addr.ID, customerID)
+	newAddr, err := s.repo.FindByID(ctx, addr.ID, customerID)
+	if err != nil {
+		return nil, err
+	}
 
-	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
 
 	resp := ToResponse(newAddr, defaultPhone)
 	return &resp, nil
@@ -194,6 +229,28 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 
 	locationChanged := s.applyUpdateFields(addr, req)
+
+	if req.AddressLine != nil {
+		addr.AddressLine = req.AddressLine
+
+		if req.HouseNumber == nil {
+			addr.HouseNumber = nil
+		}
+		if req.Moo == nil {
+			addr.Moo = nil
+		}
+		if req.Soi == nil {
+			addr.Soi = nil
+		}
+		if req.Road == nil {
+			addr.Road = nil
+		}
+		if req.Village == nil {
+			addr.Village = nil
+		}
+	}
+
+	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 
 	if locationChanged {
 		pid, did, sdid, err := s.normalizeLocation(ctx, addr.ProvinceID, addr.DistrictID, addr.SubDistrictID)
@@ -219,8 +276,10 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 
 	updatedAddr, _ := s.repo.FindByID(ctx, id, customerID)
-	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
-
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
 	resp := ToResponse(updatedAddr, defaultPhone)
 	return &resp, nil
 }
@@ -272,7 +331,10 @@ func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerA
 		return nil, ErrNotFound
 	}
 
-	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
 	resp := ToResponse(addr, defaultPhone)
 	return &resp, nil
 }
@@ -287,7 +349,10 @@ func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressR
 		return nil, err
 	}
 
-	defaultPhone, _ := s.repo.GetCustomerPhone(ctx, customerID)
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
 	return ToResponseList(addrs, defaultPhone), nil
 }
 
