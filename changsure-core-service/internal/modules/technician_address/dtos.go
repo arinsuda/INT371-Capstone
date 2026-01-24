@@ -5,9 +5,12 @@ import (
 )
 
 type CreateTechnicianAddressRequest struct {
-	Label *string `json:"label" validate:"omitempty,max=50"`
+	Label       *string `json:"label" validate:"omitempty,max=50"`
+	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
 
-	HouseNumber *string `json:"house_number" validate:"required"`
+	AddressLine *string `json:"address_line" validate:"omitempty,max=255"`
+
+	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village" validate:"omitempty"`
 	Moo         *string `json:"moo" validate:"omitempty"`
 	Soi         *string `json:"soi" validate:"omitempty"`
@@ -24,7 +27,10 @@ type CreateTechnicianAddressRequest struct {
 }
 
 type UpdateTechnicianAddressRequest struct {
-	Label *string `json:"label" validate:"omitempty,max=50"`
+	Label       *string `json:"label" validate:"omitempty,max=50"`
+	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`
+
+	AddressLine *string `json:"address_line" validate:"omitempty,max=255"`
 
 	HouseNumber *string `json:"house_number" validate:"omitempty"`
 	Village     *string `json:"village" validate:"omitempty"`
