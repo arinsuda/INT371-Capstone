@@ -1,4 +1,3 @@
-import 'package:changsure/core/profile/widgets/parese_address.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/master_data_provider.dart';
@@ -23,11 +22,7 @@ class Address extends ConsumerStatefulWidget {
   final int? addressId;
   final String? label;
   final String? phoneNumber;
-  final String houseNumber;
-  final String? village;
-  final String? moo;
-  final String? soi;
-  final String? road;
+  final String addressLine;
   final String subDistrict;
   final String district;
   final String province;
@@ -50,11 +45,9 @@ class Address extends ConsumerStatefulWidget {
     this.addressId,
     this.label,
     this.phoneNumber,
-    required this.houseNumber,
-    this.village,
-    this.moo,
-    this.soi,
-    this.road,
+
+    required this.addressLine,
+
     required this.subDistrict,
     required this.district,
     required this.province,
@@ -79,11 +72,7 @@ class Address extends ConsumerStatefulWidget {
 class _AddressPageState extends ConsumerState<Address> {
   late TextEditingController labelCtrl;
   late TextEditingController phoneCtrl;
-  late TextEditingController houseNumberCtrl;
-  late TextEditingController villageCtrl;
-  late TextEditingController mooCtrl;
-  late TextEditingController soiCtrl;
-  late TextEditingController roadCtrl;
+  late TextEditingController addressLineCtrl;
   late TextEditingController subDistrictCtrl;
   late TextEditingController districtCtrl;
   late TextEditingController provinceCtrl;
@@ -101,6 +90,7 @@ class _AddressPageState extends ConsumerState<Address> {
   final MapController _previewMapController = MapController();
 
   bool _hasInitialDataLoaded = false;
+  bool _isDirty = false;
 
   LatLng _defaultCenter = const LatLng(13.7563, 100.5018);
   bool _isLoadingDefaultLocation = false;
@@ -111,18 +101,8 @@ class _AddressPageState extends ConsumerState<Address> {
     _isPrimary = widget.isPrimary;
     labelCtrl = TextEditingController(text: widget.label ?? '');
 
-    String combinedAddress = widget.houseNumber;
-    if (widget.moo != null && widget.moo!.isNotEmpty)
-      combinedAddress += " หมู่ ${widget.moo}";
-    if (widget.village != null && widget.village!.isNotEmpty)
-      combinedAddress += " ${widget.village}";
-    if (widget.soi != null && widget.soi!.isNotEmpty)
-      combinedAddress += " ซอย ${widget.soi}";
-    if (widget.road != null && widget.road!.isNotEmpty)
-      combinedAddress += " ถนน ${widget.road}";
-
     phoneCtrl = TextEditingController(text: widget.phoneNumber ?? '');
-    houseNumberCtrl = TextEditingController(text: combinedAddress.trim());
+    addressLineCtrl = TextEditingController(text: widget.addressLine);
     subDistrictCtrl = TextEditingController(text: widget.subDistrict);
     districtCtrl = TextEditingController(text: widget.district);
     provinceCtrl = TextEditingController(text: widget.province);
@@ -177,7 +157,7 @@ class _AddressPageState extends ConsumerState<Address> {
   void dispose() {
     labelCtrl.dispose();
     phoneCtrl.dispose();
-    houseNumberCtrl.dispose();
+    addressLineCtrl.dispose();
     subDistrictCtrl.dispose();
     districtCtrl.dispose();
     provinceCtrl.dispose();
@@ -216,19 +196,17 @@ class _AddressPageState extends ConsumerState<Address> {
   Future<void> _onSave() async {
     final formState = ref.read(addressFormProvider);
 
-    final parsed = parseThaiCombinedAddress(houseNumberCtrl.text);
-
     final canSubmit =
         _formKey.currentState!.validate() &&
         formState.selectedProvinceId != null &&
         formState.selectedDistrictId != null &&
         formState.selectedSubDistrictId != null &&
-        parsed.houseNumber.trim().isNotEmpty &&
+        addressLineCtrl.text.trim().isNotEmpty &&
         formState.selectedCoordinates != null;
 
     if (!canSubmit) {
       String missing = '';
-      if (parsed.houseNumber.trim().isEmpty) {
+      if (addressLineCtrl.text.trim().isEmpty) {
         missing = 'บ้านเลขที่';
       } else if (formState.selectedProvinceId == null) {
         missing = 'จังหวัด';
@@ -253,9 +231,12 @@ class _AddressPageState extends ConsumerState<Address> {
         if (labelCtrl.text.trim().isNotEmpty) 'label': labelCtrl.text.trim(),
         'is_primary': _isPrimary,
 
-        if (_phoneTouched) 'phone_number': phoneCtrl.text.trim(),
+        if (_phoneTouched)
+          'phone_number': phoneCtrl.text.trim().isEmpty
+              ? null
+              : phoneCtrl.text.trim(),
 
-        ...parsed.toApiMap(),
+        'address_line': addressLineCtrl.text.trim(),
 
         'province_id': formState.selectedProvinceId,
         'district_id': formState.selectedDistrictId,
@@ -478,7 +459,7 @@ class _AddressPageState extends ConsumerState<Address> {
                           LabeledTextArea(
                             label:
                                 "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-                            controller: houseNumberCtrl,
+                            controller: addressLineCtrl,
                             validator: (v) => (v == null || v.isEmpty)
                                 ? "กรุณากรอกข้อมูล"
                                 : null,
@@ -657,7 +638,10 @@ class _AddressPageState extends ConsumerState<Address> {
 
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: PrimaryButton(text: "บันทึก", onPressed: _onSave),
+                      child: PrimaryButton(
+                        text: "บันทึก",
+                        onPressed: _isDirty ? _onSave : null,
+                      ),
                     ),
 
                     if (isEditing && widget.onDelete != null)

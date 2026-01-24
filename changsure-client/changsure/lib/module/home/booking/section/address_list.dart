@@ -63,11 +63,7 @@ class _AddressListState extends ConsumerState<AddressList> {
           phoneNumber: addr.phoneNumber,
           isPrimary: addr.isPrimary,
 
-          houseNumber: addr.houseNumber,
-          village: addr.village,
-          moo: addr.moo,
-          soi: addr.soi,
-          road: addr.road,
+          addressLine: addr.addressLine,
 
           subDistrict: addr.subDistrict,
           district: addr.district,
@@ -96,14 +92,9 @@ class _AddressListState extends ConsumerState<AddressList> {
 
             final bool isPrimary = data['is_primary'] as bool? ?? false;
 
-            final String houseNumber = (data['house_number'] ?? '')
+            final String addressLine = (data['address_line'] ?? '')
                 .toString()
                 .trim();
-
-            final String? village = (data['village'] as String?)?.trim();
-            final String? moo = (data['moo'] as String?)?.trim();
-            final String? soi = (data['soi'] as String?)?.trim();
-            final String? road = (data['road'] as String?)?.trim();
 
             final int? provinceId = (data['province_id'] as num?)?.toInt();
             final int? districtId = (data['district_id'] as num?)?.toInt();
@@ -117,8 +108,7 @@ class _AddressListState extends ConsumerState<AddressList> {
             final double? lat = (data['latitude'] as num?)?.toDouble();
             final double? lng = (data['longitude'] as num?)?.toDouble();
 
-            if (houseNumber.isEmpty ||
-                zipCode.isEmpty ||
+            if (addressLine.isEmpty ||
                 provinceId == null ||
                 districtId == null ||
                 subDistrictId == null ||
@@ -126,12 +116,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                 lng == null) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'กรุณากรอกที่อยู่ให้ครบ และเลือกตำแหน่งบนแผนที่',
-                    ),
-                    backgroundColor: Colors.red,
-                  ),
+                  const SnackBar(content: Text('กรุณากรอกที่อยู่ให้ครบ')),
                 );
               }
               return false;
@@ -146,13 +131,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                     phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
 
-                    houseNumber: houseNumber,
-                    village: (village != null && village.isNotEmpty)
-                        ? village
-                        : null,
-                    moo: (moo != null && moo.isNotEmpty) ? moo : null,
-                    soi: (soi != null && soi.isNotEmpty) ? soi : null,
-                    road: (road != null && road.isNotEmpty) ? road : null,
+                    addressLine: addressLine,
 
                     zipCode: zipCode,
                     provinceId: provinceId,
@@ -168,14 +147,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                     phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
 
-                    houseNumber: houseNumber,
-                    village: (village != null && village.isNotEmpty)
-                        ? village
-                        : null,
-                    moo: (moo != null && moo.isNotEmpty) ? moo : null,
-                    soi: (soi != null && soi.isNotEmpty) ? soi : null,
-                    road: (road != null && road.isNotEmpty) ? road : null,
-
+                    addressLine: addressLine,
                     zipCode: zipCode,
                     provinceId: provinceId,
                     districtId: districtId,
@@ -349,7 +321,7 @@ class _AddressListState extends ConsumerState<AddressList> {
 
                                               const SizedBox(height: 6),
                                               Text(
-                                                "${addr.combinedAddressInfo} "
+                                                "${addr.addressLine} "
                                                 "${addr.subDistrict} ${addr.district} ${addr.province} ${addr.postalCode}",
                                                 style: const TextStyle(
                                                   fontSize: 14,
@@ -423,11 +395,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                   phoneNumber: '',
                   isPrimary: false,
 
-                  houseNumber: '',
-                  village: null,
-                  moo: null,
-                  soi: null,
-                  road: null,
+                  addressLine: '',
 
                   subDistrict: '',
                   district: '',
@@ -456,15 +424,12 @@ class _AddressListState extends ConsumerState<AddressList> {
 
                     final bool isPrimary = data['is_primary'] as bool? ?? false;
 
-                    final String houseNumber = (data['house_number'] ?? '')
+                    final String addressLine = (data['address_line'] ?? '')
                         .toString()
                         .trim();
-
-                    final String? village = (data['village'] as String?)
-                        ?.trim();
-                    final String? moo = (data['moo'] as String?)?.trim();
-                    final String? soi = (data['soi'] as String?)?.trim();
-                    final String? road = (data['road'] as String?)?.trim();
+                    final String zipCode = (data['postal_code'] ?? '')
+                        .toString()
+                        .trim();
 
                     final int? provinceId = (data['province_id'] as num?)
                         ?.toInt();
@@ -473,14 +438,10 @@ class _AddressListState extends ConsumerState<AddressList> {
                     final int? subDistrictId = (data['sub_district_id'] as num?)
                         ?.toInt();
 
-                    final String zipCode = (data['postal_code'] ?? '')
-                        .toString()
-                        .trim();
-
                     final double? lat = (data['latitude'] as num?)?.toDouble();
                     final double? lng = (data['longitude'] as num?)?.toDouble();
 
-                    if (houseNumber.isEmpty ||
+                    if (addressLine.isEmpty ||
                         zipCode.isEmpty ||
                         provinceId == null ||
                         districtId == null ||
@@ -511,15 +472,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                             phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
 
-                            houseNumber: houseNumber,
-                            village: (village != null && village.isNotEmpty)
-                                ? village
-                                : null,
-                            moo: (moo != null && moo.isNotEmpty) ? moo : null,
-                            soi: (soi != null && soi.isNotEmpty) ? soi : null,
-                            road: (road != null && road.isNotEmpty)
-                                ? road
-                                : null,
+                            addressLine: addressLine,
 
                             zipCode: zipCode,
                             provinceId: provinceId,
@@ -537,15 +490,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                             phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
 
-                            houseNumber: houseNumber,
-                            village: (village != null && village.isNotEmpty)
-                                ? village
-                                : null,
-                            moo: (moo != null && moo.isNotEmpty) ? moo : null,
-                            soi: (soi != null && soi.isNotEmpty) ? soi : null,
-                            road: (road != null && road.isNotEmpty)
-                                ? road
-                                : null,
+                            addressLine: addressLine,
 
                             zipCode: zipCode,
                             provinceId: provinceId,

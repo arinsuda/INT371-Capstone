@@ -3,12 +3,7 @@ class AddressModel {
   final String? label;
   final String phoneNumber;
 
-  final String houseNumber;
-  final String? village;
-  final String? moo;
-  final String? soi;
-  final String? road;
-
+  final String addressLine;
   final String postalCode;
 
   final double? latitude;
@@ -24,17 +19,13 @@ class AddressModel {
   final int? provinceId;
 
   String get displayName =>
-      (label != null && label!.isNotEmpty) ? label! : houseNumber;
+      (label != null && label!.isNotEmpty) ? label! : addressLine;
 
   AddressModel({
     required this.id,
     this.label,
     required this.phoneNumber,
-    required this.houseNumber,
-    this.village,
-    this.moo,
-    this.soi,
-    this.road,
+    required this.addressLine,
     required this.postalCode,
     this.latitude,
     this.longitude,
@@ -47,16 +38,6 @@ class AddressModel {
     this.provinceId,
   });
 
-  String get combinedAddressInfo {
-    List<String> parts = [houseNumber];
-    if (village != null && village!.isNotEmpty) parts.add('$village');
-    if (moo != null && moo!.isNotEmpty) parts.add('หมู่ $moo');
-    if (soi != null && soi!.isNotEmpty) parts.add('ซ.$soi');
-    if (road != null && road!.isNotEmpty) parts.add('ถ.$road');
-
-    return parts.join(' ');
-  }
-
   factory AddressModel.fromJson(Map<String, dynamic> json) {
     return AddressModel(
       id: json['id'] ?? 0,
@@ -64,11 +45,7 @@ class AddressModel {
       label: json['label'],
       phoneNumber: (json['phone_number'] ?? '').toString(),
 
-      houseNumber: json['house_number'] ?? '',
-      village: json['village'],
-      moo: json['moo'],
-      soi: json['soi'],
-      road: json['road'],
+      addressLine: json['address_line'] ?? '',
 
       postalCode: json['postal_code'] ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
@@ -90,12 +67,8 @@ class AddressModel {
       'id': id,
       'label': label,
       'phone_number': phoneNumber,
-
-      'house_number': houseNumber,
-      'village': village,
-      'moo': moo,
-      'soi': soi,
-      'road': road,
+      
+      'address_line': addressLine,
 
       'sub_district': subDistrict,
       'district': district,

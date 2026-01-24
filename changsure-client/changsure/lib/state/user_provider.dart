@@ -223,11 +223,7 @@ class UserNotifier extends Notifier<UserModel?> {
     String? label,
     String? phoneNumber,
 
-    required String houseNumber,
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
+    required String addressLine,
 
     required String zipCode,
 
@@ -251,19 +247,11 @@ class UserNotifier extends Notifier<UserModel?> {
               label: label,
               phoneNumber: phoneNumber,
               isPrimary: isPrimary,
-
-              houseNumber: houseNumber,
-              village: village,
-              moo: moo,
-              soi: soi,
-              road: road,
-
+              addressLine: addressLine,
               postCode: zipCode,
-
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
-
               lat: lat,
               lng: lng,
             )
@@ -272,19 +260,11 @@ class UserNotifier extends Notifier<UserModel?> {
               label: label,
               phoneNumber: phoneNumber,
               isPrimary: isPrimary,
-
-              houseNumber: houseNumber,
-              village: village,
-              moo: moo,
-              soi: soi,
-              road: road,
-
+              addressLine: addressLine,
               postCode: zipCode,
-
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
-
               lat: lat,
               lng: lng,
             );
@@ -325,19 +305,11 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> saveCustomerAddress({
     int? id,
-
     bool? isPrimary,
-
     String? label,
     String? phoneNumber,
 
-    required String houseNumber,
-
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
-
+    required String addressLine,
     required String zipCode,
 
     required int provinceId,
@@ -363,11 +335,7 @@ class UserNotifier extends Notifier<UserModel?> {
 
               isPrimary: isPrimary,
 
-              houseNumber: houseNumber,
-              village: village,
-              moo: moo,
-              soi: soi,
-              road: road,
+              addressLine: addressLine,
 
               postCode: zipCode,
 
@@ -380,14 +348,9 @@ class UserNotifier extends Notifier<UserModel?> {
             )
           : await service.createAddress(
               token: token,
-
-              houseNumber: houseNumber,
               phoneNumber: phoneNumber,
 
-              village: village,
-              moo: moo,
-              soi: soi,
-              road: road,
+              addressLine: addressLine,
 
               postCode: zipCode,
 

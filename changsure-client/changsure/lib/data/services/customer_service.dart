@@ -46,13 +46,9 @@ class CustomerService {
 
   Future<bool> createAddress({
     required String token,
-    required String houseNumber,
+    required String addressLine,
 
     String? phoneNumber,
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
 
     required int provinceId,
     required int districtId,
@@ -68,7 +64,7 @@ class CustomerService {
     final url = Uri.parse('${ApiConstants.baseUrl}/customers/me/addresses');
 
     final Map<String, dynamic> body = {
-      "house_number": houseNumber,
+      "address_line": addressLine,
 
       "province_id": provinceId,
       "district_id": districtId,
@@ -83,10 +79,8 @@ class CustomerService {
       final p = phoneNumber.trim();
       if (p.isNotEmpty) body["phone_number"] = p;
     }
-    if (village != null) body["village"] = village;
-    if (moo != null) body["moo"] = moo;
-    if (soi != null) body["soi"] = soi;
-    if (road != null) body["road"] = road;
+    if (addressLine != null) body["address_line"] = addressLine;
+
     if (postCode != null) body["postal_code"] = postCode;
     if (isPrimary != null) body["is_primary"] = isPrimary;
 
@@ -105,16 +99,9 @@ class CustomerService {
   Future<bool> updateAddress({
     required String token,
     required int addressId,
-
     String? label,
     String? phoneNumber,
-
-    String? houseNumber,
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
-
+    String? addressLine,
     int? provinceId,
     int? districtId,
     int? subDistrictId,
@@ -139,11 +126,7 @@ class CustomerService {
     }
     if (isPrimary != null) body["is_primary"] = isPrimary;
 
-    if (houseNumber != null) body["house_number"] = houseNumber;
-    if (village != null) body["village"] = village;
-    if (moo != null) body["moo"] = moo;
-    if (soi != null) body["soi"] = soi;
-    if (road != null) body["road"] = road;
+    if (addressLine != null) body["address_line"] = addressLine;
 
     if (provinceId != null) body["province_id"] = provinceId;
     if (districtId != null) body["district_id"] = districtId;

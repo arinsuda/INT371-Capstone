@@ -174,7 +174,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${widget.address!.combinedAddressInfo}\n",
+                              "${widget.address!.addressLine}\n",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

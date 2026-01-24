@@ -81,7 +81,7 @@ class AddressCard extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${selectedAddress.combinedAddressInfo} "
+                              "${selectedAddress.addressLine} "
                               "${selectedAddress.subDistrict} "
                               "${selectedAddress.district} "
                               "${selectedAddress.province} "

@@ -35,13 +35,10 @@ class AddressPage extends ConsumerWidget {
     return Address(
       addressId: currentAddress?.id,
       label: currentAddress?.label ?? '',
+      phoneNumber: currentAddress?.phoneNumber,
       isPrimary: currentAddress?.isPrimary ?? false,
 
-      houseNumber: currentAddress?.houseNumber ?? '',
-      village: currentAddress?.village,
-      moo: currentAddress?.moo,
-      soi: currentAddress?.soi,
-      road: currentAddress?.road,
+      addressLine: currentAddress?.addressLine ?? '',
 
       subDistrict: currentAddress?.subDistrict ?? '',
       district: currentAddress?.district ?? '',
@@ -59,6 +56,7 @@ class AddressPage extends ConsumerWidget {
         final notifier = ref.read(userProvider.notifier);
 
         final String label = (data['label'] ?? '').toString().trim();
+
         final dynamic rawPhone = data.containsKey('phone_number')
             ? data['phone_number']
             : null;
@@ -69,7 +67,7 @@ class AddressPage extends ConsumerWidget {
 
         final bool isPrimary = data['is_primary'] as bool? ?? false;
 
-        final String houseNumber = (data['house_number'] ?? '')
+        final String addressLine = (data['address_line'] ?? '')
             .toString()
             .trim();
 
@@ -88,7 +86,7 @@ class AddressPage extends ConsumerWidget {
         final double? lngN = (data['longitude'] as num?)?.toDouble();
 
         final missing = <String>[];
-        if (houseNumber.isEmpty) missing.add('บ้านเลขที่');
+        if (addressLine.isEmpty) missing.add('บ้านเลขที่');
         if (zipCode.isEmpty) missing.add('รหัสไปรษณีย์');
         if (provinceIdN == null) missing.add('จังหวัด');
         if (districtIdN == null) missing.add('เขต/อำเภอ');
@@ -127,12 +125,7 @@ class AddressPage extends ConsumerWidget {
             phoneNumber: phoneNumber,
             isPrimary: isPrimary,
 
-            houseNumber: houseNumber,
-            village: (village != null && village.isNotEmpty) ? village : null,
-            moo: (moo != null && moo.isNotEmpty) ? moo : null,
-            soi: (soi != null && soi.isNotEmpty) ? soi : null,
-            road: (road != null && road.isNotEmpty) ? road : null,
-
+            addressLine: addressLine,
             zipCode: zipCode,
 
             provinceId: provinceId,
@@ -149,11 +142,7 @@ class AddressPage extends ConsumerWidget {
             label: label.isNotEmpty ? label : null,
             isPrimary: isPrimary,
 
-            houseNumber: houseNumber,
-            village: (village != null && village.isNotEmpty) ? village : null,
-            moo: (moo != null && moo.isNotEmpty) ? moo : null,
-            soi: (soi != null && soi.isNotEmpty) ? soi : null,
-            road: (road != null && road.isNotEmpty) ? road : null,
+            addressLine: addressLine,
 
             zipCode: zipCode,
 

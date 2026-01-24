@@ -36,11 +36,7 @@ class BookingAddress extends ConsumerWidget {
       label: currentAddress?.label ?? '',
       isPrimary: currentAddress?.isPrimary ?? false,
 
-      houseNumber: currentAddress?.houseNumber ?? '',
-      village: currentAddress?.village,
-      moo: currentAddress?.moo,
-      soi: currentAddress?.soi,
-      road: currentAddress?.road,
+      addressLine: currentAddress?.addressLine ?? '',
 
       subDistrict: currentAddress?.subDistrict ?? '',
       district: currentAddress?.district ?? '',
@@ -63,14 +59,9 @@ class BookingAddress extends ConsumerWidget {
             (data['is_primary'] as bool?) ??
             (currentAddress?.isPrimary ?? false);
 
-        final String houseNumber =
-            (data['house_number'] ?? currentAddress?.houseNumber ?? '')
+        final String addressLine =
+            (data['address_line'] ?? currentAddress?.addressLine ?? '')
                 .toString();
-        final String? village =
-            (data['village'] as String?) ?? currentAddress?.village;
-        final String? moo = (data['moo'] as String?) ?? currentAddress?.moo;
-        final String? soi = (data['soi'] as String?) ?? currentAddress?.soi;
-        final String? road = (data['road'] as String?) ?? currentAddress?.road;
 
         final String subDistrict =
             (data['sub_district'] ?? currentAddress?.subDistrict ?? '')
@@ -101,7 +92,7 @@ class BookingAddress extends ConsumerWidget {
             ((data['longitude'] as num?)?.toDouble()) ??
             currentAddress?.longitude;
 
-        if (houseNumber.trim().isEmpty ||
+        if (addressLine.trim().isEmpty ||
             subDistrict.trim().isEmpty ||
             district.trim().isEmpty ||
             province.trim().isEmpty ||
@@ -132,12 +123,7 @@ class BookingAddress extends ConsumerWidget {
             label: label,
             isPrimary: isPrimary,
 
-            houseNumber: houseNumber,
-            village: village,
-            moo: moo,
-            soi: soi,
-            road: road,
-
+            addressLine: addressLine,
             zipCode: zipCode,
 
             provinceId: provinceId,
@@ -153,11 +139,7 @@ class BookingAddress extends ConsumerWidget {
             label: label,
             isPrimary: isPrimary,
 
-            houseNumber: houseNumber,
-            village: village,
-            moo: moo,
-            soi: soi,
-            road: road,
+            addressLine: addressLine,
             zipCode: zipCode,
 
             provinceId: provinceId,
