@@ -56,15 +56,22 @@ type TechnicianAddressResponse struct {
 	addressshared.BaseAddressResponse
 }
 
-func ToResponse(a *TechnicianAddress, phone *string) TechnicianAddressResponse {
+func ToResponse(a *TechnicianAddress, defaultPhone *string) TechnicianAddressResponse {
 	if a == nil {
 		return TechnicianAddressResponse{}
 	}
 
+	finalPhone := resolvePhone(a.PhoneNumber, defaultPhone)
+
 	resp := addressshared.BaseAddressResponse{
 		ID:          a.ID,
 		Label:       addressshared.StrOrEmpty(a.Label),
-		PhoneNumber: addressshared.StrOrEmpty(phone),
+		PhoneNumber: addressshared.StrOrEmpty(finalPhone),
+
+		AddressLine: addressshared.FirstNonEmpty(
+			addressshared.StrOrEmpty(a.AddressLine),
+			addressshared.BuildAddressLine(a.HouseNumber, a.Moo, a.Village, a.Soi, a.Road),
+		),
 
 		HouseNumber: addressshared.StrOrEmpty(a.HouseNumber),
 		Village:     addressshared.StrOrEmpty(a.Village),
