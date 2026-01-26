@@ -1,4 +1,5 @@
 import 'package:changsure/data/models/users/users_model.dart';
+import 'package:changsure/module/tracking/tracking_status_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -161,7 +162,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
     List<Widget> getPages() {
       final commonPages = [
         HomePage(),
-        const Center(child: Text('ติดตามสถานะ')),
+        TrackingStatusTab(),
         const Center(child: Text('แชท')),
       ];
 
@@ -171,6 +172,8 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
       } else {
         profilePage = const user_profile.UserProfile();
       }
+
+
 
       return [...commonPages, profilePage];
     }

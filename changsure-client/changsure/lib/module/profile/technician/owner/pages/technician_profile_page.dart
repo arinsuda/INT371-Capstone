@@ -44,7 +44,7 @@ class _ProfileState extends ConsumerState<TechnicianProfile> {
               child: Text(
                 "โปรไฟล์",
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
                 ),
