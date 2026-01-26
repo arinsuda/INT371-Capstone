@@ -59,7 +59,6 @@ func CalculateMatchScore(list []TechnicianListItem, priority string) []Technicia
 	for i := range list {
 		t := &list[i]
 
-		// Price Score (0-1)
 		scorePrice := 0.0
 		if maxPrice == minPrice {
 			scorePrice = 1.0
@@ -67,7 +66,6 @@ func CalculateMatchScore(list []TechnicianListItem, priority string) []Technicia
 			scorePrice = (maxPrice - t.PriceMin) / (maxPrice - minPrice)
 		}
 
-		// Dist Score (0-1)
 		scoreDist := 0.0
 		if maxDist == minDist {
 			scoreDist = 1.0
@@ -75,16 +73,13 @@ func CalculateMatchScore(list []TechnicianListItem, priority string) []Technicia
 			scoreDist = (maxDist - t.DistanceKm) / (maxDist - minDist)
 		}
 
-		// Rating Score (0-1)
 		scoreRating := t.RatingAvg / 5.0
 		if scoreRating > 1.0 {
 			scoreRating = 1.0
 		}
 
-		// Weighted Sum
 		totalScore := (w.Price * scorePrice) + (w.Distance * scoreDist) + (w.Rating * scoreRating)
 
-		// Bonus for badges
 		if len(t.Badges) > 0 {
 			totalScore += 0.05
 		}
@@ -93,7 +88,6 @@ func CalculateMatchScore(list []TechnicianListItem, priority string) []Technicia
 			totalScore = 1.0
 		}
 
-		// Convert to %
 		percentage := totalScore * 100
 		t.MatchPercentage = math.Round(percentage*100) / 100
 	}
