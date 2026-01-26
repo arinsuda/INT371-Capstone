@@ -57,8 +57,9 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
     );
   }
 
-  Widget _buildCategoryTag(String categoryName) {
-    final colors = ActivityConstants.getColors(categoryName);
+  Widget _buildCategoryTag(String shortName) {
+    final categoryKey = _toActivityCategoryKey(shortName);
+    final colors = ActivityConstants.getColors(categoryKey);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -68,7 +69,7 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
         border: Border.all(color: colors.border, width: 1),
       ),
       child: Text(
-        categoryName,
+        shortName, // โชว์แบบสั้นเหมือนเดิม
         style: TextStyle(color: colors.text, fontSize: 12),
       ),
     );
@@ -83,6 +84,19 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
     };
 
     return map[categoryName] ?? categoryName;
+  }
+
+  String _toActivityCategoryKey(String shortName) {
+    const map = {
+      "ทาสี": "งานทาสี",
+      "การประปา": "งานประปา",
+      "ประปา": "งานประปา",
+      "การไฟฟ้า": "งานไฟฟ้า",
+      "ไฟฟ้า": "งานไฟฟ้า",
+      "เครื่องใช้ไฟฟ้า": "งานเครื่องใช้ไฟฟ้า",
+    };
+
+    return map[shortName] ?? shortName;
   }
 
   @override

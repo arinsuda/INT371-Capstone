@@ -110,7 +110,10 @@ class _BookingCardState extends State<BookingCard> {
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const BookingCalendar()),
+            MaterialPageRoute(
+              builder: (_) =>
+                  BookingCalendar(technicianId: widget.technician.id),
+            ),
           );
 
           if (result != null && result is BookingDateResult) {
@@ -150,6 +153,7 @@ class _BookingCardState extends State<BookingCard> {
               builder: (_) => BookingCalendar(
                 initialDay: bookingDate!.day,
                 initialTime: bookingDate!.time,
+                technicianId: widget.technician.id,
               ),
             ),
           );
@@ -197,7 +201,9 @@ class _BookingCardState extends State<BookingCard> {
       onPressed: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const BookingCalendar()),
+          MaterialPageRoute(
+            builder: (_) => BookingCalendar(technicianId: widget.technician.id),
+          ),
         );
 
         if (result != null && result is BookingDateResult) {
@@ -235,6 +241,7 @@ class _BookingCardState extends State<BookingCard> {
             builder: (_) => BookingCalendar(
               initialDay: bookingDate!.day,
               initialTime: bookingDate!.time,
+              technicianId: widget.technician.id,
             ),
           ),
         );

@@ -102,4 +102,36 @@ class BookingService {
       throw Exception("Cancel booking failed: ${response.body}");
     }
   }
+
+  Future<CalendarResponse> getTechnicianCalendar({
+    required String token,
+    required int technicianId,
+    required String month, // format: 2026-04
+  }) async {
+    try {
+      final uri = Uri.parse(
+        "${ApiConstants.baseUrl}/technicians/calendar"
+            "?technician_id=$technicianId&month=$month",
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return CalendarResponse.fromJson(json);
+      } else {
+        throw Exception(
+          "Failed to load calendar: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

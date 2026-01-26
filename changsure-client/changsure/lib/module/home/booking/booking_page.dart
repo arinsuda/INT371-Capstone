@@ -110,7 +110,24 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 }
               },
             ),
-            Container(height: 24, color: AppColors.primaryBGHover),
+            Container(
+              height: !isProvinceValid ? 40 : 24,
+              color: AppColors.primaryBGHover,
+              child: !isProvinceValid
+                  ? Padding(
+                      padding: const EdgeInsets.only(
+                        top: 18,
+                        bottom: 0,
+                        left: 18,
+                      ),
+                      child: Text(
+                        "*ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
+                        style: TextStyle(color: AppColors.colorError, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
+
             AddressCard(
               selectedAddressId: selectedAddressId,
               onTap: () async {
@@ -132,19 +149,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               },
               provinceId: widget.provinceId,
             ),
-
-            if (!isProvinceValid)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16, left: 40),
-                child: Text(
-                  "ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(

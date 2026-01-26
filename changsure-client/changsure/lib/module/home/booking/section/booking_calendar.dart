@@ -32,8 +32,14 @@ String _formatBookingDate(DateTime day, String time) {
 class BookingCalendar extends ConsumerStatefulWidget {
   final DateTime? initialDay;
   final String? initialTime;
+  final int technicianId;
 
-  const BookingCalendar({super.key, this.initialDay, this.initialTime});
+  const BookingCalendar({
+    super.key,
+    this.initialDay,
+    this.initialTime,
+    required this.technicianId,
+  });
 
   @override
   ConsumerState<BookingCalendar> createState() => _BookingCalendarState();

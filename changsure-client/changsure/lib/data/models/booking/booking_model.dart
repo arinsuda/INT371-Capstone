@@ -17,7 +17,6 @@ class BookingCreateRequest {
     required this.images,
   });
 
-  /// ❗ ใช้เฉพาะ fields ธรรมดา (ไม่รวม images)
   Map<String, String> toFields() {
     final map = <String, String>{
       "technician_id": technicianId.toString(),
@@ -151,3 +150,77 @@ class TimeSlot {
     );
   }
 }
+
+class CalendarResponse {
+  final String month;
+  final List<CalendarDay> days;
+
+  CalendarResponse({
+    required this.month,
+    required this.days,
+  });
+
+  factory CalendarResponse.fromJson(Map<String, dynamic> json) {
+    return CalendarResponse(
+      month: json['month'] ?? "",
+      days: (json['days'] as List<dynamic>? ?? [])
+          .map((e) => CalendarDay.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+
+class CalendarDay {
+  final String? date;
+  final String? status;
+  final int totalSlots;
+  final int bookedSlots;
+  final int availableSlots;
+  final List<TimeSlots> timeSlots;
+
+  CalendarDay({
+    this.date,
+    this.status,
+    required this.totalSlots,
+    required this.bookedSlots,
+    required this.availableSlots,
+    required this.timeSlots,
+  });
+
+  factory CalendarDay.fromJson(Map<String, dynamic> json) {
+    return CalendarDay(
+      date: json['date']?.toString() ?? "",
+      status: json['status']?.toString() ?? "CLOSED",
+      totalSlots: json['total_slots'] ?? 0,
+      bookedSlots: json['booked_slots'] ?? 0,
+      availableSlots: json['available_slots'] ?? 0,
+      timeSlots: (json['time_slots'] as List? ?? [])
+          .map((e) => TimeSlots.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+
+class TimeSlots {
+  final int id;
+  final String timeRange;
+  final bool isBooked;
+
+  TimeSlots({
+    required this.id,
+    required this.timeRange,
+    required this.isBooked,
+  });
+
+  factory TimeSlots.fromJson(Map<String, dynamic> json) {
+    return TimeSlots(
+      id: json['id'],
+      timeRange: json['time_range'],
+      isBooked: json['is_booked'],
+    );
+  }
+}
+
+

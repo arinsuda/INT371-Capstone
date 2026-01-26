@@ -2,6 +2,7 @@ import 'package:changsure/data/services/booking_service.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/booking/booking_model.dart';
+import '../data/models/technician/technician_model.dart';
 
 final bookingServiceProvider = Provider((ref) => BookingService());
 
@@ -67,3 +68,22 @@ final bookingDetailProvider = FutureProvider.family<BookingData, int>((
 
   return service.getBookingDetail(token, bookingId);
 });
+
+final technicianCalendarProvider = FutureProvider.family<
+    CalendarResponse,
+    ({int technicianId, String month})>((ref, params) async {
+  final service = ref.read(bookingServiceProvider);
+  final user = ref.read(userProvider);
+
+  final token = user?.token;
+  if (token == null || token.isEmpty) {
+    throw Exception("Not logged in");
+  }
+
+  return service.getTechnicianCalendar(
+    token: token,
+    technicianId: params.technicianId,
+    month: params.month,
+  );
+});
+
