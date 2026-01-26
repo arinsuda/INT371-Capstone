@@ -36,7 +36,7 @@ func (r *repository) SearchTechnicians(ctx context.Context, custLat, custLng flo
 	var total int64
 
 	customerPoint := fmt.Sprintf("ST_GeomFromText('POINT(%f %f)', 4326)", custLat, custLng)
-	technicianPoint := "ST_GeomFromText(CONCAT('POINT(', ta.latitude, ' ', ta.longitude, ')'), 4326)"
+	technicianPoint := "ST_GeomFromText(CONCAT('POINT(', ANY_VALUE(ta.latitude), ' ', ANY_VALUE(ta.longitude), ')'), 4326)"
 	distanceFormula := fmt.Sprintf("ST_Distance_Sphere(%s, %s)", technicianPoint, customerPoint)
 
 	tx := r.db.Model(&technicians.Technician{}).WithContext(ctx).
@@ -46,8 +46,6 @@ func (r *repository) SearchTechnicians(ctx context.Context, custLat, custLng flo
 		Preload("Services.Service.Category").
 		Preload("Badges.Badge").
 		Preload("ServiceAreas.Province")
-
-	tx = tx.Select("technicians.*, " + distanceFormula + " AS distance_meters")
 
 	if q.ServiceID != nil {
 		tx = tx.Joins("JOIN technician_services ts ON ts.technician_id = technicians.id AND ts.service_id = ? AND ts.is_active = TRUE", *q.ServiceID)
@@ -68,23 +66,28 @@ func (r *repository) SearchTechnicians(ctx context.Context, custLat, custLng flo
 		tx = tx.Where("technicians.rating_avg >= ?", *q.MinRating)
 	}
 
+	if err := tx.Session(&gorm.Session{}).Distinct("technicians.id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	tx = tx.Select("technicians.*, " + distanceFormula + " AS distance_meters")
+
 	switch q.Sort {
 	case "dist_asc":
 		tx = tx.Order("distance_meters ASC")
 	case "dist_desc":
 		tx = tx.Order("distance_meters DESC")
 	case "price_asc":
-
 		tx = tx.Order("technicians.id ASC")
 	case "rating_desc":
 		tx = tx.Order("technicians.rating_avg DESC")
+	case "random":
+		tx = tx.Order("RAND()")
 	default:
 		tx = tx.Order("distance_meters ASC")
 	}
 
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+	tx = tx.Group("technicians.id")
 
 	offset := (q.Page - 1) * q.PageSize
 	err := tx.Limit(q.PageSize).Offset(offset).Find(&list).Error

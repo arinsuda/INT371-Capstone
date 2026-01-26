@@ -4,6 +4,7 @@ import (
 	"changsure-core-service/pkg/storage"
 	"context"
 	"errors"
+	"math/rand"
 	"time"
 )
 
@@ -122,42 +123,31 @@ func (s *service) GetTechnicianDetail(ctx context.Context, id uint) (*Technician
 }
 
 func (s *service) AutoSelectTechnician(ctx context.Context, customerID uint, req AutoSelectRequest) (*TechnicianListItem, error) {
-	// 1. เตรียม Query Filter (Hard Filters)
-	// ส่งค่าทุกอย่างที่รับมา ไปให้ Repository กรองออกจาก DB เลย
+
 	q := TechnicianSearchQuery{
 		ServiceID:  &req.ServiceID,
 		ProvinceID: &req.ProvinceID,
-
-		// Map ค่าละเอียด
-		MinPrice:  req.MinPrice,
-		MaxPrice:  req.MaxPrice,
-		MinRating: req.MinRating,
-		Sort:      "dist_asc", // ดึงคนที่ใกล้ที่สุดมาก่อน เพื่อมาคำนวณคะแนน
-
-		// ถ้า Repository คุณรองรับ Search ก็ map ไปด้วยได้
-		// Search: req.Search,
-
-		Page:     1,
-		PageSize: 100, // ดึงมาพิจารณาสัก 100 คน (ที่ผ่านเกณฑ์แล้ว)
+		MinPrice:   req.MinPrice,
+		MaxPrice:   req.MaxPrice,
+		MinRating:  req.MinRating,
+		Sort:       "random",
+		Page:       1,
+		PageSize:   100,
 	}
 
-	// 2. ดึงข้อมูล (คนที่ไม่ผ่าน Min/Max Price หรือ Min Rating จะไม่หลุดมาใน list นี้)
 	list, _, err := s.ListTechnicians(ctx, customerID, q)
 	if err != nil {
 		return nil, err
 	}
 
-	// ถ้ากรองแล้วไม่เหลือใครเลย
 	if len(list) == 0 {
 		return nil, nil
 	}
 
-	// 3. คำนวณคะแนนความแมตช์ (Soft Selection)
-	// เพื่อหาว่าในบรรดาคนที่ "ผ่านเกณฑ์" ใครคือคนที่ "ดีที่สุด" ตาม Priority
-	scoredList := CalculateMatchScore(list, req.Priority)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomIndex := r.Intn(len(list))
 
-	// 4. เลือกคนที่คะแนนเยอะที่สุด
-	best := PickBestTechnician(scoredList)
+	selectedTech := &list[randomIndex]
 
-	return best, nil
+	return selectedTech, nil
 }

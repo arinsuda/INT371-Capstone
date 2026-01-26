@@ -45,11 +45,9 @@ func main() {
 
 	if shouldRunMigrations(cfg) {
 		log.Println("🔄 Running database migrations...")
-
 		if err := db.MigrateWithExtras(); err != nil {
 			log.Fatalf("❌ Migration failed: %v", err)
 		}
-
 		if err := db.ApplyExtras(); err != nil {
 			log.Fatalf("❌ Apply SQL extras failed: %v", err)
 		}
@@ -186,6 +184,7 @@ func printStartupInfo(cfg *config.Config) {
 	log.Printf("🔌 Port: %s", cfg.App.Port)
 	log.Printf("📍 API Base: http://localhost:%s/api/v1", cfg.App.Port)
 	log.Printf("💚 Health Check: http://localhost:%s/health", cfg.App.Port)
+	log.Printf("📡 WebSocket: ws://localhost:%s/ws/customers", cfg.App.Port)
 	fmt.Println()
 }
 
@@ -197,5 +196,5 @@ func printBanner() {
  / /___/ / / / /_/ / / / / /_/ / ___/ / /_/ / /  /  __/
  \____/_/ /_/\__,_/_/ /_/\__, / /____/\__,_/_/   \___/ 
                         /____/                         
-	`)
+    `)
 }
