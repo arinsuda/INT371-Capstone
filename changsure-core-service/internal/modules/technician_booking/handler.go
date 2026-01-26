@@ -203,3 +203,64 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 		}
 	}
 }
+
+func (h *Handler) StartJob(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	bkg, err := h.service.StartJob(c.Context(), techID, bookingID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), bkg)
+	h.broadcastToCustomer(bkg, "JOB_STARTED")
+
+	return c.JSON(fiber.Map{"success": true, "message": "เริ่มปฏิบัติงาน", "data": bkg})
+}
+
+func (h *Handler) CompleteJob(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	bkg, err := h.service.CompleteJob(c.Context(), techID, bookingID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), bkg)
+	h.broadcastToCustomer(bkg, "JOB_COMPLETED")
+
+	return c.JSON(fiber.Map{"success": true, "message": "แจ้งงานเสร็จสิ้น", "data": bkg})
+}
+
+func (h *Handler) handleError(c fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, ErrBookingNotFound):
+		return appErrors.NotFound(c, "booking not found")
+	case errors.Is(err, ErrForbiddenBooking):
+		return appErrors.Forbidden(c, "forbidden")
+	case errors.Is(err, ErrInvalidBookingStatus):
+		return appErrors.Conflict(c, "invalid booking status transition")
+	default:
+		return appErrors.InternalError(c, "failed to update booking status", err)
+	}
+}
+
+func (h *Handler) broadcastToCustomer(bkg *booking.Booking, eventType string) {
+	if h.hub != nil && bkg.CustomerID != 0 {
+		payload := realtime.MarshalEvent(eventType, map[string]any{
+			"booking_id":       bkg.ID,
+			"status":           bkg.Status,
+			"technician_id":    bkg.TechnicianID,
+			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
+		})
+		go h.hub.BroadcastToCustomer(bkg.CustomerID, payload)
+	}
+}

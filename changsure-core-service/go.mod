@@ -24,6 +24,7 @@ require (
 require (
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 )
 

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"changsure-core-service/internal/config"
 )
@@ -48,15 +48,8 @@ func JWTAuth(secretKey string) fiber.Handler {
 		}
 		tokenStr := parts[1]
 
-		claims := &Claims{}
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fiber.ErrUnauthorized
-			}
-			return []byte(secretKey), nil
-		})
-		if err != nil || !token.Valid {
+		claims, err := ParseToken(tokenStr, secretKey)
+		if err != nil {
 			return jsonError(c, fiber.StatusUnauthorized, "Invalid or expired token", nil)
 		}
 
@@ -90,8 +83,6 @@ func RoleAuth(allowedRoles ...string) fiber.Handler {
 			return jsonError(c, fiber.StatusForbidden, "Role information not found", nil)
 		}
 
-		fmt.Printf("User role from token: '%s', Required roles: %v\n", role, allowedRoles)
-
 		for _, r := range allowedRoles {
 			if role == r {
 				return c.Next()
@@ -108,12 +99,12 @@ func ParseToken(tokenStr, secret string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fiber.ErrUnauthorized
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return []byte(secret), nil
 	})
 	if err != nil || !token.Valid {
-		return nil, fiber.ErrUnauthorized
+		return nil, err
 	}
 	return claims, nil
 }

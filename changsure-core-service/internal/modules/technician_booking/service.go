@@ -21,6 +21,10 @@ var (
 type Service interface {
 	AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 	RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*booking.Booking, error)
+
+	StartJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
+	CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
+
 	ListBookings(ctx context.Context, technicianID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error)
 }
 
@@ -170,6 +174,112 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 	}
 
 	return full, nil
+}
+
+func (s *service) StartJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	var updated *booking.Booking
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repo.WithTx(tx)
+
+		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrBookingNotFound
+			}
+			return err
+		}
+
+		if b.TechnicianID != technicianID {
+			return ErrForbiddenBooking
+		}
+
+		if b.Status != booking.BookingStatusAccepted {
+			return ErrInvalidBookingStatus
+		}
+
+		now := time.Now()
+		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusInProgress, now); err != nil {
+			return err
+		}
+
+		updated = b
+		updated.Status = booking.BookingStatusInProgress
+		updated.UpdatedAt = now
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	s.sendNotification(ctx, updated, "JOB_STARTED", "ช่างเริ่มปฏิบัติงานแล้ว", "ช่างได้เริ่มดำเนินการตามขั้นตอนแล้ว")
+
+	return s.repo.FindByID(ctx, bookingID)
+}
+
+func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	var updated *booking.Booking
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repo.WithTx(tx)
+
+		b, err := txRepo.FindByIDForUpdate(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrBookingNotFound
+			}
+			return err
+		}
+
+		if b.TechnicianID != technicianID {
+			return ErrForbiddenBooking
+		}
+
+		if b.Status != booking.BookingStatusInProgress {
+			return ErrInvalidBookingStatus
+		}
+
+		now := time.Now()
+
+		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusWaitingPayment, now); err != nil {
+			return err
+		}
+
+		updated = b
+		updated.Status = booking.BookingStatusWaitingPayment
+		updated.UpdatedAt = now
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	s.sendNotification(ctx, updated, "JOB_COMPLETED", "ดำเนินการเสร็จสิ้น", "กรุณาตรวจสอบและชำระค่าบริการ")
+
+	return s.repo.FindByID(ctx, bookingID)
+}
+
+func (s *service) sendNotification(ctx context.Context, b *booking.Booking, notifType, title, message string) {
+	if s.notif != nil && b != nil && b.CustomerID != 0 {
+		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
+			RecipientRole: notification.RoleCustomer,
+			RecipientID:   b.CustomerID,
+			Type:          notifType,
+			Title:         title,
+			Message:       message,
+			EntityType:    "booking",
+			EntityID:      b.ID,
+			Data: map[string]any{
+				"booking_id":       b.ID,
+				"booking_number":   b.BookingNumber,
+				"status":           b.Status,
+				"technician_id":    b.TechnicianID,
+				"appointment_date": b.AppointmentDate.Format("2006-01-02"),
+			},
+		})
+	}
 }
 
 func (s *service) ListBookings(
