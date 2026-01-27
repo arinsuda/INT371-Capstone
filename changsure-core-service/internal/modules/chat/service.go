@@ -1,0 +1,127 @@
+package chat
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"changsure-core-service/internal/modules/booking"
+	"changsure-core-service/internal/realtime"
+)
+
+type Service interface {
+	SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq) (*ChatMessage, error)
+	GetChatHistory(ctx context.Context, userID uint, bookingID uint) ([]ChatMessage, error)
+
+	GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error)
+}
+
+type service struct {
+	chatRepo    Repository
+	bookingRepo booking.Repository
+	hub         *realtime.Hub
+}
+
+func NewService(chatRepo Repository, bookingRepo booking.Repository, hub *realtime.Hub) Service {
+	return &service{
+		chatRepo:    chatRepo,
+		bookingRepo: bookingRepo,
+		hub:         hub,
+	}
+}
+
+func (s *service) SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq) (*ChatMessage, error) {
+
+	bk, err := s.bookingRepo.FindByID(ctx, req.BookingID)
+	if err != nil {
+		return nil, fmt.Errorf("booking not found: %v", err)
+	}
+
+	var receiverID uint
+	if userRole == "technician" {
+		if bk.TechnicianID != userID {
+			return nil, errors.New("unauthorized: you are not the technician for this job")
+		}
+		receiverID = bk.CustomerID
+	} else if userRole == "customer" {
+		if bk.CustomerID != userID {
+			return nil, errors.New("unauthorized: you are not the customer for this job")
+		}
+		receiverID = bk.TechnicianID
+	} else {
+		return nil, errors.New("invalid role")
+	}
+
+	if !canChat(bk.Status) {
+		return nil, fmt.Errorf("chat is not allowed in status: %s", bk.Status)
+	}
+
+	msg := &ChatMessage{
+		BookingID:  req.BookingID,
+		SenderID:   userID,
+		SenderRole: userRole,
+		Type:       req.Type,
+		Content:    req.Content,
+		IsRead:     false,
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.chatRepo.Create(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	eventPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)
+
+	if userRole == "technician" {
+		s.hub.BroadcastToCustomer(receiverID, eventPayload)
+	} else {
+		s.hub.BroadcastToTechnician(receiverID, eventPayload)
+	}
+
+	return msg, nil
+}
+
+func (s *service) GetChatHistory(ctx context.Context, userID uint, bookingID uint) ([]ChatMessage, error) {
+
+	bk, err := s.bookingRepo.FindByID(ctx, bookingID)
+	if err != nil {
+		return nil, err
+	}
+
+	var userRole string
+	if bk.TechnicianID == userID {
+		userRole = "technician"
+	} else if bk.CustomerID == userID {
+		userRole = "customer"
+	} else {
+		return nil, errors.New("unauthorized")
+	}
+
+	msgs, err := s.chatRepo.GetHistory(ctx, bookingID, 0, 100)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		_ = s.chatRepo.MarkAsRead(context.Background(), bookingID, userID, userRole)
+	}()
+
+	return msgs, nil
+}
+
+func canChat(status string) bool {
+	switch status {
+	case booking.BookingStatusAccepted,
+		booking.BookingStatusInProgress,
+		booking.BookingStatusWaitingPayment:
+		return true
+	default:
+
+		return false
+	}
+}
+
+func (s *service) GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error) {
+	return s.chatRepo.GetChatRooms(ctx, userID, userRole)
+}

@@ -9,6 +9,7 @@ import (
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/booking"
+	"changsure-core-service/internal/modules/chat"
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	customerbooking "changsure-core-service/internal/modules/customer_booking"
@@ -130,6 +131,10 @@ type Container struct {
 	TechnicianScheduleService technicianschedule.Service
 	TechnicianScheduleHandler *technicianschedule.Handler
 
+	ChatRepo    chat.Repository
+	ChatService chat.Service
+	ChatHandler *chat.Handler
+
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
 }
@@ -178,6 +183,8 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initCustomerBookingModule()
 	c.initTechnicianBookingModule()
 	c.initTechnicianCalendarModule()
+
+	c.initChatModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -364,12 +371,10 @@ func (c *Container) initTimeSlotModule() {
 	c.TimeSlotHandler = timeslot.NewHandler(c.TimeSlotService)
 }
 
-// Core booking module (shared repository)
 func (c *Container) initBookingCoreModule() {
 	c.BookingRepo = booking.NewRepository(c.DB)
 }
 
-// Customer booking module
 func (c *Container) initCustomerBookingModule() {
 	if c.BookingRepo == nil {
 		panic("customer_booking: BookingRepo must be initialized first")
@@ -396,7 +401,6 @@ func (c *Container) initCustomerBookingModule() {
 	)
 }
 
-// Technician booking module
 func (c *Container) initTechnicianBookingModule() {
 	if c.BookingRepo == nil {
 		panic("technician_booking: BookingRepo must be initialized first")
@@ -429,6 +433,25 @@ func (c *Container) initTechnicianScheduleModule() {
 	c.TechnicianScheduleHandler = technicianschedule.NewHandler(c.TechnicianScheduleService)
 }
 
+func (c *Container) initChatModule() {
+	if c.BookingRepo == nil {
+		panic("chat: BookingRepo must be initialized first")
+	}
+	if c.Hub == nil {
+		panic("chat: RealtimeHub is required")
+	}
+
+	c.ChatRepo = chat.NewRepository(c.DB)
+
+	c.ChatService = chat.NewService(
+		c.ChatRepo,
+		c.BookingRepo,
+		c.Hub,
+	)
+
+	c.ChatHandler = chat.NewHandler(c.ChatService)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -458,5 +481,6 @@ func AllModels() []interface{} {
 	models = append(models, booking.Models()...)
 	models = append(models, timeslot.Models()...)
 
+	models = append(models, chat.Models()...)
 	return models
 }
