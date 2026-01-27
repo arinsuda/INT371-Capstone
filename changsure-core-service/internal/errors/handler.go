@@ -2,6 +2,7 @@ package errors
 
 import (
 	"changsure-core-service/internal/validation"
+	"errors"
 	"log"
 
 	"github.com/gofiber/fiber/v3"
@@ -100,4 +101,32 @@ func TooManyRequests(c fiber.Ctx, msg string) error {
 		Status:  "error",
 		Message: msg,
 	})
+}
+
+func HandleError(c fiber.Ctx, err error) error {
+	var appErr *AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Code {
+		case fiber.StatusNotFound:
+			return NotFound(c, appErr.Message)
+		case fiber.StatusForbidden:
+			return Forbidden(c, appErr.Message)
+		case fiber.StatusBadRequest:
+			return BadRequest(c, appErr.Message)
+		case fiber.StatusUnprocessableEntity:
+			return UnprocessableEntity(c, appErr.Message)
+		case fiber.StatusInternalServerError:
+			return InternalError(c, appErr.Message, appErr.Err)
+		case fiber.StatusServiceUnavailable:
+			return ServiceUnavailable(c, appErr.Message)
+		case fiber.StatusNotImplemented:
+			return NotImplemented(c, appErr.Message)
+		case fiber.StatusTooManyRequests:
+			return TooManyRequests(c, appErr.Message)
+		default:
+			return InternalError(c, appErr.Message, appErr.Err)
+		}
+	}
+
+	return InternalError(c, "An unexpected error occurred", err)
 }

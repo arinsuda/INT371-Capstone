@@ -154,6 +154,7 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 	r.container.ServiceHandler.RegisterRoutes(api)
 	r.container.BadgeHandler.RegisterRoutes(api)
 	r.container.TimeSlotHandler.RegisterRoutes(api)
+	r.container.ChatHandler.RegisterRoutes(api)
 
 	// OCR functionality
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
