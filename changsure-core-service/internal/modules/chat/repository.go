@@ -1,7 +1,10 @@
 package chat
 
 import (
+	"changsure-core-service/pkg/storage"
 	"context"
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -14,11 +17,12 @@ type Repository interface {
 }
 
 type repository struct {
-	db *gorm.DB
+	db      *gorm.DB
+	storage storage.Storage
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repository{db: db}
+func NewRepository(db *gorm.DB, storage storage.Storage) Repository {
+	return &repository{db: db, storage: storage}
 }
 
 func (r *repository) Create(ctx context.Context, msg *ChatMessage) error {
@@ -109,5 +113,15 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 	`
 
 	err := r.db.WithContext(ctx).Raw(query, role, userID).Scan(&results).Error
+
+	for i := range results {
+		if results[i].OtherPersonImg != "" {
+			url, err := r.storage.PresignGet(ctx, results[i].OtherPersonImg, 24*time.Hour, false)
+			if err == nil {
+				results[i].OtherPersonImg = url
+			}
+		}
+	}
+
 	return results, err
 }

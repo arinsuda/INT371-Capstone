@@ -1,9 +1,9 @@
 package chat
 
 import (
+	apperrors "changsure-core-service/internal/errors"
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"changsure-core-service/internal/modules/booking"
@@ -35,26 +35,26 @@ func (s *service) SendMessage(ctx context.Context, userID uint, userRole string,
 
 	bk, err := s.bookingRepo.FindByID(ctx, req.BookingID)
 	if err != nil {
-		return nil, fmt.Errorf("booking not found: %v", err)
+		return nil, apperrors.NewNotFound("ไม่พบข้อมูลการจอง (Booking Not Found)")
 	}
 
 	var receiverID uint
 	if userRole == "technician" {
 		if bk.TechnicianID != userID {
-			return nil, errors.New("unauthorized: you are not the technician for this job")
+			return nil, apperrors.NewForbidden("คุณไม่ใช่ช่างผู้รับผิดชอบงานนี้")
 		}
 		receiverID = bk.CustomerID
 	} else if userRole == "customer" {
 		if bk.CustomerID != userID {
-			return nil, errors.New("unauthorized: you are not the customer for this job")
+			return nil, apperrors.NewForbidden("คุณไม่ใช่ลูกค้าเจ้าของงานนี้")
 		}
 		receiverID = bk.TechnicianID
 	} else {
-		return nil, errors.New("invalid role")
+		return nil, apperrors.NewBadRequest("Invalid role")
 	}
 
 	if !canChat(bk.Status) {
-		return nil, fmt.Errorf("chat is not allowed in status: %s", bk.Status)
+		return nil, apperrors.NewUnprocessable("ไม่สามารถส่งข้อความได้ในสถานะ: " + bk.Status)
 	}
 
 	msg := &ChatMessage{
@@ -68,7 +68,7 @@ func (s *service) SendMessage(ctx context.Context, userID uint, userRole string,
 	}
 
 	if err := s.chatRepo.Create(ctx, msg); err != nil {
-		return nil, err
+		return nil, apperrors.NewInternal(err)
 	}
 
 	eventPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)

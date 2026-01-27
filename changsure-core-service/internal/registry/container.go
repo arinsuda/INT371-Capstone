@@ -440,8 +440,11 @@ func (c *Container) initChatModule() {
 	if c.Hub == nil {
 		panic("chat: RealtimeHub is required")
 	}
+	if c.Storage == nil {
+		panic("chat: Storage is required")
+	}
 
-	c.ChatRepo = chat.NewRepository(c.DB)
+	c.ChatRepo = chat.NewRepository(c.DB, c.Storage)
 
 	c.ChatService = chat.NewService(
 		c.ChatRepo,

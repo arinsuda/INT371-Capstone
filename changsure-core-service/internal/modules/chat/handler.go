@@ -1,6 +1,7 @@
 package chat
 
 import (
+	apperrors "changsure-core-service/internal/errors"
 	"github.com/gofiber/fiber/v3"
 	"strconv"
 )
@@ -14,26 +15,25 @@ func NewHandler(s Service) *Handler {
 }
 
 func (h *Handler) SendMessage(c fiber.Ctx) error {
-
 	userID := c.Locals("userID").(uint)
 	role := c.Locals("role").(string)
 
 	roomIdStr := c.Params("roomId")
 	bookingID, err := strconv.ParseUint(roomIdStr, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid room ID"})
+		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
 
 	var req SendMessageReq
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return apperrors.BadRequest(c, "Invalid request body")
 	}
 
 	req.BookingID = uint(bookingID)
 
 	msg, err := h.service.SendMessage(c.Context(), userID, role, req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return apperrors.HandleError(c, err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
