@@ -456,6 +456,7 @@ func (c *Container) initChatModule() {
 		c.ChatRepo,
 		c.BookingRepo,
 		c.Hub,
+		c.Storage,
 	)
 
 	c.ChatHandler = chat.NewHandler(c.ChatService)

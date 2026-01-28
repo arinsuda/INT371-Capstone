@@ -18,5 +18,5 @@ type ChatRoomResponse struct {
 type SendMessageReq struct {
 	BookingID uint        `json:"booking_id"`
 	Type      MessageType `json:"type" validate:"required,oneof=TEXT IMAGE"`
-	Content   string      `json:"content" validate:"required"`
+	Content   string      `form:"content" json:"content"`
 }
