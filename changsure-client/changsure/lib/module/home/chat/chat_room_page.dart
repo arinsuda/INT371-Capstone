@@ -389,6 +389,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMessageRead = msg.isRead;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -403,7 +404,11 @@ class _ChatBubble extends StatelessWidget {
           ],
 
           if (isMe) ...[
-            _MessageTimestampOutside(timestamp: msg.createdAt, isMe: true),
+            _MessageTimestampOutside(
+              timestamp: msg.createdAt,
+              isMe: true,
+              isRead: isMessageRead,
+            ),
             const SizedBox(width: 4),
           ],
 
@@ -418,7 +423,11 @@ class _ChatBubble extends StatelessWidget {
 
           if (!isMe) ...[
             const SizedBox(width: 4),
-            _MessageTimestampOutside(timestamp: msg.createdAt, isMe: false),
+            _MessageTimestampOutside(
+              timestamp: msg.createdAt,
+              isMe: false,
+              isRead: false,
+            ),
           ],
         ],
       ),
@@ -459,17 +468,40 @@ class _MessageBubbleContent extends StatelessWidget {
 class _MessageTimestampOutside extends StatelessWidget {
   final DateTime timestamp;
   final bool isMe;
+  final bool isRead;
 
-  const _MessageTimestampOutside({required this.timestamp, required this.isMe});
+  const _MessageTimestampOutside({
+    required this.timestamp,
+    required this.isMe,
+    required this.isRead,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Text(
-        DateFormat('HH:mm').format(timestamp.toLocal()),
-        style: TextStyle(color: Colors.grey[500], fontSize: 10),
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+
+      crossAxisAlignment: isMe
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        if (isMe && isRead)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 2),
+            child: Text(
+              'อ่านแล้ว',
+              style: TextStyle(color: Colors.grey, fontSize: 10),
+            ),
+          ),
+
+        Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Text(
+            DateFormat('HH:mm').format(timestamp.toLocal()),
+            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+          ),
+        ),
+      ],
     );
   }
 }
