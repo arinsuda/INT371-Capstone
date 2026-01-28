@@ -2,16 +2,22 @@ package chat
 
 import (
 	apperrors "changsure-core-service/internal/errors"
+	"changsure-core-service/pkg/storage"
 	"context"
 	"errors"
+	"fmt"
+	"mime/multipart"
+	"path/filepath"
 	"time"
 
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/realtime"
+
+	"github.com/google/uuid"
 )
 
 type Service interface {
-	SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq) (*ChatMessage, error)
+	SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq, file *multipart.FileHeader) (*ChatMessage, error)
 	GetChatHistory(ctx context.Context, userID uint, bookingID uint) ([]ChatMessage, error)
 
 	GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error)
@@ -21,17 +27,19 @@ type service struct {
 	chatRepo    Repository
 	bookingRepo booking.Repository
 	hub         *realtime.Hub
+	storage     storage.Storage
 }
 
-func NewService(chatRepo Repository, bookingRepo booking.Repository, hub *realtime.Hub) Service {
+func NewService(chatRepo Repository, bookingRepo booking.Repository, hub *realtime.Hub, storage storage.Storage) Service {
 	return &service{
 		chatRepo:    chatRepo,
 		bookingRepo: bookingRepo,
 		hub:         hub,
+		storage:     storage,
 	}
 }
 
-func (s *service) SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq) (*ChatMessage, error) {
+func (s *service) SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq, file *multipart.FileHeader) (*ChatMessage, error) {
 
 	bk, err := s.bookingRepo.FindByID(ctx, req.BookingID)
 	if err != nil {
@@ -57,18 +65,54 @@ func (s *service) SendMessage(ctx context.Context, userID uint, userRole string,
 		return nil, apperrors.NewUnprocessable("ไม่สามารถส่งข้อความได้ในสถานะ: " + bk.Status)
 	}
 
+	finalContent := req.Content
+	if req.Type == MsgTypeImage {
+		if file == nil {
+			return nil, apperrors.NewBadRequest("Image type requires a file")
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			return nil, apperrors.NewInternal(err)
+		}
+		defer src.Close()
+
+		ext := filepath.Ext(file.Filename)
+		newFilename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+		folder := fmt.Sprintf("chats/%d", req.BookingID)
+
+		key, err := s.storage.UploadFile(ctx, src, newFilename, folder, file.Size, file.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, apperrors.NewInternal(err)
+		}
+
+		finalContent = key
+	} else {
+
+		if finalContent == "" {
+			return nil, apperrors.NewBadRequest("Content is required for TEXT message")
+		}
+	}
+
 	msg := &ChatMessage{
 		BookingID:  req.BookingID,
 		SenderID:   userID,
 		SenderRole: userRole,
 		Type:       req.Type,
-		Content:    req.Content,
+		Content:    finalContent,
 		IsRead:     false,
 		CreatedAt:  time.Now(),
 	}
 
 	if err := s.chatRepo.Create(ctx, msg); err != nil {
 		return nil, apperrors.NewInternal(err)
+	}
+
+	if msg.Type == MsgTypeImage {
+		presignedURL, err := s.storage.PresignGet(ctx, msg.Content, 24*time.Hour, false)
+		if err == nil {
+			msg.Content = presignedURL
+		}
 	}
 
 	eventPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)
@@ -101,6 +145,15 @@ func (s *service) GetChatHistory(ctx context.Context, userID uint, bookingID uin
 	msgs, err := s.chatRepo.GetHistory(ctx, bookingID, 0, 100)
 	if err != nil {
 		return nil, err
+	}
+
+	for i := range msgs {
+		if msgs[i].Type == MsgTypeImage {
+			url, err := s.storage.PresignGet(ctx, msgs[i].Content, 24*time.Hour, false)
+			if err == nil {
+				msgs[i].Content = url
+			}
+		}
 	}
 
 	go func() {

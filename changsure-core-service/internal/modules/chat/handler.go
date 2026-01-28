@@ -31,7 +31,9 @@ func (h *Handler) SendMessage(c fiber.Ctx) error {
 
 	req.BookingID = uint(bookingID)
 
-	msg, err := h.service.SendMessage(c.Context(), userID, role, req)
+	file, err := c.FormFile("file")
+
+	msg, err := h.service.SendMessage(c.Context(), userID, role, req, file)
 	if err != nil {
 		return apperrors.HandleError(c, err)
 	}
