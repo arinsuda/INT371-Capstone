@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
@@ -46,6 +47,7 @@ type Container struct {
 	DB      *gorm.DB
 	Storage *storage.MinioStorage
 	Hub     *realtime.Hub
+	Logger  *slog.Logger
 
 	AuthRepo    auth.RefreshTokenRepository
 	AuthService auth.Service
@@ -256,7 +258,7 @@ func (c *Container) initOCRModule(cfg *config.Config) {
 func (c *Container) initCustomerModule() {
 	c.CustomerRepo = customer.NewRepository(c.DB)
 	c.CustomerService = customer.NewService(c.CustomerRepo)
-	c.CustomerHandler = customer.NewHandler(c.CustomerService)
+	c.CustomerHandler = customer.NewHandler(c.CustomerService, c.Storage, c.Logger)
 }
 
 func (c *Container) initProvinceModule() {
