@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
@@ -149,9 +150,12 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 		return nil, fmt.Errorf("configuration is required")
 	}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	c := &Container{
-		DB:  db,
-		Hub: hub,
+		DB:     db,
+		Hub:    hub,
+		Logger: logger,
 	}
 
 	if err := c.initStorage(cfg); err != nil {
