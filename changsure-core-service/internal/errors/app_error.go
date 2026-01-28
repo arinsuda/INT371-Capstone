@@ -35,3 +35,15 @@ func NewInternal(err error) *AppError {
 func NewUnprocessable(message string) *AppError {
 	return &AppError{Code: http.StatusUnprocessableEntity, Message: message}
 }
+
+func NewUnauthorized(message string) *AppError {
+	return &AppError{Code: http.StatusUnauthorized, Message: message}
+}
+
+func NewConflict(message string) *AppError {
+	return &AppError{Code: http.StatusConflict, Message: message}
+}
+
+func NewServiceUnavailable(message string) *AppError {
+	return &AppError{Code: http.StatusServiceUnavailable, Message: message}
+}
