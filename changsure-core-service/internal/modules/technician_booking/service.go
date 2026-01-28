@@ -26,6 +26,7 @@ type Service interface {
 	CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 
 	ListBookings(ctx context.Context, technicianID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error)
+	GetBookingByID(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 }
 
 type service struct {
@@ -320,4 +321,20 @@ func (s *service) ListBookings(
 	}
 
 	return items, total, page, limit, nil
+}
+
+func (s *service) GetBookingByID(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	b, err := s.repo.FindByID(ctx, bookingID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookingNotFound
+		}
+		return nil, err
+	}
+
+	if b.TechnicianID != technicianID {
+		return nil, ErrForbiddenBooking
+	}
+
+	return b, nil
 }
