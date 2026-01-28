@@ -59,7 +59,17 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    final timeSlotsAsync = ref.watch(timeSlotsProvider);
+    final timeSlotParams = selectedDay != null
+        ? (
+            technicianId: widget.technicianId,
+            date:
+                "${selectedDay!.year}-${selectedDay!.month.toString().padLeft(2, '0')}-${selectedDay!.day.toString().padLeft(2, '0')}",
+          )
+        : null;
+
+    final timeSlotsAsync = timeSlotParams != null
+        ? ref.watch(availableTimeSlotsProvider(timeSlotParams))
+        : const AsyncValue.data([]);
 
     return Scaffold(
       body: SafeArea(
@@ -103,7 +113,7 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
                         spacing: 10,
                         runSpacing: 10,
                         children: slots.map((slot) {
-                          return _selectTag(slot.displayText, selectedTime, (
+                          return _selectTag(slot.label, selectedTime, (
                             v,
                           ) {
                             setState(() {

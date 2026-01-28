@@ -88,7 +88,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         addresses.isNotEmpty) {
       final primary = addresses.where((a) => a.isPrimary == true).toList();
       if (primary.isNotEmpty) {
-        selectedAddressId = primary.first.id; // ✅ auto select
+        selectedAddressId = primary.first.id;
       }
     }
 
@@ -122,7 +122,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       ),
                       child: Text(
                         "*ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
-                        style: TextStyle(color: AppColors.colorError, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     )
                   : const SizedBox(),
@@ -262,26 +266,38 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             );
 
                             try {
-                              final result = await ref.read(
-                                createBookingProvider(req).future,
-                              );
+                              final result = await ref
+                                  .read(bookingControllerProvider.notifier)
+                                  .createBooking(req);
+
                               debugPrint("BOOKING RESULT => $result");
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => BookingSuccess(
-                                    bookingDate: selectedBookingDate!,
-                                    technician: widget.technician,
-                                    service: widget.data,
-                                    response: result,
-                                    address: selectedAddress,
+
+                              if (result != null && result.success && mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BookingSuccess(
+                                      bookingDate: selectedBookingDate!,
+                                      technician: widget.technician,
+                                      service: widget.data,
+                                      response: result,
+                                      address: selectedAddress,
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      result?.message ?? "จองไม่สำเร็จ",
+                                    ),
+                                  ),
+                                );
+                              }
                             } catch (e) {
                               debugPrint("BOOKING ERROR => $e");
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("จองไม่สำเร็จ")),
+                                SnackBar(content: Text("เกิดข้อผิดพลาด: $e")),
                               );
                             }
                           }

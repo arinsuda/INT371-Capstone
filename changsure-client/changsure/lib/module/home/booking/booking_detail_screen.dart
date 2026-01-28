@@ -178,8 +178,8 @@ class BookingDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      data.priceAmount != null
-                          ? "฿${NumberFormat("#,###").format(data.priceAmount)}"
+                      data.finalPrice != null
+                          ? "฿${NumberFormat("#,###").format(data.finalPrice)}"
                           : "รอประเมิน",
                       style: const TextStyle(
                         fontSize: 18,

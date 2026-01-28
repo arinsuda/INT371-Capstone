@@ -39,25 +39,31 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
         onConfirm: () async {
           Navigator.of(context).pop(); // ปิด dialog ก่อน
 
-          final bookingId = widget.response.data.id;
+          final bookingId = widget.response.data?.id;
+
+          if (bookingId == null) return;
 
           try {
-            final result = await ref.read(
-              cancelBookingProvider(bookingId).future,
-            );
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .cancelBooking(
+                  bookingId,
+                  "User cancelled immediately after booking",
+                );
+
+            final state = ref.read(bookingControllerProvider);
 
             if (!mounted) return;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(result.message ?? "ยกเลิกการจองสำเร็จ")),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ยกเลิกการจองสำเร็จ")));
 
             Navigator.popUntil(
               context,
-                  (route) => route.settings.name == '/serviceDetail',
+              (route) => route.settings.name == '/serviceDetail',
             );
             debugPrint("CANCEL BOOKING Success");
-
           } catch (e) {
             debugPrint("CANCEL BOOKING ERROR => $e");
             if (!mounted) return;
@@ -72,28 +78,30 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
     );
   }
 
-
   final List<String> images = [
     "assets/image/clean1.png",
     "assets/image/clean2.png",
   ];
-  late String bookingDate;
+
+  late String bookingDateStr;
 
   @override
   void initState() {
     super.initState();
 
-    bookingDate = DateFormat(
-      "d MMM yy",
-      "th",
-    ).format(widget.response.data.createdAt);
+    if (widget.response.data != null) {
+      bookingDateStr = DateFormat("d MMM yy", "th").format(
+        DateTime.parse(widget.response.data!.appointmentDate.toString()),
+      );
+    } else {
+      bookingDateStr = "-";
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final note = widget.response.data.customerNote;
-    debugPrint("IMAGES FROM API => ${widget.response.data.images}");
-    final bookingId = widget.response.data.id;
+    final data = widget.response.data;
+    final note = data?.customerNote;
 
     return Scaffold(
       body: SafeArea(
@@ -249,7 +257,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       Text("วันที่จองบริการ"),
                       const Spacer(),
                       Text(
-                        bookingDate,
+                        bookingDateStr,
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.colorTertiaryText,
@@ -279,7 +287,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   const Text("รูปภาพหน้างาน", style: TextStyle(fontSize: 14)),
                   const SizedBox(height: 8),
 
-                  widget.response.data.images.isEmpty
+                  (data?.images.isEmpty ?? true)
                       ? const Text(
                           "ไม่มีรูปภาพเพิ่มเติม",
                           style: TextStyle(
@@ -290,7 +298,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       : Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: widget.response.data.images.map((img) {
+                          children: data!.images.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(

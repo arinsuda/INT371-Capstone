@@ -5,7 +5,7 @@ class BookingCreateRequest {
   final int timeSlotId;
   final String appointmentDate;
   final String? customerNote;
-  final List<String> images; // path file
+  final List<String> images;
 
   BookingCreateRequest({
     required this.technicianId,
@@ -14,98 +14,73 @@ class BookingCreateRequest {
     required this.timeSlotId,
     required this.appointmentDate,
     this.customerNote,
-    required this.images,
+    this.images = const [],
   });
-
-  Map<String, String> toFields() {
-    final map = <String, String>{
-      "technician_id": technicianId.toString(),
-      "technician_service_id": technicianServiceId.toString(),
-      "address_id": addressId.toString(),
-      "time_slot_id": timeSlotId.toString(),
-      "appointment_date": appointmentDate,
-    };
-
-    if (customerNote != null && customerNote!.trim().isNotEmpty) {
-      map["customer_note"] = customerNote!;
-    }
-
-    return map;
-  }
 }
 
 class BookingResponse {
-  final BookingData data;
-  final String message;
   final bool success;
+  final String message;
+  final BookingData? data;
 
-  BookingResponse({
-    required this.data,
-    required this.message,
-    required this.success,
-  });
+  BookingResponse({required this.success, required this.message, this.data});
 
   factory BookingResponse.fromJson(Map<String, dynamic> json) {
     return BookingResponse(
-      data: BookingData.fromJson(json['data']),
-      message: json['message'],
-      success: json['success'],
+      success: json['success'] ?? false,
+      message: json['message'] ?? "",
+      data: json['data'] != null ? BookingData.fromJson(json['data']) : null,
     );
   }
 }
+
 class BookingData {
   final int id;
-  final int technicianId;
-  final int technicianServiceId;
-  final int addressId;
-  final int timeSlotId;
-  final DateTime appointmentDate;
-  final String recordedAddress;
-  final int? priceAmount;
-  final String? paymentMethod;
-  final String? customerNote;
+  final String bookingNumber;
   final String status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final int technicianId;
+  final DateTime appointmentDate;
+  final double? finalPrice;
+  final String? customerNote;
+  final String recordedAddress;
+  final String paymentMethod;
   final List<BookingImage> images;
 
   BookingData({
     required this.id,
-    required this.technicianId,
-    required this.technicianServiceId,
-    required this.addressId,
-    required this.timeSlotId,
-    required this.appointmentDate,
-    required this.recordedAddress,
-    required this.priceAmount,
-    required this.paymentMethod,
-    required this.customerNote,
+    required this.bookingNumber,
     required this.status,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.technicianId,
+    required this.appointmentDate,
+    this.finalPrice,
+    this.customerNote,
+    required this.recordedAddress,
+    required this.paymentMethod,
     required this.images,
   });
 
   factory BookingData.fromJson(Map<String, dynamic> json) {
     return BookingData(
-      id: json['id'],
-      technicianId: json['technician_id'],
-      technicianServiceId: json['technician_service_id'],
-      addressId: json['address_id'],
-      timeSlotId: json['time_slot_id'],
-      appointmentDate: DateTime.parse(json['appointment_date']),
-      recordedAddress: json['recorded_address'] ?? '',
-      priceAmount: json['price_amount'] as int?,
-      paymentMethod: json['payment_method']?.toString(),
+      id: json['id'] ?? 0,
+      bookingNumber: json['booking_number'] ?? "",
+      status: json['status'] ?? "PENDING",
+      technicianId: json['technician_id'] ?? 0,
+      appointmentDate: json['appointment_date'] != null
+          ? DateTime.parse(json['appointment_date'])
+          : DateTime.now(),
+      finalPrice: json['final_price'] != null
+          ? double.tryParse(json['final_price'].toString())
+          : null,
       customerNote: json['customer_note'],
-      status: json['status'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-      images: json['images'] == null
-          ? <BookingImage>[]
-          : (json['images'] as List)
-          .map((e) => BookingImage.fromJson(e))
-          .toList(),
+
+      recordedAddress: json['recorded_address'] ?? "",
+      paymentMethod: json['payment_method'] ?? "COD",
+
+      images: json['images'] != null
+          ? (json['images'] as List)
+                .map((e) => BookingImage.fromJson(e))
+                .toList()
+          : [],
     );
   }
 }
@@ -114,39 +89,29 @@ class BookingImage {
   final int id;
   final String imageUrl;
 
-  BookingImage({
-    required this.id,
-    required this.imageUrl,
-  });
+  BookingImage({required this.id, required this.imageUrl});
 
   factory BookingImage.fromJson(Map<String, dynamic> json) {
-    return BookingImage(
-      id: json['id'],
-      imageUrl: json['image_url'],
-    );
+    return BookingImage(id: json['id'] ?? 0, imageUrl: json['image_url'] ?? "");
   }
 }
 
-
-class TimeSlot {
+class TimeSlotAvailability {
   final int id;
-  final String startTime;
-  final String endTime;
-  final String displayText;
+  final String label;
+  final bool isAvailable;
 
-  TimeSlot({
+  TimeSlotAvailability({
     required this.id,
-    required this.startTime,
-    required this.endTime,
-    required this.displayText,
+    required this.label,
+    required this.isAvailable,
   });
 
-  factory TimeSlot.fromJson(Map<String, dynamic> json) {
-    return TimeSlot(
-      id: json['id'],
-      startTime: json['start_time'],
-      endTime: json['end_time'],
-      displayText: json['display_text'],
+  factory TimeSlotAvailability.fromJson(Map<String, dynamic> json) {
+    return TimeSlotAvailability(
+      id: json['id'] ?? 0,
+      label: json['label'] ?? "",
+      isAvailable: json['is_available'] ?? false,
     );
   }
 }
@@ -155,72 +120,61 @@ class CalendarResponse {
   final String month;
   final List<CalendarDay> days;
 
-  CalendarResponse({
-    required this.month,
-    required this.days,
-  });
+  CalendarResponse({required this.month, required this.days});
 
   factory CalendarResponse.fromJson(Map<String, dynamic> json) {
     return CalendarResponse(
       month: json['month'] ?? "",
-      days: (json['days'] as List<dynamic>? ?? [])
-          .map((e) => CalendarDay.fromJson(e))
-          .toList(),
+      days: json['days'] != null
+          ? (json['days'] as List).map((e) => CalendarDay.fromJson(e)).toList()
+          : [],
     );
   }
 }
 
-
 class CalendarDay {
-  final String? date;
-  final String? status;
-  final int totalSlots;
-  final int bookedSlots;
+  final String date;
+  final String status;
   final int availableSlots;
-  final List<TimeSlots> timeSlots;
+  final List<CalendarSlot> timeSlots;
 
   CalendarDay({
-    this.date,
-    this.status,
-    required this.totalSlots,
-    required this.bookedSlots,
+    required this.date,
+    required this.status,
     required this.availableSlots,
     required this.timeSlots,
   });
 
   factory CalendarDay.fromJson(Map<String, dynamic> json) {
     return CalendarDay(
-      date: json['date']?.toString() ?? "",
-      status: json['status']?.toString() ?? "CLOSED",
-      totalSlots: json['total_slots'] ?? 0,
-      bookedSlots: json['booked_slots'] ?? 0,
+      date: json['date'] ?? "",
+      status: json['status'] ?? "CLOSED",
       availableSlots: json['available_slots'] ?? 0,
-      timeSlots: (json['time_slots'] as List? ?? [])
-          .map((e) => TimeSlots.fromJson(e))
-          .toList(),
+      timeSlots: json['time_slots'] != null
+          ? (json['time_slots'] as List)
+                .map((e) => CalendarSlot.fromJson(e))
+                .toList()
+          : [],
     );
   }
 }
 
-
-class TimeSlots {
+class CalendarSlot {
   final int id;
   final String timeRange;
   final bool isBooked;
 
-  TimeSlots({
+  CalendarSlot({
     required this.id,
     required this.timeRange,
     required this.isBooked,
   });
 
-  factory TimeSlots.fromJson(Map<String, dynamic> json) {
-    return TimeSlots(
-      id: json['id'],
-      timeRange: json['time_range'],
-      isBooked: json['is_booked'],
+  factory CalendarSlot.fromJson(Map<String, dynamic> json) {
+    return CalendarSlot(
+      id: json['id'] ?? 0,
+      timeRange: json['time_range'] ?? "",
+      isBooked: json['is_booked'] ?? false,
     );
   }
 }
-
-
