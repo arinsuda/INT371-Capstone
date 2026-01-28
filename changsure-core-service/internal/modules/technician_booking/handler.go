@@ -162,6 +162,37 @@ func (h *Handler) ListBookings(c fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) GetBooking(c fiber.Ctx) error {
+	techID := utils.GetUserID(c)
+	if techID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	bookingID, err := utils.ParseUintParam(c, "id")
+	if err != nil || bookingID == 0 {
+		return appErrors.BadRequest(c, "invalid booking id")
+	}
+
+	bkg, err := h.service.GetBookingByID(c.Context(), techID, bookingID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingNotFound):
+			return appErrors.NotFound(c, "booking not found")
+		case errors.Is(err, ErrForbiddenBooking):
+			return appErrors.Forbidden(c, "forbidden")
+		default:
+			return appErrors.InternalError(c, "failed to get booking detail", err)
+		}
+	}
+
+	h.hydrateBookingMediaURLs(c.Context(), bkg)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    bkg,
+	})
+}
+
 func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Booking) {
 	if b == nil || h.storage == nil {
 		return
