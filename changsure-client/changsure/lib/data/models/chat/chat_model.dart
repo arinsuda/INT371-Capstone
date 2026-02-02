@@ -25,6 +25,32 @@ class ChatRoom {
     required this.unreadCount,
   });
 
+  ChatRoom copyWith({
+    int? bookingId,
+    String? bookingNumber,
+    String? bookingStatus,
+    int? otherPersonId,
+    String? otherPersonName,
+    String? otherPersonImg,
+    String? lastMessage,
+    String? lastMsgType,
+    DateTime? lastMsgTime,
+    int? unreadCount,
+  }) {
+    return ChatRoom(
+      bookingId: bookingId ?? this.bookingId,
+      bookingNumber: bookingNumber ?? this.bookingNumber,
+      bookingStatus: bookingStatus ?? this.bookingStatus,
+      otherPersonId: otherPersonId ?? this.otherPersonId,
+      otherPersonName: otherPersonName ?? this.otherPersonName,
+      otherPersonImg: otherPersonImg ?? this.otherPersonImg,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMsgType: lastMsgType ?? this.lastMsgType,
+      lastMsgTime: lastMsgTime ?? this.lastMsgTime,
+      unreadCount: unreadCount ?? this.unreadCount,
+    );
+  }
+
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     return ChatRoom(
       bookingId: json['booking_id'] ?? 0,
@@ -63,6 +89,28 @@ class ChatMessage {
     required this.isRead,
     required this.createdAt,
   });
+
+  ChatMessage copyWith({
+    int? id,
+    int? bookingId,
+    int? senderId,
+    String? senderRole,
+    MessageType? type,
+    String? content,
+    bool? isRead,
+    DateTime? createdAt,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      bookingId: bookingId ?? this.bookingId,
+      senderId: senderId ?? this.senderId,
+      senderRole: senderRole ?? this.senderRole,
+      type: type ?? this.type,
+      content: content ?? this.content,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(

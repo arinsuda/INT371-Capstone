@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,7 @@ final chatHistoryProvider = StateNotifierProvider.autoDispose
 class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref ref;
   final int bookingId;
+  StreamSubscription? _subscription;
 
   ChatHistoryNotifier(this.ref, this.bookingId)
     : super(const AsyncValue.loading()) {
@@ -30,6 +32,12 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     _setupRealtimeListener();
   }
 
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadMessages() async {
     final service = ref.read(chatServiceProvider);
     final user = ref.read(userProvider);
@@ -38,8 +46,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       state = AsyncValue.error(Exception("Unauthorized"), StackTrace.current);
       return;
     }
-
-    state = const AsyncValue.loading();
 
     try {
       final messages = await service.getChatHistory(user!.token!, bookingId);
@@ -50,36 +56,34 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   }
 
   void _setupRealtimeListener() {
-    ref.listen(realtimeStreamProvider, (previous, next) {
-      next.whenData((event) {
-        print("💬 Chat Event: ${event['type']} for booking $bookingId");
-
-        if (event['type'] == 'CHAT_MESSAGE_NEW') {
-          final data = event['data'];
-          if (data['booking_id'] == bookingId) {
-            _handleNewMessage(data['message']);
-          }
-        } else if (event['type'] == 'CHAT_MESSAGE_READ') {
-          final data = event['data'];
-          if (data['booking_id'] == bookingId) {
-            _handleMessageRead(data);
-          }
+    _subscription = ref.read(realtimeStreamProvider.stream).listen((event) {
+      if (event['type'] == 'CHAT_MESSAGE_NEW') {
+        final data = event['data'];
+        if (data['booking_id'] == bookingId && data['message'] != null) {
+          _handleNewMessage(data['message']);
         }
-      });
+      } else if (event['type'] == 'CHAT_MESSAGE_READ') {
+        final data = event['data'];
+        if (data['booking_id'] == bookingId) {
+          _handleMessageRead(data);
+        }
+      }
     });
   }
 
   void _handleNewMessage(Map<String, dynamic> messageData) {
-    state.whenData((messages) {
-      try {
-        final newMessage = ChatMessage.fromJson(messageData);
+    try {
+      final newMessage = ChatMessage.fromJson(messageData);
+      addMessage(newMessage);
+    } catch (e) {
+      print("💬 Chat Error Parsing Message: $e");
+    }
+  }
 
-        final exists = messages.any((m) => m.id == newMessage.id);
-        if (!exists) {
-          state = AsyncValue.data([newMessage, ...messages]);
-        }
-      } catch (e) {
-        print("Error parsing new message: $e");
+  void addMessage(ChatMessage newMessage) {
+    state.whenData((messages) {
+      if (!messages.any((m) => m.id == newMessage.id)) {
+        state = AsyncValue.data([newMessage, ...messages]);
       }
     });
   }
@@ -87,19 +91,11 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   void _handleMessageRead(Map<String, dynamic> data) {
     state.whenData((messages) {
       final messageIds = List<int>.from(data['message_ids'] ?? []);
+      if (messageIds.isEmpty) return;
 
       final updatedMessages = messages.map((msg) {
         if (messageIds.contains(msg.id)) {
-          return ChatMessage(
-            id: msg.id,
-            bookingId: msg.bookingId,
-            senderId: msg.senderId,
-            senderRole: msg.senderRole,
-            type: msg.type,
-            content: msg.content,
-            isRead: true,
-            createdAt: msg.createdAt,
-          );
+          return msg.copyWith(isRead: true);
         }
         return msg;
       }).toList();
@@ -108,9 +104,7 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     });
   }
 
-  void refresh() {
-    _loadMessages();
-  }
+  void refresh() => _loadMessages();
 }
 
 final chatControllerProvider =
@@ -125,10 +119,8 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
     final user = ref.read(userProvider);
     if (user?.token == null) return;
 
-    state = const AsyncValue.loading();
-
-    state = await AsyncValue.guard(() async {
-      await service.sendMessage(
+    final result = await AsyncValue.guard(() async {
+      final newMessage = await service.sendMessage(
         user!.token!,
         SendMessageRequest(
           bookingId: bookingId,
@@ -136,7 +128,17 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
           type: "TEXT",
         ),
       );
+
+      if (newMessage != null) {
+        ref
+            .read(chatHistoryProvider(bookingId).notifier)
+            .addMessage(newMessage);
+      } else {
+        ref.invalidate(chatHistoryProvider(bookingId));
+      }
     });
+
+    if (result.hasError) state = result;
   }
 
   Future<void> sendImage(int bookingId, File imageFile) async {
@@ -146,13 +148,21 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
 
     state = const AsyncValue.loading();
 
-    state = await AsyncValue.guard(() async {
-      await service.sendMessage(
+    final result = await AsyncValue.guard(() async {
+      final newMessage = await service.sendMessage(
         user!.token!,
         SendMessageRequest(bookingId: bookingId, content: "", type: "IMAGE"),
         imageFile: imageFile,
       );
+
+      if (newMessage != null) {
+        ref
+            .read(chatHistoryProvider(bookingId).notifier)
+            .addMessage(newMessage);
+      }
     });
+
+    state = result;
   }
 }
 
@@ -163,6 +173,7 @@ final chatRoomsStateProvider =
 
 class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   final Ref ref;
+  StreamSubscription? _subscription;
 
   ChatRoomsNotifier(this.ref) : super(const AsyncValue.loading()) {
     _init();
@@ -171,6 +182,12 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   void _init() {
     _loadRooms();
     _setupRealtimeListener();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRooms() async {
@@ -182,8 +199,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
       return;
     }
 
-    state = const AsyncValue.loading();
-
     try {
       final rooms = await service.getChatRooms(user!.token!);
       state = AsyncValue.data(rooms);
@@ -193,16 +208,12 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   }
 
   void _setupRealtimeListener() {
-    ref.listen(realtimeStreamProvider, (previous, next) {
-      next.whenData((event) {
-        print("💬 ChatRooms Event: ${event['type']}");
-
-        if (event['type'] == 'CHAT_MESSAGE_NEW') {
-          _handleNewMessage(event['data']);
-        } else if (event['type'] == 'CHAT_MESSAGE_READ') {
-          _handleMessageRead(event['data']);
-        }
-      });
+    _subscription = ref.read(realtimeStreamProvider.stream).listen((event) {
+      if (event['type'] == 'CHAT_MESSAGE_NEW') {
+        _handleNewMessage(event['data']);
+      } else if (event['type'] == 'CHAT_MESSAGE_READ') {
+        _handleMessageRead(event['data']);
+      }
     });
   }
 
@@ -218,22 +229,14 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
           final updatedRooms = List<ChatRoom>.from(rooms);
           final oldRoom = updatedRooms[roomIndex];
 
-          updatedRooms[roomIndex] = ChatRoom(
-            bookingId: oldRoom.bookingId,
-            bookingNumber: oldRoom.bookingNumber,
-            bookingStatus: oldRoom.bookingStatus,
-            otherPersonId: oldRoom.otherPersonId,
-            otherPersonName: oldRoom.otherPersonName,
-            otherPersonImg: oldRoom.otherPersonImg,
+          final updatedRoom = oldRoom.copyWith(
             lastMessage: message['content'] ?? oldRoom.lastMessage,
             lastMsgType: message['type'] ?? oldRoom.lastMsgType,
-            lastMsgTime: message['created_at'] != null
-                ? DateTime.parse(message['created_at'])
-                : oldRoom.lastMsgTime,
+            lastMsgTime: DateTime.parse(message['created_at']),
             unreadCount: oldRoom.unreadCount + 1,
           );
 
-          final updatedRoom = updatedRooms.removeAt(roomIndex);
+          updatedRooms.removeAt(roomIndex);
           updatedRooms.insert(0, updatedRoom);
 
           state = AsyncValue.data(updatedRooms);
@@ -241,42 +244,24 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
           _loadRooms();
         }
       } catch (e) {
-        print("Error handling new message in chat rooms: $e");
+        print("💬 ChatRooms Error: $e");
       }
     });
   }
 
   void _handleMessageRead(Map<String, dynamic> data) {
     state.whenData((rooms) {
-      try {
-        final bookingId = data['booking_id'];
+      final bookingId = data['booking_id'];
+      final updatedRooms = rooms.map((room) {
+        if (room.bookingId == bookingId) {
+          return room.copyWith(unreadCount: 0);
+        }
+        return room;
+      }).toList();
 
-        final updatedRooms = rooms.map((room) {
-          if (room.bookingId == bookingId) {
-            return ChatRoom(
-              bookingId: room.bookingId,
-              bookingNumber: room.bookingNumber,
-              bookingStatus: room.bookingStatus,
-              otherPersonId: room.otherPersonId,
-              otherPersonName: room.otherPersonName,
-              otherPersonImg: room.otherPersonImg,
-              lastMessage: room.lastMessage,
-              lastMsgType: room.lastMsgType,
-              lastMsgTime: room.lastMsgTime,
-              unreadCount: 0,
-            );
-          }
-          return room;
-        }).toList();
-
-        state = AsyncValue.data(updatedRooms);
-      } catch (e) {
-        print("Error handling message read in chat rooms: $e");
-      }
+      state = AsyncValue.data(updatedRooms);
     });
   }
 
-  void refresh() {
-    _loadRooms();
-  }
+  void refresh() => _loadRooms();
 }

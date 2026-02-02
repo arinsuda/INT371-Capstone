@@ -118,13 +118,12 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    _controller.clear();
+
     try {
       await ref
           .read(chatControllerProvider.notifier)
           .sendMessage(widget.bookingId, text);
-      _controller.clear();
-
-      FocusScope.of(context).unfocus();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
