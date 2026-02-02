@@ -119,8 +119,10 @@ func (s *service) SendMessage(ctx context.Context, userID uint, userRole string,
 
 	if userRole == "technician" {
 		s.hub.BroadcastToCustomer(receiverID, eventPayload)
+		s.hub.BroadcastToTechnician(userID, eventPayload)
 	} else {
 		s.hub.BroadcastToTechnician(receiverID, eventPayload)
+		s.hub.BroadcastToCustomer(userID, eventPayload)
 	}
 
 	return msg, nil
