@@ -1,3 +1,4 @@
+import 'package:changsure/module/home/booking/section/address_list.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,7 +49,9 @@ class _ProfileState extends ConsumerState<UserProfile> {
             ),
             const SizedBox(height: 12),
             ProfileSection(
-              profileImage: (customer?.avatarUrl != null && customer!.avatarUrl!.isNotEmpty)
+              profileImage:
+                  (customer?.avatarUrl != null &&
+                      customer!.avatarUrl!.isNotEmpty)
                   ? customer.avatarUrl!
                   : 'assets/image/Technician.png',
               fullName: customer?.fullName ?? 'ไม่ระบุชื่อ',
@@ -87,10 +90,12 @@ class _ProfileState extends ConsumerState<UserProfile> {
                           InkWell(
                             onTap: () {
                               if (item['label'] == 'ที่อยู่ของฉัน') {
-                                ref
-                                    .read(bottomSubPageProvider.notifier)
-                                    .state = const SubPageConfig(
-                                  page: BottomSubPage.addressPage,
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const AddressList(provinceId: null),
+                                  ),
                                 );
                               } else if (item['label'] ==
                                   'ประวัติการรับบริการ') {
