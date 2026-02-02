@@ -110,6 +110,11 @@ class _AddressPageState extends ConsumerState<Address> {
       text: widget.postCode == 0 ? '' : widget.postCode.toString(),
     );
 
+    labelCtrl.addListener(_markDirty);
+    phoneCtrl.addListener(_markDirty);
+    addressLineCtrl.addListener(_markDirty);
+    postCodeCtrl.addListener(_markDirty);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       setState(() => _isLoadingDefaultLocation = true);
 
@@ -169,6 +174,12 @@ class _AddressPageState extends ConsumerState<Address> {
     super.dispose();
   }
 
+  void _markDirty() {
+    if (!_isDirty) {
+      setState(() => _isDirty = true);
+    }
+  }
+
   void _openMapPicker() async {
     final controller = ref.read(addressFormProvider.notifier);
     final startPoint = await controller.getSmartStartingPoint(
@@ -188,6 +199,7 @@ class _AddressPageState extends ConsumerState<Address> {
         onPicked: (pickedLatLng) {
           controller.setCoordinates(pickedLatLng);
           _previewMapController.move(pickedLatLng, 16.0);
+          _markDirty();
         },
       ),
     );
@@ -493,6 +505,7 @@ class _AddressPageState extends ConsumerState<Address> {
                               } catch (e) {
                                 print('Error geocoding province: $e');
                               }
+                              _markDirty();
                             },
                             onChanged: (val) =>
                                 formNotifier.setProvinceId(null),
@@ -628,6 +641,7 @@ class _AddressPageState extends ConsumerState<Address> {
                             onChanged: (bool? value) {
                               setState(() {
                                 _isPrimary = value ?? false;
+                                _isDirty = true;
                               });
                             },
                           ),

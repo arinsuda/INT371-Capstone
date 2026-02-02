@@ -1,3 +1,4 @@
+import 'package:changsure/module/home/booking/section/address_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../state/bottom_nav_provider.dart';
@@ -54,10 +55,14 @@ class ActionButtonSection extends ConsumerWidget {
                 ref.read(bottomSubPageProvider.notifier).state = config;
               }
               if (button['label'] == 'ที่อยู่ของฉัน') {
-                const config = SubPageConfig(
-                  page: BottomSubPage.addressPage,
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddressList(
+                      provinceId: null,
+                    ),
+                  ),
                 );
-                ref.read(bottomSubPageProvider.notifier).state = config;
               }
               // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
             },

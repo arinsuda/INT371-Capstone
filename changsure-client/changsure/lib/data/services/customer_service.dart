@@ -20,7 +20,7 @@ class CustomerService {
   Future<bool> updateCustomer(
     String token,
     UserRole role,
-    CustomerModel customer,
+    Map<String, dynamic> updates,
   ) async {
     final endpoint = _getEndpoint(role);
 
@@ -32,7 +32,7 @@ class CustomerService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode(customer.toJson()),
+      body: jsonEncode(updates),
     );
 
     if (response.statusCode == 200) {
