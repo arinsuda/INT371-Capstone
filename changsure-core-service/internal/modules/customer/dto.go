@@ -9,7 +9,7 @@ type CreateCustomerRequest struct {
 	LastName  string  `json:"lastname"   validate:"required,min=2,max=150"`
 	Email     *string `json:"email"      validate:"omitempty,email,max=100"`
 	Phone     *string `json:"phone"      validate:"omitempty,len=10,numeric"`
-	AvatarURL *string `json:"avatar_url" validate:"omitempty,max=255"`
+	AvatarURL *string `json:"avatar_url" validate:"omitempty"`
 }
 
 type UpdateCustomerRequest struct {
@@ -17,7 +17,7 @@ type UpdateCustomerRequest struct {
 	LastName  *string `json:"lastname"   validate:"omitempty,min=2,max=150"`
 	Email     *string `json:"email"      validate:"omitempty,email,max=100"`
 	Phone     *string `json:"phone"      validate:"omitempty,len=10,numeric"`
-	AvatarURL *string `json:"avatar_url" validate:"omitempty,max=255"`
+	AvatarURL *string `json:"avatar_url" validate:"omitempty"`
 }
 
 type CustomerResponse struct {
