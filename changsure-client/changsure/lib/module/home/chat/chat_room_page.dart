@@ -68,21 +68,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         );
       }
 
-      if (_participantInfo == null) {
-        final roomsAsync = await ref.read(chatRoomsProvider.future);
-        final room = roomsAsync.firstWhere(
-          (r) => r.bookingId == widget.bookingId,
-          orElse: () => throw Exception('Room not found'),
-        );
-
-        if (mounted) {
-          setState(() {
-            _participantInfo = ChatHelper.fromChatRoom(room);
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted && widget.title != null) {
+      if (_participantInfo == null && widget.title != null) {
         setState(() {
           _participantInfo = ChatParticipantInfo(
             userId: 0,
@@ -90,7 +76,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
             avatarUrl: widget.otherPersonImg,
           );
         });
-      } else {
+      }
+
+      if (_participantInfo == null) {
+        setState(() {
+          _participantInfo = ChatParticipantInfo.unknown;
+        });
+      }
+    } catch (e) {
+      print('Error resolving participant info: $e');
+      if (mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
         });
