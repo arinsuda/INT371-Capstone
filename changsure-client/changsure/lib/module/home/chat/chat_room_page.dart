@@ -33,6 +33,7 @@ class ChatRoomPage extends ConsumerStatefulWidget {
 class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final TextEditingController _controller = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  final ScrollController _scrollController = ScrollController();
 
   ChatParticipantInfo? _participantInfo;
 
@@ -46,6 +47,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _resolveParticipantInfo() async {
@@ -153,6 +164,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 messages: messages,
                 myId: myId,
                 participantInfo: _participantInfo,
+                controller: _scrollController,
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => _ErrorView(
@@ -257,10 +269,12 @@ class _ChatMessagesList extends StatelessWidget {
   final List<ChatMessage> messages;
   final int? myId;
   final ChatParticipantInfo? participantInfo;
+  final ScrollController controller;
 
   const _ChatMessagesList({
     required this.messages,
     required this.myId,
+    required this.controller,
     this.participantInfo,
   });
 
@@ -291,6 +305,7 @@ class _ChatMessagesList extends StatelessWidget {
     }
 
     return ListView.builder(
+      controller: controller,
       reverse: true,
       itemCount: displayList.length,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

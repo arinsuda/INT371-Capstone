@@ -57,10 +57,10 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
   void _setupRealtimeListener() {
     _subscription = ref.read(realtimeStreamProvider.stream).listen((event) {
-      if (event['type'] == 'CHAT_MESSAGE_NEW') {
+      if (event['type'] == 'NEW_MESSAGE') {
         final data = event['data'];
-        if (data['booking_id'] == bookingId && data['message'] != null) {
-          _handleNewMessage(data['message']);
+        if (data != null && data['booking_id'] == bookingId) {
+          _handleNewMessage(data);
         }
       } else if (event['type'] == 'CHAT_MESSAGE_READ') {
         final data = event['data'];
