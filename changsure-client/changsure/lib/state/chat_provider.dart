@@ -133,8 +133,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
         ref
             .read(chatHistoryProvider(bookingId).notifier)
             .addMessage(newMessage);
-      } else {
-        ref.invalidate(chatHistoryProvider(bookingId));
       }
     });
 

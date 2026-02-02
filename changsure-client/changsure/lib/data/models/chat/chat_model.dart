@@ -26,24 +26,18 @@ class ChatRoom {
   });
 
   ChatRoom copyWith({
-    int? bookingId,
-    String? bookingNumber,
-    String? bookingStatus,
-    int? otherPersonId,
-    String? otherPersonName,
-    String? otherPersonImg,
+    int? unreadCount,
     String? lastMessage,
     String? lastMsgType,
     DateTime? lastMsgTime,
-    int? unreadCount,
   }) {
     return ChatRoom(
-      bookingId: bookingId ?? this.bookingId,
-      bookingNumber: bookingNumber ?? this.bookingNumber,
-      bookingStatus: bookingStatus ?? this.bookingStatus,
-      otherPersonId: otherPersonId ?? this.otherPersonId,
-      otherPersonName: otherPersonName ?? this.otherPersonName,
-      otherPersonImg: otherPersonImg ?? this.otherPersonImg,
+      bookingId: bookingId,
+      bookingNumber: bookingNumber,
+      bookingStatus: bookingStatus,
+      otherPersonId: otherPersonId,
+      otherPersonName: otherPersonName,
+      otherPersonImg: otherPersonImg,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMsgType: lastMsgType ?? this.lastMsgType,
       lastMsgTime: lastMsgTime ?? this.lastMsgTime,
@@ -90,25 +84,16 @@ class ChatMessage {
     required this.createdAt,
   });
 
-  ChatMessage copyWith({
-    int? id,
-    int? bookingId,
-    int? senderId,
-    String? senderRole,
-    MessageType? type,
-    String? content,
-    bool? isRead,
-    DateTime? createdAt,
-  }) {
+  ChatMessage copyWith({bool? isRead}) {
     return ChatMessage(
-      id: id ?? this.id,
-      bookingId: bookingId ?? this.bookingId,
-      senderId: senderId ?? this.senderId,
-      senderRole: senderRole ?? this.senderRole,
-      type: type ?? this.type,
-      content: content ?? this.content,
+      id: id,
+      bookingId: bookingId,
+      senderId: senderId,
+      senderRole: senderRole,
+      type: type,
+      content: content,
       isRead: isRead ?? this.isRead,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: createdAt,
     );
   }
 
