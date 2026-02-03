@@ -12,10 +12,9 @@ import '../../../../state/public_technician_provider.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final int bookingId;
-
   final String? title;
   final String? otherPersonImg;
-
+  
   final int? technicianId;
 
   const ChatRoomPage({
@@ -46,6 +45,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -95,7 +95,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         });
       }
     } catch (e) {
-      print('Error resolving participant info: $e');
       if (mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
@@ -175,9 +174,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               ),
             ),
           ),
-
           if (chatState.isLoading) const LinearProgressIndicator(minHeight: 2),
-
           _ChatInputArea(
             controller: _controller,
             onImagePressed: _onImagePressed,
@@ -200,6 +197,9 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     if (isLoading || participantInfo == null) {
       return AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: Colors.black),
         title: const Row(
           children: [
             SizedBox(
@@ -214,46 +214,39 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black),
       );
     }
 
     return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0.5,
+      iconTheme: const IconThemeData(color: Colors.black),
       title: Row(
         children: [
           CircleAvatar(
             radius: 18,
             backgroundColor: Colors.grey[300],
             backgroundImage:
-                participantInfo?.avatarUrl != null &&
+                participantInfo!.avatarUrl != null &&
                     participantInfo!.avatarUrl!.isNotEmpty
                 ? NetworkImage(participantInfo!.avatarUrl!)
                 : null,
             child:
-                participantInfo?.avatarUrl == null ||
+                participantInfo!.avatarUrl == null ||
                     participantInfo!.avatarUrl!.isEmpty
                 ? const Icon(Icons.person, color: Colors.white, size: 20)
                 : null,
           ),
           const SizedBox(width: 12),
-
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  participantInfo!.name,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              participantInfo!.name,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -286,9 +279,7 @@ class _ChatMessagesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayList = messages;
-
-    if (displayList.isEmpty) {
+    if (messages.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -307,20 +298,19 @@ class _ChatMessagesList extends StatelessWidget {
     return ListView.builder(
       controller: controller,
       reverse: true,
-      itemCount: displayList.length,
+      itemCount: messages.length,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       itemBuilder: (context, index) {
-        final msg = displayList[index];
+        final msg = messages[index];
         final isMe = msg.senderId == myId;
 
         bool showDateHeader = false;
-
         final msgDateLocal = msg.createdAt.toLocal();
 
-        if (index == displayList.length - 1) {
+        if (index == messages.length - 1) {
           showDateHeader = true;
         } else {
-          final olderMsg = displayList[index + 1];
+          final olderMsg = messages[index + 1];
           final olderMsgDateLocal = olderMsg.createdAt.toLocal();
 
           if (!_isSameDay(msgDateLocal, olderMsgDateLocal)) {
@@ -348,7 +338,6 @@ class _DateSeparator extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-
     final dateToCheck = DateTime(date.year, date.month, date.day);
 
     if (dateToCheck == today) {
@@ -362,8 +351,6 @@ class _DateSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localDate = date.toLocal();
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Container(
@@ -373,7 +360,7 @@ class _DateSeparator extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          _formatDate(localDate),
+          _formatDate(date.toLocal()),
           style: const TextStyle(
             color: Colors.black54,
             fontSize: 12,
@@ -398,7 +385,6 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isMessageRead = msg.isRead;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -411,25 +397,17 @@ class _ChatBubble extends StatelessWidget {
             _UserAvatar(participantInfo: participantInfo),
             const SizedBox(width: 8),
           ],
-
           if (isMe) ...[
             _MessageTimestampOutside(
               timestamp: msg.createdAt,
               isMe: true,
-              isRead: isMessageRead,
+              isRead: msg.isRead,
             ),
             const SizedBox(width: 4),
           ],
-
           Flexible(
-            child: Column(
-              crossAxisAlignment: isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [_MessageBubbleContent(msg: msg, isMe: isMe)],
-            ),
+            child: _MessageBubbleContent(msg: msg, isMe: isMe),
           ),
-
           if (!isMe) ...[
             const SizedBox(width: 4),
             _MessageTimestampOutside(
@@ -489,7 +467,6 @@ class _MessageTimestampOutside extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
-
       crossAxisAlignment: isMe
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
@@ -502,7 +479,6 @@ class _MessageTimestampOutside extends StatelessWidget {
               style: TextStyle(color: Colors.grey, fontSize: 10),
             ),
           ),
-
         Padding(
           padding: const EdgeInsets.only(bottom: 2),
           child: Text(
@@ -620,23 +596,6 @@ class _ImageMessage extends StatelessWidget {
   }
 }
 
-class _MessageTimestamp extends StatelessWidget {
-  final DateTime timestamp;
-
-  const _MessageTimestamp({required this.timestamp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-      child: Text(
-        DateFormat('HH:mm').format(timestamp.toLocal()),
-        style: TextStyle(color: Colors.grey[500], fontSize: 11),
-      ),
-    );
-  }
-}
-
 class _ChatInputArea extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onImagePressed;
@@ -673,7 +632,6 @@ class _ChatInputArea extends StatelessWidget {
               onPressed: isLoading ? null : onImagePressed,
               tooltip: 'แนบรูปภาพ',
             ),
-
             Expanded(
               child: _MessageTextField(
                 controller: controller,
@@ -681,9 +639,7 @@ class _ChatInputArea extends StatelessWidget {
                 isLoading: isLoading,
               ),
             ),
-
             const SizedBox(width: 8),
-
             _SendButton(onPressed: onSendPressed, isLoading: isLoading),
           ],
         ),

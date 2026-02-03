@@ -10,7 +10,7 @@ class ChatListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chatsAsync = ref.watch(chatRoomsStateProvider);
+    final chatsAsync = ref.watch(chatRoomsProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -81,9 +81,10 @@ class ChatListPage extends ConsumerWidget {
                             builder: (_) => ChatRoomPage(
                               bookingId: room.bookingId,
                               title: room.otherPersonName,
+                              otherPersonImg: room.otherPersonImg,
                             ),
                           ),
-                        ).then((_) => ref.refresh(chatRoomsStateProvider));
+                        ).then((_) => ref.refresh(chatRoomsProvider));
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
