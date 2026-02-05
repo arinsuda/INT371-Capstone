@@ -17,4 +17,8 @@ class AppColors {
   static const Color colorError = Color(0xFFFF4D4F);
   static const Color colorWarning = Color(0xFFFFF1B8);
   static const Color secondaryBorder = Color(0xFFD6D6D6);
+  static const Color gold01 = Color(0xFFFFFBE6);
+  static const Color gold03 = Color(0xFFFFE58F);
+  static const Color gold06 = Color(0xFFFAAD14);
+
 }

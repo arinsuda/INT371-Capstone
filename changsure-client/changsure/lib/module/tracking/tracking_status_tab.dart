@@ -1,7 +1,10 @@
+import 'package:changsure/module/tracking/payment_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/header.dart';
 import '../../core/theme.dart';
+import 'completed_page.dart';
+import 'in_progress_page.dart';
 
 class TrackingStatusTab extends StatelessWidget {
   const TrackingStatusTab({super.key});
@@ -53,7 +56,16 @@ class TrackingStatusTab extends StatelessWidget {
 
 
               // TabBarView
-              Expanded(child: TabBarView(children: const [])),
+              // Expanded(child: TabBarView(children: const [])),
+        const Expanded(
+          child: TabBarView(
+            children: [
+              InProgressPage(),
+              PaymentPage(),
+              CompletedPage(),
+            ],
+          ),
+        ),
             ],
           ),
         ),
