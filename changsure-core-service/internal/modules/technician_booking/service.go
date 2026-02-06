@@ -135,12 +135,12 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 		}
 
 		now := time.Now()
-		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusCancelled, now); err != nil {
+		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusRejected, now); err != nil {
 			return err
 		}
 
 		updated = b
-		updated.Status = booking.BookingStatusCancelled
+		updated.Status = booking.BookingStatusRejected
 		updated.UpdatedAt = now
 		return nil
 	})

@@ -13,6 +13,7 @@ var allowedBookingStatuses = map[string]bool{
 	BookingStatusWaitingPayment: true,
 	BookingStatusCompleted:      true,
 	BookingStatusCancelled:      true,
+	BookingStatusRejected:       true,
 }
 
 func ParseStatusFilter(raw string) ([]string, error) {

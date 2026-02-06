@@ -15,6 +15,7 @@ const (
 	BookingStatusWaitingPayment = "WAITING_PAYMENT"
 	BookingStatusCompleted      = "COMPLETED"
 	BookingStatusCancelled      = "CANCELLED"
+	BookingStatusRejected       = "REJECTED"
 
 	PaymentMethodCOD = "COD"
 )
