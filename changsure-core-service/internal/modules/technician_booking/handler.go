@@ -3,6 +3,7 @@ package technicianbooking
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	appErrors "changsure-core-service/internal/errors"
@@ -203,7 +204,8 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 	if len(b.Images) > 0 {
 		for i := range b.Images {
 			key := b.Images[i].ImageURL
-			if key == "" {
+
+			if key == "" || strings.HasPrefix(key, "http") {
 				continue
 			}
 			url, err := h.storage.PresignGet(ctx, key, ttl, false)
@@ -215,16 +217,18 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 
 	if b.Technician.AvatarURL != nil && *b.Technician.AvatarURL != "" {
 		key := *b.Technician.AvatarURL
-		url, err := h.storage.PresignGet(ctx, key, ttl, false)
-		if err == nil {
-			*b.Technician.AvatarURL = url
+
+		if !strings.HasPrefix(key, "http") {
+			url, err := h.storage.PresignGet(ctx, key, ttl, false)
+			if err == nil {
+				*b.Technician.AvatarURL = url
+			}
 		}
 	}
 
-	if b.TechnicianService.Service.ImageURLs != nil && len(b.TechnicianService.Service.ImageURLs) > 0 {
-		for i := range b.TechnicianService.Service.ImageURLs {
-			key := b.TechnicianService.Service.ImageURLs[i]
-			if key == "" {
+	if b.TechnicianService.Service.ImageURLs != nil {
+		for i, key := range b.TechnicianService.Service.ImageURLs {
+			if key == "" || strings.HasPrefix(key, "http") {
 				continue
 			}
 			url, err := h.storage.PresignGet(ctx, key, ttl, false)
