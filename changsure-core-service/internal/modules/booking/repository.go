@@ -108,7 +108,11 @@ func (r *repository) GetBookedSlotIDs(ctx context.Context, technicianID uint, da
 	var slotIDs []uint
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
-		Where("technician_id = ? AND appointment_date = ? AND status != ?", technicianID, date, BookingStatusCancelled).
+		Where("technician_id = ? AND appointment_date = ? AND status NOT IN ?",
+			technicianID,
+			date,
+			[]string{BookingStatusCancelled, BookingStatusRejected},
+		).
 		Pluck("time_slot_id", &slotIDs).Error
 	return slotIDs, err
 }
@@ -117,8 +121,12 @@ func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date s
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
-		Where("technician_id = ? AND appointment_date = ? AND time_slot_id = ? AND status != ?",
-			technicianID, date, slotID, BookingStatusCancelled).
+		Where("technician_id = ? AND appointment_date = ? AND time_slot_id = ? AND status NOT IN ?",
+			technicianID,
+			date,
+			slotID,
+			[]string{BookingStatusCancelled, BookingStatusRejected},
+		).
 		Count(&count).Error
 	return count > 0, err
 }
