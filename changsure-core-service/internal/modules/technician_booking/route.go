@@ -9,4 +9,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	group.Get("/:id", h.GetBooking)
 	group.Patch("/:id/accept", h.AcceptBooking)
 	group.Patch("/:id/reject", h.RejectBooking)
+	group.Patch("/:id/start", h.StartJob)
+	group.Patch("/:id/complete", h.CompleteJob)
 }
