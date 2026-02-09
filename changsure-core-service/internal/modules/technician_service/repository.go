@@ -20,6 +20,10 @@ type Repository interface {
 	Upsert(p *TechnicianService) error
 	Search(q SearchTechniciansQuery) ([]SearchTechnician, int64, error)
 	ReplaceAllWithPricing(tx *gorm.DB, techID uint, items []TechnicianServicePatchReq) error
+	GetPricing(
+		techID uint,
+		serviceID uint,
+	) (*TechnicianService, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -130,4 +134,23 @@ func (r *repository) ReplaceAllWithPricing(
 	}
 
 	return nil
+}
+
+func (r *repository) GetPricing(
+	techID uint,
+	serviceID uint,
+) (*TechnicianService, error) {
+
+	var pricing TechnicianService
+
+	err := r.db.
+		Where("technician_id = ? AND service_id = ? AND is_active = 1",
+			techID, serviceID).
+		First(&pricing).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pricing, nil
 }

@@ -26,6 +26,7 @@ type Repository interface {
 	GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error)
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
+	MarkAsPaid(ctx context.Context, bookingID uint) error
 
 	ListByCustomer(
 		ctx context.Context,
@@ -261,4 +262,14 @@ func (r *repository) ListByTechnician(
 	}
 
 	return bookings, total, nil
+}
+
+func (r *repository) MarkAsPaid(ctx context.Context, bookingID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ? AND status = ?", bookingID, BookingStatusWaitingPayment).
+		Updates(map[string]any{
+			"status":     BookingStatusCompleted,
+			"updated_at": time.Now(),
+		}).Error
 }

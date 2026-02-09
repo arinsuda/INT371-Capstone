@@ -1,0 +1,43 @@
+package payment
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"log"
+)
+
+func VerifyOmiseSignature(
+	payload []byte,
+	signature string,
+	secret string,
+) bool {
+
+	if signature == "" || secret == "" {
+		log.Printf("❌ Empty signature or secret")
+		return false
+	}
+
+	// 🔴 ใช้ secret ตรง ๆ ห้าม decode
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(payload)
+	expectedMAC := mac.Sum(nil)
+
+	// Omise ส่ง signature เป็น hex
+	expectedSignature := hex.EncodeToString(expectedMAC)
+
+	match := hmac.Equal(
+		[]byte(expectedSignature),
+		[]byte(signature),
+	)
+
+	if !match {
+		log.Printf("❌ Signature mismatch")
+		log.Printf("   Expected: %s...", expectedSignature[:20])
+		log.Printf("   Got:      %s...", signature[:20])
+	} else {
+		log.Printf("✅ Signature verified")
+	}
+
+	return match
+}

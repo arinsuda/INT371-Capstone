@@ -71,6 +71,24 @@ func (h *Hub) BroadcastToCustomer(customerID uint, payload []byte) {
 	h.broadcast(h.custConns, customerID, payload)
 }
 
+func (h *Hub) BroadcastToAll(payload []byte) {
+	h.mu.RLock()
+
+	allPools := []map[uint]map[*wsClient]struct{}{h.techConns, h.custConns}
+	h.mu.RUnlock()
+
+	for _, pool := range allPools {
+		h.mu.RLock()
+
+		for id := range pool {
+			h.mu.RUnlock()
+			h.broadcast(pool, id, payload)
+			h.mu.RLock()
+		}
+		h.mu.RUnlock()
+	}
+}
+
 func (h *Hub) broadcast(pool map[uint]map[*wsClient]struct{}, id uint, payload []byte) {
 	h.mu.RLock()
 	connsMap := pool[id]
