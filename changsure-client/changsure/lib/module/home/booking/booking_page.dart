@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import '../../../core/button/primary_button.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
-import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/booking/booking_model.dart' hide Technician;
 import '../../../data/models/master_data_models.dart';
 import '../../../data/models/users/users_model.dart';
 import '../../../state/booking_provider.dart';

@@ -6,7 +6,7 @@ import '../../../core/button/tertiary_button.dart';
 import '../../../core/header.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/address_model.dart';
-import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/booking/booking_model.dart' hide Technician;
 import '../../../data/models/master_data_models.dart';
 import '../../../state/booking_provider.dart';
 
@@ -223,7 +223,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       Text("หมายเลขบริการ"),
                       const Spacer(),
                       Text(
-                        "8439849384",
+                        data?.bookingNumber ?? "-",
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.colorTertiaryText,
@@ -287,7 +287,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   const Text("รูปภาพหน้างาน", style: TextStyle(fontSize: 14)),
                   const SizedBox(height: 8),
 
-                  (data?.images.isEmpty ?? true)
+                  (data?.images == null || data!.images!.isEmpty)
                       ? const Text(
                           "ไม่มีรูปภาพเพิ่มเติม",
                           style: TextStyle(
@@ -298,7 +298,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       : Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: data!.images.map((img) {
+                          children: data!.images!.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(

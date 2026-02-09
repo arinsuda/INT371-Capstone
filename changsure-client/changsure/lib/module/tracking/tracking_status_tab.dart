@@ -1,7 +1,6 @@
 import 'package:changsure/module/tracking/payment_page.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/header.dart';
 import '../../core/theme.dart';
 import 'completed_page.dart';
 import 'in_progress_page.dart';
@@ -14,7 +13,7 @@ class TrackingStatusTab extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8F9FE),
         body: SafeArea(
           child: Column(
             children: [
@@ -32,7 +31,6 @@ class TrackingStatusTab extends StatelessWidget {
                 ),
               ),
 
-              // TabBar
               TabBar(
                 labelColor: AppColors.primary,
                 unselectedLabelColor: const Color(0xFF9B9B9B),
@@ -54,18 +52,15 @@ class TrackingStatusTab extends StatelessWidget {
                 ],
               ),
 
-
-              // TabBarView
-              // Expanded(child: TabBarView(children: const [])),
-        const Expanded(
-          child: TabBarView(
-            children: [
-              InProgressPage(),
-              PaymentPage(),
-              CompletedPage(),
-            ],
-          ),
-        ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    InProgressPage(),
+                    const PaymentPage(),
+                    const CompletedPage(),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

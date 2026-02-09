@@ -7,7 +7,7 @@ import 'user_provider.dart';
 final bookingServiceProvider = Provider((ref) => BookingService());
 
 final availableTimeSlotsProvider = FutureProvider.autoDispose
-    .family<List<TimeSlotAvailability>, ({int technicianId, String date})>((
+    .family<List<TimeSlot>, ({int technicianId, String date})>((
       ref,
       params,
     ) async {
@@ -24,28 +24,27 @@ final availableTimeSlotsProvider = FutureProvider.autoDispose
       );
     });
 
-final bookingDetailProvider = FutureProvider.autoDispose
-    .family<BookingData, int>((ref, bookingId) async {
-      final service = ref.watch(bookingServiceProvider);
-      final user = ref.watch(userProvider);
-      final token = user?.token;
+final bookingDetailProvider = FutureProvider.autoDispose.family<Booking, int>((
+  ref,
+  bookingId,
+) async {
+  final service = ref.watch(bookingServiceProvider);
+  final user = ref.watch(userProvider);
+  final token = user?.token;
 
-      if (token == null || user == null) {
-        throw Exception("User not logged in");
-      }
+  if (token == null || user == null) {
+    throw Exception("User not logged in");
+  }
 
-      if (user.role == UserRole.technician) {
-        return service.getTechnicianBookingDetail(
-          token: token,
-          bookingId: bookingId,
-        );
-      } else {
-        return service.getCustomerBookingDetail(
-          token: token,
-          bookingId: bookingId,
-        );
-      }
-    });
+  if (user.role == UserRole.technician) {
+    return service.getTechnicianBookingDetail(
+      token: token,
+      bookingId: bookingId,
+    );
+  } else {
+    return service.getCustomerBookingDetail(token: token, bookingId: bookingId);
+  }
+});
 
 final technicianCalendarProvider = FutureProvider.autoDispose
     .family<CalendarResponse, ({int technicianId, String month})>((
@@ -66,21 +65,26 @@ final technicianCalendarProvider = FutureProvider.autoDispose
     });
 
 final myBookingsProvider = FutureProvider.autoDispose
-    .family<List<BookingData>, ({String? status, int page})>((
-      ref,
-      params,
-    ) async {
+    .family<List<Booking>, ({String? status, int page})>((ref, params) async {
       final service = ref.watch(bookingServiceProvider);
       final user = ref.watch(userProvider);
       final token = user?.token;
 
-      if (token == null || token.isEmpty) throw Exception("User not logged in");
+      if (token == null || user == null) throw Exception("User not logged in");
 
-      return service.getMyBookings(
-        token: token,
-        status: params.status,
-        page: params.page,
-      );
+      if (user.role == UserRole.technician) {
+        return service.getTechnicianBookings(
+          token: token,
+          status: params.status,
+          page: params.page,
+        );
+      } else {
+        return service.getMyBookings(
+          token: token,
+          status: params.status,
+          page: params.page,
+        );
+      }
     });
 
 final bookingControllerProvider =
@@ -136,5 +140,57 @@ class BookingController extends AutoDisposeAsyncNotifier<void> {
     if (!state.hasError) {
       ref.invalidate(bookingDetailProvider(bookingId));
     }
+  }
+
+  Future<void> acceptBooking(int bookingId) async {
+    final service = ref.read(bookingServiceProvider);
+    final user = ref.read(userProvider);
+    final token = user?.token;
+    if (token == null) return;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(
+      () => service.acceptBooking(token: token, bookingId: bookingId),
+    );
+    if (!state.hasError) ref.invalidate(myBookingsProvider);
+  }
+
+  Future<void> rejectBooking(int bookingId, String reason) async {
+    final service = ref.read(bookingServiceProvider);
+    final user = ref.read(userProvider);
+    final token = user?.token;
+    if (token == null) return;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(
+      () => service.rejectBooking(
+        token: token,
+        bookingId: bookingId,
+        reason: reason,
+      ),
+    );
+    if (!state.hasError) ref.invalidate(myBookingsProvider);
+  }
+
+  Future<void> startJob(int bookingId) async {
+    final service = ref.read(bookingServiceProvider);
+    final user = ref.read(userProvider);
+    final token = user?.token;
+    if (token == null) return;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(
+      () => service.startJob(token: token, bookingId: bookingId),
+    );
+    if (!state.hasError) ref.invalidate(myBookingsProvider);
+  }
+
+  Future<void> completeJob(int bookingId) async {
+    final service = ref.read(bookingServiceProvider);
+    final user = ref.read(userProvider);
+    final token = user?.token;
+    if (token == null) return;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(
+      () => service.completeJob(token: token, bookingId: bookingId),
+    );
+    if (!state.hasError) ref.invalidate(myBookingsProvider);
   }
 }

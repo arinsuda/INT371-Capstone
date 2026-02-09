@@ -14,7 +14,7 @@ class ChatRoomPage extends ConsumerStatefulWidget {
   final int bookingId;
   final String? title;
   final String? otherPersonImg;
-  
+
   final int? technicianId;
 
   const ChatRoomPage({
@@ -40,6 +40,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void initState() {
     super.initState();
     _resolveParticipantInfo();
+    _markRoomAsRead();
   }
 
   @override
@@ -47,6 +48,19 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _markRoomAsRead() async {
+    try {
+      final service = ref.read(chatServiceProvider);
+      final token = ref.read(userProvider)?.token;
+
+      if (token != null) {
+        await service.markRoomAsRead(token, widget.bookingId);
+      }
+    } catch (e) {
+      throw Exception('ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้: $e');
+    }
   }
 
   void _scrollToBottom() {

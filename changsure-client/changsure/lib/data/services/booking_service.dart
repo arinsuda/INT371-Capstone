@@ -46,30 +46,7 @@ class BookingService {
     return _handleResponse(response, (json) => BookingResponse.fromJson(json));
   }
 
-  Future<List<TimeSlotAvailability>> getAvailableTimeSlots({
-    required String token,
-    required int technicianId,
-    required String date,
-  }) async {
-    final uri =
-        Uri.parse(
-          "${ApiConstants.baseUrl}/customers/me/bookings/availability",
-        ).replace(
-          queryParameters: {
-            "technician_id": technicianId.toString(),
-            "date": date,
-          },
-        );
-
-    final response = await http.get(uri, headers: _authHeader(token));
-
-    return _handleResponse(response, (json) {
-      final List list = json['data'];
-      return list.map((e) => TimeSlotAvailability.fromJson(e)).toList();
-    });
-  }
-
-  Future<List<BookingData>> getMyBookings({
+  Future<List<Booking>> getMyBookings({
     required String token,
     String? status,
     int page = 1,
@@ -88,11 +65,11 @@ class BookingService {
 
     return _handleResponse(response, (json) {
       final List list = json['data']['items'];
-      return list.map((e) => BookingData.fromJson(e)).toList();
+      return list.map((e) => Booking.fromJson(e)).toList();
     });
   }
 
-  Future<BookingData> getCustomerBookingDetail({
+  Future<Booking> getCustomerBookingDetail({
     required String token,
     required int bookingId,
   }) async {
@@ -102,11 +79,11 @@ class BookingService {
     final response = await http.get(uri, headers: _authHeader(token));
 
     return _handleResponse(response, (json) {
-      return BookingData.fromJson(json['data']);
+      return Booking.fromJson(json['data']);
     });
   }
 
-  Future<BookingData> cancelBooking({
+  Future<Booking> cancelBooking({
     required String token,
     required int bookingId,
     String reason = "",
@@ -121,12 +98,33 @@ class BookingService {
       body: jsonEncode({"reason": reason}),
     );
 
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<List<Booking>> getTechnicianBookings({
+    required String token,
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = {"page": page.toString(), "limit": limit.toString()};
+    if (status != null && status.isNotEmpty) {
+      queryParams["status"] = status;
+    }
+
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings",
+    ).replace(queryParameters: queryParams);
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
     return _handleResponse(response, (json) {
-      return BookingData.fromJson(json['data']);
+      final List list = json['data']['items'];
+      return list.map((e) => Booking.fromJson(e)).toList();
     });
   }
 
-  Future<BookingData> getTechnicianBookingDetail({
+  Future<Booking> getTechnicianBookingDetail({
     required String token,
     required int bookingId,
   }) async {
@@ -135,9 +133,7 @@ class BookingService {
     );
     final response = await http.get(uri, headers: _authHeader(token));
 
-    return _handleResponse(response, (json) {
-      return BookingData.fromJson(json['data']);
-    });
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
   }
 
   Future<CalendarResponse> getTechnicianCalendar({
@@ -156,6 +152,78 @@ class BookingService {
     final response = await http.get(uri, headers: _authHeader(token));
 
     return _handleResponse(response, (json) => CalendarResponse.fromJson(json));
+  }
+
+  Future<Booking> acceptBooking({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/accept",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> rejectBooking({
+    required String token,
+    required int bookingId,
+    String reason = "",
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/reject",
+    );
+    final response = await http.patch(
+      uri,
+      headers: _authHeader(token),
+      body: jsonEncode({"reason": reason}),
+    );
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> startJob({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/start",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> completeJob({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/complete",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<List<TimeSlot>> getAvailableTimeSlots({
+    required String token,
+    required int technicianId,
+    required String date,
+  }) async {
+    final uri =
+        Uri.parse(
+          "${ApiConstants.baseUrl}/customers/me/bookings/availability",
+        ).replace(
+          queryParameters: {
+            "technician_id": technicianId.toString(),
+            "date": date,
+          },
+        );
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) {
+      final List list = json['data'];
+      return list.map((e) => TimeSlot.fromJson(e)).toList();
+    });
   }
 
   Map<String, String> _authHeader(String token) {

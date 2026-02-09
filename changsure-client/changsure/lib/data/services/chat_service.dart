@@ -27,6 +27,18 @@ class ChatService {
     });
   }
 
+  Future<void> markRoomAsRead(String token, int bookingId) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/chats/rooms/$bookingId/read",
+    );
+
+    final response = await http.post(uri, headers: _authHeader(token));
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to mark as read: ${response.statusCode}');
+    }
+  }
+
   Future<ChatMessage> sendMessage(
     String token,
     SendMessageRequest req, {
