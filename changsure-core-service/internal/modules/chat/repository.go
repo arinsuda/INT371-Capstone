@@ -11,7 +11,6 @@ import (
 type Repository interface {
 	Create(ctx context.Context, msg *ChatMessage) error
 	GetHistory(ctx context.Context, bookingID uint, offset int, limit int) ([]ChatMessage, error)
-	MarkAsRead(ctx context.Context, bookingID uint, readerID uint, readerRole string) error
 
 	GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error)
 }
@@ -38,19 +37,6 @@ func (r *repository) GetHistory(ctx context.Context, bookingID uint, offset int,
 		Limit(limit).
 		Find(&msgs).Error
 	return msgs, err
-}
-
-func (r *repository) MarkAsRead(ctx context.Context, bookingID uint, readerID uint, readerRole string) error {
-
-	senderRoleToUpdate := "technician"
-	if readerRole == "technician" {
-		senderRoleToUpdate = "customer"
-	}
-
-	return r.db.WithContext(ctx).
-		Model(&ChatMessage{}).
-		Where("booking_id = ? AND sender_role = ? AND is_read = ?", bookingID, senderRoleToUpdate, false).
-		Update("is_read", true).Error
 }
 
 func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error) {
@@ -93,7 +79,12 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 				SELECT COUNT(*) 
 				FROM chat_messages cm 
 				WHERE cm.booking_id = b.id 
-				  AND cm.is_read = false 
+				  AND cm.created_at >
+				  	CASE
+				  		WHEN ? = 'customer'
+            THEN COALESCE(b.last_read_by_customer, '1970-01-01')
+        ELSE COALESCE(b.last_read_by_technician, '1970-01-01')
+    END
 				  AND cm.sender_role != ? -- นับเฉพาะที่คนอื่นส่งมา
 			) as unread_count
 		FROM bookings b
@@ -112,7 +103,9 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 		ORDER BY last_msg_time DESC
 	`
 
-	err := r.db.WithContext(ctx).Raw(query, role, userID).Scan(&results).Error
+	err := r.db.WithContext(ctx).
+		Raw(query, role, role, userID).
+		Scan(&results).Error
 
 	for i := range results {
 		if results[i].OtherPersonImg != "" {

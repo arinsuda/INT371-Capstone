@@ -18,7 +18,6 @@ type ChatMessage struct {
 	SenderRole string      `gorm:"type:varchar(20);not null" json:"sender_role"`
 	Type       MessageType `gorm:"type:varchar(10);not null" json:"type"`
 	Content    string      `gorm:"type:text;not null" json:"content"`
-	IsRead     bool        `gorm:"default:false" json:"is_read"`
 	CreatedAt  time.Time   `json:"created_at"`
 }
 

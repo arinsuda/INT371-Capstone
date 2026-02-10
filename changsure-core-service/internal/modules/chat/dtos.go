@@ -20,3 +20,7 @@ type SendMessageReq struct {
 	Type      MessageType `json:"type" validate:"required,oneof=TEXT IMAGE"`
 	Content   string      `form:"content" json:"content"`
 }
+
+type ReadEventPayload struct {
+	BookingID uint `json:"booking_id"`
+}

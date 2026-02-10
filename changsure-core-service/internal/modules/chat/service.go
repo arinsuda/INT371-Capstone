@@ -13,6 +13,7 @@ import (
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/realtime"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 )
 
@@ -100,7 +101,6 @@ func (s *service) SendMessage(ctx context.Context, userID uint, userRole string,
 		SenderRole: userRole,
 		Type:       req.Type,
 		Content:    finalContent,
-		IsRead:     false,
 		CreatedAt:  time.Now(),
 	}
 
@@ -158,9 +158,12 @@ func (s *service) GetChatHistory(ctx context.Context, userID uint, bookingID uin
 		}
 	}
 
-	go func() {
-		_ = s.chatRepo.MarkAsRead(context.Background(), bookingID, userID, userRole)
-	}()
+	go s.updateRoomReadState(
+		context.Background(),
+		bk,
+		userID,
+		userRole,
+	)
 
 	return msgs, nil
 }
@@ -179,4 +182,37 @@ func canChat(status string) bool {
 
 func (s *service) GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error) {
 	return s.chatRepo.GetChatRooms(ctx, userID, userRole)
+}
+
+func (s *service) updateRoomReadState(
+	ctx context.Context,
+	bk *booking.Booking,
+	userID uint,
+	role string,
+) {
+
+	now := time.Now()
+
+	// update booking.last_read_by_xxx
+	_ = s.bookingRepo.UpdateLastRead(
+		ctx,
+		bk.ID,
+		role,
+		now,
+	)
+
+	// ยิง realtime event
+	payload := fiber.Map{
+		"booking_id":  bk.ID,
+		"reader_role": role,
+		"read_at":     now,
+	}
+
+	event := realtime.MarshalEvent("ROOM_READ", payload)
+
+	if role == "technician" {
+		s.hub.BroadcastToCustomer(bk.CustomerID, event)
+	} else {
+		s.hub.BroadcastToTechnician(bk.TechnicianID, event)
+	}
 }
