@@ -13,58 +13,58 @@ class TrackingStatusTab extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FE),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: 16, top: 24),
-                child: Center(
-                  child: Text(
-                    "ติดตามสถานะ",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            Container(
+              color: Colors.white,
+              padding: EdgeInsets.only(top: 24),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16, top: 24),
+                    child: Center(
+                      child: Text(
+                        "ติดตามสถานะ",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              TabBar(
-                labelColor: AppColors.primary,
-                unselectedLabelColor: const Color(0xFF9B9B9B),
-                indicatorColor: AppColors.primary,
-
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.normal,
-                  fontSize: 14,
-                ),
-
-                tabs: const [
-                  Tab(text: "กำลังดำเนินการ"),
-                  Tab(text: "รอชำระเงิน"),
-                  Tab(text: "ดำเนินการเสร็จสิ้น"),
+                  TabBar(
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.colorTertiaryText,
+                    indicatorColor: AppColors.primary,
+                    tabs: const [
+                      Tab(text: "กำลังดำเนินการ"),
+                      Tab(text: "รอชำระเงิน"),
+                      Tab(text: "ดำเนินการเสร็จสิ้น"),
+                    ],
+                  ),
                 ],
               ),
+            ),
 
-              Expanded(
+            Expanded(
+              child: Container(
+                color: AppColors.primaryBGHover, // สีพื้นหลังจริง
                 child: TabBarView(
                   children: [
                     InProgressPage(),
-                    const PaymentPage(),
-                    const CompletedPage(),
+                    PaymentPage(),
+                    CompletedPage(),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+
   }
 }
