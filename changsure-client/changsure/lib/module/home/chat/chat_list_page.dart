@@ -22,7 +22,7 @@ class ChatListPage extends ConsumerWidget {
           "แชท",
           style: TextStyle(
             color: AppColors.primary,
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),

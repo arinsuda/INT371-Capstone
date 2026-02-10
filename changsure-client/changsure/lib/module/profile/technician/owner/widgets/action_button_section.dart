@@ -1,4 +1,5 @@
 import 'package:changsure/module/home/booking/section/address_list.dart';
+import 'package:changsure/module/profile/technician/owner/calendar/calendar_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../state/bottom_nav_provider.dart';
@@ -58,13 +59,16 @@ class ActionButtonSection extends ConsumerWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddressList(
-                      provinceId: null,
-                    ),
+                    builder: (context) => const AddressList(provinceId: null),
                   ),
                 );
               }
-              // ถ้าต้องการให้ปุ่มอื่นทำงานก็เพิ่มตรงนี้
+              if (button['label'] == 'ปฏิทินช่าง') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CalendarPage()),
+                );
+              }
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,
