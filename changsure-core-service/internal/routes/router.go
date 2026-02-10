@@ -75,6 +75,7 @@ func (r *Router) setupHealthRoutes() {
 // setupPublicRoutes configures public API endpoints
 func (r *Router) setupPublicRoutes() {
 	v1 := r.app.Group("/api/v1")
+	r.container.PaymentHandler.RegisterWebhookRoutes(v1)
 
 	// Authentication routes (no auth required)
 	auth := v1.Group("/auth")
@@ -155,6 +156,7 @@ func (r *Router) setupSharedResources(api fiber.Router) {
 	r.container.BadgeHandler.RegisterRoutes(api)
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 	r.container.ChatHandler.RegisterRoutes(api)
+	r.container.PaymentHandler.RegisterRoutes(api)
 
 	// OCR functionality
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)

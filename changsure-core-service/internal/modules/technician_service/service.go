@@ -5,11 +5,25 @@ import "context"
 type Service interface {
 	SetPricing(ctx context.Context, req TechnicianPricingReq) (uint, error)
 	SearchTechnicians(ctx context.Context, q SearchTechniciansQuery) ([]interface{}, int64, error)
+	GetPricing(
+		ctx context.Context,
+		techID uint,
+		serviceID uint,
+	) (*TechnicianService, error)
 }
 
 type service struct{ repo Repository }
 
 func NewService(r Repository) Service { return &service{repo: r} }
+
+func (s *service) GetPricing(
+	ctx context.Context,
+	techID uint,
+	serviceID uint,
+) (*TechnicianService, error) {
+
+	return s.repo.GetPricing(techID, serviceID)
+}
 
 func (s *service) SetPricing(ctx context.Context, req TechnicianPricingReq) (uint, error) {
 	p := &TechnicianService{

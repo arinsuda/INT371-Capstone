@@ -20,6 +20,7 @@ import (
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
+	"changsure-core-service/internal/modules/payment"
 	"changsure-core-service/internal/modules/province"
 	"changsure-core-service/internal/modules/service"
 	servicecategory "changsure-core-service/internal/modules/service_category"
@@ -138,6 +139,11 @@ type Container struct {
 	ChatService chat.Service
 	ChatHandler *chat.Handler
 
+	PaymentRepo    payment.Repository
+	PaymentTxnRepo payment.PaymentTransactionRepository
+	PaymentService payment.Service
+	PaymentHandler *payment.Handler
+
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
 }
@@ -191,6 +197,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianCalendarModule()
 
 	c.initChatModule()
+	c.initPaymentModule(cfg)
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -462,6 +469,51 @@ func (c *Container) initChatModule() {
 	c.ChatHandler = chat.NewHandler(c.ChatService)
 }
 
+func (c *Container) initPaymentModule(cfg *config.Config) {
+
+	omiseCfg := config.OmiseConfig{
+		PublicKey:       cfg.Omise.PublicKey,
+		SecretKey:       cfg.Omise.SecretKey,
+		WebhookSecret:   cfg.Omise.WebhookSecret,
+		Currency:        cfg.Omise.Currency,
+		Timeout:         cfg.Omise.Timeout,
+		QRExpiryMinutes: cfg.Omise.QRExpiryMinutes,
+	}
+
+	repo, err := payment.NewOmiseRepository(omiseCfg)
+	if err != nil {
+		panic(fmt.Sprintf("payment: failed to init omise repo: %v", err))
+	}
+	c.PaymentRepo = repo
+
+	c.PaymentTxnRepo = payment.NewPaymentTransactionRepository(c.DB)
+
+	if c.BookingRepo == nil {
+		panic("payment: booking repository is nil")
+	}
+
+	svc, err := payment.NewService(
+		c.PaymentRepo,
+		c.BookingRepo,
+		c.PaymentTxnRepo,
+		c.TechnicianServiceService,
+		payment.Config{Omise: omiseCfg},
+		nil,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("payment: failed to init service: %v", err))
+	}
+	c.PaymentService = svc
+
+	isDev := cfg.App.Environment == "development"
+	c.PaymentHandler = payment.NewHandler(
+		c.PaymentService,
+		c.Hub,
+		cfg.Omise.WebhookSecret,
+		isDev,
+	)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -492,5 +544,11 @@ func AllModels() []interface{} {
 	models = append(models, timeslot.Models()...)
 
 	models = append(models, chat.Models()...)
+
+	models = append(models,
+		&payment.PaymentTransaction{},
+		&payment.PaymentEvent{},
+	)
+
 	return models
 }

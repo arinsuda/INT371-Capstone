@@ -3,6 +3,7 @@ package booking
 import (
 	"time"
 
+	customer "changsure-core-service/internal/modules/customer"
 	"changsure-core-service/internal/modules/technician"
 	techService "changsure-core-service/internal/modules/technician_service"
 	timeslot "changsure-core-service/internal/modules/time_slot"
@@ -54,6 +55,7 @@ type Booking struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	TimeSlot          timeslot.TimeSlot             `gorm:"foreignKey:TimeSlotID" json:"time_slot"`
+	Customer          customer.Customer             `gorm:"foreignKey:CustomerID" json:"customer"`
 	Technician        technician.Technician         `gorm:"foreignKey:TechnicianID" json:"technician"`
 	TechnicianService techService.TechnicianService `gorm:"foreignKey:TechnicianServiceID" json:"technician_service"`
 

@@ -301,11 +301,35 @@ func (s *Seeder) seedTechnicians() error {
 	if s.isSeeded(&technician.Technician{}) {
 		return nil
 	}
-	items, err := loadSeedFile[technician.Technician]("technicians/technician.json")
+
+	type TechnicianSeed struct {
+		Firstname    string `json:"firstname"`
+		Lastname     string `json:"lastname"`
+		Email        string `json:"email"`
+		PasswordHash string `json:"password_hash"`
+		IsAvailable  bool   `json:"is_available"`
+		IsVerified   bool   `json:"is_verified"`
+	}
+
+	items, err := loadSeedFile[TechnicianSeed]("technicians/technician.json")
 	if err != nil {
 		return err
 	}
-	return s.db.CreateInBatches(&items, 100).Error
+
+	technicians := make([]technician.Technician, 0, len(items))
+	for _, item := range items {
+		email := item.Email
+		technicians = append(technicians, technician.Technician{
+			FirstName:    item.Firstname,
+			LastName:     item.Lastname,
+			Email:        &email,
+			PasswordHash: item.PasswordHash,
+			IsAvailable:  item.IsAvailable,
+			IsVerified:   item.IsVerified,
+		})
+	}
+
+	return s.db.CreateInBatches(technicians, 100).Error
 }
 
 func (s *Seeder) seedTechnicianAddresses() error {

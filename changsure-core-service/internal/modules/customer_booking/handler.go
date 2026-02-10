@@ -303,6 +303,16 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 		}
 	}
 
+	if b.Customer.AvatarURL != nil && *b.Customer.AvatarURL != "" {
+		key := *b.Customer.AvatarURL
+		if !strings.HasPrefix(key, "http") {
+			url, err := h.storage.PresignGet(ctx, key, ttl, false)
+			if err == nil {
+				*b.Customer.AvatarURL = url
+			}
+		}
+	}
+
 	if b.TechnicianService.Service.ImageURLs != nil {
 		for i, key := range b.TechnicianService.Service.ImageURLs {
 			if key == "" || strings.HasPrefix(key, "http") {

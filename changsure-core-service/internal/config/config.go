@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -22,6 +23,7 @@ type Config struct {
 	Redis    RedisConfig
 	Minio    MinioConfig
 	OCR      OCRConfig `mapstructure:"ocr"`
+	Omise    OmiseConfig
 }
 
 type AppConfig struct {
@@ -80,6 +82,15 @@ type MinioConfig struct {
 
 type OCRConfig struct {
 	BaseURL string `mapstructure:"base_url" json:"base_url"`
+}
+
+type OmiseConfig struct {
+	PublicKey     string
+	SecretKey     string
+	Currency      string
+	Timeout       time.Duration
+	WebhookSecret string
+	QRExpiryMinutes int
 }
 
 var GlobalConfig *Config
@@ -143,6 +154,14 @@ func LoadConfig() *Config {
 		},
 		OCR: OCRConfig{
 			BaseURL: getEnv("OCR_BASE_URL"),
+		},
+		Omise: OmiseConfig{
+			PublicKey:       os.Getenv("OMISE_PUBLIC_KEY"),
+			SecretKey:       os.Getenv("OMISE_SECRET_KEY"),
+			Currency:        os.Getenv("OMISE_CURRENCY"),
+			Timeout:         time.Duration(getEnvAsInt("OMISE_TIMEOUT_SECONDS")) * time.Second,
+			WebhookSecret:   os.Getenv("OMISE_WEBHOOK_SECRET"),
+			QRExpiryMinutes: getEnvAsInt("OMISE_QR_EXPIRY_MINUTES"),
 		},
 	}
 

@@ -19,6 +19,12 @@ type Repository interface {
 	FindByID(ctx context.Context, id uint) (*Booking, error)
 	FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error)
 	UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error
+	UpdateLastRead(
+		ctx context.Context,
+		bookingID uint,
+		role string,
+		readAt time.Time,
+	) error
 
 	GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error)
 	IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error)
@@ -26,6 +32,7 @@ type Repository interface {
 	GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error)
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
+	MarkAsPaid(ctx context.Context, bookingID uint) error
 
 	ListByCustomer(
 		ctx context.Context,
@@ -71,6 +78,15 @@ func (r *repository) CreateImages(ctx context.Context, images []BookingImage) er
 func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 	var booking Booking
 	err := r.db.WithContext(ctx).
+		Preload("Customer", func(db *gorm.DB) *gorm.DB {
+			return db.Select(
+				"id",
+				"first_name",
+				"last_name",
+				"phone",
+				"avatar_url",
+			)
+		}).
 		Preload("Images").
 		Preload("TimeSlot").
 		Preload("Technician").
@@ -246,6 +262,15 @@ func (r *repository) ListByTechnician(
 
 	var bookings []Booking
 	err := q.
+		Preload("Customer", func(db *gorm.DB) *gorm.DB {
+			return db.Select(
+				"id",
+				"first_name",
+				"last_name",
+				"phone",
+				"avatar_url",
+			)
+		}).
 		Preload("Images").
 		Preload("TimeSlot").
 		Preload("Technician").
@@ -261,4 +286,33 @@ func (r *repository) ListByTechnician(
 	}
 
 	return bookings, total, nil
+}
+
+func (r *repository) MarkAsPaid(ctx context.Context, bookingID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ? AND status = ?", bookingID, BookingStatusWaitingPayment).
+		Updates(map[string]any{
+			"status":     BookingStatusCompleted,
+			"updated_at": time.Now(),
+		}).Error
+}
+
+func (r *repository) UpdateLastRead(
+	ctx context.Context,
+	bookingID uint,
+	role string,
+	readAt time.Time,
+) error {
+
+	column := "last_read_by_customer"
+	if role == "technician" {
+		column = "last_read_by_technician"
+	}
+
+	return r.db.WithContext(ctx).
+		Table("bookings").
+		Where("id = ?", bookingID).
+		Update(column, readAt).
+		Error
 }
