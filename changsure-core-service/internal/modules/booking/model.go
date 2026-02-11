@@ -51,6 +51,10 @@ type Booking struct {
 
 	Status string `gorm:"type:varchar(20);default:'PENDING';index" json:"status"`
 
+	// Chat tracking - when each party last read the chat
+	LastReadByCustomer   *time.Time `gorm:"index" json:"last_read_by_customer,omitempty"`
+	LastReadByTechnician *time.Time `gorm:"index" json:"last_read_by_technician,omitempty"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
