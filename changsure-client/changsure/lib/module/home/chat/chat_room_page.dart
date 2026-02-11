@@ -2,19 +2,24 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../data/models/chat/chat_model.dart';
 import '../../../../data/models/chat/chat_helper.dart';
+import '../../../../data/services/chat_service.dart';
 import '../../../../state/chat_provider.dart';
 import '../../../../state/user_provider.dart';
 import '../../../../state/public_technician_provider.dart';
 
+// ============================================================================
+// MAIN PAGE
+// ============================================================================
+
+/// Chat room page for a specific booking
+/// Displays message history and allows sending text and image messages
 class ChatRoomPage extends ConsumerStatefulWidget {
   final int bookingId;
   final String? title;
   final String? otherPersonImg;
-
   final int? technicianId;
 
   const ChatRoomPage({
@@ -30,39 +35,55 @@ class ChatRoomPage extends ConsumerStatefulWidget {
 }
 
 class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
-  final TextEditingController _controller = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _messageController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
   final ScrollController _scrollController = ScrollController();
 
   ChatParticipantInfo? _participantInfo;
+  bool _isMarkingAsRead = false;
 
   @override
   void initState() {
     super.initState();
-    _resolveParticipantInfo();
-    _markRoomAsRead();
+    _initializePage();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
+  /// Initialize page by resolving participant info and marking as read
+  Future<void> _initializePage() async {
+    await _resolveParticipantInfo();
+    await _markRoomAsRead();
+  }
+
+  /// Mark the chat room as read
   Future<void> _markRoomAsRead() async {
+    if (_isMarkingAsRead) return;
+
     try {
+      _isMarkingAsRead = true;
       final service = ref.read(chatServiceProvider);
       final token = ref.read(userProvider)?.token;
 
       if (token != null) {
         await service.markRoomAsRead(token, widget.bookingId);
       }
+    } on ChatServiceException catch (e) {
+      debugPrint('Failed to mark room as read: ${e.message}');
+      // Don't show error to user - this is a background operation
     } catch (e) {
-      throw Exception('ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้: $e');
+      debugPrint('Unexpected error marking room as read: $e');
+    } finally {
+      _isMarkingAsRead = false;
     }
   }
 
+  /// Scroll to the bottom of the message list
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
@@ -73,8 +94,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
+  /// Resolve participant information from technician profile or props
   Future<void> _resolveParticipantInfo() async {
     try {
+      // Try to get technician profile if ID is provided
       if (widget.technicianId != null) {
         final profileAsync = ref.read(
           publicTechnicianProvider(widget.technicianId!),
@@ -84,16 +107,21 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
           data: (profile) {
             if (profile != null && mounted) {
               setState(() {
-                _participantInfo = ChatHelper.fromTechnicianProfile(profile);
+                _participantInfo = ChatParticipantInfo.fromTechnicianProfile(
+                  profile,
+                );
               });
             }
           },
           loading: () {},
-          error: (_, __) {},
+          error: (error, _) {
+            debugPrint('Failed to load technician profile: $error');
+          },
         );
       }
 
-      if (_participantInfo == null && widget.title != null) {
+      // Fallback to title from props
+      if (_participantInfo == null && widget.title != null && mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo(
             userId: 0,
@@ -103,12 +131,14 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         });
       }
 
-      if (_participantInfo == null) {
+      // Final fallback to unknown user
+      if (_participantInfo == null && mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
         });
       }
     } catch (e) {
+      debugPrint('Error resolving participant info: $e');
       if (mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
@@ -117,44 +147,121 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  Future<void> _onImagePressed() async {
+  /// Handle image selection and sending
+  Future<void> _handleImageSelection() async {
     try {
-      final XFile? image = await _picker.pickImage(
+      final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 70,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
 
-      if (image != null && mounted) {
-        ref
-            .read(chatControllerProvider.notifier)
-            .sendImage(widget.bookingId, File(image.path));
+      if (image == null) return;
+
+      if (!mounted) return;
+
+      // Validate file size (10MB max)
+      final file = File(image.path);
+      final fileSize = await file.length();
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      if (fileSize > maxSize) {
+        _showErrorSnackBar('รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 10MB)');
+        return;
       }
+
+      await _sendImage(file);
+    } on ChatServiceException catch (e) {
+      _showErrorSnackBar(e.message);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('เลือกรูปภาพไม่สำเร็จ: $e')));
-      }
+      debugPrint('Error selecting image: $e');
+      _showErrorSnackBar('เลือกรูปภาพไม่สำเร็จ');
     }
   }
 
-  Future<void> _onSendPressed() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+  /// Send an image message
+  Future<void> _sendImage(File imageFile) async {
+    try {
+      await ref
+          .read(chatControllerProvider.notifier)
+          .sendImage(widget.bookingId, imageFile);
 
-    _controller.clear();
+      // Scroll to bottom after sending
+      Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+    } on ValidationException catch (e) {
+      _showErrorSnackBar(e.message);
+    } on NetworkException catch (_) {
+      _showErrorSnackBar('ไม่มีการเชื่อมต่ออินเทอร์เน็ต');
+    } on ChatServiceException catch (e) {
+      _showErrorSnackBar(e.message);
+    } catch (e) {
+      debugPrint('Error sending image: $e');
+      _showErrorSnackBar('ส่งรูปภาพไม่สำเร็จ');
+    }
+  }
+
+  /// Handle send message button press
+  Future<void> _handleSendMessage() async {
+    final text = _messageController.text.trim();
+
+    // Validate message
+    final validationError = ChatHelper.validateMessageContent(
+      text,
+      MessageType.text,
+    );
+
+    if (validationError != null) {
+      _showErrorSnackBar(validationError);
+      return;
+    }
+
+    // Clear input immediately for better UX
+    _messageController.clear();
 
     try {
       await ref
           .read(chatControllerProvider.notifier)
           .sendMessage(widget.bookingId, text);
+
+      // Scroll to bottom after sending
+      Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+    } on ValidationException catch (e) {
+      // Restore text if validation fails
+      _messageController.text = text;
+      _showErrorSnackBar(e.message);
+    } on NetworkException catch (_) {
+      _messageController.text = text;
+      _showErrorSnackBar('ไม่มีการเชื่อมต่ออินเทอร์เน็ต');
+    } on ChatServiceException catch (e) {
+      _messageController.text = text;
+      _showErrorSnackBar(e.message);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('ส่งข้อความไม่สำเร็จ: $e')));
-      }
+      _messageController.text = text;
+      debugPrint('Error sending message: $e');
+      _showErrorSnackBar('ส่งข้อความไม่สำเร็จ');
     }
+  }
+
+  /// Show error message to user
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'ปิด',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -171,15 +278,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       ),
       body: Column(
         children: [
+          // Messages list
           Expanded(
             child: messagesAsync.when(
               data: (messages) => _ChatMessagesList(
                 messages: messages,
                 myId: myId,
                 participantInfo: _participantInfo,
-                controller: _scrollController,
+                scrollController: _scrollController,
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const _LoadingView(),
               error: (error, stack) => _ErrorView(
                 error: error,
                 onRetry: () {
@@ -188,11 +296,19 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               ),
             ),
           ),
-          if (chatState.isLoading) const LinearProgressIndicator(minHeight: 2),
+
+          // Loading indicator
+          if (chatState.isLoading)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+            ),
+
+          // Input area
           _ChatInputArea(
-            controller: _controller,
-            onImagePressed: _onImagePressed,
-            onSendPressed: _onSendPressed,
+            controller: _messageController,
+            onImagePressed: _handleImageSelection,
+            onSendPressed: _handleSendMessage,
             isLoading: chatState.isLoading,
           ),
         ],
@@ -200,6 +316,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     );
   }
 }
+
+// ============================================================================
+// APP BAR
+// ============================================================================
 
 class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ChatParticipantInfo? participantInfo;
@@ -224,7 +344,11 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             SizedBox(width: 12),
             Text(
               'กำลังโหลด...',
-              style: TextStyle(color: Colors.black, fontSize: 18),
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -237,30 +361,22 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       iconTheme: const IconThemeData(color: Colors.black),
       title: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: Colors.grey[300],
-            backgroundImage:
-                participantInfo!.avatarUrl != null &&
-                    participantInfo!.avatarUrl!.isNotEmpty
-                ? NetworkImage(participantInfo!.avatarUrl!)
-                : null,
-            child:
-                participantInfo!.avatarUrl == null ||
-                    participantInfo!.avatarUrl!.isEmpty
-                ? const Icon(Icons.person, color: Colors.white, size: 20)
-                : null,
-          ),
+          _ParticipantAvatar(participantInfo: participantInfo!),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              participantInfo!.name,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  participantInfo!.displayName,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
@@ -272,70 +388,80 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
+class _ParticipantAvatar extends StatelessWidget {
+  final ChatParticipantInfo participantInfo;
+
+  const _ParticipantAvatar({required this.participantInfo});
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: Colors.grey[300],
+      backgroundImage: participantInfo.hasAvatar
+          ? NetworkImage(participantInfo.avatarUrl!)
+          : null,
+      child: !participantInfo.hasAvatar
+          ? const Icon(Icons.person, color: Colors.white, size: 20)
+          : null,
+    );
+  }
+}
+
+// ============================================================================
+// MESSAGES LIST
+// ============================================================================
+
 class _ChatMessagesList extends StatelessWidget {
   final List<ChatMessage> messages;
   final int? myId;
   final ChatParticipantInfo? participantInfo;
-  final ScrollController controller;
+  final ScrollController scrollController;
 
   const _ChatMessagesList({
     required this.messages,
     required this.myId,
-    required this.controller,
+    required this.scrollController,
     this.participantInfo,
   });
-
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
-  }
 
   @override
   Widget build(BuildContext context) {
     if (messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text(
-              'เริ่มการสนทนาได้เลย',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-          ],
-        ),
-      );
+      return const _EmptyMessagesView();
     }
 
     return ListView.builder(
-      controller: controller,
+      controller: scrollController,
       reverse: true,
       itemCount: messages.length,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       itemBuilder: (context, index) {
-        final msg = messages[index];
-        final isMe = msg.senderId == myId;
+        final message = messages[index];
+        final previousMessage = index < messages.length - 1
+            ? messages[index + 1]
+            : null;
 
-        bool showDateHeader = false;
-        final msgDateLocal = msg.createdAt.toLocal();
-
-        if (index == messages.length - 1) {
-          showDateHeader = true;
-        } else {
-          final olderMsg = messages[index + 1];
-          final olderMsgDateLocal = olderMsg.createdAt.toLocal();
-
-          if (!_isSameDay(msgDateLocal, olderMsgDateLocal)) {
-            showDateHeader = true;
-          }
-        }
+        final isMe = message.senderId == myId;
+        final showDateSeparator = ChatHelper.shouldShowDateSeparator(
+          message,
+          previousMessage,
+        );
+        final shouldGroup = ChatHelper.shouldGroupMessages(
+          message,
+          previousMessage,
+        );
 
         return Column(
           children: [
-            if (showDateHeader) _DateSeparator(date: msg.createdAt),
-            _ChatBubble(msg: msg, isMe: isMe, participantInfo: participantInfo),
+            if (showDateSeparator) _DateSeparator(date: message.createdAt),
+            _ChatBubble(
+              message: message,
+              isMe: isMe,
+              participantInfo: participantInfo,
+              showAvatar: !shouldGroup,
+              showTimestamp: !shouldGroup,
+            ),
           ],
         );
       },
@@ -343,38 +469,52 @@ class _ChatMessagesList extends StatelessWidget {
   }
 }
 
+class _EmptyMessagesView extends StatelessWidget {
+  const _EmptyMessagesView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'เริ่มการสนทนาได้เลย',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// DATE SEPARATOR
+// ============================================================================
+
 class _DateSeparator extends StatelessWidget {
   final DateTime date;
 
   const _DateSeparator({required this.date});
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final dateToCheck = DateTime(date.year, date.month, date.day);
-
-    if (dateToCheck == today) {
-      return 'วันนี้';
-    } else if (dateToCheck == yesterday) {
-      return 'เมื่อวาน';
-    } else {
-      return DateFormat('dd/MM/yyyy').format(date);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          _formatDate(date.toLocal()),
+          ChatHelper.formatDateSeparator(date),
           style: const TextStyle(
             color: Colors.black54,
             fontSize: 12,
@@ -386,46 +526,51 @@ class _DateSeparator extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// CHAT BUBBLE
+// ============================================================================
+
 class _ChatBubble extends StatelessWidget {
-  final ChatMessage msg;
+  final ChatMessage message;
   final bool isMe;
   final ChatParticipantInfo? participantInfo;
+  final bool showAvatar;
+  final bool showTimestamp;
 
   const _ChatBubble({
-    required this.msg,
+    required this.message,
     required this.isMe,
     this.participantInfo,
+    this.showAvatar = true,
+    this.showTimestamp = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: showTimestamp ? 10 : 4),
       child: Row(
         mainAxisAlignment: isMe
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMe) ...[
-            _UserAvatar(participantInfo: participantInfo),
-            const SizedBox(width: 8),
-          ],
-          if (isMe) ...[
-            _MessageTimestampOutside(
-              timestamp: msg.createdAt,
+          if (!isMe) ...[_buildAvatar(), const SizedBox(width: 8)],
+          if (isMe && showTimestamp) ...[
+            _MessageTimestamp(
+              timestamp: message.createdAt,
               isMe: true,
-              isRead: msg.isRead,
+              isRead: message.isRead,
             ),
             const SizedBox(width: 4),
           ],
           Flexible(
-            child: _MessageBubbleContent(msg: msg, isMe: isMe),
+            child: _MessageBubbleContent(message: message, isMe: isMe),
           ),
-          if (!isMe) ...[
+          if (!isMe && showTimestamp) ...[
             const SizedBox(width: 4),
-            _MessageTimestampOutside(
-              timestamp: msg.createdAt,
+            _MessageTimestamp(
+              timestamp: message.createdAt,
               isMe: false,
               isRead: false,
             ),
@@ -434,13 +579,21 @@ class _ChatBubble extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildAvatar() {
+    if (!showAvatar) {
+      return const SizedBox(width: 32); // Placeholder width
+    }
+
+    return _UserAvatar(participantInfo: participantInfo);
+  }
 }
 
 class _MessageBubbleContent extends StatelessWidget {
-  final ChatMessage msg;
+  final ChatMessage message;
   final bool isMe;
 
-  const _MessageBubbleContent({required this.msg, required this.isMe});
+  const _MessageBubbleContent({required this.message, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
@@ -458,20 +611,27 @@ class _MessageBubbleContent extends StatelessWidget {
               ? const Radius.circular(4)
               : const Radius.circular(18),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: msg.type == MessageType.IMAGE
-          ? _ImageMessage(imageUrl: msg.content)
-          : _TextMessage(text: msg.content, isMe: isMe),
+      child: message.isImageMessage
+          ? _ImageMessage(imageUrl: message.content)
+          : _TextMessage(text: message.content, isMe: isMe),
     );
   }
 }
 
-class _MessageTimestampOutside extends StatelessWidget {
+class _MessageTimestamp extends StatelessWidget {
   final DateTime timestamp;
   final bool isMe;
   final bool isRead;
 
-  const _MessageTimestampOutside({
+  const _MessageTimestamp({
     required this.timestamp,
     required this.isMe,
     required this.isRead,
@@ -486,17 +646,17 @@ class _MessageTimestampOutside extends StatelessWidget {
           : CrossAxisAlignment.start,
       children: [
         if (isMe && isRead)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 2),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
             child: Text(
               'อ่านแล้ว',
-              style: TextStyle(color: Colors.grey, fontSize: 10),
+              style: TextStyle(color: Colors.grey[600], fontSize: 10),
             ),
           ),
         Padding(
           padding: const EdgeInsets.only(bottom: 2),
           child: Text(
-            DateFormat('HH:mm').format(timestamp.toLocal()),
+            ChatHelper.formatMessageTime(timestamp),
             style: TextStyle(color: Colors.grey[500], fontSize: 10),
           ),
         ),
@@ -512,15 +672,14 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasAvatar = participantInfo?.hasAvatar ?? false;
     final avatarUrl = participantInfo?.avatarUrl;
 
     return CircleAvatar(
       radius: 16,
       backgroundColor: Colors.grey[300],
-      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-          ? NetworkImage(avatarUrl)
-          : null,
-      child: avatarUrl == null || avatarUrl.isEmpty
+      backgroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
+      child: !hasAvatar
           ? const Icon(Icons.person, color: Colors.white, size: 18)
           : null,
     );
@@ -554,61 +713,96 @@ class _ImageMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (_) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(10),
-            child: Stack(
-              children: [
-                Center(
-                  child: InteractiveViewer(
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.broken_image,
-                        size: 100,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      onTap: () => _showFullScreenImage(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
           imageUrl,
           width: 200,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+
+            return Container(
+              width: 200,
+              height: 150,
+              color: Colors.grey[200],
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            );
+          },
           errorBuilder: (_, __, ___) => Container(
             width: 200,
             height: 150,
             color: Colors.grey[200],
-            child: const Icon(Icons.broken_image, size: 50),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                SizedBox(height: 8),
+                Text(
+                  'โหลดรูปภาพไม่สำเร็จ',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  void _showFullScreenImage(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image,
+                    size: 100,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+// ============================================================================
+// INPUT AREA
+// ============================================================================
 
 class _ChatInputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -692,6 +886,19 @@ class _MessageTextField extends StatelessWidget {
         textInputAction: TextInputAction.send,
         enabled: !isLoading,
         maxLines: null,
+        maxLength: 5000,
+        buildCounter:
+            (context, {required currentLength, required isFocused, maxLength}) {
+              // Hide counter unless approaching limit
+              if (currentLength < 4500) return null;
+              return Text(
+                '$currentLength / $maxLength',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: currentLength > 4900 ? Colors.red : Colors.grey,
+                ),
+              );
+            },
         keyboardType: TextInputType.multiline,
         onSubmitted: (text) {
           if (text.trim().isNotEmpty && !isLoading) {
@@ -711,24 +918,42 @@ class _SendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: isLoading ? Colors.grey : Colors.blue,
-      child: isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : IconButton(
-              icon: const Icon(Icons.send, color: Colors.white, size: 20),
-              onPressed: onPressed,
-              padding: EdgeInsets.zero,
-            ),
+    return Material(
+      color: isLoading ? Colors.grey : Colors.blue,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: isLoading ? null : onPressed,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.send, color: Colors.white, size: 20),
+        ),
+      ),
     );
+  }
+}
+
+// ============================================================================
+// LOADING & ERROR VIEWS
+// ============================================================================
+
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: CircularProgressIndicator());
   }
 }
 
@@ -737,6 +962,17 @@ class _ErrorView extends StatelessWidget {
   final VoidCallback onRetry;
 
   const _ErrorView({required this.error, required this.onRetry});
+
+  String _getErrorMessage(Object error) {
+    if (error is NetworkException) {
+      return 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต\nกรุณาตรวจสอบการเชื่อมต่อ';
+    } else if (error is AuthenticationException) {
+      return 'กรุณาเข้าสู่ระบบอีกครั้ง';
+    } else if (error is ChatServiceException) {
+      return error.message;
+    }
+    return 'เกิดข้อผิดพลาดที่ไม่คาดคิด';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -754,7 +990,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              error.toString(),
+              _getErrorMessage(error),
               style: TextStyle(color: Colors.grey[600], fontSize: 14),
               textAlign: TextAlign.center,
             ),

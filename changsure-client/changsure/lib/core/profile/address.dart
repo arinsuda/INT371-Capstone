@@ -1,8 +1,8 @@
+import 'package:changsure/core/profile/widgets/address_form_fields.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/master_data_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -11,11 +11,7 @@ import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/header.dart';
 
 import 'controllers/address_form_controller.dart';
-import 'formatters/postcode_formatter.dart';
 import 'widgets/map_picker_sheet.dart';
-import 'widgets/master_data_search_field.dart';
-import 'widgets/labeled_text_field.dart';
-import 'widgets/labeled_text_area.dart';
 import 'widgets/map_preview.dart';
 
 class Address extends ConsumerStatefulWidget {
@@ -45,22 +41,17 @@ class Address extends ConsumerStatefulWidget {
     this.addressId,
     this.label,
     this.phoneNumber,
-
     required this.addressLine,
-
     required this.subDistrict,
     required this.district,
     required this.province,
     required this.postCode,
     this.isPrimary = false,
-
     this.provinceId,
     this.districtId,
     this.subDistrictId,
-
     this.initialLat,
     this.initialLng,
-
     required this.onSave,
     this.onDelete,
   });
@@ -99,8 +90,8 @@ class _AddressPageState extends ConsumerState<Address> {
   void initState() {
     super.initState();
     _isPrimary = widget.isPrimary;
-    labelCtrl = TextEditingController(text: widget.label ?? '');
 
+    labelCtrl = TextEditingController(text: widget.label ?? '');
     phoneCtrl = TextEditingController(text: widget.phoneNumber ?? '');
     addressLineCtrl = TextEditingController(text: widget.addressLine);
     subDistrictCtrl = TextEditingController(text: widget.subDistrict);
@@ -110,12 +101,19 @@ class _AddressPageState extends ConsumerState<Address> {
       text: widget.postCode == 0 ? '' : widget.postCode.toString(),
     );
 
+    // Only mark dirty for fields that affect submission
     labelCtrl.addListener(_markDirty);
     phoneCtrl.addListener(_markDirty);
     addressLineCtrl.addListener(_markDirty);
     postCodeCtrl.addListener(_markDirty);
 
+    _initializeData();
+  }
+
+  void _initializeData() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
       setState(() => _isLoadingDefaultLocation = true);
 
       try {
@@ -142,6 +140,7 @@ class _AddressPageState extends ConsumerState<Address> {
       if (widget.initialLat != null && widget.initialLng != null) {
         initialCoords = LatLng(widget.initialLat!, widget.initialLng!);
       }
+
       ref
           .read(addressFormProvider.notifier)
           .setInitialData(
@@ -152,7 +151,7 @@ class _AddressPageState extends ConsumerState<Address> {
             coords: initialCoords,
           );
 
-      if (initialCoords != null) {
+      if (initialCoords != null && mounted) {
         _previewMapController.move(initialCoords, 16.0);
       }
     });
@@ -180,6 +179,15 @@ class _AddressPageState extends ConsumerState<Address> {
     }
   }
 
+  void _onPhoneChanged() {
+    _phoneTouched = true;
+    _markDirty();
+  }
+
+  void _onCoordinatesUpdate(LatLng coords) {
+    _previewMapController.move(coords, 16.0);
+  }
+
   void _openMapPicker() async {
     final controller = ref.read(addressFormProvider.notifier);
     final startPoint = await controller.getSmartStartingPoint(
@@ -197,7 +205,7 @@ class _AddressPageState extends ConsumerState<Address> {
       builder: (context) => MapPickerSheet(
         initialCenter: startPoint,
         onPicked: (pickedLatLng) {
-          controller.setCoordinates(pickedLatLng);
+          ref.read(addressFormProvider.notifier).setCoordinates(pickedLatLng);
           _previewMapController.move(pickedLatLng, 16.0);
           _markDirty();
         },
@@ -230,9 +238,11 @@ class _AddressPageState extends ConsumerState<Address> {
         missing = 'พิกัดแผนที่';
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('กรุณาระบุ$missingให้ครบถ้วน')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('กรุณาระบุ$missingให้ครบถ้วน')));
+      }
       return;
     }
 
@@ -242,21 +252,16 @@ class _AddressPageState extends ConsumerState<Address> {
       final payload = <String, dynamic>{
         if (labelCtrl.text.trim().isNotEmpty) 'label': labelCtrl.text.trim(),
         'is_primary': _isPrimary,
-
         if (_phoneTouched)
           'phone_number': phoneCtrl.text.trim().isEmpty
               ? null
               : phoneCtrl.text.trim(),
-
         'address_line': addressLineCtrl.text.trim(),
-
         'province_id': formState.selectedProvinceId,
         'district_id': formState.selectedDistrictId,
         'sub_district_id': formState.selectedSubDistrictId,
-
         'latitude': formState.selectedCoordinates!.latitude,
         'longitude': formState.selectedCoordinates!.longitude,
-
         if (postCodeCtrl.text.trim().isNotEmpty)
           'postal_code': postCodeCtrl.text.trim(),
       };
@@ -285,7 +290,9 @@ class _AddressPageState extends ConsumerState<Address> {
         ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
       }
     } finally {
-      if (mounted) ref.read(addressFormProvider.notifier).setLoading(false);
+      if (mounted) {
+        ref.read(addressFormProvider.notifier).setLoading(false);
+      }
     }
   }
 
@@ -338,18 +345,121 @@ class _AddressPageState extends ConsumerState<Address> {
 
   @override
   Widget build(BuildContext context) {
+    // Use select to only rebuild when specific values change
+    final isMapLoading = ref.watch(
+      addressFormProvider.select((state) => state.isMapLoading),
+    );
+    final selectedCoordinates = ref.watch(
+      addressFormProvider.select((state) => state.selectedCoordinates),
+    );
+
+    // Setup listeners for auto-population
+    _setupMasterDataListeners();
+
+    final isEditing = widget.addressId != null;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+              child: Header(
+                header: "ที่อยู่ของฉัน",
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    ref
+                        .read(bottomSubPageProvider.notifier)
+                        .state = const SubPageConfig(
+                      page: BottomSubPage.customerProfile,
+                    );
+                  }
+                },
+              ),
+            ),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    MapPreview(
+                      mapController: _previewMapController,
+                      defaultCenter: _defaultCenter,
+                      selectedCoordinates: selectedCoordinates,
+                      isMapLoading: isMapLoading || _isLoadingDefaultLocation,
+                      onTapOpenPicker: _openMapPicker,
+                      onTapCurrentLocation: () async {
+                        try {
+                          await ref
+                              .read(addressFormProvider.notifier)
+                              .useCurrentLocation();
+                          final newCoord = ref
+                              .read(addressFormProvider)
+                              .selectedCoordinates;
+                          if (newCoord != null && mounted) {
+                            _previewMapController.move(newCoord, 16.0);
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: AddressFormFields(
+                        labelCtrl: labelCtrl,
+                        phoneCtrl: phoneCtrl,
+                        addressLineCtrl: addressLineCtrl,
+                        provinceCtrl: provinceCtrl,
+                        districtCtrl: districtCtrl,
+                        subDistrictCtrl: subDistrictCtrl,
+                        postCodeCtrl: postCodeCtrl,
+                        provinceFocusNode: _provinceFocusNode,
+                        districtFocusNode: _districtFocusNode,
+                        subDistrictFocusNode: _subDistrictFocusNode,
+                        onFieldChanged: _markDirty,
+                        onCoordinatesUpdate: _onCoordinatesUpdate,
+                      ),
+                    ),
+                    _PrimaryAddressToggle(
+                      isPrimary: _isPrimary,
+                      onChanged: (value) {
+                        setState(() {
+                          _isPrimary = value;
+                          _isDirty = true;
+                        });
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: PrimaryButton(
+                        text: "บันทึก",
+                        onPressed: _isDirty ? _onSave : null,
+                      ),
+                    ),
+                    if (isEditing && widget.onDelete != null)
+                      _DeleteButton(onDelete: _onDelete),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setupMasterDataListeners() {
     final formState = ref.watch(addressFormProvider);
     final formNotifier = ref.read(addressFormProvider.notifier);
-
-    final provinceAsync = ref.watch(provincesProvider);
-
-    final districtAsync = ref.watch(
-      districtsProvider(formState.selectedProvinceId ?? 0),
-    );
-
-    final subDistrictAsync = ref.watch(
-      subDistrictsProvider(formState.selectedDistrictId ?? 0),
-    );
 
     ref.listen<AsyncValue<List<ProvinceModel>>>(provincesProvider, (_, next) {
       next.whenData((provinces) {
@@ -393,7 +503,6 @@ class _AddressPageState extends ConsumerState<Address> {
               final match = subs.firstWhere(
                 (s) => s.nameTh == widget.subDistrict,
               );
-
               formNotifier.setSubDistrictId(
                 match.id,
                 zipCode: match.postalCode,
@@ -404,287 +513,65 @@ class _AddressPageState extends ConsumerState<Address> {
         });
       },
     );
+  }
+}
 
-    final isEditing = widget.addressId != null;
+// Separate widget to prevent unnecessary rebuilds
+class _PrimaryAddressToggle extends StatelessWidget {
+  final bool isPrimary;
+  final ValueChanged<bool> onChanged;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-              child: Header(
-                header: "ที่อยู่ของฉัน",
-                onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  } else {
-                    ref
-                        .read(bottomSubPageProvider.notifier)
-                        .state = const SubPageConfig(
-                      page: BottomSubPage.customerProfile,
-                    );
-                  }
-                },
-              ),
-            ),
-            Expanded(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    MapPreview(
-                      mapController: _previewMapController,
-                      defaultCenter: _defaultCenter,
-                      selectedCoordinates: formState.selectedCoordinates,
-                      isMapLoading:
-                          formState.isMapLoading || _isLoadingDefaultLocation,
-                      onTapOpenPicker: _openMapPicker,
-                      onTapCurrentLocation: () async {
-                        try {
-                          await ref
-                              .read(addressFormProvider.notifier)
-                              .useCurrentLocation();
-                          final newCoord = ref
-                              .read(addressFormProvider)
-                              .selectedCoordinates;
-                          if (newCoord != null)
-                            _previewMapController.move(newCoord, 16.0);
-                        } catch (e) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text(e.toString())));
-                        }
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: [
-                          LabeledTextField(
-                            label: "ชื่อ (เช่น บ้าน, ที่ทำงาน)",
-                            controller: labelCtrl,
-                          ),
-                          const SizedBox(height: 12),
-                          LabeledTextArea(
-                            label:
-                                "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
-                            controller: addressLineCtrl,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? "กรุณากรอกข้อมูล"
-                                : null,
-                          ),
+  const _PrimaryAddressToggle({
+    required this.isPrimary,
+    required this.onChanged,
+  });
 
-                          MasterDataSearchField<ProvinceModel>(
-                            label: "จังหวัด",
-                            controller: provinceCtrl,
-                            focusNode: _provinceFocusNode,
-                            options: provinceAsync.value ?? [],
-                            isLoading: provinceAsync.isLoading,
-                            hasSelection: formState.selectedProvinceId != null,
-                            displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) async {
-                              provinceCtrl.text = item.nameTh;
-                              formNotifier.setProvinceId(item.id);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const Text(
+            "ตั้งเป็นที่อยู่หลัก",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          Checkbox(
+            value: isPrimary,
+            activeColor: Colors.blue,
+            onChanged: (value) => onChanged(value ?? false),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
 
-                              districtCtrl.clear();
-                              subDistrictCtrl.clear();
-                              postCodeCtrl.clear();
+// Separate widget for delete button
+class _DeleteButton extends StatelessWidget {
+  final VoidCallback onDelete;
 
-                              try {
-                                final point = await formNotifier
-                                    .getSmartStartingPoint(
-                                      subDistrict: '',
-                                      district: '',
-                                      province: item.nameTh,
-                                    );
-                                formNotifier.setCoordinates(point);
-                                _previewMapController.move(point, 13.0);
-                              } catch (e) {
-                                print('Error geocoding province: $e');
-                              }
-                              _markDirty();
-                            },
-                            onChanged: (val) =>
-                                formNotifier.setProvinceId(null),
-                          ),
+  const _DeleteButton({required this.onDelete});
 
-                          MasterDataSearchField<DistrictModel>(
-                            label: "เขต/อำเภอ",
-                            controller: districtCtrl,
-                            focusNode: _districtFocusNode,
-                            options: districtAsync.value ?? [],
-                            isLoading: districtAsync.isLoading,
-                            hasSelection: formState.selectedDistrictId != null,
-                            displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) async {
-                              districtCtrl.text = item.nameTh;
-                              formNotifier.setDistrictId(item.id);
-
-                              subDistrictCtrl.clear();
-                              postCodeCtrl.clear();
-
-                              try {
-                                final point = await formNotifier
-                                    .getSmartStartingPoint(
-                                      subDistrict: '',
-                                      district: item.nameTh,
-                                      province: provinceCtrl.text,
-                                    );
-                                formNotifier.setCoordinates(point);
-                                _previewMapController.move(point, 14.0);
-                              } catch (e) {
-                                print('Error geocoding district: $e');
-                              }
-                            },
-                            onChanged: (val) =>
-                                formNotifier.setDistrictId(null),
-                          ),
-
-                          MasterDataSearchField<SubDistrictModel>(
-                            label: "แขวง/ตำบล",
-                            controller: subDistrictCtrl,
-                            focusNode: _subDistrictFocusNode,
-                            options: subDistrictAsync.value ?? [],
-                            isLoading: subDistrictAsync.isLoading,
-                            hasSelection:
-                                formState.selectedSubDistrictId != null,
-                            displayStringForOption: (item) => item.nameTh,
-                            onSelected: (item) async {
-                              subDistrictCtrl.text = item.nameTh;
-                              formNotifier.setSubDistrictId(
-                                item.id,
-                                zipCode: item.postalCode,
-                              );
-
-                              postCodeCtrl.text = item.postalCode;
-
-                              try {
-                                final point = await formNotifier
-                                    .getSmartStartingPoint(
-                                      subDistrict: item.nameTh,
-                                      district: districtCtrl.text,
-                                      province: provinceCtrl.text,
-                                    );
-                                formNotifier.setCoordinates(point);
-                                _previewMapController.move(point, 15.0);
-                              } catch (e) {
-                                print('Error geocoding sub-district: $e');
-                              }
-                            },
-                            onChanged: (val) =>
-                                formNotifier.setSubDistrictId(null),
-                          ),
-
-                          const SizedBox(height: 16),
-                          LabeledTextField(
-                            label: "รหัสไปรษณีย์",
-                            controller: postCodeCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(5),
-                              PostCodeFormatter(),
-                            ],
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return "กรุณากรอกรหัสไปรษณีย์";
-                              if (v.length != 5)
-                                return "รหัสไปรษณีย์ต้องมี 5 หลัก";
-                              return null;
-                            },
-
-                            onChanged: (val) => formNotifier.setZipCode(val),
-                          ),
-
-                          LabeledTextField(
-                            label: "เบอร์โทรสำหรับที่อยู่นี้ (ไม่บังคับ)",
-                            controller: phoneCtrl,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
-                            ],
-                            validator: (v) {
-                              final value = (v ?? '').trim();
-                              if (value.isEmpty) return null;
-                              if (value.length != 10)
-                                return "เบอร์โทรต้องมี 10 หลัก";
-                              return null;
-                            },
-                            onChanged: (_) {
-                              _phoneTouched = true;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Text(
-                            "ตั้งเป็นที่อยู่หลัก",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Checkbox(
-                            value: _isPrimary,
-                            activeColor: Colors.blue,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                _isPrimary = value ?? false;
-                                _isDirty = true;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: PrimaryButton(
-                        text: "บันทึก",
-                        onPressed: _isDirty ? _onSave : null,
-                      ),
-                    ),
-
-                    if (isEditing && widget.onDelete != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: OutlinedButton(
-                          onPressed: _onDelete,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text(
-                            'ลบที่อยู่',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: OutlinedButton(
+        onPressed: onDelete,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.red,
+          side: const BorderSide(color: Colors.red),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text(
+          'ลบที่อยู่',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
     );
