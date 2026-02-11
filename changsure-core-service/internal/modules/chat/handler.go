@@ -2,8 +2,9 @@ package chat
 
 import (
 	apperrors "changsure-core-service/internal/errors"
-	"github.com/gofiber/fiber/v3"
 	"strconv"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
@@ -15,11 +16,18 @@ func NewHandler(s Service) *Handler {
 }
 
 func (h *Handler) SendMessage(c fiber.Ctx) error {
-	userID := c.Locals("userID").(uint)
-	role := c.Locals("role").(string)
 
-	roomIdStr := c.Params("roomId")
-	bookingID, err := strconv.ParseUint(roomIdStr, 10, 32)
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return apperrors.Unauthorized(c, "User not authenticated")
+	}
+
+	role, ok := c.Locals("role").(string)
+	if !ok {
+		return apperrors.Unauthorized(c, "User role not found")
+	}
+
+	bookingID, err := h.parseBookingID(c.Params("roomId"))
 	if err != nil {
 		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
@@ -29,9 +37,9 @@ func (h *Handler) SendMessage(c fiber.Ctx) error {
 		return apperrors.BadRequest(c, "Invalid request body")
 	}
 
-	req.BookingID = uint(bookingID)
+	req.BookingID = bookingID
 
-	file, err := c.FormFile("file")
+	file, _ := c.FormFile("file")
 
 	msg, err := h.service.SendMessage(c.Context(), userID, role, req, file)
 	if err != nil {
@@ -46,17 +54,25 @@ func (h *Handler) SendMessage(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetChatRoomMessages(c fiber.Ctx) error {
-	userID := c.Locals("userID").(uint)
-	bookingIDStr := c.Params("roomId")
 
-	bookingID, err := strconv.ParseUint(bookingIDStr, 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid booking ID"})
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return apperrors.Unauthorized(c, "User not authenticated")
 	}
 
-	msgs, err := h.service.GetChatHistory(c.Context(), userID, uint(bookingID))
+	bookingID, err := h.parseBookingID(c.Params("roomId"))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return apperrors.BadRequest(c, "Invalid room ID format")
+	}
+
+	var query GetHistoryQuery
+	if err := c.Bind().Query(&query); err != nil {
+		return apperrors.BadRequest(c, "Invalid query parameters")
+	}
+
+	msgs, err := h.service.GetChatHistory(c.Context(), userID, bookingID, query)
+	if err != nil {
+		return apperrors.HandleError(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -67,23 +83,20 @@ func (h *Handler) GetChatRoomMessages(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetChatRooms(c fiber.Ctx) error {
-	userID := c.Locals("userID").(uint)
-	role := c.Locals("role").(string)
+
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return apperrors.Unauthorized(c, "User not authenticated")
+	}
+
+	role, ok := c.Locals("role").(string)
+	if !ok {
+		return apperrors.Unauthorized(c, "User role not found")
+	}
 
 	rooms, err := h.service.GetChatRooms(c.Context(), userID, role)
 	if err != nil {
-
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"error": fiber.Map{
-				"code":    "INTERNAL_SERVER_ERROR",
-				"message": err.Error(),
-			},
-		})
-	}
-
-	if rooms == nil {
-		rooms = []ChatRoomResponse{}
+		return apperrors.HandleError(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -91,4 +104,39 @@ func (h *Handler) GetChatRooms(c fiber.Ctx) error {
 		"message": "Successfully retrieved chat rooms",
 		"data":    rooms,
 	})
+}
+
+func (h *Handler) MarkRoomAsRead(c fiber.Ctx) error {
+
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return apperrors.Unauthorized(c, "User not authenticated")
+	}
+
+	role, ok := c.Locals("role").(string)
+	if !ok {
+		return apperrors.Unauthorized(c, "User role not found")
+	}
+
+	bookingID, err := h.parseBookingID(c.Params("roomId"))
+	if err != nil {
+		return apperrors.BadRequest(c, "Invalid room ID format")
+	}
+
+	if err := h.service.MarkRoomAsRead(c.Context(), userID, role, bookingID); err != nil {
+		return apperrors.HandleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Room marked as read successfully",
+	})
+}
+
+func (h *Handler) parseBookingID(idStr string) (uint, error) {
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
 }
