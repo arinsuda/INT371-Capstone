@@ -9,18 +9,6 @@ import (
 	timeslot "changsure-core-service/internal/modules/time_slot"
 )
 
-const (
-	BookingStatusPending        = "PENDING"
-	BookingStatusAccepted       = "ACCEPTED"
-	BookingStatusInProgress     = "IN_PROGRESS"
-	BookingStatusWaitingPayment = "WAITING_PAYMENT"
-	BookingStatusCompleted      = "COMPLETED"
-	BookingStatusCancelled      = "CANCELLED"
-	BookingStatusRejected       = "REJECTED"
-
-	PaymentMethodCOD = "COD"
-)
-
 type Booking struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 

@@ -4,14 +4,18 @@ import (
 	"context"
 	"time"
 
+	"changsure-core-service/internal/modules/booking"
+
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Repository interface {
-	UpsertCalendarDate(ctx context.Context, technicianID uint, date time.Time, isOpen bool) error
-	GetCalendarDatesByRange(ctx context.Context, technicianID uint, startDate, endDate time.Time) (map[string]bool, error)
-
+	SetClosedDate(ctx context.Context, technicianID uint, date time.Time, isClosed bool) error
+	GetClosedDatesByRange(
+		ctx context.Context,
+		technicianID uint,
+		startDate, endDate time.Time,
+	) (map[string]bool, error)
 	SetDefaultTimeSlots(ctx context.Context, technicianID uint, timeSlotIDs []uint) error
 	SetDateTimeSlots(ctx context.Context, technicianID uint, date time.Time, timeSlotIDs []uint) error
 	DeleteDateTimeSlots(ctx context.Context, technicianID uint, date time.Time) error
@@ -27,52 +31,58 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-// 📂 internal/modules/technician_calendar/repository.go
+func (r *repository) SetClosedDate(ctx context.Context, technicianID uint, date time.Time, isClosed bool) error {
 
-func (r *repository) UpsertCalendarDate(ctx context.Context, technicianID uint, date time.Time, isOpen bool) error {
-	// Best Practice: บังคับให้เป็น UTC และตัดเศษวินาทีทิ้งให้หมด
-	cleanDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	cleanDate := booking.NormalizeDate(date)
 
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if isOpen {
-			return tx.
-				Where("technician_id = ? AND date = ?", technicianID, cleanDate).
-				Delete(&TechnicianCalendarDate{}).Error
-		}
+	if !isClosed {
 
-		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "technician_id"}, {Name: "date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"is_open", "updated_at"}),
-		}).Create(&TechnicianCalendarDate{
+		return r.db.WithContext(ctx).
+			Where("technician_id = ? AND date = ?", technicianID, cleanDate).
+			Delete(&TechnicianClosedDate{}).Error
+	}
+
+	return r.db.WithContext(ctx).
+		Where(TechnicianClosedDate{
 			TechnicianID: technicianID,
 			Date:         cleanDate,
-			IsOpen:       false,
-		}).Error
-
-	})
+		}).
+		FirstOrCreate(&TechnicianClosedDate{}).Error
 }
 
-func (r *repository) GetCalendarDatesByRange(ctx context.Context, technicianID uint, startDate, endDate time.Time) (map[string]bool, error) {
-	// Normalize dates
-	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
-	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, time.UTC)
+func (r *repository) GetClosedDatesByRange(
+	ctx context.Context,
+	technicianID uint,
+	startDate, endDate time.Time,
+) (map[string]bool, error) {
 
-	var dates []TechnicianCalendarDate
+	startNorm := booking.NormalizeDate(startDate)
+	endNorm := booking.NormalizeDate(endDate)
 
-	// ✅ Explicitly exclude soft-deleted records
-	err := r.db.WithContext(ctx).
-		Where("technician_id = ? AND date BETWEEN ? AND ? AND deleted_at IS NULL",
-			technicianID, startDate, endDate).
-		Find(&dates).Error
+	startStr := booking.FormatDate(startNorm)
+	endStr := booking.FormatDate(endNorm)
+
+	rows, err := r.db.WithContext(ctx).
+		Model(&TechnicianClosedDate{}).
+		Select("date").
+		Where("technician_id = ?", technicianID).
+		Where("date BETWEEN ? AND ?", startStr, endStr).
+		Rows()
 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	result := make(map[string]bool)
-	for _, d := range dates {
-		dateKey := d.Date.Format("2006-01-02")
-		result[dateKey] = d.IsOpen
+	result := make(map[string]bool, 16)
+
+	for rows.Next() {
+		var d time.Time
+		if err := rows.Scan(&d); err != nil {
+			return nil, err
+		}
+
+		result[booking.FormatDate(d)] = true
 	}
 
 	return result, nil
@@ -105,12 +115,12 @@ func (r *repository) SetDefaultTimeSlots(ctx context.Context, technicianID uint,
 }
 
 func (r *repository) SetDateTimeSlots(ctx context.Context, technicianID uint, date time.Time, timeSlotIDs []uint) error {
-	// Normalize date
-	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+
+	normalizedDate := booking.NormalizeDate(date)
 
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-		if err := tx.Where("technician_id = ? AND date = ?", technicianID, date).
+		if err := tx.Where("technician_id = ? AND date = ?", technicianID, normalizedDate).
 			Delete(&TechnicianDateTimeSlot{}).Error; err != nil {
 			return err
 		}
@@ -120,7 +130,7 @@ func (r *repository) SetDateTimeSlots(ctx context.Context, technicianID uint, da
 			for i, slotID := range timeSlotIDs {
 				slots[i] = TechnicianDateTimeSlot{
 					TechnicianID: technicianID,
-					Date:         &date,
+					Date:         &normalizedDate,
 					TimeSlotID:   slotID,
 				}
 			}
@@ -134,11 +144,11 @@ func (r *repository) SetDateTimeSlots(ctx context.Context, technicianID uint, da
 }
 
 func (r *repository) DeleteDateTimeSlots(ctx context.Context, technicianID uint, date time.Time) error {
-	// Normalize date
-	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+
+	normalizedDate := booking.NormalizeDate(date)
 
 	return r.db.WithContext(ctx).
-		Where("technician_id = ? AND date = ?", technicianID, date).
+		Where("technician_id = ? AND date = ?", technicianID, normalizedDate).
 		Delete(&TechnicianDateTimeSlot{}).Error
 }
 
@@ -152,8 +162,8 @@ func (r *repository) GetTimeSlotsForDate(ctx context.Context, technicianID uint,
 
 		query = query.Where("date IS NULL")
 	} else {
-		// Normalize date
-		normalizedDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+
+		normalizedDate := booking.NormalizeDate(*date)
 		query = query.Where("date = ?", normalizedDate)
 	}
 
@@ -170,15 +180,17 @@ func (r *repository) GetTimeSlotsForDate(ctx context.Context, technicianID uint,
 }
 
 func (r *repository) GetTimeSlotsForMonth(ctx context.Context, technicianID uint, startDate, endDate time.Time) (map[string][]uint, error) {
-	// Normalize dates
-	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
-	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, time.UTC)
+
+	startNorm := booking.NormalizeDate(startDate)
+	endNorm := booking.NormalizeDate(endDate)
+
+	endNorm = time.Date(endNorm.Year(), endNorm.Month(), endNorm.Day(), 23, 59, 59, 0, booking.BKKLocation)
 
 	var slots []TechnicianDateTimeSlot
 
 	err := r.db.WithContext(ctx).
 		Where("technician_id = ? AND (date IS NULL OR date BETWEEN ? AND ?)",
-			technicianID, startDate, endDate).
+			technicianID, startNorm, endNorm).
 		Find(&slots).Error
 
 	if err != nil {
@@ -194,7 +206,7 @@ func (r *repository) GetTimeSlotsForMonth(ctx context.Context, technicianID uint
 			defaultSlots = append(defaultSlots, slot.TimeSlotID)
 		} else {
 
-			dateKey := slot.Date.Format("2006-01-02")
+			dateKey := booking.FormatDate(*slot.Date)
 			result[dateKey] = append(result[dateKey], slot.TimeSlotID)
 		}
 	}

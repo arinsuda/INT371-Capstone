@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"regexp"
 	"time"
-)
 
-// ===========================
-// Query DTOs
-// ===========================
+	"changsure-core-service/internal/modules/booking"
+)
 
 type CalendarQuery struct {
 	TechnicianID uint   `query:"technician_id" validate:"required,min=1"`
 	Month        string `query:"month" validate:"required,len=7"`
+}
+
+type CalendarDayQuery struct {
+	TechnicianID uint   `query:"technician_id"`
+	Date         string `query:"date"`
+	TimeSlotID   *uint  `query:"timeslot"`
 }
 
 func (q *CalendarQuery) Validate() error {
@@ -31,14 +35,14 @@ func (q *CalendarQuery) Validate() error {
 	return nil
 }
 
-// ParseMonth แปลง month string เป็น time.Time (วันแรกของเดือน)
 func (q *CalendarQuery) ParseMonth() (time.Time, error) {
-	return time.Parse("2006-01", q.Month)
-}
 
-// ===========================
-// Request DTOs
-// ===========================
+	t, err := time.ParseInLocation("2006-01", q.Month, booking.BKKLocation)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return booking.NormalizeDate(t), nil
+}
 
 type UpdateCalendarDateRequest struct {
 	Date   string `json:"date" validate:"required"`
@@ -50,63 +54,58 @@ func (r *UpdateCalendarDateRequest) Validate() error {
 		return fmt.Errorf("date must be in YYYY-MM-DD format")
 	}
 
-	if _, err := time.Parse("2006-01-02", r.Date); err != nil {
+	if _, err := booking.ParseDate(r.Date); err != nil {
 		return fmt.Errorf("invalid date value: %w", err)
 	}
 
 	return nil
 }
 
-// ParseDate แปลง date string เป็น time.Time
 func (r *UpdateCalendarDateRequest) ParseDate() (time.Time, error) {
-	return time.Parse("2006-01-02", r.Date)
+	return booking.ParseDate(r.Date)
 }
 
 type UpdateTimeSlotsRequest struct {
-	Month       string `query:"month" json:"-"`
+	Date        string `query:"date" json:"-"`
 	TimeSlotIDs []uint `json:"time_slot_ids" validate:"required,min=0"`
 	IsDefault   bool   `json:"is_default"`
 }
 
 func (r *UpdateTimeSlotsRequest) Validate() error {
-	// ถ้าเป็น default config ไม่ต้องมี month
 	if r.IsDefault {
+		if len(r.TimeSlotIDs) == 0 {
+			return fmt.Errorf("time_slot_ids is required")
+		}
 		return nil
 	}
 
-	// ถ้าไม่ใช่ default ต้องมี month
-	if r.Month == "" {
-		return fmt.Errorf("month parameter is required when is_default is false")
+	if r.Date == "" {
+		return fmt.Errorf("date parameter is required when is_default is false")
 	}
 
-	// รองรับทั้ง YYYY-MM-DD และ YYYY-MM
-	if !isValidDateFormat(r.Month) && !isValidMonthFormat(r.Month) {
-		return fmt.Errorf("month must be in YYYY-MM-DD or YYYY-MM format")
+	if !isValidDateFormat(r.Date) {
+		return fmt.Errorf("date must be in YYYY-MM-DD format")
+	}
+
+	if len(r.TimeSlotIDs) == 0 {
+		return fmt.Errorf("time_slot_ids is required")
 	}
 
 	return nil
 }
 
-// ParseDate แปลง month parameter เป็น time.Time
-// รองรับทั้ง YYYY-MM-DD และ YYYY-MM format
 func (r *UpdateTimeSlotsRequest) ParseDate() (time.Time, error) {
-	// ลอง parse YYYY-MM-DD ก่อน
-	if date, err := time.Parse("2006-01-02", r.Month); err == nil {
-		return normalizeDate(date), nil
+	if r.IsDefault {
+		return time.Now(), nil
 	}
 
-	// ถ้าไม่ได้ ลอง YYYY-MM
-	if date, err := time.Parse("2006-01", r.Month); err == nil {
-		// ใช้วันที่ 1 ของเดือน
-		return normalizeDate(date), nil
+	date, err := booking.ParseDate(r.Date)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid date format: %s", r.Date)
 	}
 
-	return time.Time{}, fmt.Errorf("invalid date format: %s", r.Month)
+	return booking.NormalizeDate(date), nil
 }
-
-// ===========================
-// Response DTOs
-// ===========================
 
 type CalendarResponse struct {
 	Month string              `json:"month"`
@@ -120,6 +119,26 @@ type CalendarDayStatus struct {
 	BookedSlots    int              `json:"booked_slots"`
 	AvailableSlots int              `json:"available_slots"`
 	TimeSlots      []TimeSlotDetail `json:"time_slots"`
+	Bookings       []BookingDetail  `json:"bookings"`
+}
+
+type BookingDetail struct {
+	ID              uint     `json:"id"`
+	BookingNumber   string   `json:"booking_number"`
+	TimeSlotID      uint     `json:"time_slot_id"`
+	ServiceName     string   `json:"service_name"`
+	PricingType     string   `json:"pricing_type"`
+	QuotedPrice     *float64 `json:"quoted_price,omitempty"`
+	QuotedPriceMin  *float64 `json:"quoted_price_min,omitempty"`
+	QuotedPriceMax  *float64 `json:"quoted_price_max,omitempty"`
+	FinalPrice      *float64 `json:"final_price,omitempty"`
+	AppointmentDate string   `json:"appointment_date"`
+	Status          string   `json:"status"`
+	CustomerID      uint     `json:"customer_id"`
+	CustomerName    string   `json:"customer_name"`
+	CustomerPhone   string   `json:"customer_phone"`
+	CustomerAvatar  string   `json:"customer_avatar"`
+	Images          []string `json:"images"`
 }
 
 type UpdateCalendarDateResponse struct {
@@ -138,10 +157,6 @@ type TimeSlotDetail struct {
 	TimeRange string `json:"time_range"`
 	IsBooked  bool   `json:"is_booked"`
 }
-
-// ===========================
-// Enums
-// ===========================
 
 type DayStatus string
 
@@ -164,36 +179,15 @@ func (d DayStatus) IsValid() bool {
 	}
 }
 
-// ===========================
-// Helper Functions
-// ===========================
-
 var (
 	dateRegex  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	monthRegex = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 )
 
-// isValidDateFormat ตรวจสอบ format YYYY-MM-DD
 func isValidDateFormat(s string) bool {
 	return dateRegex.MatchString(s)
 }
 
-// isValidMonthFormat ตรวจสอบ format YYYY-MM
 func isValidMonthFormat(s string) bool {
 	return monthRegex.MatchString(s)
-}
-
-// normalizeDate ปรับ time.Time ให้เป็น midnight UTC
-func normalizeDate(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-}
-
-// getTodayMidnight คืนค่าวันนี้เวลา 00:00:00 UTC
-func getTodayMidnight() time.Time {
-	return normalizeDate(time.Now())
-}
-
-// isPastDate ตรวจสอบว่าเป็นวันที่ผ่านมาแล้วหรือไม่
-func isPastDate(date time.Time) bool {
-	return normalizeDate(date).Before(getTodayMidnight())
 }

@@ -8,17 +8,17 @@ import (
 )
 
 type Repository interface {
-	// CRUD Basics
+	
 	Create(ctx context.Context, customer *Customer) error
 	Update(ctx context.Context, customer *Customer) error
 	Delete(ctx context.Context, id uint) error
 
-	// Finders (Standardized naming)
+	
 	FindByID(ctx context.Context, id uint) (*Customer, error)
 	FindByEmail(ctx context.Context, email string) (*Customer, error)
 	FindByPhone(ctx context.Context, phone string) (*Customer, error)
 
-	// List & Search
+	
 	GetAll(ctx context.Context, limit, offset int) ([]*Customer, error)
 	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
 }
@@ -47,7 +47,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Customer, error) {
 	var customer Customer
 	err := r.db.WithContext(ctx).
 		Preload("Addresses").
-		Preload("Addresses.Province"). // Preload Province ตามที่คุณเคยใช้
+		Preload("Addresses.Province"). 
 		First(&customer, id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -94,7 +94,7 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]*Customer
 }
 
 func (r *repository) SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error) {
-	// ใช้ Subquery หา Customer ID ที่อยู่ในระยะ แล้วค่อย Query Customer object ออกมา
+	
 	rawSQL := `
 		SELECT customer_id FROM customer_addresses
 		WHERE latitude IS NOT NULL AND longitude IS NOT NULL

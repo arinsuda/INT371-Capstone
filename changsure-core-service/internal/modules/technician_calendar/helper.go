@@ -1,40 +1,36 @@
 package techniciancalendar
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"time"
 
+	"changsure-core-service/internal/modules/booking"
+	bookingPkg "changsure-core-service/internal/modules/booking"
 	timeslot "changsure-core-service/internal/modules/time_slot"
+	"changsure-core-service/pkg/storage"
 )
 
-// ===========================
-// Domain Models
-// ===========================
-
-// DateRange represents a time period
 type DateRange struct {
 	Start time.Time
 	End   time.Time
 }
 
-// CalendarData aggregates all data needed to build calendar
 type CalendarData struct {
-	CalendarDates map[string]bool          // date -> isOpen
-	TimeSlots     map[string][]uint        // date -> slotIDs (includes "__default__")
-	AllTimeSlots  []timeslot.TimeSlot      // system time slots
-	Bookings      map[string]map[uint]bool // date -> slotID -> isBooked
+	ClosedDates   map[string]bool
+	CalendarDates map[string]bool
+	TimeSlots     map[string][]uint
+	AllTimeSlots  []timeslot.TimeSlot
+	Bookings      map[string]map[uint]bool
+	AllBookings   map[string][]bookingPkg.Booking
 }
 
-// BookingInfo minimal booking info for calendar
 type BookingInfo struct {
 	Date       time.Time
 	TimeSlotID uint
 }
 
-// ===========================
-// Date & Time Helpers
-// ===========================
-
-// CalculateMonthRange คำนวณวันแรกและวันสุดท้ายของเดือน
 func CalculateMonthRange(monthStart time.Time) DateRange {
 	year, month, _ := monthStart.Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
@@ -46,13 +42,6 @@ func CalculateMonthRange(monthStart time.Time) DateRange {
 	}
 }
 
-// ===========================
-// Data Transformation Helpers
-// ===========================
-
-// BuildBookingMap สร้าง map สำหรับ lookup การจองอย่างรวดเร็ว
-// Input: []BookingInfo
-// Output: map[date]map[slotID]bool
 func BuildBookingMap(bookings []BookingInfo) map[string]map[uint]bool {
 	bookingMap := make(map[string]map[uint]bool)
 
@@ -67,9 +56,6 @@ func BuildBookingMap(bookings []BookingInfo) map[string]map[uint]bool {
 	return bookingMap
 }
 
-// BuildTimeSlotMap สร้าง map สำหรับ lookup time slot details
-// Input: []timeslot.TimeSlot
-// Output: map[slotID]TimeSlot
 func BuildTimeSlotMap(slots []timeslot.TimeSlot) map[uint]timeslot.TimeSlot {
 	slotMap := make(map[uint]timeslot.TimeSlot)
 	for _, slot := range slots {
@@ -78,29 +64,16 @@ func BuildTimeSlotMap(slots []timeslot.TimeSlot) map[uint]timeslot.TimeSlot {
 	return slotMap
 }
 
-// ===========================
-// Business Logic Helpers
-// ===========================
-
-// ResolveSlotIDs หา slot IDs ที่ใช้สำหรับวันนั้น
-// ลำดับความสำคัญ: Date-specific > Default > System All
-//
-// Example:
-//   - วันที่ 15 มี config เฉพาะ -> ใช้ config วันที่ 15
-//   - วันที่ 16 ไม่มี config -> ใช้ default ของช่าง
-//   - ถ้าไม่มี default -> ใช้ system slots ทั้งหมด
 func ResolveSlotIDs(dateStr string, data *CalendarData) []uint {
-	// 1. Date-specific configuration (highest priority)
+
 	if specificSlots, ok := data.TimeSlots[dateStr]; ok && len(specificSlots) > 0 {
 		return specificSlots
 	}
 
-	// 2. Technician's default configuration
 	if defaultSlots, ok := data.TimeSlots["__default__"]; ok && len(defaultSlots) > 0 {
 		return defaultSlots
 	}
 
-	// 3. System default (all active slots)
 	systemSlotIDs := make([]uint, len(data.AllTimeSlots))
 	for i, slot := range data.AllTimeSlots {
 		systemSlotIDs[i] = slot.ID
@@ -108,10 +81,6 @@ func ResolveSlotIDs(dateStr string, data *CalendarData) []uint {
 	return systemSlotIDs
 }
 
-// CalculateDayStatus คำนวณสถานะของวัน
-// CLOSED: ไม่มี slot
-// FULL: จองเต็มหมดแล้ว
-// AVAILABLE: มี slot ว่าง
 func CalculateDayStatus(totalSlots, bookedSlots int) DayStatus {
 	if totalSlots == 0 {
 		return DayStatusClosed
@@ -122,21 +91,14 @@ func CalculateDayStatus(totalSlots, bookedSlots int) DayStatus {
 	return DayStatusAvailable
 }
 
-// IsDateClosed ตรวจสอบว่าวันนั้นปิดหรือไม่
-// - ถ้าไม่มีในระบบ = เปิด (default)
-// - ถ้ามีและ isOpen = false = ปิด
-func IsDateClosed(dateStr string, calendarDates map[string]bool) bool {
-	isOpen, exists := calendarDates[dateStr]
-	// ถ้าไม่มีข้อมูล = เปิด (default)
-	// ถ้ามีข้อมูลแล้วเป็น false = ปิด
-	return exists && !isOpen
+func IsDateClosed(date string, closed map[string]bool) bool {
+	if len(closed) == 0 {
+		return false
+	}
+	_, exists := closed[date]
+	return exists
 }
 
-// ===========================
-// UI Building Helpers
-// ===========================
-
-// CreateClosedDay สร้าง CalendarDayStatus สำหรับวันที่ปิด
 func CreateClosedDay(dateStr string) CalendarDayStatus {
 	return CalendarDayStatus{
 		Date:           dateStr,
@@ -145,18 +107,10 @@ func CreateClosedDay(dateStr string) CalendarDayStatus {
 		BookedSlots:    0,
 		AvailableSlots: 0,
 		TimeSlots:      []TimeSlotDetail{},
+		Bookings:       []BookingDetail{},
 	}
 }
 
-// BuildSlotDetails สร้าง TimeSlotDetail array พร้อมข้อมูลการจอง
-//
-// Parameters:
-//   - slotIDs: รายการ slot IDs ที่ต้องการ
-//   - slotMap: map ของ time slot details
-//   - bookedSlots: map ของ slots ที่ถูกจองแล้ว
-//
-// Returns:
-//   - []TimeSlotDetail: รายการ slots พร้อมข้อมูลการจอง
 func BuildSlotDetails(
 	slotIDs []uint,
 	slotMap map[uint]timeslot.TimeSlot,
@@ -167,7 +121,7 @@ func BuildSlotDetails(
 	for _, slotID := range slotIDs {
 		slot, ok := slotMap[slotID]
 		if !ok {
-			// Skip invalid slot IDs
+
 			continue
 		}
 
@@ -182,13 +136,10 @@ func BuildSlotDetails(
 	return details
 }
 
-// FormatTimeRange format time range string
-// Example: "09:00", "10:00" -> "09:00 - 10:00"
 func FormatTimeRange(start, end string) string {
 	return start + " - " + end
 }
 
-// CountBookedSlots นับจำนวน slot ที่ถูกจอง
 func CountBookedSlots(slots []TimeSlotDetail) int {
 	count := 0
 	for _, slot := range slots {
@@ -199,18 +150,6 @@ func CountBookedSlots(slots []TimeSlotDetail) int {
 	return count
 }
 
-// ===========================
-// Validation Helpers
-// ===========================
-
-// ValidateSlotIDs ตรวจสอบว่า slot IDs ทั้งหมดมีอยู่ในระบบ
-//
-// Parameters:
-//   - slotIDs: รายการ slot IDs ที่ต้องการตรวจสอบ
-//   - validSlots: map ของ valid slot IDs
-//
-// Returns:
-//   - error: ErrTimeSlotNotFound ถ้ามี slot ID ไม่ถูกต้อง
 func ValidateSlotIDs(slotIDs []uint, validSlots map[uint]bool) error {
 	for _, slotID := range slotIDs {
 		if !validSlots[slotID] {
@@ -220,12 +159,89 @@ func ValidateSlotIDs(slotIDs []uint, validSlots map[uint]bool) error {
 	return nil
 }
 
-// BuildValidSlotMap สร้าง map ของ valid slot IDs
-// ใช้สำหรับ validation อย่างรวดเร็ว
 func BuildValidSlotMap(slots []timeslot.TimeSlot) map[uint]bool {
 	validMap := make(map[uint]bool)
 	for _, slot := range slots {
 		validMap[slot.ID] = true
 	}
 	return validMap
+}
+
+func (s *service) groupBookingsByDate(bookings []bookingPkg.Booking) map[string][]bookingPkg.Booking {
+	result := make(map[string][]bookingPkg.Booking)
+
+	for _, b := range bookings {
+		dateKey := booking.FormatDate(b.AppointmentDate)
+		result[dateKey] = append(result[dateKey], b)
+	}
+
+	return result
+}
+
+func (s *service) convertBookingsToDetails(bookings []bookingPkg.Booking) []BookingDetail {
+	if len(bookings) == 0 {
+		return []BookingDetail{}
+	}
+
+	details := make([]BookingDetail, len(bookings))
+
+	for i, b := range bookings {
+		customerName := fmt.Sprintf("%s %s", b.Customer.FirstName, b.Customer.LastName)
+
+		serviceName := ""
+		if b.TechnicianService.Service.ID > 0 {
+			serviceName = b.TechnicianService.Service.SerName
+		}
+
+		imageURLs := make([]string, len(b.Images))
+
+		for j, img := range b.Images {
+
+			key := img.ImageURL
+
+			// ถ้า key ว่าง
+			if key == "" {
+				continue
+			}
+
+			// presign
+			url, err := storage.GlobalMinio.PresignGet(
+				context.Background(),
+				key,
+				time.Hour*6,
+				false,
+			)
+
+			if err != nil {
+				s.logger.Warn("presign image failed",
+					slog.String("key", key),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+
+			imageURLs[j] = url
+		}
+
+		details[i] = BookingDetail{
+			ID:              b.ID,
+			BookingNumber:   b.BookingNumber,
+			TimeSlotID:      b.TimeSlotID,
+			ServiceName:     serviceName,
+			PricingType:     b.PricingType,
+			QuotedPrice:     b.QuotedPriceFixed,
+			QuotedPriceMin:  b.QuotedPriceMin,
+			QuotedPriceMax:  b.QuotedPriceMax,
+			FinalPrice:      b.FinalPrice,
+			AppointmentDate: booking.FormatDate(b.AppointmentDate),
+			Status:          b.Status,
+			CustomerID:      b.CustomerID,
+			CustomerName:    customerName,
+			CustomerPhone:   *b.Customer.Phone,
+			CustomerAvatar:  *b.Customer.AvatarURL,
+			Images:          imageURLs,
+		}
+	}
+
+	return details
 }
