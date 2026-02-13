@@ -68,7 +68,6 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*ChatMessage, error)
 func (r *repository) GetHistory(ctx context.Context, bookingID uint, query GetHistoryQuery) ([]ChatMessage, error) {
 	var rows []chatMessageRow
 
-	// Query with JOIN to get sender information, booking number, and service category
 	err := r.db.WithContext(ctx).
 		Table("chat_messages cm").
 		Select(`
@@ -109,7 +108,6 @@ func (r *repository) GetHistory(ctx context.Context, bookingID uint, query GetHi
 		return nil, fmt.Errorf("failed to get chat history: %w", err)
 	}
 
-	// Convert rows to ChatMessage with populated sender info
 	msgs := make([]ChatMessage, len(rows))
 	for i, row := range rows {
 		msgs[i] = ChatMessage{
@@ -203,7 +201,7 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string,
 	query := r.buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol, statusFilter, searchQuery)
 
 	err := r.db.WithContext(ctx).
-		Raw(query, role, role, userID).
+		Raw(query, role, role, role, userID).
 		Scan(&results).Error
 
 	if err != nil {
@@ -240,18 +238,17 @@ func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, 
 }
 
 func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameExpr, imgCol, statusFilter, searchQuery string) string {
-	// Base WHERE clause
+
 	whereClause := fmt.Sprintf("WHERE b.%s = ?", myIDCol)
 
-	// Add status filter if provided
 	if statusFilter != "" {
-		// Split by comma for multiple statuses
+
 		statuses := strings.Split(statusFilter, ",")
 		if len(statuses) == 1 {
-			// Single status
+
 			whereClause += fmt.Sprintf(" AND b.status = '%s'", strings.TrimSpace(statuses[0]))
 		} else {
-			// Multiple statuses
+
 			statusList := make([]string, 0, len(statuses))
 			for _, s := range statuses {
 				trimmed := strings.TrimSpace(s)
@@ -264,15 +261,20 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 			}
 		}
 	} else {
-		// Default: exclude PENDING
-		whereClause += " AND b.status NOT IN ('PENDING')"
+
+		whereClause += ` AND b.status IN (
+            'ACCEPTED', 
+            'IN_PROGRESS', 
+            'WAITING_PAYMENT',
+            'COMPLETED',
+            'CANCELLED'
+        )`
 	}
 
-	// Add search filter if provided
 	if searchQuery != "" {
-		// Escape single quotes in search query
+
 		escapedQuery := strings.ReplaceAll(searchQuery, "'", "''")
-		// Search in: booking_number, other person name, service category, last message
+
 		whereClause += fmt.Sprintf(` AND (
 			b.booking_number LIKE '%%%s%%' OR
 			%s LIKE '%%%s%%' OR
@@ -293,6 +295,11 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 			COALESCE(m.content, '') as last_message,
 			COALESCE(m.type, 'TEXT') as last_msg_type,
 			COALESCE(m.created_at, b.created_at) as last_msg_time,
+			CASE 
+				WHEN m.sender_role = ? THEN 'me'
+				WHEN m.sender_role IS NOT NULL THEN 'other'
+				ELSE ''
+			END as last_sender,
 			(
 				SELECT COUNT(*) 
 				FROM chat_messages cm 
@@ -309,7 +316,7 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 		LEFT JOIN services s ON s.id = ts.service_id
 		LEFT JOIN service_categories sc ON sc.id = s.category_id
 		LEFT JOIN LATERAL (
-			SELECT *
+			SELECT content, type, created_at, sender_role
 			FROM chat_messages
 			WHERE booking_id = b.id
 			ORDER BY created_at DESC

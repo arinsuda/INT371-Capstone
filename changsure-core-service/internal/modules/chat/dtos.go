@@ -16,7 +16,9 @@ type ChatRoomResponse struct {
 	LastMessage     string      `json:"last_message"`
 	LastMsgType     MessageType `json:"last_msg_type"`
 	LastMsgTime     time.Time   `json:"last_msg_time"`
+	LastSender      string      `json:"last_sender"`
 	UnreadCount     int         `json:"unread_count"`
+	CanSendMessage  bool        `json:"can_send_message"`
 }
 
 type SenderInfo struct {
