@@ -439,10 +439,8 @@ func (c *Container) initTechnicianCalendarModule() {
 		panic("technician_calendar: TimeSlotRepo must be initialized first")
 	}
 
-	// สร้าง calendar repository
 	c.TechnicianCalendarRepo = techniciancalendar.NewRepository(c.DB)
 
-	// สร้าง calendar service
 	c.TechnicianCalendarService = techniciancalendar.NewService(
 		c.TechnicianCalendarRepo,
 		c.BookingRepo,
@@ -450,7 +448,6 @@ func (c *Container) initTechnicianCalendarModule() {
 		c.Logger,
 	)
 
-	// สร้าง calendar handler
 	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(
 		c.TechnicianCalendarService,
 		c.Logger,

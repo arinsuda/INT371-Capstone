@@ -21,7 +21,6 @@ func ResolvePaymentAmount(
 
 		fixed := *pricing.PriceFixed
 
-		// client ส่ง amount มา → ต้องตรง
 		if reqAmount != nil {
 
 			if *reqAmount != fixed {

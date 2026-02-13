@@ -15,7 +15,6 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 )
 
-// Service defines customer address use-cases.
 type Service interface {
 	Create(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddressResponse, error)
 	Update(ctx context.Context, id uint, customerID uint, req *UpdateCustomerAddressRequest) (*CustomerAddressResponse, error)
@@ -108,13 +107,10 @@ func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAd
 		addr.Longitude = req.Longitude
 	}
 
-	// Primary: if client sends is_primary, we honor it (business rule),
-	// and later enforce uniqueness via repo.SetPrimary (transactional).
 	if req.IsPrimary != nil {
 		addr.IsPrimary = *req.IsPrimary
 	}
 
-	// Location pointers: track whether location changed.
 	if req.ProvinceID != nil {
 		addr.ProvinceID = req.ProvinceID
 		locationChanged = true
@@ -188,7 +184,6 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 
 	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 
-	// Ensure primary uniqueness atomically.
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Create(ctx, addr); err != nil {
 			return err
@@ -262,7 +257,6 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 		addr.SubDistrictID = sdid
 	}
 
-	// If this update makes it primary, enforce uniqueness via transaction.
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Update(ctx, addr); err != nil {
 			return err
@@ -302,8 +296,6 @@ func (s *service) Delete(ctx context.Context, id uint, customerID uint) error {
 			return err
 		}
 
-		// If deleting primary, pick a new primary candidate (latest created_at)
-		// and set it as primary.
 		if addr.IsPrimary {
 			next, err := r.FindNextPrimaryCandidateTx(ctx, customerID, id)
 			if err != nil {

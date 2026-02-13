@@ -94,7 +94,11 @@ func (h *Handler) GetChatRooms(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User role not found")
 	}
 
-	rooms, err := h.service.GetChatRooms(c.Context(), userID, role)
+	statusFilter := c.Query("status", "")
+
+	searchQuery := c.Query("search", "")
+
+	rooms, err := h.service.GetChatRooms(c.Context(), userID, role, statusFilter, searchQuery)
 	if err != nil {
 		return apperrors.HandleError(c, err)
 	}

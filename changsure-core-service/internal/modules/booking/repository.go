@@ -92,6 +92,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		Preload("Technician").
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
+		Preload("TechnicianService.Service.Category").
 		First(&booking, id).Error
 	if err != nil {
 		return nil, err
@@ -127,7 +128,7 @@ func (r *repository) GetBookedSlotIDs(ctx context.Context, technicianID uint, da
 		Where("technician_id = ? AND appointment_date = ? AND status NOT IN ?",
 			technicianID,
 			date,
-			ExcludedFromAvailability, // Use centralized constant
+			ExcludedFromAvailability,
 		).
 		Pluck("time_slot_id", &slotIDs).Error
 	return slotIDs, err
@@ -141,7 +142,7 @@ func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date s
 			technicianID,
 			date,
 			slotID,
-			ExcludedFromAvailability, // Use centralized constant
+			ExcludedFromAvailability,
 		).
 		Count(&count).Error
 	return count > 0, err

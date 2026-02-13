@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,8 +23,9 @@ type Repository interface {
 	GetHistory(ctx context.Context, bookingID uint, query GetHistoryQuery) ([]ChatMessage, error)
 	MarkMessagesAsRead(ctx context.Context, messageIDs []uint) error
 	GetUnreadCount(ctx context.Context, bookingID uint, userRole string, lastReadTime time.Time) (int64, error)
+	GetUserInfo(ctx context.Context, userID uint, userRole string) (name, avatar string, err error)
 
-	GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error)
+	GetChatRooms(ctx context.Context, userID uint, role string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error)
 }
 
 type repository struct {
@@ -64,17 +66,64 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*ChatMessage, error)
 }
 
 func (r *repository) GetHistory(ctx context.Context, bookingID uint, query GetHistoryQuery) ([]ChatMessage, error) {
-	var msgs []ChatMessage
+	var rows []chatMessageRow
 
 	err := r.db.WithContext(ctx).
-		Where("booking_id = ?", bookingID).
-		Order("created_at DESC").
+		Table("chat_messages cm").
+		Select(`
+			cm.id,
+			cm.booking_id,
+			b.booking_number,
+			sc.cat_name as service_category,
+			cm.sender_id,
+			cm.sender_role,
+			cm.type,
+			cm.content,
+			cm.is_read,
+			cm.created_at,
+			CASE 
+				WHEN cm.sender_role = 'customer' THEN 
+					(SELECT CONCAT(first_name, ' ', last_name) FROM customers WHERE id = cm.sender_id)
+				WHEN cm.sender_role = 'technician' THEN 
+					(SELECT CONCAT(first_name, ' ', last_name) FROM technicians WHERE id = cm.sender_id)
+			END as sender_name,
+			CASE 
+				WHEN cm.sender_role = 'customer' THEN 
+					(SELECT avatar_url FROM customers WHERE id = cm.sender_id)
+				WHEN cm.sender_role = 'technician' THEN 
+					(SELECT avatar_url FROM technicians WHERE id = cm.sender_id)
+			END as sender_avatar
+		`).
+		Joins("LEFT JOIN bookings b ON b.id = cm.booking_id").
+		Joins("LEFT JOIN technician_services ts ON ts.id = b.technician_service_id").
+		Joins("LEFT JOIN services s ON s.id = ts.service_id").
+		Joins("LEFT JOIN service_categories sc ON sc.id = s.category_id").
+		Where("cm.booking_id = ?", bookingID).
+		Order("cm.created_at DESC").
 		Limit(query.Limit).
 		Offset(query.Offset).
-		Find(&msgs).Error
+		Scan(&rows).Error
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chat history: %w", err)
+	}
+
+	msgs := make([]ChatMessage, len(rows))
+	for i, row := range rows {
+		msgs[i] = ChatMessage{
+			ID:              row.ID,
+			BookingID:       row.BookingID,
+			BookingNumber:   row.BookingNumber,
+			ServiceCategory: row.ServiceCategory,
+			SenderID:        row.SenderID,
+			SenderRole:      row.SenderRole,
+			SenderName:      row.SenderName,
+			SenderAvatar:    row.SenderAvatar,
+			Type:            row.Type,
+			Content:         row.Content,
+			IsRead:          row.IsRead,
+			CreatedAt:       row.CreatedAt,
+		}
 	}
 
 	return msgs, nil
@@ -114,15 +163,45 @@ func (r *repository) GetUnreadCount(ctx context.Context, bookingID uint, userRol
 	return count, nil
 }
 
-func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error) {
+func (r *repository) GetUserInfo(ctx context.Context, userID uint, userRole string) (name, avatar string, err error) {
+	var result struct {
+		FirstName string
+		LastName  string
+		AvatarURL string
+	}
+
+	var tableName string
+	if userRole == "customer" {
+		tableName = "customers"
+	} else if userRole == "technician" {
+		tableName = "technicians"
+	} else {
+		return "", "", errors.New("invalid role")
+	}
+
+	err = r.db.WithContext(ctx).
+		Table(tableName).
+		Select("first_name, last_name, avatar_url").
+		Where("id = ?", userID).
+		Scan(&result).Error
+
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get user info: %w", err)
+	}
+
+	fullName := result.FirstName + " " + result.LastName
+	return fullName, result.AvatarURL, nil
+}
+
+func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error) {
 	var results []ChatRoomResponse
 
 	targetTable, targetIDCol, myIDCol, nameCol, imgCol := r.getRoomQueryParams(role)
 
-	query := r.buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol)
+	query := r.buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol, statusFilter, searchQuery)
 
 	err := r.db.WithContext(ctx).
-		Raw(query, role, role, userID).
+		Raw(query, role, role, role, userID).
 		Scan(&results).Error
 
 	if err != nil {
@@ -147,25 +226,80 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 	return results, nil
 }
 
-func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, myIDCol, nameCol, imgCol string) {
+func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, myIDCol, nameExpr, imgCol string) {
 	if role == "technician" {
-		return "customers", "customer_id", "technician_id", "first_name", "avatar_url"
+		return "customers", "customer_id", "technician_id",
+			"CONCAT(u.first_name, ' ', u.last_name)",
+			"avatar_url"
 	}
-	return "technicians", "technician_id", "customer_id", "first_name", "avatar_url"
+	return "technicians", "technician_id", "customer_id",
+		"CONCAT(u.first_name, ' ', u.last_name)",
+		"avatar_url"
 }
 
-func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol string) string {
+func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameExpr, imgCol, statusFilter, searchQuery string) string {
+
+	whereClause := fmt.Sprintf("WHERE b.%s = ?", myIDCol)
+
+	if statusFilter != "" {
+
+		statuses := strings.Split(statusFilter, ",")
+		if len(statuses) == 1 {
+
+			whereClause += fmt.Sprintf(" AND b.status = '%s'", strings.TrimSpace(statuses[0]))
+		} else {
+
+			statusList := make([]string, 0, len(statuses))
+			for _, s := range statuses {
+				trimmed := strings.TrimSpace(s)
+				if trimmed != "" {
+					statusList = append(statusList, fmt.Sprintf("'%s'", trimmed))
+				}
+			}
+			if len(statusList) > 0 {
+				whereClause += fmt.Sprintf(" AND b.status IN (%s)", strings.Join(statusList, ","))
+			}
+		}
+	} else {
+
+		whereClause += ` AND b.status IN (
+            'ACCEPTED', 
+            'IN_PROGRESS', 
+            'WAITING_PAYMENT',
+            'COMPLETED',
+            'CANCELLED'
+        )`
+	}
+
+	if searchQuery != "" {
+
+		escapedQuery := strings.ReplaceAll(searchQuery, "'", "''")
+
+		whereClause += fmt.Sprintf(` AND (
+			b.booking_number LIKE '%%%s%%' OR
+			%s LIKE '%%%s%%' OR
+			sc.cat_name LIKE '%%%s%%' OR
+			m.content LIKE '%%%s%%'
+		)`, escapedQuery, nameExpr, escapedQuery, escapedQuery, escapedQuery)
+	}
+
 	return fmt.Sprintf(`
 		SELECT 
 			b.id as booking_id,
 			b.booking_number,
 			b.status as booking_status,
+			sc.cat_name as service_category,
 			u.id as other_person_id,
-			u.%s as other_person_name,
+			%s as other_person_name,
 			u.%s as other_person_img,
 			COALESCE(m.content, '') as last_message,
 			COALESCE(m.type, 'TEXT') as last_msg_type,
 			COALESCE(m.created_at, b.created_at) as last_msg_time,
+			CASE 
+				WHEN m.sender_role = ? THEN 'me'
+				WHEN m.sender_role IS NOT NULL THEN 'other'
+				ELSE ''
+			END as last_sender,
 			(
 				SELECT COUNT(*) 
 				FROM chat_messages cm 
@@ -178,15 +312,17 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 			) as unread_count
 		FROM bookings b
 		LEFT JOIN %s u ON u.id = b.%s
+		LEFT JOIN technician_services ts ON ts.id = b.technician_service_id
+		LEFT JOIN services s ON s.id = ts.service_id
+		LEFT JOIN service_categories sc ON sc.id = s.category_id
 		LEFT JOIN LATERAL (
-			SELECT *
+			SELECT content, type, created_at, sender_role
 			FROM chat_messages
 			WHERE booking_id = b.id
 			ORDER BY created_at DESC
 			LIMIT 1
 		) m ON TRUE
-		WHERE b.%s = ?
-		  AND b.status NOT IN ('PENDING')
+		%s
 		ORDER BY last_msg_time DESC
-	`, nameCol, imgCol, targetTable, targetIDCol, myIDCol)
+	`, nameExpr, imgCol, targetTable, targetIDCol, whereClause)
 }

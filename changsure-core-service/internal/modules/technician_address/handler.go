@@ -19,8 +19,6 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-// --- helpers ---
-
 func (h *Handler) mustTechID(c fiber.Ctx) (uint, error) {
 	techID := utils.GetUserID(c)
 	if techID == 0 {
@@ -59,13 +57,8 @@ func (h *Handler) mapServiceError(c fiber.Ctx, action string, err error) error {
 		return customErr.NotFound(c, "address not found")
 	}
 
-	// Auth errors from security.CheckOwner typically should map to 401
-	// (if your security.CheckOwner returns a specific sentinel error, you can errors.Is() it here)
-	// Fallback:
 	return customErr.InternalError(c, "failed to "+action, err)
 }
-
-// --- private routes (authenticated technician) ---
 
 func (h *Handler) CreateAddress(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
@@ -145,7 +138,7 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 
 	resp, err := h.service.Update(ctx, id, techID, &req)
 	if err != nil {
-		// keep behavior similar to your previous: known errors map nicely, unknown update errors -> 400
+
 		if errors.Is(err, addressshared.ErrInvalidLocation) {
 			return customErr.BadRequest(c, err.Error())
 		}
@@ -197,8 +190,6 @@ func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"success": true, "message": "primary address updated"})
 }
-
-// --- public routes (no auth) ---
 
 func (h *Handler) ListPublicAddresses(c fiber.Ctx) error {
 	techID, err := h.mustUintParam(c, "id")

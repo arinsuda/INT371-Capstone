@@ -100,14 +100,13 @@ func (r *repo) CountByTechnician(ctx context.Context, techID uint) (int64, error
 }
 
 func (r *repo) SetPrimaryTx(ctx context.Context, techID uint, addressID uint) error {
-	// Clear all primary
+
 	if err := r.db.WithContext(ctx).Model(&TechnicianAddress{}).
 		Where("technician_id = ?", techID).
 		Update("is_primary", false).Error; err != nil {
 		return err
 	}
 
-	// Set target primary
 	return r.db.WithContext(ctx).Model(&TechnicianAddress{}).
 		Where("id = ? AND technician_id = ?", addressID, techID).
 		Update("is_primary", true).Error
@@ -139,7 +138,7 @@ func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, er
 }
 
 func (r *repo) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-	// hard limits (defense in depth)
+
 	if q.Limit <= 0 || q.Limit > 200 {
 		q.Limit = 50
 	}
@@ -147,7 +146,6 @@ func (r *repo) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]a
 		q.KM = 30
 	}
 
-	// Haversine
 	distanceFormula := `
 	(6371 * acos(
 		cos(radians(?)) *

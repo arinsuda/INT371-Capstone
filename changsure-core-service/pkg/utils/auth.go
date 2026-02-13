@@ -7,9 +7,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// -------------------------------------------
-// Get userID from Fiber context
-// -------------------------------------------
 func GetUserID(c fiber.Ctx) uint {
 	v := c.Locals("userID")
 	if v == nil {
@@ -34,22 +31,12 @@ func GetUserID(c fiber.Ctx) uint {
 	return 0
 }
 
-// -------------------------------------------
-// Context key for userID inside service layer
-// -------------------------------------------
 type userIDContextKey struct{}
 
-// -------------------------------------------
-// Inject userID → into context.Context
-// (handler → service)
-// -------------------------------------------
 func InjectUserIDIntoContext(ctx context.Context, userID uint) context.Context {
 	return context.WithValue(ctx, userIDContextKey{}, userID)
 }
 
-// -------------------------------------------
-// Extract userID from context inside service
-// -------------------------------------------
 func GetUserIDFromContext(ctx context.Context) uint {
 	v := ctx.Value(userIDContextKey{})
 	if v == nil {

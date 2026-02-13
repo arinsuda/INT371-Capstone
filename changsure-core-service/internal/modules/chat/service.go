@@ -41,7 +41,7 @@ var (
 type Service interface {
 	SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq, file *multipart.FileHeader) (*ChatMessageResponse, error)
 	GetChatHistory(ctx context.Context, userID uint, bookingID uint, query GetHistoryQuery) ([]ChatMessageResponse, error)
-	GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error)
+	GetChatRooms(ctx context.Context, userID uint, userRole string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error)
 	MarkRoomAsRead(ctx context.Context, userID uint, userRole string, bookingID uint) error
 }
 
@@ -84,9 +84,20 @@ func (s *service) SendMessage(
 	}
 
 	if !s.canChat(bk.Status) {
-		return nil, apperrors.NewUnprocessable(
-			fmt.Sprintf("ไม่สามารถส่งข้อความได้ในสถานะ: %s", bk.Status),
-		)
+		var msg string
+		switch bk.Status {
+		case booking.BookingStatusPending:
+			msg = "รอช่างยอมรับงานก่อนจึงจะแชทได้"
+		case booking.BookingStatusRejected:
+			msg = "ช่างปฏิเสธงานนี้แล้ว ไม่สามารถส่งข้อความได้"
+		case booking.BookingStatusCompleted:
+			msg = "งานเสร็จสิ้นแล้ว ไม่สามารถส่งข้อความได้"
+		case booking.BookingStatusCancelled:
+			msg = "งานถูกยกเลิกแล้ว ไม่สามารถส่งข้อความได้"
+		default:
+			msg = fmt.Sprintf("ไม่สามารถส่งข้อความได้ในสถานะ: %s", bk.Status)
+		}
+		return nil, apperrors.NewUnprocessable(msg)
 	}
 
 	content, err := s.processMessageContent(ctx, req, file, bk.ID)
@@ -94,13 +105,22 @@ func (s *service) SendMessage(
 		return nil, err
 	}
 
+	senderName, senderAvatar, err := s.getSenderInfo(ctx, userID, userRole)
+	if err != nil {
+		return nil, err
+	}
+
 	msg := &ChatMessage{
-		BookingID:  req.BookingID,
-		SenderID:   userID,
-		SenderRole: userRole,
-		Type:       req.Type,
-		Content:    content,
-		CreatedAt:  time.Now(),
+		BookingID:       req.BookingID,
+		BookingNumber:   bk.BookingNumber,
+		ServiceCategory: bk.TechnicianService.Service.Category.CatName,
+		SenderID:        userID,
+		SenderRole:      userRole,
+		SenderName:      senderName,
+		SenderAvatar:    senderAvatar,
+		Type:            req.Type,
+		Content:         content,
+		CreatedAt:       time.Now(),
 	}
 
 	if err := s.chatRepo.Create(ctx, msg); err != nil {
@@ -137,6 +157,10 @@ func (s *service) GetChatHistory(
 		return nil, apperrors.NewForbidden("คุณไม่มีสิทธิ์เข้าถึงห้องแชทนี้")
 	}
 
+	if !s.canViewChat(bk.Status) {
+		return nil, apperrors.NewForbidden("ไม่สามารถเข้าถึงแชทได้ในสถานะนี้")
+	}
+
 	msgs, err := s.chatRepo.GetHistory(ctx, bookingID, query)
 	if err != nil {
 		return nil, apperrors.NewInternal(err)
@@ -147,7 +171,9 @@ func (s *service) GetChatHistory(
 		responses[i] = *s.prepareMessageResponse(ctx, &msg)
 	}
 
-	go s.updateRoomReadState(context.Background(), bk, userID, userRole)
+	if s.canViewChat(bk.Status) {
+		go s.updateRoomReadState(context.Background(), bk, userID, userRole)
+	}
 
 	return responses, nil
 }
@@ -156,14 +182,20 @@ func (s *service) GetChatRooms(
 	ctx context.Context,
 	userID uint,
 	userRole string,
+	statusFilter string,
+	searchQuery string,
 ) ([]ChatRoomResponse, error) {
-	rooms, err := s.chatRepo.GetChatRooms(ctx, userID, userRole)
+	rooms, err := s.chatRepo.GetChatRooms(ctx, userID, userRole, statusFilter, searchQuery)
 	if err != nil {
 		return nil, apperrors.NewInternal(err)
 	}
 
 	if rooms == nil {
 		return []ChatRoomResponse{}, nil
+	}
+
+	for i := range rooms {
+		rooms[i].CanSendMessage = s.canChat(rooms[i].BookingStatus)
 	}
 
 	return rooms, nil
@@ -233,6 +265,10 @@ func (s *service) getUserRole(bk *booking.Booking, userID uint) (string, error) 
 		return "customer", nil
 	}
 	return "", errors.New("unauthorized")
+}
+
+func (s *service) getSenderInfo(ctx context.Context, userID uint, userRole string) (name, avatar string, err error) {
+	return s.chatRepo.GetUserInfo(ctx, userID, userRole)
 }
 
 func (s *service) processMessageContent(
@@ -319,18 +355,56 @@ func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) 
 		}
 	}
 
+	if msg.SenderAvatar != "" {
+		if url, err := s.storage.PresignGet(ctx, msg.SenderAvatar, 24*time.Hour, false); err == nil {
+			response.Sender.SenderAvatar = url
+		}
+	}
+
 	return response
 }
 
 func (s *service) broadcastNewMessage(msg *ChatMessage, senderID uint, senderRole string, receiverID uint) {
-	eventPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)
+
+	newMsgPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)
+
+	lastMessage := msg.Content
+	if msg.Type == MsgTypeImage && msg.Content != "" {
+		if url, err := s.storage.PresignGet(context.Background(), msg.Content, 24*time.Hour, false); err == nil {
+			lastMessage = url
+		}
+	}
+
+	chatListPayloadSender := realtime.MarshalEvent("CHAT_LIST_UPDATE", map[string]any{
+		"booking_id":    msg.BookingID,
+		"last_message":  lastMessage,
+		"last_msg_type": msg.Type,
+		"last_msg_time": msg.CreatedAt,
+		"last_sender":   "me",
+	})
+
+	chatListPayloadReceiver := realtime.MarshalEvent("CHAT_LIST_UPDATE", map[string]any{
+		"booking_id":    msg.BookingID,
+		"last_message":  lastMessage,
+		"last_msg_type": msg.Type,
+		"last_msg_time": msg.CreatedAt,
+		"last_sender":   "other",
+	})
 
 	if senderRole == "technician" {
-		s.hub.BroadcastToTechnician(senderID, eventPayload)
-		s.hub.BroadcastToCustomer(receiverID, eventPayload)
+
+		s.hub.BroadcastToTechnician(senderID, newMsgPayload)
+		s.hub.BroadcastToTechnician(senderID, chatListPayloadSender)
+
+		s.hub.BroadcastToCustomer(receiverID, newMsgPayload)
+		s.hub.BroadcastToCustomer(receiverID, chatListPayloadReceiver)
 	} else {
-		s.hub.BroadcastToCustomer(senderID, eventPayload)
-		s.hub.BroadcastToTechnician(receiverID, eventPayload)
+
+		s.hub.BroadcastToCustomer(senderID, newMsgPayload)
+		s.hub.BroadcastToCustomer(senderID, chatListPayloadSender)
+
+		s.hub.BroadcastToTechnician(receiverID, newMsgPayload)
+		s.hub.BroadcastToTechnician(receiverID, chatListPayloadReceiver)
 	}
 }
 
@@ -361,6 +435,19 @@ func (s *service) updateRoomReadState(
 	}
 
 	return nil
+}
+
+func (s *service) canViewChat(status string) bool {
+	switch status {
+	case booking.BookingStatusAccepted,
+		booking.BookingStatusInProgress,
+		booking.BookingStatusWaitingPayment,
+		booking.BookingStatusCompleted,
+		booking.BookingStatusCancelled:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *service) canChat(status string) bool {

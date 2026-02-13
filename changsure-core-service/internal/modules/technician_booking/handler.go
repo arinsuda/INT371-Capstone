@@ -65,6 +65,13 @@ func (h *Handler) AcceptBooking(c fiber.Ctx) error {
 			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
 		})
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, payload)
+		chatRoomPayload := realtime.MarshalEvent("CHAT_ROOM_UPDATED", map[string]any{
+			"booking_id": bkg.ID,
+			"status":     bkg.Status,
+		})
+		go h.hub.BroadcastToCustomer(bkg.CustomerID, chatRoomPayload)
+		go h.hub.BroadcastToTechnician(bkg.TechnicianID, chatRoomPayload)
+
 	}
 
 	return c.JSON(fiber.Map{
@@ -281,6 +288,16 @@ func (h *Handler) CompleteJob(c fiber.Ctx) error {
 
 	h.hydrateBookingMediaURLs(c.Context(), bkg)
 	h.broadcastToCustomer(bkg, "JOB_COMPLETED")
+
+	if h.hub != nil {
+		lockPayload := realtime.MarshalEvent("CHAT_ROOM_LOCKED", map[string]any{
+			"booking_id": bkg.ID,
+			"status":     bkg.Status,
+			"can_chat":   false,
+		})
+		go h.hub.BroadcastToCustomer(bkg.CustomerID, lockPayload)
+		go h.hub.BroadcastToTechnician(bkg.TechnicianID, lockPayload)
+	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "แจ้งงานเสร็จสิ้น", "data": bkg})
 }

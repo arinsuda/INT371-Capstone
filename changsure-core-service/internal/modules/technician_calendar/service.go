@@ -227,24 +227,21 @@ func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req
 }
 
 func (s *service) UpdateTimeSlotsForDate(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) (*UpdateTimeSlotsResponse, error) {
-	// Validate time slot IDs exist
+
 	if len(req.TimeSlotIDs) > 0 {
 		if err := s.validateTimeSlotIDs(ctx, req.TimeSlotIDs); err != nil {
 			return nil, err
 		}
 	}
 
-	// Check for past date if not default
 	if !req.IsDefault && booking.IsPastDate(date) {
 		return nil, ErrPastDate
 	}
 
-	// Update time slots
 	if err := s.updateTimeSlots(ctx, technicianID, date, req); err != nil {
 		return nil, err
 	}
 
-	// Fetch time slot details
 	timeSlotDetails, err := s.fetchTimeSlotDetails(ctx, req.TimeSlotIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch slot details: %w", err)
@@ -288,25 +285,22 @@ func (s *service) updateTimeSlots(ctx context.Context, technicianID uint, date t
 }
 
 func (s *service) fetchCalendarData(ctx context.Context, technicianID uint, dr DateRange, q CalendarQuery) (*CalendarData, error) {
-	// Get closed dates
+
 	closedDates, err := s.calendarRepo.GetClosedDatesByRange(ctx, technicianID, dr.Start, dr.End)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch closed dates: %w", err)
 	}
 
-	// Get time slot configurations
 	timeSlots, err := s.calendarRepo.GetTimeSlotsForMonth(ctx, technicianID, dr.Start, dr.End)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch time slots: %w", err)
 	}
 
-	// Get all active system time slots
 	allTimeSlots, err := s.timeSlotRepo.FindActive(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch system time slots: %w", err)
 	}
 
-	// Get bookings for the month
 	bookings, err := s.fetchBookingsForRange(ctx, technicianID, dr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch bookings: %w", err)
@@ -315,7 +309,6 @@ func (s *service) fetchCalendarData(ctx context.Context, technicianID uint, dr D
 	bookingInfos := s.convertToBookingInfos(bookings)
 	bookingMap := BuildBookingMap(bookingInfos)
 
-	// แก้: เพิ่ม AllBookings เก็บ bookings ทั้งหมด
 	bookingsByDate := s.groupBookingsByDate(bookings)
 
 	s.logger.Debug("calendar data fetched",
@@ -341,22 +334,18 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 	for currentDate := dr.Start; !currentDate.After(dr.End); currentDate = currentDate.AddDate(0, 0, 1) {
 		dateStr := booking.FormatDate(currentDate)
 
-		// Check if date is closed
 		if IsDateClosed(dateStr, data.ClosedDates) {
 			days = append(days, CreateClosedDay(dateStr))
 			continue
 		}
 
-		// Resolve which slots are active for this date (with system fallback)
 		slotIDs := s.resolveSlotIDsWithFallback(dateStr, data)
 
-		// Get booked slots
 		bookedSlots := data.Bookings[dateStr]
 		if bookedSlots == nil {
 			bookedSlots = make(map[uint]bool)
 		}
 
-		// Build slot details
 		slotDetails := BuildSlotDetails(slotIDs, slotMap, bookedSlots)
 
 		totalSlots := len(slotDetails)
@@ -364,7 +353,6 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 		availableSlots := totalSlots - bookedCount
 		status := CalculateDayStatus(totalSlots, bookedCount)
 
-		// แก้: เพิ่ม bookings รายละเอียด
 		bookingDetails := s.convertBookingsToDetails(data.AllBookings[dateStr])
 
 		days = append(days, CalendarDayStatus{
@@ -374,7 +362,7 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 			BookedSlots:    bookedCount,
 			AvailableSlots: availableSlots,
 			TimeSlots:      slotDetails,
-			Bookings:       bookingDetails, // เพิ่มบรรทัดนี้
+			Bookings:       bookingDetails,
 		})
 	}
 
@@ -441,9 +429,9 @@ func (s *service) validateTimeSlotIDs(ctx context.Context, slotIDs []uint) error
 	return ValidateSlotIDs(slotIDs, validSlots)
 }
 
-func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]TimeSlotDetail, error) {
+func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]CalendarTimeSlot, error) {
 	if len(slotIDs) == 0 {
-		return []TimeSlotDetail{}, nil
+		return []CalendarTimeSlot{}, nil
 	}
 
 	allSlots, err := s.timeSlotRepo.FindActive(ctx)
@@ -452,7 +440,7 @@ func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]T
 	}
 
 	slotMap := BuildTimeSlotMap(allSlots)
-	details := make([]TimeSlotDetail, 0, len(slotIDs))
+	details := make([]CalendarTimeSlot, 0, len(slotIDs))
 
 	for _, slotID := range slotIDs {
 		slot, ok := slotMap[slotID]
@@ -460,9 +448,13 @@ func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]T
 			continue
 		}
 
-		details = append(details, TimeSlotDetail{
+		details = append(details, CalendarTimeSlot{
 			ID:        slot.ID,
-			TimeRange: FormatTimeRange(slot.StartTime, slot.EndTime),
+			StartTime: slot.StartTime,
+			EndTime:   slot.EndTime,
+			IsActive:  slot.IsActive,
+			CreatedAt: slot.CreatedAt,
+			UpdatedAt: slot.UpdatedAt,
 			IsBooked:  false,
 		})
 	}

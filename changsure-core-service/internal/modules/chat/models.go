@@ -21,15 +21,19 @@ func (mt MessageType) IsValid() bool {
 }
 
 type ChatMessage struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	BookingID  uint        `gorm:"index:idx_booking_created;not null" json:"booking_id"`
-	SenderID   uint        `gorm:"index;not null" json:"sender_id"`
-	SenderRole string      `gorm:"type:varchar(20);not null;index" json:"sender_role"`
-	Type       MessageType `gorm:"type:varchar(10);not null;default:'TEXT'" json:"type"`
-	Content    string      `gorm:"type:text;not null" json:"content"`
-	IsRead     bool        `gorm:"default:false;index" json:"is_read"`
-	CreatedAt  time.Time   `gorm:"index:idx_booking_created;not null" json:"created_at"`
-	UpdatedAt  time.Time   `json:"updated_at"`
+	ID              uint        `gorm:"primaryKey;autoIncrement" json:"id"`
+	BookingID       uint        `gorm:"index:idx_booking_created;not null" json:"booking_id"`
+	BookingNumber   string      `gorm:"-" json:"booking_number"`
+	ServiceCategory string      `gorm:"-" json:"service_category"`
+	SenderID        uint        `gorm:"index;not null" json:"sender_id"`
+	SenderRole      string      `gorm:"type:varchar(20);not null;index" json:"sender_role"`
+	SenderName      string      `gorm:"-" json:"sender_name"`
+	SenderAvatar    string      `gorm:"-" json:"sender_avatar"`
+	Type            MessageType `gorm:"type:varchar(10);not null;default:'TEXT'" json:"type"`
+	Content         string      `gorm:"type:text;not null" json:"content"`
+	IsRead          bool        `gorm:"default:false;index" json:"is_read"`
+	CreatedAt       time.Time   `gorm:"index:idx_booking_created;not null" json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
 func (ChatMessage) TableName() string {
