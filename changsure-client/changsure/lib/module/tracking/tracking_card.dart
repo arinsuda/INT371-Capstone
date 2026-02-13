@@ -5,6 +5,8 @@ import 'package:changsure/state/booking_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/button/primary_button.dart';
+import '../../core/button/tertiary_button.dart';
 import 'widget/service_section.dart';
 import 'widget/tracking_section.dart';
 import '../../core/theme.dart';
@@ -95,7 +97,7 @@ class TrackingCard extends ConsumerWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   side: const BorderSide(color: Colors.red, width: 1.0),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -120,7 +122,7 @@ class TrackingCard extends ConsumerWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   side: const BorderSide(color: AppColors.primary, width: 1.0),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -130,27 +132,81 @@ class TrackingCard extends ConsumerWidget {
       case 'ACCEPTED':
         return SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => controller.startJob(booking.id),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text(
-              "เริ่มปฏิบัติงาน",
-              style: TextStyle(color: Colors.white),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF003EB3).withOpacity(0.9),
+                  const Color(0xFF003EB3),
+                ],
+                stops: const [0.12, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ElevatedButton(
+              onPressed: () => controller.startJob(booking.id),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                minimumSize: const Size(0, 32),
+                // 👈 สำคัญมาก
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 👈 สำคัญมาก
+              ),
+              child: const Text(
+                "เริ่มปฏิบัติงาน",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         );
       case 'IN_PROGRESS':
         return SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => _showCompleteConfirmDialog(context, controller),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text(
-              "ดำเนินการเสร็จสิ้น",
-              style: TextStyle(color: Colors.white),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.primaryBG.withOpacity(0.8),
+                  AppColors.primaryBG,
+                ],
+                stops: const [0.12, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.primaryBorder, width: 1),
+            ),
+            child: ElevatedButton(
+              onPressed: () => _showCompleteConfirmDialog(context, controller),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                minimumSize: const Size(0, 32),
+                // 👈 สำคัญมาก
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // 👈 สำคัญมาก
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                "ดำเนินการเสร็จสิ้น",
+                style: TextStyle(
+                  color: AppColors.primaryText,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         );
+
       default:
         return const SizedBox.shrink();
     }
@@ -186,25 +242,61 @@ class TrackingCard extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("ยืนยันการดำเนินงานเสร็จสิ้น"),
-        content: const Text(
-          "คุณดำเนินการเสร็จเรียบร้อยแล้วใช่หรือไม่? ระบบจะพาคุณไปยังขั้นตอนการชำระเงินของลูกค้า",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("ยกเลิก"),
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          ElevatedButton(
-            onPressed: () {
-              controller.completeJob(booking.id);
-              Navigator.pop(context);
-            },
-            child: const Text("ยืนยัน"),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  "ยืนยันการดำเนินงานเสร็จสิ้น",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  "คุณดำเนินการเสร็จเรียบร้อยแล้วใช่หรือไม่?\n"
+                  "หากยืนยัน ระบบจะพาคุณไปยังขั้นตอนการชำระเงินของลูกค้า และสถานะงานจะไม่สามารถแก้ไขได้อีก",
+                  maxLines: 3,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TertiaryButton(
+                        text: "ยกเลิก",
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsetsGeometry.symmetric(vertical: 6),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: PrimaryButton(
+                        text: "ยืนยัน",
+                        padding: EdgeInsetsGeometry.symmetric(vertical: 6),
+                        onPressed: () async {
+                          Navigator.pop(context); // ปิด dialog ก่อน
+                          await controller.completeJob(booking.id);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

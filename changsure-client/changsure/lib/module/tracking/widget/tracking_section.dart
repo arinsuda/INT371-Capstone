@@ -12,12 +12,15 @@ class TrackingSection extends StatelessWidget {
       case 'PENDING':
         return const Color(0xFFFFF8E1);
       case 'ACCEPTED':
+        return const Color(0xFFFFF7E6);
       case 'IN_PROGRESS':
-        return const Color(0xFFE3F2FD);
+        return const Color(0xFFE1EFFA);
       case 'WAITING_PAYMENT':
-        return const Color(0xFFFFF3E0);
+        return const Color(0xFFFFF7E6);
       case 'COMPLETED':
-        return const Color(0xFFE8F5E9);
+        return const Color(0xFFF6FFED);
+      case 'REJECTED':
+        return const Color(0xFFFFF1F0);
       default:
         return Colors.grey.shade100;
     }
@@ -28,12 +31,15 @@ class TrackingSection extends StatelessWidget {
       case 'PENDING':
         return const Color(0xFFFFB300);
       case 'ACCEPTED':
+        return const Color(0xFFFA8C16);
       case 'IN_PROGRESS':
-        return AppColors.primary;
+        return const Color(0xFF1677FF);
       case 'WAITING_PAYMENT':
-        return Colors.orange;
+        return const Color(0xFFFA8C16);
       case 'COMPLETED':
-        return Colors.green;
+        return const Color(0xFF52C41A);
+      case 'REJECTED':
+        return const Color(0xFFF5222D);
       default:
         return Colors.grey;
     }
@@ -71,7 +77,7 @@ class TrackingSection extends StatelessWidget {
         if (isNewJob) ...[
           Row(
             children: [
-              Icon(Icons.work_outline, color: AppColors.primary, size: 20),
+              Icon(Icons.work, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 "คุณได้รับงานใหม่!",
@@ -85,23 +91,25 @@ class TrackingSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusBgColor,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: statusTextColor, width: 1),
-          ),
-          child: Text(
-            statusText,
-            style: TextStyle(
-              color: statusTextColor,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+        if (!isNewJob)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusBgColor,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: statusTextColor, width: 1),
+            ),
+            child: Text(
+              statusText,
+              style: TextStyle(
+                color: statusTextColor,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 16),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

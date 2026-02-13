@@ -98,6 +98,9 @@ class Booking {
                 .map((img) => BookingImage.fromJson(img))
                 .toList()
           : null,
+      customer: json['customer'] != null
+          ? Customer.fromJson(json['customer'])
+          : null,
     );
   }
 
@@ -188,8 +191,8 @@ class Customer {
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       id: json['id'] ?? 0,
-      firstName: json['first_name'] ?? '',
-      lastName: json['last_name'] ?? '',
+      firstName: json['firstname'] ?? '',
+      lastName: json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
       phoneNumber: json['phone_number'],
     );
@@ -270,8 +273,8 @@ class Technician {
   factory Technician.fromJson(Map<String, dynamic> json) {
     return Technician(
       id: json['id'] ?? 0,
-      firstName: json['first_name'] ?? '',
-      lastName: json['last_name'] ?? '',
+      firstName: json['firstname'] ?? '',
+      lastName: json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
       phoneNumber: json['phone_number'],
     );

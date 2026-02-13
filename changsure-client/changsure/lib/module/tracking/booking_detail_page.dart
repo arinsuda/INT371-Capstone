@@ -1,4 +1,3 @@
-import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +40,8 @@ class BookingDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
+    final user = ref.watch(userProvider);
+    final isTechnician = user?.role == UserRole.technician;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -86,22 +87,8 @@ class BookingDetailPage extends ConsumerWidget {
                 _buildAdditionalInfoSection(booking),
                 Container(height: 16, color: AppColors.primaryBGHover),
 
-                _buildActionButtons(context, booking, ref),
-                Container(height: 8, color: AppColors.primaryBGHover),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: IntrinsicWidth(
-                      child: TertiaryButton(
-                        text: "ยกเลิกการจอง",
-                        padding: EdgeInsetsGeometry.symmetric(horizontal: 24, vertical: 4),
-                        onPressed: () {},
-                      ),
-                    ),
-                  ),
-                ),
+                if (isTechnician && booking.status == 'PENDING')
+                  _buildPendingActionRow(context, booking, ref),
 
               ],
             );
@@ -158,7 +145,8 @@ class BookingDetailPage extends ConsumerWidget {
     final imageUrl = service?.getFirstImage() ?? '';
     final timeSlot = booking.timeSlot;
 
-    return Padding(
+    return
+      Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         children: [
@@ -393,83 +381,218 @@ class BookingDetailPage extends ConsumerWidget {
   }
 
   Widget _buildCustomerSection(Booking booking) {
-    // For technician view - show customer information
-    // Parse customer name and phone from recordedAddress if available
-    String customerInfo = 'ลูกค้า';
-    String? customerPhone;
+    final service = booking.technicianService?.service;
+    final customer = booking.customer;
+    print(customer);
+    print(booking);
 
-    // Try to extract phone number from recordedAddress
-    final phoneRegex = RegExp(r'(\d{2,3})-?(\d{3})-?(\d{4})');
-    final match = phoneRegex.firstMatch(booking.recordedAddress);
-    if (match != null) {
-      customerPhone = '${match.group(1)}-${match.group(2)}-${match.group(3)}';
-    }
+    final imageUrl = service?.getFirstImage() ?? '';
+    final timeSlot = booking.timeSlot;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.green.withOpacity(0.1),
-            child: const Icon(Icons.person, color: Colors.green),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child:  Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Column(
+          children: [
+            Stack(
               children: [
-                Text(
-                  customerInfo,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Colors.grey.shade200,
+                      child: ClipOval(
+                        child:
+                        customer?.avatarUrl != null &&
+                            customer!.avatarUrl!.isNotEmpty
+                            ? Image.network(
+                          customer.avatarUrl!,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person, size: 28);
+                          },
+                        )
+                            : const Icon(Icons.person, size: 28),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'คุณ ${customer?.firstName ?? ''} ${customer?.lastName ?? ''}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.primaryText,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.verified,
+                                color: Color(0xFF1677FF),
+                                size: 12,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary, width: 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          "assets/icons/chatIcon.svg",
+                          width: 18,
+                          height: 18,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          "แชท",
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                if (customerPhone != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    customerPhone,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF666666),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            const Divider(color: AppColors.colorStroke, height: 1),
+            const SizedBox(height: 12),
+
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: imageUrl.isNotEmpty
+                            ? Image.network(
+                          imageUrl,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey.shade200,
+                                child: const Icon(
+                                  Icons.image_not_supported,
+                                ),
+                              ),
+                        )
+                            : Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.cleaning_services),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              service?.serName ?? 'บริการ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              booking.getPriceDisplay(),
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F7FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        SvgPicture.asset(
+                          "assets/icons/calendar.svg",
+                          width: 18,
+                          height: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            "${_formatThaiDate(booking.appointmentDate)}, ${timeSlot?.getTimeRange() ?? ''}",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          if (customerPhone != null)
-            OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Implement call functionality
-                // final uri = Uri(scheme: 'tel', path: customerPhone);
-                // launchUrl(uri);
-              },
-              icon: const Icon(Icons.phone, size: 16, color: Colors.green),
-              label: const Text(
-                'โทร',
-                style: TextStyle(color: Colors.green, fontSize: 13),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.green),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                minimumSize: const Size(0, 32),
               ),
             ),
-        ],
-      ),
+          ],
+        ),
+      )
+
     );
   }
 
@@ -705,4 +828,67 @@ class BookingDetailPage extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildPendingActionRow(
+      BuildContext context,
+      Booking booking,
+      WidgetRef ref,
+      ) {
+    final controller = ref.read(bookingControllerProvider.notifier);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                controller.rejectBooking(booking.id, "ไม่สะดวกรับงาน");
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text("ปฏิเสธ"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                minimumSize: const Size(0, 34),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: const BorderSide(color: Colors.red),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () {
+                controller.acceptBooking(booking.id);
+                Navigator.pop(context);
+              },
+              icon: const Icon(
+                Icons.check,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              label: const Text(
+                "รับงาน",
+                style: TextStyle(color: AppColors.primary),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBG,
+                minimumSize: const Size(0, 34),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }
