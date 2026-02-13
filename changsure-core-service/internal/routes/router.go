@@ -192,8 +192,8 @@ func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
 	r.container.TechnicianHandler.RegisterRoutes(me)
 	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
 	r.container.TechnicianPostHandler.RegisterRoutes(me)
-	r.container.TimeSlotHandler.RegisterTechnicianRoutes(me)
-	r.container.TechnicianScheduleHandler.RegisterRoutes(me)
+	// r.container.TimeSlotHandler.RegisterTechnicianRoutes(me)
+	r.container.TechnicianCalendarHandler.RegisterTechnicianRoutes(me)
 }
 
 // setupDevelopmentTools configures development-only endpoints
