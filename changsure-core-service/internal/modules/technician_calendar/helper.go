@@ -106,7 +106,7 @@ func CreateClosedDay(dateStr string) CalendarDayStatus {
 		TotalSlots:     0,
 		BookedSlots:    0,
 		AvailableSlots: 0,
-		TimeSlots:      []TimeSlotDetail{},
+		TimeSlots:      []CalendarTimeSlot{},
 		Bookings:       []BookingDetail{},
 	}
 }
@@ -115,8 +115,8 @@ func BuildSlotDetails(
 	slotIDs []uint,
 	slotMap map[uint]timeslot.TimeSlot,
 	bookedSlots map[uint]bool,
-) []TimeSlotDetail {
-	details := make([]TimeSlotDetail, 0, len(slotIDs))
+) []CalendarTimeSlot {
+	details := make([]CalendarTimeSlot, 0, len(slotIDs))
 
 	for _, slotID := range slotIDs {
 		slot, ok := slotMap[slotID]
@@ -126,9 +126,13 @@ func BuildSlotDetails(
 		}
 
 		isBooked := bookedSlots[slotID]
-		details = append(details, TimeSlotDetail{
+		details = append(details, CalendarTimeSlot{
 			ID:        slot.ID,
-			TimeRange: FormatTimeRange(slot.StartTime, slot.EndTime),
+			StartTime: slot.StartTime,
+			EndTime:   slot.EndTime,
+			IsActive:  slot.IsActive,
+			CreatedAt: slot.CreatedAt,
+			UpdatedAt: slot.UpdatedAt,
 			IsBooked:  isBooked,
 		})
 	}
@@ -140,7 +144,7 @@ func FormatTimeRange(start, end string) string {
 	return start + " - " + end
 }
 
-func CountBookedSlots(slots []TimeSlotDetail) int {
+func CountBookedSlots(slots []CalendarTimeSlot) int {
 	count := 0
 	for _, slot := range slots {
 		if slot.IsBooked {

@@ -92,6 +92,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		Preload("Technician").
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
+		Preload("TechnicianService.Service.Category").
 		First(&booking, id).Error
 	if err != nil {
 		return nil, err

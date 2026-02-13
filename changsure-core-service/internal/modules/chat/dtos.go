@@ -9,6 +9,7 @@ type ChatRoomResponse struct {
 	BookingID       uint        `json:"booking_id"`
 	BookingNumber   string      `json:"booking_number"`
 	BookingStatus   string      `json:"booking_status"`
+	ServiceCategory string      `json:"service_category"`
 	OtherPersonID   uint        `json:"other_person_id"`
 	OtherPersonName string      `json:"other_person_name"`
 	OtherPersonImg  string      `json:"other_person_img"`
@@ -16,6 +17,18 @@ type ChatRoomResponse struct {
 	LastMsgType     MessageType `json:"last_msg_type"`
 	LastMsgTime     time.Time   `json:"last_msg_time"`
 	UnreadCount     int         `json:"unread_count"`
+}
+
+type SenderInfo struct {
+	SenderID     uint   `json:"sender_id"`
+	SenderRole   string `json:"sender_role"`
+	SenderName   string `json:"sender_name"`
+	SenderAvatar string `json:"sender_avatar"`
+}
+
+type BookingInfo struct {
+	BookingNumber   string `json:"booking_number"`
+	ServiceCategory string `json:"service_category"`
 }
 
 type SendMessageReq struct {
@@ -41,25 +54,42 @@ func (req *SendMessageReq) Validate() error {
 }
 
 type ChatMessageResponse struct {
-	ID         uint        `json:"id"`
-	BookingID  uint        `json:"booking_id"`
-	SenderID   uint        `json:"sender_id"`
-	SenderRole string      `json:"sender_role"`
-	Type       MessageType `json:"type"`
-	Content    string      `json:"content"`
-	IsRead     bool        `json:"is_read"`
-	CreatedAt  time.Time   `json:"created_at"`
+	ID        uint        `json:"id"`
+	Booking   BookingInfo `json:"booking"`
+	Sender    SenderInfo  `json:"sender"`
+	Type      MessageType `json:"type"`
+	Content   string      `json:"content"`
+	IsRead    bool        `json:"is_read"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 func (r *ChatMessageResponse) FromModel(msg *ChatMessage) {
 	r.ID = msg.ID
-	r.BookingID = msg.BookingID
-	r.SenderID = msg.SenderID
-	r.SenderRole = msg.SenderRole
+	r.Booking.BookingNumber = msg.BookingNumber
+	r.Booking.ServiceCategory = msg.ServiceCategory
+	r.Sender.SenderID = msg.SenderID
+	r.Sender.SenderRole = msg.SenderRole
+	r.Sender.SenderName = msg.SenderName
+	r.Sender.SenderAvatar = msg.SenderAvatar
 	r.Type = msg.Type
 	r.Content = msg.Content
 	r.IsRead = msg.IsRead
 	r.CreatedAt = msg.CreatedAt
+}
+
+type chatMessageRow struct {
+	ID              uint
+	BookingID       uint
+	BookingNumber   string
+	ServiceCategory string
+	SenderID        uint
+	SenderRole      string
+	Type            MessageType
+	Content         string
+	IsRead          bool
+	CreatedAt       time.Time
+	SenderName      string
+	SenderAvatar    string
 }
 
 type MarkAsReadReq struct {

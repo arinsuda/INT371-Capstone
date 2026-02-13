@@ -41,7 +41,7 @@ var (
 type Service interface {
 	SendMessage(ctx context.Context, userID uint, userRole string, req SendMessageReq, file *multipart.FileHeader) (*ChatMessageResponse, error)
 	GetChatHistory(ctx context.Context, userID uint, bookingID uint, query GetHistoryQuery) ([]ChatMessageResponse, error)
-	GetChatRooms(ctx context.Context, userID uint, userRole string) ([]ChatRoomResponse, error)
+	GetChatRooms(ctx context.Context, userID uint, userRole string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error)
 	MarkRoomAsRead(ctx context.Context, userID uint, userRole string, bookingID uint) error
 }
 
@@ -94,13 +94,23 @@ func (s *service) SendMessage(
 		return nil, err
 	}
 
+	// Get sender info
+	senderName, senderAvatar, err := s.getSenderInfo(ctx, userID, userRole)
+	if err != nil {
+		return nil, err
+	}
+
 	msg := &ChatMessage{
-		BookingID:  req.BookingID,
-		SenderID:   userID,
-		SenderRole: userRole,
-		Type:       req.Type,
-		Content:    content,
-		CreatedAt:  time.Now(),
+		BookingID:       req.BookingID,
+		BookingNumber:   bk.BookingNumber,
+		ServiceCategory: bk.TechnicianService.Service.Category.CatName,
+		SenderID:        userID,
+		SenderRole:      userRole,
+		SenderName:      senderName,
+		SenderAvatar:    senderAvatar,
+		Type:            req.Type,
+		Content:         content,
+		CreatedAt:       time.Now(),
 	}
 
 	if err := s.chatRepo.Create(ctx, msg); err != nil {
@@ -156,8 +166,10 @@ func (s *service) GetChatRooms(
 	ctx context.Context,
 	userID uint,
 	userRole string,
+	statusFilter string,
+	searchQuery string,
 ) ([]ChatRoomResponse, error) {
-	rooms, err := s.chatRepo.GetChatRooms(ctx, userID, userRole)
+	rooms, err := s.chatRepo.GetChatRooms(ctx, userID, userRole, statusFilter, searchQuery)
 	if err != nil {
 		return nil, apperrors.NewInternal(err)
 	}
@@ -233,6 +245,10 @@ func (s *service) getUserRole(bk *booking.Booking, userID uint) (string, error) 
 		return "customer", nil
 	}
 	return "", errors.New("unauthorized")
+}
+
+func (s *service) getSenderInfo(ctx context.Context, userID uint, userRole string) (name, avatar string, err error) {
+	return s.chatRepo.GetUserInfo(ctx, userID, userRole)
 }
 
 func (s *service) processMessageContent(
@@ -313,9 +329,17 @@ func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) 
 	response := &ChatMessageResponse{}
 	response.FromModel(msg)
 
+	// Presign image content URL
 	if msg.Type == MsgTypeImage {
 		if url, err := s.storage.PresignGet(ctx, msg.Content, 24*time.Hour, false); err == nil {
 			response.Content = url
+		}
+	}
+
+	// Presign avatar URL
+	if msg.SenderAvatar != "" {
+		if url, err := s.storage.PresignGet(ctx, msg.SenderAvatar, 24*time.Hour, false); err == nil {
+			response.Sender.SenderAvatar = url
 		}
 	}
 

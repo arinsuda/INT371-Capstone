@@ -118,7 +118,7 @@ type CalendarDayStatus struct {
 	TotalSlots     int              `json:"total_slots"`
 	BookedSlots    int              `json:"booked_slots"`
 	AvailableSlots int              `json:"available_slots"`
-	TimeSlots      []TimeSlotDetail `json:"time_slots"`
+	TimeSlots      []CalendarTimeSlot `json:"time_slots"`
 	Bookings       []BookingDetail  `json:"bookings"`
 }
 
@@ -149,13 +149,17 @@ type UpdateCalendarDateResponse struct {
 type UpdateTimeSlotsResponse struct {
 	Date      string           `json:"date"`
 	IsDefault bool             `json:"is_default"`
-	TimeSlots []TimeSlotDetail `json:"time_slots"`
+	TimeSlots []CalendarTimeSlot `json:"time_slots"`
 }
 
-type TimeSlotDetail struct {
-	ID        uint   `json:"id"`
-	TimeRange string `json:"time_range"`
-	IsBooked  bool   `json:"is_booked"`
+type CalendarTimeSlot struct {
+	ID        uint      `json:"id"`
+	StartTime string    `json:"start_time"`
+	EndTime   string    `json:"end_time"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	IsBooked  bool      `json:"is_booked"`
 }
 
 type DayStatus string
