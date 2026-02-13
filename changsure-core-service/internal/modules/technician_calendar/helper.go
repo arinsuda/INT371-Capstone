@@ -199,12 +199,10 @@ func (s *service) convertBookingsToDetails(bookings []bookingPkg.Booking) []Book
 
 			key := img.ImageURL
 
-			// ถ้า key ว่าง
 			if key == "" {
 				continue
 			}
 
-			// presign
 			url, err := storage.GlobalMinio.PresignGet(
 				context.Background(),
 				key,
@@ -237,11 +235,18 @@ func (s *service) convertBookingsToDetails(bookings []bookingPkg.Booking) []Book
 			Status:          b.Status,
 			CustomerID:      b.CustomerID,
 			CustomerName:    customerName,
-			CustomerPhone:   *b.Customer.Phone,
-			CustomerAvatar:  *b.Customer.AvatarURL,
+			CustomerPhone:   safeString(b.Customer.Phone),
+			CustomerAvatar:  safeString(b.Customer.AvatarURL),
 			Images:          imageURLs,
 		}
 	}
 
 	return details
+}
+
+func safeString(ptr *string) string {
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
 }

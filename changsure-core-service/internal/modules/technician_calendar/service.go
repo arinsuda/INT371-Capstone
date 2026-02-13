@@ -172,8 +172,8 @@ func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery
 			Status:          b.Status,
 			CustomerID:      b.CustomerID,
 			CustomerName:    customerName,
-			CustomerPhone:   *b.Customer.Phone,
-			CustomerAvatar:  *b.Customer.AvatarURL,
+			CustomerPhone:   safeString(b.Customer.Phone),
+			CustomerAvatar:  safeString(b.Customer.AvatarURL),
 			Images:          imageURLs,
 		}
 	}
