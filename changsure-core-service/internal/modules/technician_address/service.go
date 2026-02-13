@@ -106,8 +106,6 @@ func (s *service) applyUpdateFields(addr *TechnicianAddress, req *UpdateTechnici
 		addr.Longitude = req.Longitude
 	}
 
-	// If client sends is_primary, honor it (business rule),
-	// and later enforce uniqueness via SetPrimaryTx in transaction.
 	if req.IsPrimary != nil {
 		addr.IsPrimary = *req.IsPrimary
 	}
@@ -181,7 +179,6 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 	}
 
-	// Atomic: create + (optional) set primary in one transaction
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Create(ctx, addr); err != nil {
 			return err
@@ -242,7 +239,6 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		addr.SubDistrictID = sdid
 	}
 
-	// Atomic: update + (optional) set primary uniqueness
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Update(ctx, addr); err != nil {
 			return err
@@ -279,7 +275,6 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 			return err
 		}
 
-		// If deleting primary, choose a next primary candidate and set it.
 		if addr.IsPrimary {
 			next, err := r.FindNextPrimaryCandidateTx(ctx, techID, id)
 			if err != nil {
@@ -345,7 +340,7 @@ func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
 }
 
 func (s *service) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-	// optional: you could normalize q defaults here, but repo already guards it
+
 	return s.repo.FindNearby(ctx, q)
 }
 

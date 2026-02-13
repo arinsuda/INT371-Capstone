@@ -17,13 +17,10 @@ type Repository interface {
 	FindByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
 	FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
 
-	// Tx-suffix methods:
-	// These methods operate on r.db which might be a transaction DB (from WithTx).
 	DeleteTx(ctx context.Context, id uint, customerID uint) error
 	SetPrimaryTx(ctx context.Context, customerID uint, addressID uint) error
 	FindNextPrimaryCandidateTx(ctx context.Context, customerID uint, excludeID uint) (*CustomerAddress, error)
 
-	// Non-Tx convenience method (wraps Transaction + SetPrimaryTx)
 	SetPrimary(ctx context.Context, customerID uint, addressID uint) error
 
 	GetCustomerPhone(ctx context.Context, customerID uint) (*string, error)
@@ -93,7 +90,7 @@ func (r *repository) DeleteTx(ctx context.Context, id uint, customerID uint) err
 }
 
 func (r *repository) SetPrimaryTx(ctx context.Context, customerID uint, addressID uint) error {
-	// Clear all
+
 	if err := r.db.WithContext(ctx).
 		Model(&CustomerAddress{}).
 		Where("customer_id = ?", customerID).
@@ -101,7 +98,6 @@ func (r *repository) SetPrimaryTx(ctx context.Context, customerID uint, addressI
 		return err
 	}
 
-	// Set one
 	return r.db.WithContext(ctx).
 		Model(&CustomerAddress{}).
 		Where("id = ? AND customer_id = ?", addressID, customerID).

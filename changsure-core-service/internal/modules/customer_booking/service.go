@@ -70,7 +70,7 @@ func NewService(
 }
 
 func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, dateStr string) ([]TimeSlotAvailability, error) {
-	// Use centralized timezone parsing
+
 	parsedDate, err := booking.ParseDate(dateStr)
 	if err != nil {
 		return nil, ErrInvalidDateFormat
@@ -81,7 +81,6 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 		slog.String("date", dateStr),
 	)
 
-	// Check if technician is closed on this date
 	closedDates, err := s.calendarRepo.GetClosedDatesByRange(ctx, technicianID, parsedDate, parsedDate)
 	if err != nil {
 		s.logger.Error("failed to get closed dates", slog.String("error", err.Error()))
@@ -96,14 +95,12 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 		return []TimeSlotAvailability{}, nil
 	}
 
-	// Get active slot IDs for this specific date
 	activeSlotIDs, err := s.calendarRepo.GetTimeSlotsForDate(ctx, technicianID, &parsedDate)
 	if err != nil {
 		s.logger.Error("failed to get time slots for date", slog.String("error", err.Error()))
 		return nil, err
 	}
 
-	// If no specific slots, get default slots
 	if len(activeSlotIDs) == 0 {
 		activeSlotIDs, err = s.calendarRepo.GetTimeSlotsForDate(ctx, technicianID, nil)
 		if err != nil {
@@ -112,7 +109,6 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 		}
 	}
 
-	// If still no slots, get all active system slots as fallback
 	if len(activeSlotIDs) == 0 {
 		allSlots, err := s.timeSlotRepo.FindActive(ctx)
 		if err != nil {
@@ -129,21 +125,18 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 		return []TimeSlotAvailability{}, nil
 	}
 
-	// Get all active system time slots for details
 	allActiveSlots, err := s.timeSlotRepo.FindActive(ctx)
 	if err != nil {
 		s.logger.Error("failed to get active slots", slog.String("error", err.Error()))
 		return nil, err
 	}
 
-	// Get already booked slots for this date
 	bookedSlotIDs, err := s.repo.GetBookedSlotIDs(ctx, technicianID, dateStr)
 	if err != nil {
 		s.logger.Error("failed to get booked slots", slog.String("error", err.Error()))
 		return nil, err
 	}
 
-	// Build lookup maps
 	bookedMap := make(map[uint]bool)
 	for _, id := range bookedSlotIDs {
 		bookedMap[id] = true
@@ -154,7 +147,6 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 		activeMap[id] = true
 	}
 
-	// Build result with only active slots
 	result := make([]TimeSlotAvailability, 0)
 	for _, slot := range allActiveSlots {
 		if activeMap[slot.ID] {
@@ -175,13 +167,12 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 }
 
 func (s *service) CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*booking.Booking, error) {
-	// Use centralized timezone parsing
+
 	appointDate, err := booking.ParseDate(req.AppointmentDate)
 	if err != nil {
 		return nil, ErrInvalidDateFormat
 	}
 
-	// Check for past date
 	if booking.IsPastDate(appointDate) {
 		s.logger.Warn("attempted to book past date",
 			slog.Uint64("customer_id", uint64(customerID)),
@@ -190,7 +181,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, errors.New("ไม่สามารถจองย้อนหลังได้")
 	}
 
-	dateStr := booking.FormatDate(appointDate) // Use centralized formatting
+	dateStr := booking.FormatDate(appointDate)
 
 	s.logger.Info("creating booking",
 		slog.Uint64("customer_id", uint64(customerID)),
@@ -199,7 +190,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		slog.Uint64("slot_id", uint64(req.TimeSlotID)),
 	)
 
-	// Check if technician is closed on this date
 	closedDates, err := s.calendarRepo.GetClosedDatesByRange(ctx, req.TechnicianID, appointDate, appointDate)
 	if err != nil {
 		s.logger.Error("failed to check closed dates", slog.String("error", err.Error()))
@@ -214,14 +204,12 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, ErrTechnicianClosed
 	}
 
-	// Validate time slot is allowed for this date
 	allowedSlots, err := s.calendarRepo.GetTimeSlotsForDate(ctx, req.TechnicianID, &appointDate)
 	if err != nil {
 		s.logger.Error("failed to get allowed slots", slog.String("error", err.Error()))
 		return nil, err
 	}
 
-	// If no specific slots, get default slots
 	if len(allowedSlots) == 0 {
 		allowedSlots, err = s.calendarRepo.GetTimeSlotsForDate(ctx, req.TechnicianID, nil)
 		if err != nil {
@@ -230,7 +218,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 	}
 
-	// If still no slots, allow all active system slots
 	if len(allowedSlots) == 0 {
 		allSlots, err := s.timeSlotRepo.FindActive(ctx)
 		if err != nil {
@@ -242,7 +229,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		}
 	}
 
-	// Check if requested slot is in allowed list
 	isAllowed := false
 	for _, id := range allowedSlots {
 		if id == req.TimeSlotID {
@@ -260,11 +246,9 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 
 	var newBooking *booking.Booking
 
-	// Create booking in transaction
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
 
-		// Double-check slot availability with lock
 		isBooked, err := txRepo.IsSlotBooked(ctx, req.TechnicianID, dateStr, req.TimeSlotID)
 		if err != nil {
 			s.logger.Error("failed to check slot booking", slog.String("error", err.Error()))
@@ -279,21 +263,18 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			return ErrSlotBooked
 		}
 
-		// Get technician service details
 		techSvc, err := txRepo.GetTechnicianService(ctx, req.TechnicianServiceID)
 		if err != nil {
 			s.logger.Error("service not found", slog.String("error", err.Error()))
 			return ErrServiceNotFound
 		}
 
-		// Get and validate customer address
 		custAddr, err := txRepo.GetCustomerAddress(ctx, req.AddressID, customerID)
 		if err != nil {
 			s.logger.Error("address not found", slog.String("error", err.Error()))
 			return ErrAddressNotFound
 		}
 
-		// Verify service area coverage
 		if custAddr.ProvinceID != nil {
 			isServing, err := txRepo.IsTechnicianServingProvince(ctx, req.TechnicianID, *custAddr.ProvinceID)
 			if err != nil {
@@ -309,11 +290,9 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			}
 		}
 
-		// Format address snapshot
 		fullAddress := booking.FormatAddressSnapshot(custAddr)
 		bookingNumber := utils.GenerateBookingNumber10Digits()
 
-		// Create booking record
 		newBooking = &booking.Booking{
 			BookingNumber:       bookingNumber,
 			CustomerID:          customerID,
@@ -329,7 +308,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			PricingType:         techSvc.PricingType,
 		}
 
-		// Set pricing based on type
 		if techSvc.PricingType == "FIXED" {
 			newBooking.QuotedPriceFixed = techSvc.PriceFixed
 			newBooking.FinalPrice = techSvc.PriceFixed
@@ -338,7 +316,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			newBooking.QuotedPriceMax = techSvc.PriceMax
 		}
 
-		// Create booking
 		if err := txRepo.Create(ctx, newBooking); err != nil {
 			if strings.Contains(err.Error(), "Duplicate entry") {
 				return ErrSlotBooked
@@ -347,7 +324,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			return err
 		}
 
-		// Create booking images if any
 		if len(req.ImageURLs) > 0 {
 			images := make([]booking.BookingImage, 0, len(req.ImageURLs))
 			for _, url := range req.ImageURLs {
@@ -369,7 +345,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		return nil, err
 	}
 
-	// Fetch complete booking details
 	created, _ := s.repo.FindByID(ctx, newBooking.ID)
 	if created == nil {
 		created = newBooking
@@ -380,7 +355,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		slog.String("booking_number", created.BookingNumber),
 	)
 
-	// Send notification to technician
 	if s.notif != nil && created.TechnicianID != 0 {
 		s.sendBookingNotification(ctx, created, "BOOKING_CREATED", "มีงานใหม่", "มีลูกค้าจองบริการเข้ามา")
 	}
@@ -446,14 +420,12 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 		return nil, err
 	}
 
-	// Fetch complete details
 	full, _ := s.repo.FindByID(ctx, bookingID)
 
 	s.logger.Info("booking cancelled",
 		slog.Uint64("booking_id", uint64(bookingID)),
 	)
 
-	// Send notification
 	if s.notif != nil && full != nil {
 		s.sendBookingNotification(ctx, full, "BOOKING_CANCELLED", "ลูกค้ากดยกเลิกงาน",
 			fmt.Sprintf("ลูกค้าได้ยกเลิกการจองหมายเลข %s", full.BookingNumber))
