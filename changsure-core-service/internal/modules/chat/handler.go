@@ -94,10 +94,8 @@ func (h *Handler) GetChatRooms(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User role not found")
 	}
 
-	// Get status filter from query params
 	statusFilter := c.Query("status", "")
 
-	// Get search query from query params
 	searchQuery := c.Query("search", "")
 
 	rooms, err := h.service.GetChatRooms(c.Context(), userID, role, statusFilter, searchQuery)

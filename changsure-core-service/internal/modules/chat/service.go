@@ -94,7 +94,6 @@ func (s *service) SendMessage(
 		return nil, err
 	}
 
-	// Get sender info
 	senderName, senderAvatar, err := s.getSenderInfo(ctx, userID, userRole)
 	if err != nil {
 		return nil, err
@@ -329,14 +328,12 @@ func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) 
 	response := &ChatMessageResponse{}
 	response.FromModel(msg)
 
-	// Presign image content URL
 	if msg.Type == MsgTypeImage {
 		if url, err := s.storage.PresignGet(ctx, msg.Content, 24*time.Hour, false); err == nil {
 			response.Content = url
 		}
 	}
 
-	// Presign avatar URL
 	if msg.SenderAvatar != "" {
 		if url, err := s.storage.PresignGet(ctx, msg.SenderAvatar, 24*time.Hour, false); err == nil {
 			response.Sender.SenderAvatar = url
