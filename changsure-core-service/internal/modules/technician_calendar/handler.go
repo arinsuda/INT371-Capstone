@@ -2,10 +2,13 @@ package techniciancalendar
 
 import (
 	"log/slog"
+	"strconv"
 
 	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/validation"
 	"changsure-core-service/pkg/utils"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -24,16 +27,9 @@ func NewHandler(service Service, logger *slog.Logger) *Handler {
 	}
 }
 
-// ===========================
-// Public Endpoints
-// ===========================
-
-// GetTechnicianCalendar - Public endpoint for viewing any technician's calendar
-// GET /api/calendar?technician_id=123&month=2026-02
 func (h *Handler) GetTechnicianCalendar(c fiber.Ctx) error {
 	var query CalendarQuery
 
-	// Bind query parameters
 	if err := c.Bind().Query(&query); err != nil {
 		h.logger.Warn("failed to bind query parameters",
 			slog.String("error", err.Error()),
@@ -42,7 +38,6 @@ func (h *Handler) GetTechnicianCalendar(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid query parameters")
 	}
 
-	// Validate query
 	if err := query.Validate(); err != nil {
 		h.logger.Warn("query validation failed",
 			slog.String("error", err.Error()),
@@ -52,7 +47,6 @@ func (h *Handler) GetTechnicianCalendar(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, err.Error())
 	}
 
-	// Get calendar
 	result, err := h.service.GetMonthlyCalendar(c.Context(), query)
 	if err != nil {
 		return h.handleServiceError(c, err, "failed to get calendar")
@@ -70,28 +64,21 @@ func (h *Handler) GetTechnicianCalendar(c fiber.Ctx) error {
 	})
 }
 
-// ===========================
-// Technician-only Endpoints
-// ===========================
-
-// GetMyCalendar - Technician views their own calendar
-// GET /api/technician/calendar?month=2026-02
 func (h *Handler) GetMyCalendar(c fiber.Ctx) error {
 	technicianID, err := h.getTechnicianID(c)
 	if err != nil {
 		return err
 	}
 
-	// Build query
 	var query CalendarQuery
 	query.TechnicianID = technicianID
+
 	query.Month = c.Query("month")
 
 	if query.Month == "" {
 		return appErrors.BadRequest(c, "month parameter is required")
 	}
 
-	// Validate
 	if err := query.Validate(); err != nil {
 		h.logger.Warn("query validation failed",
 			slog.String("error", err.Error()),
@@ -100,7 +87,6 @@ func (h *Handler) GetMyCalendar(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, err.Error())
 	}
 
-	// Get calendar
 	result, err := h.service.GetMonthlyCalendar(c.Context(), query)
 	if err != nil {
 		return h.handleServiceError(c, err, "failed to get calendar")
@@ -112,16 +98,71 @@ func (h *Handler) GetMyCalendar(c fiber.Ctx) error {
 	})
 }
 
-// UpdateMyCalendarDate - Update open/closed status for a specific date
-// PATCH /api/technician/calendar
-// Body: { "date": "2026-02-15", "is_open": false }
+func (h *Handler) GetMyCalendarByDate(c fiber.Ctx) error {
+	technicianID, err := h.getTechnicianID(c)
+	if err != nil {
+		return err
+	}
+
+	var query CalendarDayQuery
+	query.TechnicianID = technicianID
+	query.Date = c.Query("date")
+
+	if ts := c.Query("timeslot"); ts != "" {
+		val, err := strconv.ParseUint(ts, 10, 64)
+		if err != nil {
+			return appErrors.BadRequest(c, "invalid timeslot")
+		}
+		tmp := uint(val)
+		query.TimeSlotID = &tmp
+	}
+
+	if query.Date == "" {
+		h.logger.Warn("date parameter is required",
+			slog.Uint64("technician_id", uint64(technicianID)),
+		)
+		return appErrors.BadRequest(c, "date parameter is required")
+	}
+
+	if !isValidDateFormat(query.Date) {
+		h.logger.Warn("invalid date format",
+			slog.String("date", query.Date),
+		)
+		return appErrors.BadRequest(c, "date must be in YYYY-MM-DD format")
+	}
+
+	date, err := booking.ParseDate(query.Date)
+	if err != nil {
+		h.logger.Warn("failed to parse date",
+			slog.String("error", err.Error()),
+			slog.String("date", query.Date),
+		)
+		return appErrors.BadRequest(c, "invalid date value")
+	}
+
+	result, err := h.service.GetCalendarDayBookings(c.Context(), query, date)
+	if err != nil {
+		return h.handleServiceError(c, err, "failed to get booking details")
+	}
+
+	h.logger.Info("booking details retrieved",
+		slog.Uint64("technician_id", uint64(technicianID)),
+		slog.String("date", query.Date),
+		slog.Int("booking_count", len(result)),
+	)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    result,
+	})
+}
+
 func (h *Handler) UpdateMyCalendarDate(c fiber.Ctx) error {
 	technicianID, err := h.getTechnicianID(c)
 	if err != nil {
 		return err
 	}
 
-	// Parse request body
 	var req UpdateCalendarDateRequest
 	if err := c.Bind().Body(&req); err != nil {
 		h.logger.Warn("failed to parse request body",
@@ -130,7 +171,6 @@ func (h *Handler) UpdateMyCalendarDate(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
 
-	// Validate
 	if err := req.Validate(); err != nil {
 		h.logger.Warn("request validation failed",
 			slog.String("error", err.Error()),
@@ -139,7 +179,6 @@ func (h *Handler) UpdateMyCalendarDate(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, err.Error())
 	}
 
-	// Update
 	result, err := h.service.UpdateCalendarDate(c.Context(), technicianID, req)
 	if err != nil {
 		return h.handleServiceError(c, err, "failed to update calendar date")
@@ -158,18 +197,14 @@ func (h *Handler) UpdateMyCalendarDate(c fiber.Ctx) error {
 	})
 }
 
-// UpdateMyTimeSlots - Configure time slots for specific date or default
-// PATCH /api/technicians/me/calendar?month=2026-02-15
-// Body: { "time_slot_ids": [1, 2], "is_default": false }
 func (h *Handler) UpdateMyTimeSlots(c fiber.Ctx) error {
 	technicianID, err := h.getTechnicianID(c)
 	if err != nil {
 		return err
 	}
 
-	// Parse request
 	var req UpdateTimeSlotsRequest
-	req.Month = c.Query("month")
+	req.Date = c.Query("date")
 
 	if err := c.Bind().Body(&req); err != nil {
 		h.logger.Warn("failed to parse request body",
@@ -178,12 +213,10 @@ func (h *Handler) UpdateMyTimeSlots(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
 
-	// Validate struct tags
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
 
-	// Validate business logic
 	if err := req.Validate(); err != nil {
 		h.logger.Warn("request validation failed",
 			slog.String("error", err.Error()),
@@ -192,17 +225,15 @@ func (h *Handler) UpdateMyTimeSlots(c fiber.Ctx) error {
 		return appErrors.BadRequest(c, err.Error())
 	}
 
-	// Parse date
 	date, err := req.ParseDate()
 	if err != nil {
 		h.logger.Warn("failed to parse date",
 			slog.String("error", err.Error()),
-			slog.String("month", req.Month),
+			slog.String("date", req.Date),
 		)
 		return appErrors.BadRequest(c, "invalid date format")
 	}
 
-	// Update
 	result, err := h.service.UpdateTimeSlotsForDate(c.Context(), technicianID, date, req)
 	if err != nil {
 		return h.handleServiceError(c, err, "failed to update time slots")
@@ -222,11 +253,6 @@ func (h *Handler) UpdateMyTimeSlots(c fiber.Ctx) error {
 	})
 }
 
-// ===========================
-// Helper Methods
-// ===========================
-
-// getTechnicianID extracts technician ID from context
 func (h *Handler) getTechnicianID(c fiber.Ctx) (uint, error) {
 	technicianID := utils.GetUserID(c)
 	if technicianID == 0 {
@@ -238,7 +264,6 @@ func (h *Handler) getTechnicianID(c fiber.Ctx) (uint, error) {
 	return technicianID, nil
 }
 
-// handleServiceError maps service errors to appropriate HTTP responses
 func (h *Handler) handleServiceError(c fiber.Ctx, err error, defaultMsg string) error {
 	h.logger.Error("service error",
 		slog.String("error", err.Error()),

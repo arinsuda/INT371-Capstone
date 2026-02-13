@@ -127,7 +127,7 @@ func (r *repository) GetBookedSlotIDs(ctx context.Context, technicianID uint, da
 		Where("technician_id = ? AND appointment_date = ? AND status NOT IN ?",
 			technicianID,
 			date,
-			[]string{BookingStatusCancelled, BookingStatusRejected},
+			ExcludedFromAvailability, // Use centralized constant
 		).
 		Pluck("time_slot_id", &slotIDs).Error
 	return slotIDs, err
@@ -141,7 +141,7 @@ func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date s
 			technicianID,
 			date,
 			slotID,
-			[]string{BookingStatusCancelled, BookingStatusRejected},
+			ExcludedFromAvailability, // Use centralized constant
 		).
 		Count(&count).Error
 	return count > 0, err

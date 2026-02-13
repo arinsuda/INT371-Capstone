@@ -4,7 +4,27 @@ import (
 	address "changsure-core-service/internal/modules/customer_address"
 	"fmt"
 	"strings"
+	"time"
 )
+
+// Booking Status Constants
+const (
+	BookingStatusPending        = "PENDING"
+	BookingStatusAccepted       = "ACCEPTED"
+	BookingStatusInProgress     = "IN_PROGRESS"
+	BookingStatusWaitingPayment = "WAITING_PAYMENT"
+	BookingStatusCompleted      = "COMPLETED"
+	BookingStatusCancelled      = "CANCELLED"
+	BookingStatusRejected       = "REJECTED"
+
+	PaymentMethodCOD = "COD"
+)
+
+// ExcludedFromAvailability statuses that don't block time slots
+var ExcludedFromAvailability = []string{
+	BookingStatusCancelled,
+	BookingStatusRejected,
+}
 
 var allowedBookingStatuses = map[string]bool{
 	BookingStatusPending:        true,
@@ -14,6 +34,40 @@ var allowedBookingStatuses = map[string]bool{
 	BookingStatusCompleted:      true,
 	BookingStatusCancelled:      true,
 	BookingStatusRejected:       true,
+}
+
+// BKKLocation is the timezone for Bangkok, Thailand
+var BKKLocation *time.Location
+
+func init() {
+	var err error
+	BKKLocation, err = time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		// Fallback to UTC+7 offset if location loading fails
+		BKKLocation = time.FixedZone("BKK", 7*60*60)
+	}
+}
+
+// NormalizeDate returns date at midnight in BKK timezone
+func NormalizeDate(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, BKKLocation)
+}
+
+// ParseDate parses date string in YYYY-MM-DD format in BKK timezone
+func ParseDate(dateStr string) (time.Time, error) {
+	return time.ParseInLocation("2006-01-02", dateStr, BKKLocation)
+}
+
+// FormatDate formats time to YYYY-MM-DD string
+func FormatDate(t time.Time) string {
+	return t.In(BKKLocation).Format("2006-01-02")
+}
+
+// IsPastDate checks if date is before today (BKK timezone)
+func IsPastDate(date time.Time) bool {
+	today := NormalizeDate(time.Now())
+	checkDate := NormalizeDate(date)
+	return checkDate.Before(today)
 }
 
 func ParseStatusFilter(raw string) ([]string, error) {

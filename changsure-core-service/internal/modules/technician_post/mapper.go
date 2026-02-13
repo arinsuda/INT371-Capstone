@@ -19,30 +19,30 @@ func ToPostResponse(post *TechnicianPost) *TechnicianPostResponse {
 		Description:  post.Description,
 		ServiceID:    post.ServiceID,
 		ProvinceID:   post.ProvinceID,
-		// เพิ่มตรงนี้: ดึง ID จาก field ใหม่โดยตรง
+		
 		CategoryID:  post.ServiceCategoryID,
 		IsPublished: post.IsPublished,
 		CreatedAt:   post.CreatedAt.Unix(),
 	}
 
-	// 1. Map Service Name (ถ้ามี Service)
+	
 	if post.Service != nil {
 		resp.ServiceName = &post.Service.SerName
 	}
 
-	// 2. Map Category Name (แก้ไขใหม่: ดึงจาก ServiceCategory โดยตรง)
+	
 	if post.Category != nil {
-		// ใช้ CatName ตามโครงสร้างเดิมที่คุณเคยใช้
+		
 		cname := post.Category.CatName
 		resp.CategoryName = &cname
 	}
 
-	// 3. Map Province Name
+	
 	if post.Province != nil {
 		resp.ProvinceName = &post.Province.NameTH
 	}
 
-	// 4. จัดการ Images (คงเดิม)
+	
 	resp.Images = make([]TechnicianPostImageResponse, 0)
 
 	for _, img := range post.Images {

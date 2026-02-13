@@ -403,6 +403,7 @@ func (c *Container) initCustomerBookingModule() {
 		c.TechnicianCalendarRepo,
 		c.DB,
 		c.NotificationService,
+		c.Logger,
 	)
 
 	c.CustomerBookingHandler = customerbooking.NewHandler(

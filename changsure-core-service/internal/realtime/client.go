@@ -13,13 +13,13 @@ type wsClient struct {
 	send chan []byte
 
 	writeMu sync.Mutex
-	closed  uint32 // 0=open, 1=closed
+	closed  uint32
 }
 
 func newWSClient(conn *websocket.Conn) *wsClient {
 	return &wsClient{
 		conn: conn,
-		send: make(chan []byte, 64), // ปรับขนาดได้ตาม traffic
+		send: make(chan []byte, 64),
 	}
 }
 
@@ -31,7 +31,6 @@ func (c *wsClient) isClosed() bool {
 	return atomic.LoadUint32(&c.closed) == 1
 }
 
-// enqueue แบบไม่ block: ถ้าเต็มจะคืน false เพื่อให้ hub ไป force close
 func (c *wsClient) enqueue(payload []byte) bool {
 	if c.isClosed() {
 		return false
@@ -76,7 +75,6 @@ func (c *wsClient) closeWS(reason string) {
 		return
 	}
 
-	// best effort close control frame
 	_ = c.writeControlSafe(
 		websocket.CloseMessage,
 		websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason),

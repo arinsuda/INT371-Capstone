@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"changsure-core-service/internal/modules/booking"
+	bookingPkg "changsure-core-service/internal/modules/booking"
 	timeslot "changsure-core-service/internal/modules/time_slot"
+	"changsure-core-service/pkg/storage"
 )
-
-// ===========================
-// Errors
-// ===========================
 
 var (
 	ErrTechnicianNotFound = errors.New("technician not found")
@@ -23,30 +21,23 @@ var (
 	ErrTimeSlotNotFound   = errors.New("time slot not found")
 )
 
-// ===========================
-// Service Interface
-// ===========================
-
 type Service interface {
 	GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*CalendarResponse, error)
+	GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery, date time.Time) ([]BookingDetail, error)
 	UpdateCalendarDate(ctx context.Context, technicianID uint, req UpdateCalendarDateRequest) (*UpdateCalendarDateResponse, error)
 	UpdateTimeSlotsForDate(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) (*UpdateTimeSlotsResponse, error)
 }
 
-// ===========================
-// Service Implementation
-// ===========================
-
 type service struct {
 	calendarRepo Repository
-	bookingRepo  booking.Repository
+	bookingRepo  bookingPkg.Repository
 	timeSlotRepo timeslot.Repository
 	logger       *slog.Logger
 }
 
 func NewService(
 	calendarRepo Repository,
-	bookingRepo booking.Repository,
+	bookingRepo bookingPkg.Repository,
 	timeSlotRepo timeslot.Repository,
 	logger *slog.Logger,
 ) Service {
@@ -62,12 +53,8 @@ func NewService(
 	}
 }
 
-// ===========================
-// Public Methods
-// ===========================
-
 func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*CalendarResponse, error) {
-	// 1. Parse และคำนวณ date range
+
 	monthStart, err := q.ParseMonth()
 	if err != nil {
 		return nil, fmt.Errorf("invalid month: %w", err)
@@ -78,17 +65,15 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 	s.logger.Debug("getting monthly calendar",
 		slog.Uint64("technician_id", uint64(q.TechnicianID)),
 		slog.String("month", q.Month),
-		slog.String("start", dateRange.Start.Format("2006-01-02")),
-		slog.String("end", dateRange.End.Format("2006-01-02")),
+		slog.String("start", booking.FormatDate(dateRange.Start)),
+		slog.String("end", booking.FormatDate(dateRange.End)),
 	)
 
-	// 2. Fetch data ทั้งหมด
-	data, err := s.fetchCalendarData(ctx, q.TechnicianID, dateRange)
+	data, err := s.fetchCalendarData(ctx, q.TechnicianID, dateRange, q)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch calendar data: %w", err)
 	}
 
-	// 3. Generate calendar days
 	days := s.generateCalendarDays(dateRange, data)
 
 	s.logger.Info("calendar generated successfully",
@@ -103,15 +88,113 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 	}, nil
 }
 
+func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery, date time.Time) ([]BookingDetail, error) {
+	dateStr := booking.FormatDate(date)
+
+	s.logger.Debug("getting calendar day bookings",
+		slog.Uint64("technician_id", uint64(q.TechnicianID)),
+		slog.String("date", dateStr),
+	)
+
+	bookings, _, err := s.bookingRepo.ListByTechnician(
+		ctx,
+		q.TechnicianID,
+		nil,
+		dateStr,
+		dateStr,
+		0,
+		100,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch bookings: %w", err)
+	}
+
+	var filteredBookings []bookingPkg.Booking
+	if q.TimeSlotID != nil {
+		for _, b := range bookings {
+			if b.TimeSlotID == *q.TimeSlotID {
+				filteredBookings = append(filteredBookings, b)
+			}
+		}
+	} else {
+		filteredBookings = bookings
+	}
+
+	details := make([]BookingDetail, len(filteredBookings))
+	for i, b := range filteredBookings {
+
+		customerName := fmt.Sprintf("%s %s", b.Customer.FirstName, b.Customer.LastName)
+
+		serviceName := ""
+		if b.TechnicianService.Service.ID > 0 {
+			serviceName = b.TechnicianService.Service.SerName
+		}
+
+		imageURLs := make([]string, len(b.Images))
+
+		for j, img := range b.Images {
+
+			key := img.ImageURL
+			if key == "" {
+				continue
+			}
+
+			url, err := storage.GlobalMinio.PresignGet(
+				ctx,
+				key,
+				time.Hour*6,
+				false,
+			)
+
+			if err != nil {
+				s.logger.Warn("presign image failed",
+					slog.String("key", key),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+
+			imageURLs[j] = url
+		}
+
+		details[i] = BookingDetail{
+			ID:              b.ID,
+			BookingNumber:   b.BookingNumber,
+			TimeSlotID:      b.TimeSlotID,
+			ServiceName:     serviceName,
+			PricingType:     b.PricingType,
+			QuotedPrice:     b.QuotedPriceFixed,
+			QuotedPriceMin:  b.QuotedPriceMin,
+			QuotedPriceMax:  b.QuotedPriceMax,
+			FinalPrice:      b.FinalPrice,
+			AppointmentDate: booking.FormatDate(b.AppointmentDate),
+			Status:          b.Status,
+			CustomerID:      b.CustomerID,
+			CustomerName:    customerName,
+			CustomerPhone:   *b.Customer.Phone,
+			CustomerAvatar:  *b.Customer.AvatarURL,
+			Images:          imageURLs,
+		}
+	}
+
+	s.logger.Info("calendar day bookings retrieved",
+		slog.Uint64("technician_id", uint64(q.TechnicianID)),
+		slog.String("date", dateStr),
+		slog.Int("booking_count", len(details)),
+	)
+
+	return details, nil
+}
+
 func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req UpdateCalendarDateRequest) (*UpdateCalendarDateResponse, error) {
-	// 1. Parse date
+
 	date, err := req.ParseDate()
 	if err != nil {
 		return nil, fmt.Errorf("invalid date format: %w", err)
 	}
 
-	// 2. Validate not past date
-	if isPastDate(date) {
+	if booking.IsPastDate(date) {
 		s.logger.Warn("attempted to update past date",
 			slog.Uint64("technician_id", uint64(technicianID)),
 			slog.String("date", req.Date),
@@ -119,8 +202,9 @@ func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req
 		return nil, ErrPastDate
 	}
 
-	// 3. Update in database
-	if err := s.calendarRepo.UpsertCalendarDate(ctx, technicianID, date, req.IsOpen); err != nil {
+	isClosed := !req.IsOpen
+
+	if err := s.calendarRepo.SetClosedDate(ctx, technicianID, date, isClosed); err != nil {
 		s.logger.Error("failed to update calendar date",
 			slog.String("error", err.Error()),
 			slog.Uint64("technician_id", uint64(technicianID)),
@@ -129,15 +213,11 @@ func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	// 4. Verify saved data (for debugging)
-	if err := s.verifyCalendarDateSaved(ctx, technicianID, date, req.IsOpen); err != nil {
-		s.logger.Warn("verification warning", slog.String("error", err.Error()))
-	}
-
 	s.logger.Info("calendar date updated successfully",
 		slog.Uint64("technician_id", uint64(technicianID)),
 		slog.String("date", req.Date),
 		slog.Bool("is_open", req.IsOpen),
+		slog.Bool("is_closed", isClosed),
 	)
 
 	return &UpdateCalendarDateResponse{
@@ -147,88 +227,110 @@ func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req
 }
 
 func (s *service) UpdateTimeSlotsForDate(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) (*UpdateTimeSlotsResponse, error) {
-	// 1. Validate not past date
-	if !req.IsDefault && isPastDate(date) {
-		return nil, ErrPastDate
-	}
-
-	// 2. Validate time slot IDs
+	// Validate time slot IDs exist
 	if len(req.TimeSlotIDs) > 0 {
 		if err := s.validateTimeSlotIDs(ctx, req.TimeSlotIDs); err != nil {
 			return nil, err
 		}
 	}
 
-	// 3. Update time slots
+	// Check for past date if not default
+	if !req.IsDefault && booking.IsPastDate(date) {
+		return nil, ErrPastDate
+	}
+
+	// Update time slots
 	if err := s.updateTimeSlots(ctx, technicianID, date, req); err != nil {
 		return nil, err
 	}
 
-	// 4. Fetch updated slot details
+	// Fetch time slot details
 	timeSlotDetails, err := s.fetchTimeSlotDetails(ctx, req.TimeSlotIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch slot details: %w", err)
 	}
 
+	responseDate := "default"
+	if !req.IsDefault {
+		responseDate = booking.FormatDate(date)
+	}
+
 	s.logger.Info("time slots updated successfully",
 		slog.Uint64("technician_id", uint64(technicianID)),
-		slog.String("date", date.Format("2006-01-02")),
+		slog.String("date", responseDate),
 		slog.Bool("is_default", req.IsDefault),
 		slog.Int("slot_count", len(timeSlotDetails)),
 	)
 
 	return &UpdateTimeSlotsResponse{
-		Date:      date.Format("2006-01-02"),
+		Date:      responseDate,
 		IsDefault: req.IsDefault,
 		TimeSlots: timeSlotDetails,
 	}, nil
 }
 
-// ===========================
-// Private Helper Methods
-// ===========================
-
-func (s *service) fetchCalendarData(ctx context.Context, technicianID uint, dr DateRange) (*CalendarData, error) {
-	// Fetch calendar dates (open/closed status)
-	calendarDates, err := s.calendarRepo.GetCalendarDatesByRange(ctx, technicianID, dr.Start, dr.End)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch calendar dates: %w", err)
+func (s *service) updateTimeSlots(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) error {
+	if req.IsDefault {
+		s.logger.Debug("setting default time slots",
+			slog.Uint64("technician_id", uint64(technicianID)),
+			slog.Int("slot_count", len(req.TimeSlotIDs)),
+		)
+		return s.calendarRepo.SetDefaultTimeSlots(ctx, technicianID, req.TimeSlotIDs)
 	}
 
-	// Fetch time slot configurations
+	s.logger.Debug("setting date-specific time slots",
+		slog.Uint64("technician_id", uint64(technicianID)),
+		slog.String("date", booking.FormatDate(date)),
+		slog.Int("slot_count", len(req.TimeSlotIDs)),
+	)
+
+	return s.calendarRepo.SetDateTimeSlots(ctx, technicianID, date, req.TimeSlotIDs)
+}
+
+func (s *service) fetchCalendarData(ctx context.Context, technicianID uint, dr DateRange, q CalendarQuery) (*CalendarData, error) {
+	// Get closed dates
+	closedDates, err := s.calendarRepo.GetClosedDatesByRange(ctx, technicianID, dr.Start, dr.End)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch closed dates: %w", err)
+	}
+
+	// Get time slot configurations
 	timeSlots, err := s.calendarRepo.GetTimeSlotsForMonth(ctx, technicianID, dr.Start, dr.End)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch time slots: %w", err)
 	}
 
-	// Fetch all active system time slots
+	// Get all active system time slots
 	allTimeSlots, err := s.timeSlotRepo.FindActive(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch system time slots: %w", err)
 	}
 
-	// Fetch bookings
+	// Get bookings for the month
 	bookings, err := s.fetchBookingsForRange(ctx, technicianID, dr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch bookings: %w", err)
 	}
 
-	// Convert bookings to internal format
 	bookingInfos := s.convertToBookingInfos(bookings)
 	bookingMap := BuildBookingMap(bookingInfos)
 
+	// แก้: เพิ่ม AllBookings เก็บ bookings ทั้งหมด
+	bookingsByDate := s.groupBookingsByDate(bookings)
+
 	s.logger.Debug("calendar data fetched",
-		slog.Int("calendar_dates", len(calendarDates)),
+		slog.Int("closed_dates", len(closedDates)),
 		slog.Int("time_slot_configs", len(timeSlots)),
 		slog.Int("system_slots", len(allTimeSlots)),
 		slog.Int("bookings", len(bookings)),
 	)
 
 	return &CalendarData{
-		CalendarDates: calendarDates,
-		TimeSlots:     timeSlots,
-		AllTimeSlots:  allTimeSlots,
-		Bookings:      bookingMap,
+		ClosedDates:  closedDates,
+		TimeSlots:    timeSlots,
+		AllTimeSlots: allTimeSlots,
+		Bookings:     bookingMap,
+		AllBookings:  bookingsByDate,
 	}, nil
 }
 
@@ -237,30 +339,33 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 	slotMap := BuildTimeSlotMap(data.AllTimeSlots)
 
 	for currentDate := dr.Start; !currentDate.After(dr.End); currentDate = currentDate.AddDate(0, 0, 1) {
-		dateStr := currentDate.Format("2006-01-02")
+		dateStr := booking.FormatDate(currentDate)
 
 		// Check if date is closed
-		if IsDateClosed(dateStr, data.CalendarDates) {
+		if IsDateClosed(dateStr, data.ClosedDates) {
 			days = append(days, CreateClosedDay(dateStr))
 			continue
 		}
 
-		// Resolve which slots to use for this date
-		slotIDs := ResolveSlotIDs(dateStr, data)
+		// Resolve which slots are active for this date (with system fallback)
+		slotIDs := s.resolveSlotIDsWithFallback(dateStr, data)
 
-		// Build slot details with booking status
+		// Get booked slots
 		bookedSlots := data.Bookings[dateStr]
 		if bookedSlots == nil {
 			bookedSlots = make(map[uint]bool)
 		}
 
+		// Build slot details
 		slotDetails := BuildSlotDetails(slotIDs, slotMap, bookedSlots)
 
-		// Calculate day status
 		totalSlots := len(slotDetails)
 		bookedCount := CountBookedSlots(slotDetails)
 		availableSlots := totalSlots - bookedCount
 		status := CalculateDayStatus(totalSlots, bookedCount)
+
+		// แก้: เพิ่ม bookings รายละเอียด
+		bookingDetails := s.convertBookingsToDetails(data.AllBookings[dateStr])
 
 		days = append(days, CalendarDayStatus{
 			Date:           dateStr,
@@ -269,16 +374,34 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 			BookedSlots:    bookedCount,
 			AvailableSlots: availableSlots,
 			TimeSlots:      slotDetails,
+			Bookings:       bookingDetails, // เพิ่มบรรทัดนี้
 		})
 	}
 
 	return days
 }
 
-func (s *service) fetchBookingsForRange(ctx context.Context, technicianID uint, dr DateRange) ([]booking.Booking, error) {
+func (s *service) resolveSlotIDsWithFallback(dateStr string, data *CalendarData) []uint {
+
+	if specificSlots, ok := data.TimeSlots[dateStr]; ok && len(specificSlots) > 0 {
+		return specificSlots
+	}
+
+	if defaultSlots, ok := data.TimeSlots["__default__"]; ok && len(defaultSlots) > 0 {
+		return defaultSlots
+	}
+
+	systemSlotIDs := make([]uint, len(data.AllTimeSlots))
+	for i, slot := range data.AllTimeSlots {
+		systemSlotIDs[i] = slot.ID
+	}
+	return systemSlotIDs
+}
+
+func (s *service) fetchBookingsForRange(ctx context.Context, technicianID uint, dr DateRange) ([]bookingPkg.Booking, error) {
 	const maxBookings = 10000
-	startStr := dr.Start.Format("2006-01-02")
-	endStr := dr.End.Format("2006-01-02")
+	startStr := booking.FormatDate(dr.Start)
+	endStr := booking.FormatDate(dr.End)
 
 	bookings, _, err := s.bookingRepo.ListByTechnician(
 		ctx,
@@ -297,7 +420,7 @@ func (s *service) fetchBookingsForRange(ctx context.Context, technicianID uint, 
 	return bookings, nil
 }
 
-func (s *service) convertToBookingInfos(bookings []booking.Booking) []BookingInfo {
+func (s *service) convertToBookingInfos(bookings []bookingPkg.Booking) []BookingInfo {
 	infos := make([]BookingInfo, len(bookings))
 	for i, b := range bookings {
 		infos[i] = BookingInfo{
@@ -316,29 +439,6 @@ func (s *service) validateTimeSlotIDs(ctx context.Context, slotIDs []uint) error
 
 	validSlots := BuildValidSlotMap(allSlots)
 	return ValidateSlotIDs(slotIDs, validSlots)
-}
-
-func (s *service) updateTimeSlots(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) error {
-	if req.IsDefault {
-		s.logger.Debug("setting default time slots",
-			slog.Uint64("technician_id", uint64(technicianID)),
-			slog.Int("slot_count", len(req.TimeSlotIDs)),
-		)
-		return s.calendarRepo.SetDefaultTimeSlots(ctx, technicianID, req.TimeSlotIDs)
-	}
-
-	s.logger.Debug("setting date-specific time slots",
-		slog.Uint64("technician_id", uint64(technicianID)),
-		slog.String("date", date.Format("2006-01-02")),
-		slog.Int("slot_count", len(req.TimeSlotIDs)),
-	)
-
-	if len(req.TimeSlotIDs) == 0 {
-		// Empty array = remove date-specific config
-		return s.calendarRepo.DeleteDateTimeSlots(ctx, technicianID, date)
-	}
-
-	return s.calendarRepo.SetDateTimeSlots(ctx, technicianID, date, req.TimeSlotIDs)
 }
 
 func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]TimeSlotDetail, error) {
@@ -368,29 +468,4 @@ func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]T
 	}
 
 	return details, nil
-}
-
-func (s *service) verifyCalendarDateSaved(ctx context.Context, technicianID uint, date time.Time, expectedIsOpen bool) error {
-	saved, err := s.calendarRepo.GetCalendarDatesByRange(ctx, technicianID, date, date)
-	if err != nil {
-		return fmt.Errorf("failed to verify: %w", err)
-	}
-
-	dateStr := date.Format("2006-01-02")
-	savedIsOpen, exists := saved[dateStr]
-
-	if !exists {
-		return fmt.Errorf("calendar date not found after save")
-	}
-
-	if savedIsOpen != expectedIsOpen {
-		return fmt.Errorf("saved value mismatch: expected %v, got %v", expectedIsOpen, savedIsOpen)
-	}
-
-	s.logger.Debug("calendar date verification passed",
-		slog.String("date", dateStr),
-		slog.Bool("is_open", savedIsOpen),
-	)
-
-	return nil
 }
