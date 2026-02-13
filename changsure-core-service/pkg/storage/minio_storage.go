@@ -186,14 +186,22 @@ func (s *MinioStorage) PresignGet(
 		q.Set("response-content-disposition", "attachment")
 	}
 
-	// ✨ ใช้ Signer Client สร้าง URL
-	// ผลลัพธ์จะเป็น HTTPS และ Hostname ที่ถูกต้องทันที ไม่ต้องมานั่ง replace string
 	u, err := s.signer.PresignedGetObject(ctx, s.bucket, key, ttl, q)
 	if err != nil {
 		return "", err
 	}
 
-	return u.String(), nil
+	signed := u.String()
+
+	if s.cfg.PublicBaseURL != "" {
+		base := "https://" + strings.TrimSuffix(s.cfg.PublicBaseURL, "/")
+
+		parsed, _ := url.Parse(signed)
+
+		signed = base + "/minio" + parsed.Path + "?" + parsed.RawQuery
+	}
+
+	return signed, nil
 }
 
 func (s *MinioStorage) PresignGetWithFilename(

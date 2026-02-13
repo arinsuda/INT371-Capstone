@@ -8,9 +8,7 @@ import (
 
 type TimeSlot struct {
 	ID uint `gorm:"primaryKey" json:"id"`
-
-	TechnicianID *uint `gorm:"index" json:"technician_id,omitempty"`
-
+	
 	StartTime string `gorm:"type:varchar(5);not null;comment:Format HH:mm" json:"start_time"`
 	EndTime   string `gorm:"type:varchar(5);not null;comment:Format HH:mm" json:"end_time"`
 	IsActive  bool   `gorm:"default:true" json:"is_active"`

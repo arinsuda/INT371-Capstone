@@ -32,7 +32,6 @@ import (
 	techniciancalendar "changsure-core-service/internal/modules/technician_calendar"
 	technicianmatching "changsure-core-service/internal/modules/technician_matching"
 	techworks "changsure-core-service/internal/modules/technician_post"
-	technicianschedule "changsure-core-service/internal/modules/technician_schedule"
 	technicianservice "changsure-core-service/internal/modules/technician_service"
 	technicianservicearea "changsure-core-service/internal/modules/technician_service_area"
 	timeslot "changsure-core-service/internal/modules/time_slot"
@@ -129,11 +128,9 @@ type Container struct {
 	TechnicianPostService techworks.Service
 	TechnicianPostHandler *techworks.Handler
 
+	TechnicianCalendarRepo    techniciancalendar.Repository
+	TechnicianCalendarService techniciancalendar.Service
 	TechnicianCalendarHandler *techniciancalendar.Handler
-
-	TechnicianScheduleRepo    technicianschedule.Repository
-	TechnicianScheduleService technicianschedule.Service
-	TechnicianScheduleHandler *technicianschedule.Handler
 
 	ChatRepo    chat.Repository
 	ChatService chat.Service
@@ -188,13 +185,14 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianAddressModule()
 	c.initCustomerAddressModule()
 	c.initTechnicianMatchingModule()
-	c.initTechnicianScheduleModule()
 
 	c.initTimeSlotModule()
 	c.initBookingCoreModule()
+
+	c.initTechnicianCalendarModule()
+
 	c.initCustomerBookingModule()
 	c.initTechnicianBookingModule()
-	c.initTechnicianCalendarModule()
 
 	c.initChatModule()
 	c.initPaymentModule(cfg)
@@ -395,14 +393,14 @@ func (c *Container) initCustomerBookingModule() {
 	if c.TimeSlotRepo == nil {
 		panic("customer_booking: TimeSlotRepo is required")
 	}
-	if c.TechnicianScheduleRepo == nil {
-		panic("customer_booking: TechnicianScheduleRepo is required")
+	if c.TechnicianCalendarRepo == nil {
+		panic("customer_booking: TechnicianCalendarRepo is required")
 	}
 
 	c.CustomerBookingService = customerbooking.NewService(
 		c.BookingRepo,
 		c.TimeSlotRepo,
-		c.TechnicianScheduleRepo,
+		c.TechnicianCalendarRepo,
 		c.DB,
 		c.NotificationService,
 	)
@@ -433,17 +431,29 @@ func (c *Container) initTechnicianBookingModule() {
 }
 
 func (c *Container) initTechnicianCalendarModule() {
-	if c.BookingRepo == nil || c.TimeSlotRepo == nil || c.TechnicianScheduleRepo == nil {
-		panic("technician_calendar: missing dependencies (BookingRepo/TimeSlotRepo/TechnicianScheduleRepo)")
+	if c.BookingRepo == nil {
+		panic("technician_calendar: BookingRepo must be initialized first")
 	}
-	service := techniciancalendar.NewService(c.BookingRepo, c.TimeSlotRepo, c.TechnicianScheduleRepo)
-	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(service)
-}
+	if c.TimeSlotRepo == nil {
+		panic("technician_calendar: TimeSlotRepo must be initialized first")
+	}
 
-func (c *Container) initTechnicianScheduleModule() {
-	c.TechnicianScheduleRepo = technicianschedule.NewRepository(c.DB)
-	c.TechnicianScheduleService = technicianschedule.NewService(c.TechnicianScheduleRepo)
-	c.TechnicianScheduleHandler = technicianschedule.NewHandler(c.TechnicianScheduleService)
+	// สร้าง calendar repository
+	c.TechnicianCalendarRepo = techniciancalendar.NewRepository(c.DB)
+
+	// สร้าง calendar service
+	c.TechnicianCalendarService = techniciancalendar.NewService(
+		c.TechnicianCalendarRepo,
+		c.BookingRepo,
+		c.TimeSlotRepo,
+		c.Logger,
+	)
+
+	// สร้าง calendar handler
+	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(
+		c.TechnicianCalendarService,
+		c.Logger,
+	)
 }
 
 func (c *Container) initChatModule() {
@@ -536,8 +546,7 @@ func AllModels() []interface{} {
 	models = append(models, technicianservicearea.Models()...)
 	models = append(models, technicianbadge.Models()...)
 	models = append(models, techworks.Models()...)
-	models = append(models, technicianschedule.Models()...)
-
+	models = append(models, techniciancalendar.Models()...)
 	models = append(models, badge.Models()...)
 
 	models = append(models, booking.Models()...)
