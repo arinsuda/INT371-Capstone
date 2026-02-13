@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme.dart';
 import '../../state/booking_provider.dart';
 import 'tracking_card.dart';
 
@@ -41,23 +42,26 @@ class CompletedPage extends ConsumerWidget {
       ),
       data: (bookings) {
         if (bookings.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  size: 64,
-                  color: Colors.grey.shade400,
+          return
+            Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset("assets/image/noSuccessWork.png", width: 300),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'ยังไม่มีประวัติงานที่เสร็จสิ้น',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBorder,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'ยังไม่มีรายการที่เสร็จสิ้น',
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          );
+              ),
+            );
         }
 
         return RefreshIndicator(

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/home/home_page.dart';
-import 'package:changsure/module/home/chat/chat_list_page.dart';
+import 'package:changsure/module/chat/chat_list_page.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 

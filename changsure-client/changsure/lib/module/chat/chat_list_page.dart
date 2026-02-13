@@ -175,38 +175,48 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "แชท",
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+      toolbarHeight: 80,
+      title: const SizedBox.shrink(), // ไม่ใช้ title
+      flexibleSpace: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "แชท",
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (unreadCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      ChatHelper.formatUnreadCount(unreadCount),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (unreadCount > 0) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                ChatHelper.formatUnreadCount(unreadCount),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
+
   }
 
   @override
@@ -231,7 +241,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
@@ -242,15 +252,14 @@ class _SearchBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            const Icon(Icons.search, color: Colors.grey),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
                 controller: controller,
                 focusNode: focusNode,
                 decoration: const InputDecoration(
-                  hintText: "ค้นหาชื่อ, เลขที่งาน, ข้อความ...",
-                  hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
+                  hintText: "ค้นหา",
+                  hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 15),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -258,6 +267,8 @@ class _SearchBar extends StatelessWidget {
                 style: const TextStyle(fontSize: 15),
               ),
             ),
+            const Icon(Icons.search, color: Colors.grey),
+
             if (controller.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.clear, color: Colors.grey, size: 20),

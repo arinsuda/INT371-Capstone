@@ -2,6 +2,7 @@ import 'package:changsure/state/booking_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'tracking_card.dart';
+import '../../core/theme.dart';
 
 class InProgressPage extends ConsumerWidget {
   const InProgressPage({super.key});
@@ -31,12 +32,23 @@ class InProgressPage extends ConsumerWidget {
 
       data: (bookings) {
         if (bookings.isEmpty) {
-          return Center(
-            child: Column(
-              children: [
-                Icon(Icons.inbox_outlined, size: 64),
-                Text('ไม่มีรายการ'),
-              ],
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset("assets/image/noWorkProgress.png", width: 200),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'ยังไม่มีงานที่กำลังดำเนินการ',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryBorder,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
