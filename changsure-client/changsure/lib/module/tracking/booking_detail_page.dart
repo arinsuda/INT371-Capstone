@@ -1,10 +1,14 @@
+import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../core/theme.dart';
 import '../../data/models/booking/booking_model.dart';
 import '../../data/models/users/users_model.dart';
 import '../../state/booking_provider.dart';
 import '../../state/user_provider.dart';
+import 'package:intl/intl.dart';
 
 class BookingDetailPage extends ConsumerWidget {
   final int bookingId;
@@ -29,125 +33,119 @@ class BookingDetailPage extends ConsumerWidget {
     return "${date.day} ${months[date.month - 1]} ${date.year + 543}"; // แสดงปี พ.ศ.
   }
 
+  String formatThaiShortDate(DateTime date) {
+    final formatter = DateFormat('d MMM yy', 'th_TH');
+    return formatter.format(date);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'รายละเอียดการจอง',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: false,
-      ),
-      body: bookingAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('เกิดข้อผิดพลาด: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () =>
-                    ref.invalidate(bookingDetailProvider(bookingId)),
-                child: const Text('ลองอีกครั้ง'),
-              ),
-            ],
-          ),
-        ),
-        data: (booking) {
-          final user = ref.watch(userProvider);
-          final isTechnician = user?.role == UserRole.technician;
-
-          return SingleChildScrollView(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: bookingAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Address Section
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('เกิดข้อผิดพลาด: $error'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () =>
+                      ref.invalidate(bookingDetailProvider(bookingId)),
+                  child: const Text('ลองอีกครั้ง'),
+                ),
+              ],
+            ),
+          ),
+          data: (booking) {
+            final user = ref.watch(userProvider);
+            final isTechnician = user?.role == UserRole.technician;
+
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              children: [
+                Header(header: "รายละเอียดการจอง"),
+                Container(height: 16, color: AppColors.primaryBGHover),
                 _buildAddressSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
 
-                const SizedBox(height: 12),
-
-                // Show Customer for Technician, Show Technician for Customer
                 isTechnician
                     ? _buildCustomerSection(booking)
                     : _buildTechnicianSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
 
-                const SizedBox(height: 12),
-
-                // Service Info Section
-                _buildServiceInfoSection(booking),
-
-                const SizedBox(height: 12),
-
-                // Order Details Section
                 _buildOrderDetailsSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
 
-                const SizedBox(height: 12),
-
-                // Additional Info Section
                 _buildAdditionalInfoSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
 
-                const SizedBox(height: 24),
-
-                // Action Buttons
                 _buildActionButtons(context, booking, ref),
+                Container(height: 8, color: AppColors.primaryBGHover),
 
-                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: IntrinsicWidth(
+                      child: TertiaryButton(
+                        text: "ยกเลิกการจอง",
+                        padding: EdgeInsetsGeometry.symmetric(horizontal: 24, vertical: 4),
+                        onPressed: () {},
+                      ),
+                    ),
+                  ),
+                ),
+
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildAddressSection(Booking booking) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Stack(
         children: [
-          const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ที่อยู่จัดส่ง',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ที่อยู่จัดส่ง',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      booking.recordedAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF666666),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  booking.recordedAddress,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF666666),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -156,57 +154,239 @@ class BookingDetailPage extends ConsumerWidget {
 
   Widget _buildTechnicianSection(Booking booking) {
     final technician = booking.technician;
+    final service = booking.technicianService?.service;
+    final imageUrl = service?.getFirstImage() ?? '';
+    final timeSlot = booking.timeSlot;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Column(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            backgroundImage: technician?.avatarUrl != null
-                ? NetworkImage(technician!.avatarUrl!)
-                : null,
-            child: technician?.avatarUrl == null
-                ? const Icon(Icons.person, color: AppColors.primary)
-                : null,
+          Stack(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: Colors.grey.shade200,
+                    child: ClipOval(
+                      child:
+                          technician?.avatarUrl != null &&
+                              technician!.avatarUrl!.isNotEmpty
+                          ? Image.network(
+                              technician.avatarUrl!,
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.person, size: 28);
+                              },
+                            )
+                          : const Icon(Icons.person, size: 28),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'คุณ ${technician?.firstName ?? ''} ${technician?.lastName ?? ''}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.primaryText,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified,
+                              color: Color(0xFF1677FF),
+                              size: 12,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: const [
+                            Icon(
+                              Icons.star_rate_rounded,
+                              color: Color(0xFFFFC53D),
+                              size: 16,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              "เลข",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              " / 5",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.colorTertiaryText,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              "|",
+                              style: TextStyle(color: AppColors.colorStroke),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              "จำนวนงานที่รับ: เลข",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.colorTertiaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.primary, width: 1),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        "assets/icons/chatIcon.svg",
+                        width: 18,
+                        height: 18,
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        "แชท",
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'ช่าง: ${technician?.getFullName() ?? 'ไม่ระบุ'}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+
+          const SizedBox(height: 12),
+          const Divider(color: AppColors.colorStroke, height: 1),
+          const SizedBox(height: 12),
+
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                    ),
+                                  ),
+                            )
+                          : Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.cleaning_services),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            service?.serName ?? 'บริการ',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            booking.getPriceDisplay(),
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      SvgPicture.asset(
+                        "assets/icons/calendar.svg",
+                        width: 18,
+                        height: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "${_formatThaiDate(booking.appointmentDate)}, ${timeSlot?.getTimeRange() ?? ''}",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          if (technician?.phoneNumber != null)
-            OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Implement call functionality
-                // final uri = Uri(scheme: 'tel', path: technician!.phoneNumber!);
-                // launchUrl(uri);
-              },
-              icon: const Icon(Icons.phone, size: 16, color: AppColors.primary),
-              label: const Text(
-                'โทร',
-                style: TextStyle(color: AppColors.primary, fontSize: 13),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                minimumSize: const Size(0, 32),
-              ),
-            ),
         ],
       ),
     );
@@ -293,106 +473,8 @@ class BookingDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildServiceInfoSection(Booking booking) {
-    final service = booking.technicianService?.service;
-    final imageUrl = service?.getFirstImage() ?? '';
-    final timeSlot = booking.timeSlot;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 60,
-                          height: 60,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.image_not_supported),
-                        ),
-                      )
-                    : Container(
-                        width: 60,
-                        height: 60,
-                        color: Colors.grey.shade200,
-                        child: const Icon(Icons.cleaning_services),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service?.serName ?? 'บริการ',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      booking.getPriceDisplay(),
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F7FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    "${_formatThaiDate(booking.appointmentDate)}, ${timeSlot?.getTimeRange() ?? ''}",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildOrderDetailsSection(Booking booking) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -405,20 +487,21 @@ class BookingDetailPage extends ConsumerWidget {
             'รายละเอียดคำสั่งซื้อ',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           _buildDetailRow('หมายเลขบริการ', booking.bookingNumber),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildDetailRow(
             'วิธีการชำระเงิน',
-            booking.paymentMethod,
+            '',
             valueColor: const Color(0xFFFF9800),
             hasLabel: true,
+            suffix: ' เก็บเงินปลายทาง',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildDetailRow(
             'วันที่จองบริการ',
             booking.createdAt != null
-                ? _formatThaiDate(booking.createdAt!)
+                ? formatThaiShortDate(booking.createdAt!)
                 : '-',
           ),
           if (booking.finalPrice != null) ...[
@@ -437,40 +520,51 @@ class BookingDetailPage extends ConsumerWidget {
   Widget _buildDetailRow(
     String label,
     String value, {
+    String? suffix,
     Color? valueColor,
     bool hasLabel = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
+          style: const TextStyle(color: AppColors.primaryText, fontSize: 14),
         ),
-        hasLabel
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9800).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    color: valueColor ?? Colors.black,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+        Row(
+          children: [
+            if (hasLabel)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/icons/COD_logo.png',
+                    width: 24,
+                    height: 24,
                   ),
-                ),
+                  if (suffix != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      suffix,
+                      style: const TextStyle(
+                        color: AppColors.colorTertiaryText,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
               )
-            : Text(
+            else
+              Text(
                 value,
                 style: TextStyle(
-                  color: valueColor ?? Colors.black,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  color: valueColor ?? AppColors.colorTertiaryText,
+                  fontSize: 14,
                 ),
               ),
+          ],
+        ),
       ],
     );
   }
@@ -484,26 +578,19 @@ class BookingDetailPage extends ConsumerWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Colors.white),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'ข้อมูลเพิ่มเติม',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           if (hasImages) ...[
             const SizedBox(height: 16),
-            const Text(
-              'รูปภาพหน้างาน',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
+            const Text('รูปภาพหน้างาน', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
             SizedBox(
               height: 100,
               child: ListView.builder(
@@ -513,7 +600,6 @@ class BookingDetailPage extends ConsumerWidget {
                   return Container(
                     margin: const EdgeInsets.only(right: 8),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
                       child: Image.network(
                         booking.images![index].imageUrl,
                         width: 100,
@@ -534,17 +620,13 @@ class BookingDetailPage extends ConsumerWidget {
           ],
           if (hasNote) ...[
             const SizedBox(height: 16),
-            const Text(
-              'รายละเอียดเพิ่มเติม',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
+            const Text('รายละเอียดเพิ่มเติม', style: TextStyle(fontSize: 14)),
             const SizedBox(height: 8),
             Text(
               booking.customerNote,
               style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF666666),
-                height: 1.5,
+                fontSize: 14,
+                color: AppColors.colorTertiaryText,
               ),
             ),
           ],

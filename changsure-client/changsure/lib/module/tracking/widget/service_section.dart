@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/booking/booking_model.dart';
 
@@ -76,7 +77,7 @@ class ServiceSection extends StatelessWidget {
                     booking.getPriceDisplay(),
                     style: const TextStyle(
                       color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.bold,fontSize: 14,
                     ),
                   ),
                 ],
@@ -94,10 +95,10 @@ class ServiceSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.calendar_today_outlined,
-                size: 18,
-                color: AppColors.primary,
+              SvgPicture.asset(
+                "assets/icons/calendar.svg",
+                width: 18,
+                height: 18,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -114,14 +115,13 @@ class ServiceSection extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
         if (onViewDetail != null)
           Align(
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
               onPressed: onViewDetail,
-              icon: const Icon(Icons.search, size: 16, color: Colors.black),
               label: const Text(
                 "ดูรายละเอียดเพิ่มเติม",
                 style: TextStyle(
@@ -131,9 +131,9 @@ class ServiceSection extends StatelessWidget {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFE0E0E0), width: 1.0),
+                side: const BorderSide(color: AppColors.colorStroke, width: 1.0),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,

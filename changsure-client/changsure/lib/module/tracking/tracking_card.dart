@@ -29,7 +29,7 @@ class TrackingCard extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),

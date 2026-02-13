@@ -167,12 +167,12 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             Row(
                               children: [
                                 Text(
-                                  "ธนชนก บรรจงจินดา",
+                                  "${widget.address?.displayName}",
                                   style: const TextStyle(fontSize: 16),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  "0982887376",
+                                  "${widget.address?.phoneNumber}",
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.colorTertiaryText,

@@ -148,30 +148,18 @@ class TechnicianCardCTM extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "คุณ ",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: AppColors.primaryText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              tech.firstname,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: AppColors.primaryText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              tech.lastname,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: AppColors.primaryText,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                'คุณ ${tech.firstname} ${tech.lastname}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: AppColors.primaryText,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),

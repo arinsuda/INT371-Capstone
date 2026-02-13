@@ -108,11 +108,11 @@ class TrackingSection extends StatelessWidget {
           children: [
             const Text(
               "หมายเลขบริการ",
-              style: TextStyle(color: Color(0xFF9B9B9B), fontSize: 13),
+              style: TextStyle(color: AppColors.colorTertiaryText, fontSize: 14),
             ),
             Text(
               booking.bookingNumber,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),

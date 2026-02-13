@@ -357,7 +357,8 @@ class _BookingCardState extends State<BookingCard> {
   Widget build(BuildContext context) {
     final tech = widget.technician;
 
-    return Padding(
+    return
+      Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(
         children: [
