@@ -11,22 +11,18 @@ import (
 )
 
 var (
-	
 	ErrMessageNotFound = errors.New("message not found")
-	
+
 	ErrUnauthorizedAccess = errors.New("unauthorized access")
 )
 
-
 type Repository interface {
-	
 	Create(ctx context.Context, msg *ChatMessage) error
 	GetByID(ctx context.Context, id uint) (*ChatMessage, error)
 	GetHistory(ctx context.Context, bookingID uint, query GetHistoryQuery) ([]ChatMessage, error)
 	MarkMessagesAsRead(ctx context.Context, messageIDs []uint) error
 	GetUnreadCount(ctx context.Context, bookingID uint, userRole string, lastReadTime time.Time) (int64, error)
 
-	
 	GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error)
 }
 
@@ -35,14 +31,12 @@ type repository struct {
 	storage storage.Storage
 }
 
-
 func NewRepository(db *gorm.DB, storage storage.Storage) Repository {
 	return &repository{
 		db:      db,
 		storage: storage,
 	}
 }
-
 
 func (r *repository) Create(ctx context.Context, msg *ChatMessage) error {
 	if msg == nil {
@@ -51,7 +45,6 @@ func (r *repository) Create(ctx context.Context, msg *ChatMessage) error {
 
 	return r.db.WithContext(ctx).Create(msg).Error
 }
-
 
 func (r *repository) GetByID(ctx context.Context, id uint) (*ChatMessage, error) {
 	var msg ChatMessage
@@ -70,7 +63,6 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*ChatMessage, error)
 	return &msg, nil
 }
 
-
 func (r *repository) GetHistory(ctx context.Context, bookingID uint, query GetHistoryQuery) ([]ChatMessage, error) {
 	var msgs []ChatMessage
 
@@ -87,7 +79,6 @@ func (r *repository) GetHistory(ctx context.Context, bookingID uint, query GetHi
 
 	return msgs, nil
 }
-
 
 func (r *repository) MarkMessagesAsRead(ctx context.Context, messageIDs []uint) error {
 	if len(messageIDs) == 0 {
@@ -106,7 +97,6 @@ func (r *repository) MarkMessagesAsRead(ctx context.Context, messageIDs []uint) 
 	return nil
 }
 
-
 func (r *repository) GetUnreadCount(ctx context.Context, bookingID uint, userRole string, lastReadTime time.Time) (int64, error) {
 	var count int64
 
@@ -124,11 +114,9 @@ func (r *repository) GetUnreadCount(ctx context.Context, bookingID uint, userRol
 	return count, nil
 }
 
-
 func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string) ([]ChatRoomResponse, error) {
 	var results []ChatRoomResponse
 
-	
 	targetTable, targetIDCol, myIDCol, nameCol, imgCol := r.getRoomQueryParams(role)
 
 	query := r.buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol)
@@ -141,7 +129,6 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 		return nil, fmt.Errorf("failed to get chat rooms: %w", err)
 	}
 
-	
 	for i := range results {
 		if results[i].OtherPersonImg != "" {
 			url, err := r.storage.PresignGet(ctx, results[i].OtherPersonImg, 24*time.Hour, false)
@@ -149,11 +136,16 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string)
 				results[i].OtherPersonImg = url
 			}
 		}
+
+		if results[i].LastMsgType == MsgTypeImage && results[i].LastMessage != "" {
+			if url, err := r.storage.PresignGet(ctx, results[i].LastMessage, 24*time.Hour, false); err == nil {
+				results[i].LastMessage = url
+			}
+		}
 	}
 
 	return results, nil
 }
-
 
 func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, myIDCol, nameCol, imgCol string) {
 	if role == "technician" {
@@ -161,7 +153,6 @@ func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, 
 	}
 	return "technicians", "technician_id", "customer_id", "first_name", "avatar_url"
 }
-
 
 func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameCol, imgCol string) string {
 	return fmt.Sprintf(`
