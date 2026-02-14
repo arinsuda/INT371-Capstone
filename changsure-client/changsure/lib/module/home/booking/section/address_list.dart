@@ -204,6 +204,15 @@ class _AddressListState extends ConsumerState<AddressList> {
       return a.id.compareTo(b.id);
     });
 
+    if (selectedAddressId == null && displayAddresses.isNotEmpty) {
+      final primary = displayAddresses.firstWhere(
+        (e) => e.isPrimary == true,
+        orElse: () => displayAddresses.first,
+      );
+
+      selectedAddressId = primary.id;
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -255,7 +264,15 @@ class _AddressListState extends ConsumerState<AddressList> {
                               InkWell(
                                 onTap: isSelectable
                                     ? () {
-                                        Navigator.pop(context, addr.id);
+                                        setState(
+                                          () => selectedAddressId = addr.id,
+                                        );
+                                        Future.delayed(
+                                          const Duration(milliseconds: 120),
+                                          () {
+                                            Navigator.pop(context, addr.id);
+                                          },
+                                        );
                                       }
                                     : null,
                                 child: Opacity(
