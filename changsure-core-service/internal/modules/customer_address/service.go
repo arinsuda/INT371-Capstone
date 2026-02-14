@@ -164,25 +164,11 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		},
 	}
 
-	if req.AddressLine != nil {
-		if req.HouseNumber == nil {
-			addr.HouseNumber = nil
-		}
-		if req.Moo == nil {
-			addr.Moo = nil
-		}
-		if req.Soi == nil {
-			addr.Soi = nil
-		}
-		if req.Road == nil {
-			addr.Road = nil
-		}
-		if req.Village == nil {
-			addr.Village = nil
-		}
-	}
-
+	addressshared.NormalizeAddressFields(&addr.AddressFields)
 	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+	if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
+		return nil, err
+	}
 
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Create(ctx, addr); err != nil {
@@ -245,7 +231,12 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 		}
 	}
 
+	addressshared.NormalizeAddressFields(&addr.AddressFields)
 	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+
+	if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
+		return nil, err
+	}
 
 	if locationChanged {
 		pid, did, sdid, err := s.normalizeLocation(ctx, addr.ProvinceID, addr.DistrictID, addr.SubDistrictID)

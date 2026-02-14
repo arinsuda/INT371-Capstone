@@ -176,7 +176,12 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 			addr.Road = nil
 		}
 
+		addressshared.NormalizeAddressFields(&addr.AddressFields)
 		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+
+		if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
@@ -226,7 +231,12 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 			addr.Road = nil
 		}
 
+		addressshared.NormalizeAddressFields(&addr.AddressFields)
 		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+
+		if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
+			return nil, err
+		}
 	}
 
 	if locationChanged {

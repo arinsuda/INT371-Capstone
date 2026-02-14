@@ -69,3 +69,20 @@ func NormalizeAndValidateLocation(
 
 	return provinceID, districtID, subDistrictID, nil
 }
+
+func ValidateAddressFields(a *AddressFields) error {
+
+	if a.Latitude != nil && (*a.Latitude < -90 || *a.Latitude > 90) {
+		return fmt.Errorf("invalid latitude")
+	}
+
+	if a.Longitude != nil && (*a.Longitude < -180 || *a.Longitude > 180) {
+		return fmt.Errorf("invalid longitude")
+	}
+
+	if a.PhoneNumber != nil && len(*a.PhoneNumber) != 10 {
+		return fmt.Errorf("invalid phone number")
+	}
+
+	return nil
+}
