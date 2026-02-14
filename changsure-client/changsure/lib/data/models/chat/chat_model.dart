@@ -4,6 +4,12 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 // ENUMS
 // ============================================================================
 
+enum ChatCategory {
+  all,
+  inProgress,
+  completed,
+}
+
 /// Message types supported in the chat system
 enum MessageType {
   /// Plain text message

@@ -13,30 +13,100 @@ import 'chat_room_page.dart';
 // ============================================================================
 
 final chatSearchQueryProvider = StateProvider<String>((ref) => '');
+final chatCategoryProvider = StateProvider<ChatCategory>(
+  (ref) => ChatCategory.all,
+);
 
 final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
   final roomsAsync = ref.watch(chatThreadsProvider);
   final searchQuery = ref.watch(chatSearchQueryProvider).toLowerCase();
+  final category = ref.watch(chatCategoryProvider);
 
   return roomsAsync.when(
     data: (threads) {
-      final rooms = threads.map((thread) => thread.latestRoom).toList();
-      if (searchQuery.isEmpty) {
-        return AsyncValue.data(rooms);
-      }
+      var rooms = threads.map((thread) => thread.latestRoom).toList();
 
-      final filtered = rooms.where((room) {
-        return room.otherPersonName.toLowerCase().contains(searchQuery) ||
-            room.bookingNumber.toLowerCase().contains(searchQuery) ||
-            room.lastMessage.toLowerCase().contains(searchQuery);
+      for (var r in rooms) {
+        debugPrint('STATUS => ${r.bookingStatus}');
+      }
+      // ✅ Filter ตาม Category ก่อน
+      rooms = rooms.where((room) {
+        switch (category) {
+          case ChatCategory.inProgress:
+            return [
+              BookingStatus.accepted,
+              BookingStatus.inProgress,
+              BookingStatus.waitingPayment,
+            ].contains(room.bookingStatus);
+
+          case ChatCategory.completed:
+            return room.bookingStatus == BookingStatus.completed;
+
+          case ChatCategory.all:
+          default:
+            return true;
+        }
       }).toList();
 
-      return AsyncValue.data(filtered);
+      // ✅ แล้วค่อย filter search
+      if (searchQuery.isNotEmpty) {
+        rooms = rooms.where((room) {
+          return room.otherPersonName.toLowerCase().contains(searchQuery) ||
+              room.bookingNumber.toLowerCase().contains(searchQuery) ||
+              room.lastMessage.toLowerCase().contains(searchQuery);
+        }).toList();
+      }
+
+      return AsyncValue.data(rooms);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
   );
 });
+
+final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
+  final threadsAsync = ref.watch(chatThreadsProvider);
+
+  return threadsAsync.maybeWhen(
+    data: (threads) {
+      final rooms = threads.map((t) => t.latestRoom).toList();
+
+      bool hasUnread(ChatCategory category) {
+        return rooms.any((room) {
+          if (!room.hasUnread) return false;
+
+          switch (category) {
+            case ChatCategory.inProgress:
+              return [
+                'ACCEPTED',
+                'IN_PROGRESS',
+                'WAITING_PAYMENT',
+              ].contains(room.bookingStatus);
+
+            case ChatCategory.completed:
+              return room.bookingStatus == 'COMPLETED';
+
+            case ChatCategory.all:
+            default:
+              return true;
+          }
+        });
+      }
+
+      return {
+        ChatCategory.all: hasUnread(ChatCategory.all),
+        ChatCategory.inProgress: hasUnread(ChatCategory.inProgress),
+        ChatCategory.completed: hasUnread(ChatCategory.completed),
+      };
+    },
+    orElse: () => {
+      ChatCategory.all: false,
+      ChatCategory.inProgress: false,
+      ChatCategory.completed: false,
+    },
+  );
+});
+
 
 // ============================================================================
 // MAIN PAGE
@@ -131,6 +201,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
               onClear: _clearSearch,
             ),
 
+            _CategoryTabs(),
+
             // Chat rooms list
             Expanded(
               child: filteredRoomsAsync.when(
@@ -176,10 +248,11 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       centerTitle: true,
       toolbarHeight: 80,
-      title: const SizedBox.shrink(), // ไม่ใช้ title
+      title: const SizedBox.shrink(),
+      // ไม่ใช้ title
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(top: 24),
+          padding: const EdgeInsets.only(top: 16),
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -188,14 +261,17 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
                   "แชท",
                   style: TextStyle(
                     color: AppColors.primary,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 if (unreadCount > 0) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(12),
@@ -216,7 +292,6 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
     );
-
   }
 
   @override
@@ -241,7 +316,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
@@ -330,11 +405,17 @@ class _ChatRoomListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUnread = room.hasUnread;
+    final preview = ChatHelper.formatMessagePreview(
+      room.lastMessage,
+      room.lastMsgType,
+
+    );
+
 
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -347,17 +428,19 @@ class _ChatRoomListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    room.bookingNumber,
+                    style: TextStyle(fontSize: 12, color: AppColors.primary),
+                  ),
                   // Name and time
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          room.otherPersonName,
+                          'คุณ ${room.otherPersonName}',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: isUnread
-                                ? FontWeight.bold
-                                : FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -368,7 +451,9 @@ class _ChatRoomListItem extends StatelessWidget {
                         ChatHelper.formatRoomTime(room.lastMsgTime),
                         style: TextStyle(
                           fontSize: 12,
-                          color: isUnread ? AppColors.primary : Colors.grey,
+                          color: isUnread
+                              ? AppColors.primary
+                              : AppColors.primaryBorder,
                           fontWeight: isUnread
                               ? FontWeight.w600
                               : FontWeight.normal,
@@ -382,21 +467,22 @@ class _ChatRoomListItem extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          ChatHelper.formatMessagePreview(
-                            room.lastMessage,
-                            room.lastMsgType,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isUnread ? Colors.black87 : Colors.grey,
-                            fontWeight: isUnread
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                        ),
+                        child: preview.isEmpty
+                            ? const SizedBox.shrink()
+                            : Text(
+                                preview,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isUnread
+                                      ? Colors.black87
+                                      : Colors.grey,
+                                  fontWeight: isUnread
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                                ),
+                              ),
                       ),
                       if (isUnread) ...[
                         const SizedBox(width: 8),
@@ -439,13 +525,13 @@ class _RoomAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CircleAvatar(
-      radius: 28,
+      radius: 35,
       backgroundColor: _getAvatarColor(colorIndex),
       backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
       child: imageUrl.isEmpty
           ? Image.asset(
               "assets/image/Technician.png",
-              width: 56,
+              width: 70,
               errorBuilder: (context, error, stackTrace) {
                 return const Icon(Icons.person, color: Colors.white, size: 32);
               },
@@ -504,18 +590,24 @@ class _EmptyStateView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            isSearchResult ? Icons.search_off : Icons.chat_bubble_outline,
+          isSearchResult
+              ? Icon(
+            Icons.search_off,
             size: 80,
             color: Colors.grey[300],
+          )
+              : Image.asset(
+            "assets/image/noChat.png",
+            width: 300,
           ),
+
           const SizedBox(height: 16),
           Text(
-            isSearchResult ? "ไม่พบผลการค้นหา" : "ยังไม่มีการสนทนา",
+            isSearchResult ? "ไม่พบผลการค้นหา" : "ยังไม่มีข้อความในขณะนี้",
             style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+              color: AppColors.primaryBorder,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
           ),
           if (isSearchResult && onClearSearch != null) ...[
@@ -605,4 +697,98 @@ class _ErrorView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CategoryTabs extends ConsumerWidget {
+  const _CategoryTabs();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(chatCategoryProvider);
+    final unreadMap = ref.watch(chatCategoryUnreadProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      child: Row(
+        children: [
+          _buildTab(
+            ref,
+            label: 'ทั้งหมด',
+            value: ChatCategory.all,
+            selected: selected,
+            hasUnread: unreadMap[ChatCategory.all] ?? false,
+          ),
+          const SizedBox(width: 12),
+          _buildTab(
+            ref,
+            label: 'กำลังดำเนินการ',
+            value: ChatCategory.inProgress,
+            selected: selected,
+            hasUnread: unreadMap[ChatCategory.inProgress] ?? false,
+          ),
+          const SizedBox(width: 12),
+          _buildTab(
+            ref,
+            label: 'เสร็จสิ้น',
+            value: ChatCategory.completed,
+            selected: selected,
+            hasUnread: unreadMap[ChatCategory.completed] ?? false,
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildTab(
+      WidgetRef ref, {
+        required String label,
+        required ChatCategory value,
+        required ChatCategory selected,
+        required bool hasUnread,   // 👈 เพิ่ม
+      }) {
+    final isSelected = value == selected;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(chatCategoryProvider.notifier).state = value;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEDF9FF) : AppColors.primaryBG,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : AppColors.colorStroke,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasUnread) ...[
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: const BoxDecoration(
+                  color: AppColors.colorError,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? AppColors.primary : Colors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 }

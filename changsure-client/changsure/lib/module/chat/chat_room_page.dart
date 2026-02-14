@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'dart:math';
 import '../../../../data/models/chat/chat_model.dart';
 import '../../../../data/models/chat/chat_helper.dart';
 import '../../../../data/services/chat_service.dart';
@@ -548,7 +550,7 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: showTimestamp ? 10 : 4),
+      padding: EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: isMe
             ? MainAxisAlignment.end
@@ -562,13 +564,13 @@ class _ChatBubble extends StatelessWidget {
               isMe: true,
               isRead: message.isRead,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 10),
           ],
           Flexible(
             child: _MessageBubbleContent(message: message, isMe: isMe),
           ),
           if (!isMe && showTimestamp) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: 10),
             _MessageTimestamp(
               timestamp: message.createdAt,
               isMe: false,
@@ -582,7 +584,7 @@ class _ChatBubble extends StatelessWidget {
 
   Widget _buildAvatar() {
     if (!showAvatar) {
-      return const SizedBox(width: 32); // Placeholder width
+      return const SizedBox(width: 35); // Placeholder width
     }
 
     return _UserAvatar(participantInfo: participantInfo);
@@ -600,7 +602,7 @@ class _MessageBubbleContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isMe ? const Color(0xFF0056D2) : const Color(0xFFF2F4F7),
+        color: isMe ? AppColors.primary : AppColors.colorStroke,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
@@ -650,14 +652,14 @@ class _MessageTimestamp extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 2),
             child: Text(
               'อ่านแล้ว',
-              style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              style: TextStyle(color: AppColors.primaryBorder, fontSize: 12),
             ),
           ),
         Padding(
-          padding: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.only(bottom: 0),
           child: Text(
             ChatHelper.formatMessageTime(timestamp),
-            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+            style: TextStyle(color: AppColors.primaryBorder, fontSize: 12),
           ),
         ),
       ],
@@ -676,7 +678,7 @@ class _UserAvatar extends StatelessWidget {
     final avatarUrl = participantInfo?.avatarUrl;
 
     return CircleAvatar(
-      radius: 16,
+      radius: 18,
       backgroundColor: Colors.grey[300],
       backgroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
       child: !hasAvatar
@@ -821,22 +823,16 @@ class _ChatInputArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: AppColors.primaryBGHover),
       child: SafeArea(
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.image_outlined, color: Colors.blueGrey),
+              icon: SvgPicture.asset(
+                'assets/icons/imageChat.svg',
+                width: 40,
+                height: 40,
+              ),
               onPressed: isLoading ? null : onImagePressed,
               tooltip: 'แนบรูปภาพ',
             ),
@@ -848,7 +844,7 @@ class _ChatInputArea extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _SendButton(onPressed: onSendPressed, isLoading: isLoading),
+            // _SendButton(onPressed: onSendPressed, isLoading: isLoading),
           ],
         ),
       ),
@@ -870,26 +866,26 @@ class _MessageTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.only(left: 16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.colorStroke),
       ),
       child: TextField(
         controller: controller,
-        decoration: const InputDecoration(
-          hintText: 'พิมพ์ข้อความ...',
-          border: InputBorder.none,
-          hintStyle: TextStyle(color: Colors.grey),
-          isDense: true,
-        ),
-        textInputAction: TextInputAction.send,
         enabled: !isLoading,
         maxLines: null,
         maxLength: 5000,
+        textInputAction: TextInputAction.send,
+        keyboardType: TextInputType.multiline,
+        onSubmitted: (text) {
+          if (text.trim().isNotEmpty && !isLoading) {
+            onSendPressed();
+          }
+        },
         buildCounter:
             (context, {required currentLength, required isFocused, maxLength}) {
-              // Hide counter unless approaching limit
               if (currentLength < 4500) return null;
               return Text(
                 '$currentLength / $maxLength',
@@ -899,54 +895,52 @@ class _MessageTextField extends StatelessWidget {
                 ),
               );
             },
-        keyboardType: TextInputType.multiline,
-        onSubmitted: (text) {
-          if (text.trim().isNotEmpty && !isLoading) {
-            onSendPressed();
-          }
-        },
-      ),
-    );
-  }
-}
+        decoration: InputDecoration(
+          hintText: 'ส่งข้อความ...',
+          border: InputBorder.none,
+          hintStyle: const TextStyle(color: Colors.grey),
+          isDense: true,
 
-class _SendButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  final bool isLoading;
+          // ⭐️ ตัวนี้คือหัวใจ
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12, // ปรับค่านี้ให้ text กลางพอดี
+          ),
 
-  const _SendButton({required this.onPressed, required this.isLoading});
+          suffixIconConstraints: const BoxConstraints(
+            minHeight: 40,
+            minWidth: 40,
+          ),
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: isLoading ? Colors.grey : Colors.blue,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.send, color: Colors.white, size: 20),
+          suffixIcon: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: isLoading ? null : onSendPressed,
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Center(
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : SvgPicture.asset(
+                          "assets/icons/sendButton.svg",
+                          width: 24,
+                        ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 }
-
-// ============================================================================
-// LOADING & ERROR VIEWS
-// ============================================================================
 
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
