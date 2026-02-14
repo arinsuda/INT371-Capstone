@@ -14,8 +14,19 @@ func ParseAddressLineToStructured(addr *AddressFields) {
 		addr.HouseNumber = extractHouseNumber(line)
 	}
 
-	if strings.Contains(line, "หมู่") && addr.Moo == nil {
-		addr.Moo = extractAfter(line, "หมู่")
+	if addr.Moo == nil {
+		if strings.Contains(line, "หมู่บ้าน") {
+		} else if strings.Contains(line, "หมู่") {
+			addr.Moo = extractAfter(line, "หมู่")
+		} else if strings.Contains(line, "ม.") {
+			addr.Moo = extractAfter(line, "ม.")
+		}
+	}
+
+	if addr.Village == nil {
+		if strings.Contains(line, "หมู่บ้าน") {
+			addr.Village = extractAfter(line, "หมู่บ้าน")
+		}
 	}
 
 	if strings.Contains(line, "ซอย") && addr.Soi == nil {
