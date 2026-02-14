@@ -149,48 +149,48 @@ class ChatHelper {
 
   /// Format message preview for chat room list
   /// Truncates long messages and handles different message types
-  // static String formatMessagePreview(
-  //     String message,
-  //     MessageType type, {
-  //       required bool isMe,
-  //       int maxLength = 50,
-  //     }) {
-  //   if (type == MessageType.image) {
-  //     return isMe ? 'คุณส่งรูปภาพ' : '📷 รูปภาพ';
-  //   }
-  //
-  //   if (message.isEmpty) {
-  //     return '';
-  //   }
-  //
-  //   if (isMe) {
-  //     return 'คุณ: ${_truncate(message, maxLength)}';
-  //   }
-  //
-  //   return _truncate(message, maxLength);
-  // }
-  //
-  // static String _truncate(String text, int maxLength) {
-  //   if (text.length <= maxLength) return text;
-  //   return '${text.substring(0, maxLength)}...';
-  // }
-
   static String formatMessagePreview(
-    String message,
-    MessageType type, {
-    int maxLength = 50,
-  }) {
+      String message,
+      MessageType type, {
+        required bool isMe,
+        int maxLength = 50,
+      }) {
     if (type == MessageType.image) {
-      return '📷 รูปภาพ';
+      return isMe ? 'คุณส่งรูปภาพ' : '📷 รูปภาพ';
     }
+
     if (message.isEmpty) {
       return '';
     }
-    if (message.length <= maxLength) {
-      return message;
+
+    if (isMe) {
+      return 'คุณ: ${_truncate(message, maxLength)}';
     }
-    return '${message.substring(0, maxLength)}...';
+
+    return _truncate(message, maxLength);
   }
+
+  static String _truncate(String text, int maxLength) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
+  }
+
+  // static String formatMessagePreview(
+  //   String message,
+  //   MessageType type, {
+  //   int maxLength = 50,
+  // }) {
+  //   if (type == MessageType.image) {
+  //     return '📷 รูปภาพ';
+  //   }
+  //   if (message.isEmpty) {
+  //     return '';
+  //   }
+  //   if (message.length <= maxLength) {
+  //     return message;
+  //   }
+  //   return '${message.substring(0, maxLength)}...';
+  // }
 
   // ========== TIME FORMATTING ==========
 

@@ -97,6 +97,7 @@ class TrackingSection extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
         ],
+        if (!isNewJob)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -114,7 +115,6 @@ class TrackingSection extends ConsumerWidget {
             ),
           ),
 
-
         const SizedBox(height: 16),
 
         Row(
@@ -122,12 +122,12 @@ class TrackingSection extends ConsumerWidget {
           children: [
             const Text(
               "หมายเลขบริการ",
-              style: TextStyle(color: AppColors.colorTertiaryText, fontSize: 14),
+              style: TextStyle(
+                color: AppColors.colorTertiaryText,
+                fontSize: 14,
+              ),
             ),
-            Text(
-              booking.bookingNumber,
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(booking.bookingNumber, style: const TextStyle(fontSize: 14)),
           ],
         ),
         const SizedBox(height: 20),

@@ -334,7 +334,8 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (isLoading || participantInfo == null) {
       return AppBar(
         backgroundColor: Colors.white,
-        elevation: 0.5,
+        elevation: 0,
+        toolbarHeight: 80,
         iconTheme: const IconThemeData(color: Colors.black),
         title: const Row(
           children: [
@@ -343,7 +344,7 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 8),
             Text(
               'กำลังโหลด...',
               style: TextStyle(
@@ -359,31 +360,39 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       backgroundColor: Colors.white,
-      elevation: 0.5,
+      elevation: 0,
+      toolbarHeight: 110,   // 👈 เพิ่มตรงนี้
+      leadingWidth: 60,
+      titleSpacing: 0,
       iconTheme: const IconThemeData(color: Colors.black),
+
       title: Row(
         children: [
           _ParticipantAvatar(participantInfo: participantInfo!),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  participantInfo!.displayName,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              participantInfo!.displayName,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
+
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: AppColors.colorStroke,
+        ),
+      ),
     );
+
   }
 
   @override
@@ -599,6 +608,12 @@ class _MessageBubbleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ ถ้าเป็นรูปภาพ → ไม่ต้องมี bubble
+    if (message.isImageMessage) {
+      return _ImageMessage(imageUrl: message.content);
+    }
+
+    // ✅ ถ้าเป็นข้อความ → มี bubble ปกติ
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -606,12 +621,10 @@ class _MessageBubbleContent extends StatelessWidget {
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
-          bottomLeft: isMe
-              ? const Radius.circular(18)
-              : const Radius.circular(4),
-          bottomRight: isMe
-              ? const Radius.circular(4)
-              : const Radius.circular(18),
+          bottomLeft:
+          isMe ? const Radius.circular(18) : const Radius.circular(0),
+          bottomRight:
+          isMe ? const Radius.circular(0) : const Radius.circular(18),
         ),
         boxShadow: [
           BoxShadow(
@@ -621,11 +634,13 @@ class _MessageBubbleContent extends StatelessWidget {
           ),
         ],
       ),
-      child: message.isImageMessage
-          ? _ImageMessage(imageUrl: message.content)
-          : _TextMessage(text: message.content, isMe: isMe),
+      child: _TextMessage(
+        text: message.content,
+        isMe: isMe,
+      ),
     );
   }
+
 }
 
 class _MessageTimestamp extends StatelessWidget {
@@ -717,7 +732,6 @@ class _ImageMessage extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showFullScreenImage(context),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
         child: Image.network(
           imageUrl,
           width: 200,

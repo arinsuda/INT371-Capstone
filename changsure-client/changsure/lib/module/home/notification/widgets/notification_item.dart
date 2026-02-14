@@ -1,3 +1,4 @@
+import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../data/models/notification_model.dart';
@@ -15,14 +16,14 @@ class NotificationItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: item.isRead ? Colors.white : const Color(0xFFF5F8FF),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        color: item.isRead ? Colors.white : AppColors.primaryBGHover,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 50,
+              height: 50,
               decoration: const BoxDecoration(
                 color: Color(0xFF295CDC),
                 shape: BoxShape.circle,
@@ -30,7 +31,7 @@ class NotificationItem extends StatelessWidget {
               child: const Icon(
                 Icons.home_repair_service,
                 color: Colors.white,
-                size: 20,
+                size: 30,
               ),
             ),
             const SizedBox(width: 12),
@@ -55,7 +56,7 @@ class NotificationItem extends StatelessWidget {
                       color: Colors.grey,
                       height: 1.4,
                     ),
-                    maxLines: 3,
+                    maxLines: 5,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -69,11 +70,11 @@ class NotificationItem extends StatelessWidget {
 
             if (!item.isRead)
               Container(
-                margin: const EdgeInsets.only(top: 4, left: 8),
-                width: 8,
-                height: 8,
+                margin: const EdgeInsets.only(top: 4, right: 10),
+                width: 10,
+                height: 10,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF295CDC),
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
               ),

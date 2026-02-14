@@ -14,7 +14,7 @@ import 'chat_room_page.dart';
 
 final chatSearchQueryProvider = StateProvider<String>((ref) => '');
 final chatCategoryProvider = StateProvider<ChatCategory>(
-  (ref) => ChatCategory.all,
+      (ref) => ChatCategory.all,
 );
 
 final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
@@ -99,7 +99,8 @@ final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
         ChatCategory.completed: hasUnread(ChatCategory.completed),
       };
     },
-    orElse: () => {
+    orElse: () =>
+    {
       ChatCategory.all: false,
       ChatCategory.inProgress: false,
       ChatCategory.completed: false,
@@ -144,7 +145,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
   }
 
   void _onSearchChanged() {
-    ref.read(chatSearchQueryProvider.notifier).state = _searchController.text;
+    ref
+        .read(chatSearchQueryProvider.notifier)
+        .state = _searchController.text;
   }
 
   void _clearSearch() {
@@ -164,11 +167,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatRoomPage(
-          bookingId: room.bookingId,
-          title: room.otherPersonName,
-          otherPersonImg: room.otherPersonImg,
-        ),
+        builder: (_) =>
+            ChatRoomPage(
+              bookingId: room.bookingId,
+              title: room.otherPersonName,
+              otherPersonImg: room.otherPersonImg,
+            ),
       ),
     );
 
@@ -406,9 +410,9 @@ class _ChatRoomListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUnread = room.hasUnread;
     final preview = ChatHelper.formatMessagePreview(
-      room.lastMessage,
-      room.lastMsgType,
-
+        room.lastMessage,
+        room.lastMsgType,
+      isMe:room.lastSender == "me",
     );
 
 
@@ -470,19 +474,19 @@ class _ChatRoomListItem extends StatelessWidget {
                         child: preview.isEmpty
                             ? const SizedBox.shrink()
                             : Text(
-                                preview,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isUnread
-                                      ? Colors.black87
-                                      : Colors.grey,
-                                  fontWeight: isUnread
-                                      ? FontWeight.w500
-                                      : FontWeight.normal,
-                                ),
-                              ),
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isUnread
+                                ? Colors.black87
+                                : Colors.grey,
+                            fontWeight: isUnread
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                        ),
                       ),
                       if (isUnread) ...[
                         const SizedBox(width: 8),
@@ -530,12 +534,12 @@ class _RoomAvatar extends StatelessWidget {
       backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
       child: imageUrl.isEmpty
           ? Image.asset(
-              "assets/image/Technician.png",
-              width: 70,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.person, color: Colors.white, size: 32);
-              },
-            )
+        "assets/image/Technician.png",
+        width: 70,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(Icons.person, color: Colors.white, size: 32);
+        },
+      )
           : null,
     );
   }
@@ -740,18 +744,19 @@ class _CategoryTabs extends ConsumerWidget {
   }
 
 
-  Widget _buildTab(
-      WidgetRef ref, {
-        required String label,
-        required ChatCategory value,
-        required ChatCategory selected,
-        required bool hasUnread,   // 👈 เพิ่ม
-      }) {
+  Widget _buildTab(WidgetRef ref, {
+    required String label,
+    required ChatCategory value,
+    required ChatCategory selected,
+    required bool hasUnread, // 👈 เพิ่ม
+  }) {
     final isSelected = value == selected;
 
     return GestureDetector(
       onTap: () {
-        ref.read(chatCategoryProvider.notifier).state = value;
+        ref
+            .read(chatCategoryProvider.notifier)
+            .state = value;
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

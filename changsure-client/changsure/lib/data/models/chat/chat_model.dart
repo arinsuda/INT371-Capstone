@@ -76,6 +76,7 @@ class ChatRoom {
   final String lastMessage;
   final MessageType lastMsgType;
   final DateTime lastMsgTime;
+  final String lastSender;
   final int unreadCount;
 
   const ChatRoom({
@@ -89,6 +90,7 @@ class ChatRoom {
     required this.lastMsgType,
     required this.lastMsgTime,
     required this.unreadCount,
+    required this.lastSender
   });
 
   /// Create a copy with modified fields
@@ -103,6 +105,7 @@ class ChatRoom {
     MessageType? lastMsgType,
     DateTime? lastMsgTime,
     int? unreadCount,
+    String? lastSender
   }) {
     return ChatRoom(
       bookingId: bookingId ?? this.bookingId,
@@ -115,6 +118,7 @@ class ChatRoom {
       lastMsgType: lastMsgType ?? this.lastMsgType,
       lastMsgTime: lastMsgTime ?? this.lastMsgTime,
       unreadCount: unreadCount ?? this.unreadCount,
+      lastSender: lastSender ?? this.lastSender
     );
   }
 
@@ -136,6 +140,7 @@ class ChatRoom {
         ),
         lastMsgTime: _parseDateTime(json['last_msg_time']) ?? DateTime.now(),
         unreadCount: _parseInt(json['unread_count']) ?? 0,
+        lastSender:  _parseString(json['last_sender']) ?? '',
       );
     } catch (error) {
       throw FormatException('Failed to parse ChatRoom: $error');
