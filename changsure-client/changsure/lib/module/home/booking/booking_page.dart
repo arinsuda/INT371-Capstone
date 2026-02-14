@@ -141,6 +141,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     builder: (_) => AddressList(
                       initialSelectedAddressId: selectedAddressId,
                       provinceId: widget.provinceId,
+                      allowSelect: true,
                     ),
                   ),
                 );

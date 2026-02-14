@@ -94,7 +94,7 @@ class _ProfileState extends ConsumerState<UserProfile> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        const AddressList(provinceId: null),
+                                        const AddressList(provinceId: null, allowSelect: false,),
                                   ),
                                 );
                               } else if (item['label'] ==

@@ -11,11 +11,13 @@ import '../../../../state/user_provider.dart';
 class AddressList extends ConsumerStatefulWidget {
   final int? initialSelectedAddressId;
   final int? provinceId;
+  final bool allowSelect;
 
   const AddressList({
     super.key,
     this.initialSelectedAddressId,
     this.provinceId,
+    this.allowSelect = true,
   });
 
   @override
@@ -24,11 +26,28 @@ class AddressList extends ConsumerStatefulWidget {
 
 class _AddressListState extends ConsumerState<AddressList> {
   int? selectedAddressId;
+  bool _didInitialSync = false;
 
   @override
   void initState() {
     super.initState();
     selectedAddressId = widget.initialSelectedAddressId;
+  }
+
+  void _syncSelection(List<AddressModel> list) {
+    if (list.isEmpty) return;
+
+    if (selectedAddressId != null &&
+        list.any((e) => e.id == selectedAddressId)) {
+      return;
+    }
+
+    final primary = list.firstWhere(
+      (e) => e.isPrimary == true,
+      orElse: () => list.first,
+    );
+
+    selectedAddressId = primary.id;
   }
 
   String _formatThaiPhone(String? raw) {
@@ -204,13 +223,9 @@ class _AddressListState extends ConsumerState<AddressList> {
       return a.id.compareTo(b.id);
     });
 
-    if (selectedAddressId == null && displayAddresses.isNotEmpty) {
-      final primary = displayAddresses.firstWhere(
-        (e) => e.isPrimary == true,
-        orElse: () => displayAddresses.first,
-      );
-
-      selectedAddressId = primary.id;
+    if (!_didInitialSync) {
+      _syncSelection(displayAddresses);
+      _didInitialSync = true;
     }
 
     return Scaffold(
@@ -259,14 +274,19 @@ class _AddressListState extends ConsumerState<AddressList> {
                               ? '$displayName $formattedPhone'
                               : displayName;
 
+                          final bool isSelected = widget.allowSelect
+                              ? selectedAddressId == addr.id
+                              : addr.isPrimary == true;
+
                           return Column(
                             children: [
                               InkWell(
-                                onTap: isSelectable
+                                onTap: (widget.allowSelect && isSelectable)
                                     ? () {
                                         setState(
                                           () => selectedAddressId = addr.id,
                                         );
+
                                         Future.delayed(
                                           const Duration(milliseconds: 120),
                                           () {
@@ -292,7 +312,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                                         Icon(
                                           !isSelectable
                                               ? Icons.block
-                                              : selectedAddressId == addr.id
+                                              : isSelected
                                               ? Icons.radio_button_checked
                                               : Icons.radio_button_off,
                                           color: isSelectable

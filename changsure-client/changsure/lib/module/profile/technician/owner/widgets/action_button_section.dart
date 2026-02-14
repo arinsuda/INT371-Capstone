@@ -59,7 +59,7 @@ class ActionButtonSection extends ConsumerWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddressList(provinceId: null),
+                    builder: (context) => const AddressList(provinceId: null, allowSelect: false),
                   ),
                 );
               }
