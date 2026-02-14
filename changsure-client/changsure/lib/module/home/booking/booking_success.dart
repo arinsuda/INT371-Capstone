@@ -1,4 +1,5 @@
 import 'package:changsure/module/home/booking/section/booking_card.dart';
+import 'package:changsure/module/tracking/tracking_status_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../../../data/models/address_model.dart';
 import '../../../data/models/booking/booking_model.dart' hide Technician;
 import '../../../data/models/master_data_models.dart';
 import '../../../state/booking_provider.dart';
+import '../../../state/bottom_nav_provider.dart';
 
 class BookingSuccess extends ConsumerStatefulWidget {
   final BookingDateResult bookingDate;
@@ -368,12 +370,9 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   child: TertiaryButton(
                     text: "ติดตามสถานะ",
                     onPressed: () {
-                      // Navigator.push(
-                      //   context,
-                      //   MaterialPageRoute(
-                      //     builder: (context) => (),
-                      //   ),
-                      // );
+                      Navigator.popUntil(context, (route) => route.isFirst);
+                      ref.read(bottomNavIndexProvider.notifier).state = 1;
+
                     },
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),

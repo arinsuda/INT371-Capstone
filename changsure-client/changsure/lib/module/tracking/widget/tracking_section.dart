@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/booking/booking_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TrackingSection extends StatelessWidget {
+import '../../../data/models/users/users_model.dart';
+import '../../../state/user_provider.dart';
+
+class TrackingSection extends ConsumerWidget {
   final Booking booking;
 
   const TrackingSection({super.key, required this.booking});
@@ -46,10 +50,12 @@ class TrackingSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusText = booking.getStatusText();
     final status = booking.status;
-    final isNewJob = booking.status == 'PENDING';
+    final user = ref.watch(userProvider);
+    final isTechnician = user?.role == UserRole.technician;
+    final isNewJob = status == 'PENDING' && isTechnician;
 
     int currentStep = 0;
     switch (status) {
@@ -91,7 +97,6 @@ class TrackingSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        if (!isNewJob)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -108,6 +113,7 @@ class TrackingSection extends StatelessWidget {
               ),
             ),
           ),
+
 
         const SizedBox(height: 16),
 

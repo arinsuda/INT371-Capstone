@@ -1,26 +1,43 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/data/models/users/users_model.dart';
-
+import 'package:collection/collection.dart';
 import '../data/models/booking/booking_model.dart';
 import '../data/services/booking_service.dart';
 import 'user_provider.dart';
 
 final bookingServiceProvider = Provider((ref) => BookingService());
 
-final availableTimeSlotsProvider = FutureProvider.autoDispose
-    .family<List<TimeSlot>, ({int technicianId, String date})>((ref, params) async {
-  final service = ref.watch(bookingServiceProvider);
-  final user = ref.watch(userProvider);
-  final token = user?.token;
+final availableTimeSlotsProvider = Provider.autoDispose
+    .family<List<TimeSlot>, ({
+int technicianId,
+String date,
+String month,
+})>((ref, params) {
 
-  if (token == null || token.isEmpty) throw Exception("User not logged in");
-
-  return service.getAvailableTimeSlots(
-    token: token,
+  final calendarAsync = ref.watch(
+    publicCalendarProvider((
     technicianId: params.technicianId,
-    date: params.date,
+    month: params.month,
+    )),
   );
+
+  final calendar = calendarAsync.value;
+  if (calendar == null) return [];
+
+  final targetDay = calendar.days.firstWhereOrNull(
+        (d) =>
+    d.date.toIso8601String().split('T').first == params.date,
+  );
+
+
+  if (targetDay == null) return [];
+
+  // 🔥 Filter เฉพาะ slot ที่ active และยังไม่ถูกจอง
+  return targetDay.timeSlots
+      .where((slot) => slot.isActive)
+      .toList();
 });
+
 
 final bookingDetailProvider =
 FutureProvider.autoDispose.family<Booking, int>((ref, bookingId) async {
@@ -46,7 +63,7 @@ FutureProvider.autoDispose.family<Booking, int>((ref, bookingId) async {
 });
 
 final technicianCalendarProvider = FutureProvider.autoDispose
-    .family<CalendarResponse, ({int technicianId, String month})>((ref, params) async {
+    .family<PublicCalendarResponse, ({int technicianId, String month})>((ref, params) async {
   final service = ref.watch(bookingServiceProvider);
   final user = ref.watch(userProvider);
   final token = user?.token;
@@ -82,6 +99,27 @@ final myBookingsProvider = FutureProvider.autoDispose
     );
   }
 });
+
+final publicCalendarProvider = FutureProvider.autoDispose
+    .family<PublicCalendarResponse, ({int technicianId, String month})>(
+      (ref, params) async {
+    final service = ref.watch(bookingServiceProvider);
+    final user = ref.watch(userProvider);
+    final token = user?.token;
+
+    if (token == null || token.isEmpty) {
+      throw Exception("User not logged in");
+    }
+
+    return service.getPublicCalendar(
+      token: token,
+      technicianId: params.technicianId,
+      month: params.month,
+    );
+  },
+);
+
+
 
 /// 🔥 ACTION CONTROLLER — NO STATE
 final bookingControllerProvider =

@@ -136,7 +136,7 @@ class BookingService {
     return _handleResponse(response, (json) => Booking.fromJson(json['data']));
   }
 
-  Future<CalendarResponse> getTechnicianCalendar({
+  Future<PublicCalendarResponse> getTechnicianCalendar({
     required String token,
     required int technicianId,
     required String month,
@@ -151,7 +151,7 @@ class BookingService {
 
     final response = await http.get(uri, headers: _authHeader(token));
 
-    return _handleResponse(response, (json) => CalendarResponse.fromJson(json));
+    return _handleResponse(response, (json) => PublicCalendarResponse.fromJson(json));
   }
 
   Future<Booking> acceptBooking({
@@ -260,5 +260,37 @@ class BookingService {
     }
 
     throw Exception(errorMessage);
+  }
+
+  Future<PublicCalendarResponse> getPublicCalendar({
+    required String token,
+    required int technicianId,
+    required String month, // yyyy-MM
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/calendar",
+    ).replace(
+      queryParameters: {
+        'technician_id': technicianId.toString(),
+        'month': month, // ใช้ตรง ๆ เลย
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: _authHeader(token),
+    );
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Base URL: ${ApiConstants.baseUrl}");
+
+
+    return _handleResponse(
+      response,
+          (json) => PublicCalendarResponse.fromJson(json),
+    );
+
+
   }
 }
