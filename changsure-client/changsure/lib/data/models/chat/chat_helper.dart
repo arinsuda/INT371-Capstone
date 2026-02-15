@@ -2,11 +2,6 @@ import 'package:intl/intl.dart';
 import 'chat_model.dart';
 import '../technician/public_technician_model.dart';
 
-// ============================================================================
-// CHAT PARTICIPANT INFO
-// ============================================================================
-
-/// Information about a chat participant (customer or technician)
 class ChatParticipantInfo {
   final int userId;
   final String name;
@@ -18,7 +13,6 @@ class ChatParticipantInfo {
     this.avatarUrl,
   });
 
-  /// Create from chat room data
   factory ChatParticipantInfo.fromChatRoom(ChatRoom chatRoom) {
     return ChatParticipantInfo(
       userId: chatRoom.otherPersonId,
@@ -29,7 +23,6 @@ class ChatParticipantInfo {
     );
   }
 
-  /// Create from technician profile
   factory ChatParticipantInfo.fromTechnicianProfile(
     PublicTechnicianProfile profile,
   ) {
@@ -42,17 +35,14 @@ class ChatParticipantInfo {
     );
   }
 
-  /// Unknown participant (fallback)
   static const ChatParticipantInfo unknown = ChatParticipantInfo(
     userId: 0,
     name: 'ผู้ใช้',
     avatarUrl: null,
   );
 
-  /// Get display name with fallback
   String get displayName => name.isNotEmpty ? name : 'ผู้ใช้';
 
-  /// Whether participant has an avatar
   bool get hasAvatar => avatarUrl != null && avatarUrl!.isNotEmpty;
 
   @override
@@ -71,21 +61,9 @@ class ChatParticipantInfo {
   }
 }
 
-// ============================================================================
-// CHAT HELPER
-// ============================================================================
-
-/// Utility class for chat-related operations
 class ChatHelper {
-  ChatHelper._(); // Private constructor to prevent instantiation
+  ChatHelper._();
 
-  // ========== CHAT TITLE FORMATTING ==========
-
-  /// Generate chat title with optional booking number
-  ///
-  /// Examples:
-  /// - "John Doe (BK-12345)"
-  /// - "Jane Smith"
   static String getChatTitle({required String name, String? bookingNumber}) {
     final displayName = name.isNotEmpty ? name : 'ผู้ใช้';
 
@@ -96,9 +74,6 @@ class ChatHelper {
     return displayName;
   }
 
-  // ========== BOOKING STATUS FORMATTING ==========
-
-  /// Format booking status to Thai display text
   static String formatBookingStatus(String status) {
     final bookingStatus = BookingStatus.fromString(status);
 
@@ -122,39 +97,34 @@ class ChatHelper {
     }
   }
 
-  /// Get booking status color for UI
   static String getBookingStatusColor(String status) {
     final bookingStatus = BookingStatus.fromString(status);
 
     switch (bookingStatus) {
       case BookingStatus.pending:
-        return '#FFA500'; // Orange
+        return '#FFA500';
       case BookingStatus.confirmed:
       case BookingStatus.accepted:
-        return '#4CAF50'; // Green
+        return '#4CAF50';
       case BookingStatus.inProgress:
-        return '#2196F3'; // Blue
+        return '#2196F3';
       case BookingStatus.waitingPayment:
-        return '#FF9800'; // Deep Orange
+        return '#FF9800';
       case BookingStatus.completed:
-        return '#4CAF50'; // Green
+        return '#4CAF50';
       case BookingStatus.cancelled:
-        return '#F44336'; // Red
+        return '#F44336';
       default:
-        return '#9E9E9E'; // Grey
+        return '#9E9E9E';
     }
   }
 
-  // ========== MESSAGE FORMATTING ==========
-
-  /// Format message preview for chat room list
-  /// Truncates long messages and handles different message types
   static String formatMessagePreview(
-      String message,
-      MessageType type, {
-        required bool isMe,
-        int maxLength = 50,
-      }) {
+    String message,
+    MessageType type, {
+    required bool isMe,
+    int maxLength = 50,
+  }) {
     if (type == MessageType.image) {
       return isMe ? 'คุณส่งรูปภาพ' : '📷 รูปภาพ';
     }
@@ -175,85 +145,52 @@ class ChatHelper {
     return '${text.substring(0, maxLength)}...';
   }
 
-  // static String formatMessagePreview(
-  //   String message,
-  //   MessageType type, {
-  //   int maxLength = 50,
-  // }) {
-  //   if (type == MessageType.image) {
-  //     return '📷 รูปภาพ';
-  //   }
-  //   if (message.isEmpty) {
-  //     return '';
-  //   }
-  //   if (message.length <= maxLength) {
-  //     return message;
-  //   }
-  //   return '${message.substring(0, maxLength)}...';
-  // }
-
-  // ========== TIME FORMATTING ==========
-
-  /// Format timestamp for message display
-  /// Shows time for today, date for older messages
   static String formatMessageTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    // Today - show time only
     if (difference.inDays == 0) {
       return DateFormat('HH:mm').format(timestamp);
     }
 
-    // Yesterday
     if (difference.inDays == 1) {
       return 'เมื่อวาน ${DateFormat('HH:mm').format(timestamp)}';
     }
 
-    // This week - show day name
     if (difference.inDays < 7) {
       return DateFormat('EEEE HH:mm', 'th').format(timestamp);
     }
 
-    // This year - show date without year
     if (timestamp.year == now.year) {
       return DateFormat('d MMM HH:mm', 'th').format(timestamp);
     }
 
-    // Older - show full date
     return DateFormat('d MMM yyyy HH:mm', 'th').format(timestamp);
   }
 
-  /// Format timestamp for chat room list (more compact)
   static String formatRoomTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    // Today - show time only
     if (difference.inDays == 0) {
       return DateFormat('HH:mm').format(timestamp);
     }
 
-    // Yesterday
     if (difference.inDays == 1) {
       return 'เมื่อวาน';
     }
 
-    // This week - show day name
     if (difference.inDays < 7) {
       return DateFormat('EEEE', 'th').format(timestamp);
     }
 
-    // This year - show date without year
     if (timestamp.year == now.year) {
       return DateFormat('d MMM', 'th').format(timestamp);
     }
 
-    // Older - show full date
     return DateFormat('d/M/yy').format(timestamp);
   }
 
-  /// Get relative time description (e.g., "2 hours ago")
   static String getRelativeTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
@@ -288,10 +225,6 @@ class ChatHelper {
     return '$years ปีที่แล้ว';
   }
 
-  // ========== MESSAGE GROUPING ==========
-
-  /// Determine if messages should be grouped together
-  /// Groups messages from same sender within 5 minutes
   static bool shouldGroupMessages(ChatMessage current, ChatMessage? previous) {
     if (previous == null) return false;
     if (current.senderId != previous.senderId) return false;
@@ -300,7 +233,6 @@ class ChatHelper {
     return timeDiff.inMinutes <= 5;
   }
 
-  /// Check if date separator should be shown
   static bool shouldShowDateSeparator(
     ChatMessage current,
     ChatMessage? previous,
@@ -322,7 +254,6 @@ class ChatHelper {
     return currentDate != previousDate;
   }
 
-  /// Format date separator text
   static String formatDateSeparator(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -344,9 +275,6 @@ class ChatHelper {
     return DateFormat('d MMMM yyyy', 'th').format(date);
   }
 
-  // ========== VALIDATION ==========
-
-  /// Validate message content before sending
   static String? validateMessageContent(String content, MessageType type) {
     if (type == MessageType.text) {
       final trimmed = content.trim();
@@ -360,13 +288,9 @@ class ChatHelper {
       }
     }
 
-    return null; // Valid
+    return null;
   }
 
-  // ========== UNREAD COUNT FORMATTING ==========
-
-  /// Format unread count for display
-  /// Shows "99+" for counts over 99
   static String formatUnreadCount(int count) {
     if (count <= 0) return '';
     if (count > 99) return '99+';

@@ -1,76 +1,74 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:changsure/data/models/chat/chat_thread.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/chat/chat_model.dart';
 import '../data/services/chat_service.dart';
 import 'user_provider.dart';
 import 'notifications/realtime_provider.dart';
 
-// ============================================================================
-// PROVIDERS
-// ============================================================================
-
 final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 
-/// Provider for chat history of a specific booking
-/// Auto-disposes when no longer used to free resources
 final chatHistoryProvider = StateNotifierProvider.autoDispose
     .family<ChatHistoryNotifier, AsyncValue<List<ChatMessage>>, int>(
       (ref, bookingId) => ChatHistoryNotifier(ref, bookingId),
     );
 
-/// Provider for all chat rooms
 final chatRoomsProvider =
     StateNotifierProvider<ChatRoomsNotifier, AsyncValue<List<ChatRoom>>>(
       (ref) => ChatRoomsNotifier(ref),
     );
 
-/// Controller for chat actions (send messages, images)
 final chatControllerProvider =
     AsyncNotifierProvider.autoDispose<ChatController, void>(ChatController.new);
 
-final chatThreadsProvider = Provider<AsyncValue<List<ChatThread>>>((ref) {
+final chatThreadsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
   final roomsAsync = ref.watch(chatRoomsProvider);
 
-  return roomsAsync.whenData((rooms) {
-    final grouped = <int, List<ChatRoom>>{};
-
-    for (final room in rooms) {
-      grouped.putIfAbsent(room.otherPersonId, () => []).add(room);
-    }
-
-    final threads = grouped.entries.map((entry) {
-      final sorted = [...entry.value]
-        ..sort((a, b) => b.lastMsgTime.compareTo(a.lastMsgTime));
-
-      final latest = sorted.first;
-
-      return ChatThread(
-        otherPersonId: entry.key,
-        name: latest.otherPersonName,
-        avatar: latest.otherPersonImg,
-        latestRoom: latest,
-        totalUnread: sorted.fold(0, (s, r) => s + r.unreadCount),
-        rooms: sorted,
-      );
-    }).toList();
-
-    threads.sort(
-      (a, b) => b.latestRoom.lastMsgTime.compareTo(a.latestRoom.lastMsgTime),
-    );
-
-    return threads;
-  });
+  return roomsAsync;
 });
 
-// ============================================================================
-// CHAT HISTORY NOTIFIER
-// ============================================================================
+final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
+  final roomsAsync = ref.watch(chatRoomsProvider);
 
-/// Manages chat message history for a specific booking
-/// Handles real-time updates and message synchronization
+  return roomsAsync.maybeWhen(
+    data: (rooms) {
+      bool hasUnread(ChatCategory category) {
+        return rooms.any((room) {
+          if (!room.hasUnread) return false;
+
+          switch (category) {
+            case ChatCategory.inProgress:
+              return [
+                BookingStatus.accepted,
+                BookingStatus.inProgress,
+                BookingStatus.waitingPayment,
+              ].contains(room.bookingStatus);
+
+            case ChatCategory.completed:
+              return room.bookingStatus == BookingStatus.completed;
+
+            case ChatCategory.all:
+            default:
+              return true;
+          }
+        });
+      }
+
+      return {
+        ChatCategory.all: hasUnread(ChatCategory.all),
+        ChatCategory.inProgress: hasUnread(ChatCategory.inProgress),
+        ChatCategory.completed: hasUnread(ChatCategory.completed),
+      };
+    },
+    orElse: () => {
+      ChatCategory.all: false,
+      ChatCategory.inProgress: false,
+      ChatCategory.completed: false,
+    },
+  );
+});
+
 class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref _ref;
   final int bookingId;
@@ -81,7 +79,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     _initialize();
   }
 
-  /// Initialize the notifier by loading messages and subscribing to real-time events
   void _initialize() {
     _loadMessages();
     _subscribeToRealtimeEvents();
@@ -93,7 +90,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     super.dispose();
   }
 
-  /// Load chat messages from the server
   Future<void> _loadMessages() async {
     final service = _ref.read(chatServiceProvider);
     final token = _ref.read(userProvider)?.token;
@@ -120,20 +116,17 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     }
   }
 
-  /// Subscribe to real-time events for instant message updates
   void _subscribeToRealtimeEvents() {
     _realtimeSubscription = _ref
         .read(realtimeStreamProvider.stream)
         .listen(
           _handleRealtimeEvent,
           onError: (error) {
-            // Log error but don't crash the app
             _logError('Realtime subscription error', error);
           },
         );
   }
 
-  /// Handle incoming real-time events
   void _handleRealtimeEvent(Map<String, dynamic> event) {
     try {
       final eventType = event['type'] as String?;
@@ -155,7 +148,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
           break;
 
         default:
-          // Ignore unknown event types
           break;
       }
     } catch (error, stackTrace) {
@@ -163,9 +155,7 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     }
   }
 
-  /// Handle new message event
   void _handleNewMessage(Map<String, dynamic> messageData) {
-    // Only process messages for this booking
     if (messageData['booking_id'] != bookingId) return;
 
     try {
@@ -176,7 +166,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     }
   }
 
-  /// Handle message read event
   void _handleMessageRead(Map<String, dynamic> data) {
     if (data['booking_id'] != bookingId) return;
 
@@ -196,7 +185,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     });
   }
 
-  /// Handle room read event (marks all messages as read)
   void _handleRoomRead(Map<String, dynamic> data) {
     if (data['booking_id'] != bookingId) return;
 
@@ -204,7 +192,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       final currentUserId = _ref.read(userProvider)?.id;
       if (currentUserId == null) return;
 
-      // Mark all messages not sent by current user as read
       final updatedMessages = messages.map((message) {
         return message.senderId != currentUserId
             ? message.copyWith(isRead: true)
@@ -217,21 +204,17 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     });
   }
 
-  /// Add a message to the current state if it doesn't already exist
   void _addMessageToState(ChatMessage newMessage) {
     state.whenData((currentMessages) {
-      // Check for duplicate messages
       final isDuplicate = currentMessages.any((m) => m.id == newMessage.id);
       if (isDuplicate) return;
 
-      // Add new message to the beginning (newest first)
       if (mounted) {
         state = AsyncValue.data([newMessage, ...currentMessages]);
       }
     });
   }
 
-  /// Parse message IDs from dynamic data
   List<int> _parseMessageIds(dynamic messageIds) {
     try {
       if (messageIds is List) {
@@ -243,32 +226,20 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     }
   }
 
-  /// Log errors for debugging
   void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
-    // In production, you might want to send this to a logging service
     print('ChatHistory[$bookingId] $context: $error');
     if (stackTrace != null) {
       print(stackTrace);
     }
   }
 
-  // ========== PUBLIC METHODS ==========
-
-  /// Manually add a message to the state (e.g., optimistic update)
   void addMessage(ChatMessage message) {
     _addMessageToState(message);
   }
 
-  /// Refresh messages from the server
   Future<void> refresh() => _loadMessages();
 }
 
-// ============================================================================
-// CHAT ROOMS NOTIFIER
-// ============================================================================
-
-/// Manages the list of all chat rooms for the current user
-/// Handles real-time updates for room state changes
 class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   final Ref _ref;
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
@@ -288,7 +259,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     super.dispose();
   }
 
-  /// Load chat rooms from the server
   Future<void> _loadRooms() async {
     final service = _ref.read(chatServiceProvider);
     final token = _ref.read(userProvider)?.token;
@@ -315,7 +285,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     }
   }
 
-  /// Subscribe to real-time events
   void _subscribeToRealtimeEvents() {
     _realtimeSubscription = _ref
         .read(realtimeStreamProvider.stream)
@@ -327,7 +296,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
         );
   }
 
-  /// Handle incoming real-time events
   void _handleRealtimeEvent(Map<String, dynamic> event) {
     try {
       final type = event['type'] as String?;
@@ -345,7 +313,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
           break;
 
         default:
-          // Ignore unknown event types
           break;
       }
     } catch (error, stackTrace) {
@@ -353,7 +320,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     }
   }
 
-  /// Handle new message event
   void _handleNewMessage(Map<String, dynamic> messageData) {
     state.whenData((rooms) {
       try {
@@ -363,10 +329,8 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
         final roomIndex = rooms.indexWhere((r) => r.bookingId == bookingId);
 
         if (roomIndex != -1) {
-          // Update existing room
           _updateExistingRoom(rooms, roomIndex, messageData);
         } else {
-          // New room appeared, reload all rooms
           _loadRooms();
         }
       } catch (error, stackTrace) {
@@ -375,7 +339,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     });
   }
 
-  /// Update an existing room with new message data
   void _updateExistingRoom(
     List<ChatRoom> rooms,
     int roomIndex,
@@ -387,7 +350,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     final senderId = messageData['sender_id'] as int?;
     final currentUserId = _ref.read(userProvider)?.id;
 
-    // Only increment unread count if message is from another user
     final shouldIncrementUnread = senderId != null && senderId != currentUserId;
 
     final updatedRoom = oldRoom.copyWith(
@@ -402,7 +364,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
           : oldRoom.unreadCount,
     );
 
-    // Move updated room to the top of the list
     updatedRooms.removeAt(roomIndex);
     updatedRooms.insert(0, updatedRoom);
 
@@ -411,7 +372,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     }
   }
 
-  /// Handle room read event
   void _handleRoomRead(Map<String, dynamic> data) {
     final eventBookingId = data['booking_id'];
 
@@ -422,7 +382,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
       final updated = List<ChatRoom>.from(rooms);
       final room = updated[index];
 
-      // Reset unread count to 0
       updated[index] = room.copyWith(unreadCount: 0);
 
       if (mounted) {
@@ -431,7 +390,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     });
   }
 
-  /// Safely parse DateTime from dynamic value
   DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
 
@@ -442,7 +400,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     }
   }
 
-  /// Log errors for debugging
   void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
     print('ChatRooms $context: $error');
     if (stackTrace != null) {
@@ -450,12 +407,8 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     }
   }
 
-  // ========== PUBLIC METHODS ==========
-
-  /// Refresh rooms from the server
   Future<void> refresh() => _loadRooms();
 
-  /// Get total unread message count across all rooms
   int get totalUnreadCount {
     return state.when(
       data: (rooms) => rooms.fold(0, (sum, room) => sum + room.unreadCount),
@@ -465,16 +418,10 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   }
 }
 
-// ============================================================================
-// CHAT CONTROLLER
-// ============================================================================
-
-/// Controller for performing chat actions like sending messages
 class ChatController extends AutoDisposeAsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  /// Send a text message
   Future<void> sendMessage(int bookingId, String content) async {
     if (content.trim().isEmpty) {
       throw Exception('Message cannot be empty');
@@ -500,7 +447,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
       );
 
       if (newMessage != null) {
-        // Optimistically add message to local state
         ref
             .read(chatHistoryProvider(bookingId).notifier)
             .addMessage(newMessage);
@@ -509,13 +455,10 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
 
     state = result;
 
-    // Throw error if the operation failed
     result.when(data: (_) {}, loading: () {}, error: (error, _) => throw error);
   }
 
-  /// Send an image message
   Future<void> sendImage(int bookingId, File imageFile) async {
-    // Validate file exists and is readable
     if (!await imageFile.exists()) {
       throw Exception('Image file does not exist');
     }
@@ -541,7 +484,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
       );
 
       if (newMessage != null) {
-        // Optimistically add message to local state
         ref
             .read(chatHistoryProvider(bookingId).notifier)
             .addMessage(newMessage);
@@ -550,7 +492,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
 
     state = result;
 
-    // Throw error if the operation failed
     result.when(data: (_) {}, loading: () {}, error: (error, _) => throw error);
   }
 }

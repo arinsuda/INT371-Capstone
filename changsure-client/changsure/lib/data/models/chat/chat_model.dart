@@ -1,29 +1,17 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-// ============================================================================
-// ENUMS
-// ============================================================================
+enum ChatCategory { all, inProgress, completed }
 
-enum ChatCategory {
-  all,
-  inProgress,
-  completed,
-}
-
-/// Message types supported in the chat system
 enum MessageType {
-  /// Plain text message
   @JsonValue('TEXT')
   text('TEXT'),
 
-  /// Image message
   @JsonValue('IMAGE')
   image('IMAGE');
 
   const MessageType(this.value);
   final String value;
 
-  /// Create MessageType from string value
   static MessageType fromString(String value) {
     return MessageType.values.firstWhere(
       (type) => type.value == value.toUpperCase(),
@@ -32,7 +20,6 @@ enum MessageType {
   }
 }
 
-/// Booking statuses that are relevant to chat
 enum BookingStatus {
   pending('PENDING'),
   confirmed('CONFIRMED'),
@@ -52,7 +39,6 @@ enum BookingStatus {
     );
   }
 
-  /// Whether chat is allowed in this booking status
   bool get isChatAllowed {
     return this == BookingStatus.accepted ||
         this == BookingStatus.inProgress ||
@@ -60,16 +46,11 @@ enum BookingStatus {
   }
 }
 
-// ============================================================================
-// CHAT ROOM MODEL
-// ============================================================================
-
-/// Represents a chat room for a specific booking
-/// Contains information about the other participant and the last message
 class ChatRoom {
   final int bookingId;
   final String bookingNumber;
   final BookingStatus bookingStatus;
+  final String serviceCategory;
   final int otherPersonId;
   final String otherPersonName;
   final String otherPersonImg;
@@ -78,51 +59,56 @@ class ChatRoom {
   final DateTime lastMsgTime;
   final String lastSender;
   final int unreadCount;
+  final bool canSendMessage;
 
   const ChatRoom({
     required this.bookingId,
     required this.bookingNumber,
     required this.bookingStatus,
+    required this.serviceCategory,
     required this.otherPersonId,
     required this.otherPersonName,
     required this.otherPersonImg,
     required this.lastMessage,
     required this.lastMsgType,
     required this.lastMsgTime,
+    required this.lastSender,
     required this.unreadCount,
-    required this.lastSender
+    required this.canSendMessage,
   });
 
-  /// Create a copy with modified fields
   ChatRoom copyWith({
     int? bookingId,
     String? bookingNumber,
     BookingStatus? bookingStatus,
+    String? serviceCategory,
     int? otherPersonId,
     String? otherPersonName,
     String? otherPersonImg,
     String? lastMessage,
     MessageType? lastMsgType,
     DateTime? lastMsgTime,
+    String? lastSender,
     int? unreadCount,
-    String? lastSender
+    bool? canSendMessage,
   }) {
     return ChatRoom(
       bookingId: bookingId ?? this.bookingId,
       bookingNumber: bookingNumber ?? this.bookingNumber,
       bookingStatus: bookingStatus ?? this.bookingStatus,
+      serviceCategory: serviceCategory ?? this.serviceCategory,
       otherPersonId: otherPersonId ?? this.otherPersonId,
       otherPersonName: otherPersonName ?? this.otherPersonName,
       otherPersonImg: otherPersonImg ?? this.otherPersonImg,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMsgType: lastMsgType ?? this.lastMsgType,
       lastMsgTime: lastMsgTime ?? this.lastMsgTime,
+      lastSender: lastSender ?? this.lastSender,
       unreadCount: unreadCount ?? this.unreadCount,
-      lastSender: lastSender ?? this.lastSender
+      canSendMessage: canSendMessage ?? this.canSendMessage,
     );
   }
 
-  /// Create from JSON with proper error handling
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     try {
       return ChatRoom(
@@ -131,6 +117,7 @@ class ChatRoom {
         bookingStatus: BookingStatus.fromString(
           _parseString(json['booking_status']) ?? 'PENDING',
         ),
+        serviceCategory: _parseString(json['service_category']) ?? '',
         otherPersonId: _parseInt(json['other_person_id']) ?? 0,
         otherPersonName: _parseString(json['other_person_name']) ?? 'Unknown',
         otherPersonImg: _parseString(json['other_person_img']) ?? '',
@@ -138,36 +125,38 @@ class ChatRoom {
         lastMsgType: MessageType.fromString(
           _parseString(json['last_msg_type']) ?? 'TEXT',
         ),
+
         lastMsgTime: _parseDateTime(json['last_msg_time']) ?? DateTime.now(),
+        lastSender: _parseString(json['last_sender']) ?? '',
         unreadCount: _parseInt(json['unread_count']) ?? 0,
-        lastSender:  _parseString(json['last_sender']) ?? '',
+        canSendMessage: _parseBool(json['can_send_message']) ?? true,
       );
     } catch (error) {
       throw FormatException('Failed to parse ChatRoom: $error');
     }
   }
 
-  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'booking_id': bookingId,
       'booking_number': bookingNumber,
       'booking_status': bookingStatus.value,
+      'service_category': serviceCategory,
       'other_person_id': otherPersonId,
       'other_person_name': otherPersonName,
       'other_person_img': otherPersonImg,
       'last_message': lastMessage,
       'last_msg_type': lastMsgType.value,
       'last_msg_time': lastMsgTime.toIso8601String(),
+      'last_sender': lastSender,
       'unread_count': unreadCount,
+      'can_send_message': canSendMessage,
     };
   }
 
-  /// Whether this room has unread messages
   bool get hasUnread => unreadCount > 0;
 
-  /// Whether chat is allowed in this booking
-  bool get isChatAllowed => bookingStatus.isChatAllowed;
+  bool get isChatAllowed => bookingStatus.isChatAllowed && canSendMessage;
 
   @override
   bool operator ==(Object other) =>
@@ -186,16 +175,18 @@ class ChatRoom {
   }
 }
 
-// ============================================================================
-// CHAT MESSAGE MODEL
-// ============================================================================
-
-/// Represents a single chat message
 class ChatMessage {
   final int id;
+
   final int bookingId;
+  final String bookingNumber;
+  final String serviceCategory;
+
   final int senderId;
   final String senderRole;
+  final String senderName;
+  final String senderAvatar;
+
   final MessageType type;
   final String content;
   final bool isRead;
@@ -204,20 +195,27 @@ class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.bookingId,
+    required this.bookingNumber,
+    required this.serviceCategory,
     required this.senderId,
     required this.senderRole,
+    required this.senderName,
+    required this.senderAvatar,
     required this.type,
     required this.content,
     required this.isRead,
     required this.createdAt,
   });
 
-  /// Create a copy with modified fields
   ChatMessage copyWith({
     int? id,
     int? bookingId,
+    String? bookingNumber,
+    String? serviceCategory,
     int? senderId,
     String? senderRole,
+    String? senderName,
+    String? senderAvatar,
     MessageType? type,
     String? content,
     bool? isRead,
@@ -226,8 +224,12 @@ class ChatMessage {
     return ChatMessage(
       id: id ?? this.id,
       bookingId: bookingId ?? this.bookingId,
+      bookingNumber: bookingNumber ?? this.bookingNumber,
+      serviceCategory: serviceCategory ?? this.serviceCategory,
       senderId: senderId ?? this.senderId,
       senderRole: senderRole ?? this.senderRole,
+      senderName: senderName ?? this.senderName,
+      senderAvatar: senderAvatar ?? this.senderAvatar,
       type: type ?? this.type,
       content: content ?? this.content,
       isRead: isRead ?? this.isRead,
@@ -235,31 +237,56 @@ class ChatMessage {
     );
   }
 
-  /// Create from JSON with proper error handling
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     try {
+      final booking = json['booking'] as Map<String, dynamic>? ?? {};
+
+      final sender = json['sender'] as Map<String, dynamic>? ?? {};
+
+      final bookingId =
+          _parseInt(json['booking_id']) ??
+          _parseInt(booking['booking_id']) ??
+          0;
+
       return ChatMessage(
         id: _parseInt(json['id']) ?? 0,
-        bookingId: _parseInt(json['booking_id']) ?? 0,
-        senderId: _parseInt(json['sender_id']) ?? 0,
-        senderRole: _parseString(json['sender_role']) ?? '',
+
+        bookingId: bookingId,
+        bookingNumber: _parseString(booking['booking_number']) ?? '',
+        serviceCategory: _parseString(booking['service_category']) ?? '',
+
+        senderId: _parseInt(sender['sender_id']) ?? 0,
+        senderRole: _parseString(sender['sender_role']) ?? '',
+        senderName: _parseString(sender['sender_name']) ?? '',
+        senderAvatar: _parseString(sender['sender_avatar']) ?? '',
+
         type: MessageType.fromString(_parseString(json['type']) ?? 'TEXT'),
         content: _parseString(json['content']) ?? '',
         isRead: _parseBool(json['is_read']) ?? false,
+
         createdAt: _parseDateTime(json['created_at']) ?? DateTime.now(),
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      print('Error parsing ChatMessage: $error');
+      print('Stack trace: $stackTrace');
+      print('JSON: $json');
       throw FormatException('Failed to parse ChatMessage: $error');
     }
   }
 
-  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'booking_id': bookingId,
-      'sender_id': senderId,
-      'sender_role': senderRole,
+      'booking': {
+        'booking_number': bookingNumber,
+        'service_category': serviceCategory,
+      },
+      'sender': {
+        'sender_id': senderId,
+        'sender_role': senderRole,
+        'sender_name': senderName,
+        'sender_avatar': senderAvatar,
+      },
       'type': type.value,
       'content': content,
       'is_read': isRead,
@@ -267,10 +294,8 @@ class ChatMessage {
     };
   }
 
-  /// Whether this message is a text message
   bool get isTextMessage => type == MessageType.text;
 
-  /// Whether this message is an image
   bool get isImageMessage => type == MessageType.image;
 
   @override
@@ -290,11 +315,6 @@ class ChatMessage {
   }
 }
 
-// ============================================================================
-// REQUEST MODELS
-// ============================================================================
-
-/// Request model for sending a message
 class SendMessageRequest {
   final int bookingId;
   final String content;
@@ -306,14 +326,12 @@ class SendMessageRequest {
     this.type = MessageType.text,
   });
 
-  /// Validate the request
   bool validate() {
     if (bookingId <= 0) return false;
     if (type == MessageType.text && content.trim().isEmpty) return false;
     return true;
   }
 
-  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {'booking_id': bookingId, 'content': content, 'type': type.value};
   }
@@ -324,11 +342,6 @@ class SendMessageRequest {
   }
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/// Safely parse int from dynamic value
 int? _parseInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -337,14 +350,12 @@ int? _parseInt(dynamic value) {
   return null;
 }
 
-/// Safely parse String from dynamic value
 String? _parseString(dynamic value) {
   if (value == null) return null;
   if (value is String) return value;
   return value.toString();
 }
 
-/// Safely parse bool from dynamic value
 bool? _parseBool(dynamic value) {
   if (value == null) return null;
   if (value is bool) return value;
@@ -357,15 +368,25 @@ bool? _parseBool(dynamic value) {
   return null;
 }
 
-/// Safely parse DateTime from dynamic value
 DateTime? _parseDateTime(dynamic value) {
   if (value == null) return null;
 
   try {
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.parse(value);
-    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-  } catch (_) {
+    if (value is DateTime) {
+      return value.toLocal();
+    }
+
+    if (value is String) {
+      final parsed = DateTime.parse(value);
+
+      return parsed.toLocal();
+    }
+
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value).toLocal();
+    }
+  } catch (e) {
+    print('Error parsing datetime: $value - $e');
     return null;
   }
 

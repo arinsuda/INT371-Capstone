@@ -8,13 +8,9 @@ import '../../../../state/chat_provider.dart';
 import '../../../../core/theme.dart';
 import 'chat_room_page.dart';
 
-// ============================================================================
-// SEARCH PROVIDER
-// ============================================================================
-
 final chatSearchQueryProvider = StateProvider<String>((ref) => '');
 final chatCategoryProvider = StateProvider<ChatCategory>(
-      (ref) => ChatCategory.all,
+  (ref) => ChatCategory.all,
 );
 
 final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
@@ -23,14 +19,8 @@ final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
   final category = ref.watch(chatCategoryProvider);
 
   return roomsAsync.when(
-    data: (threads) {
-      var rooms = threads.map((thread) => thread.latestRoom).toList();
-
-      for (var r in rooms) {
-        debugPrint('STATUS => ${r.bookingStatus}');
-      }
-      // ✅ Filter ตาม Category ก่อน
-      rooms = rooms.where((room) {
+    data: (rooms) {
+      var filteredRooms = rooms.where((room) {
         switch (category) {
           case ChatCategory.inProgress:
             return [
@@ -48,16 +38,15 @@ final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
         }
       }).toList();
 
-      // ✅ แล้วค่อย filter search
       if (searchQuery.isNotEmpty) {
-        rooms = rooms.where((room) {
+        filteredRooms = filteredRooms.where((room) {
           return room.otherPersonName.toLowerCase().contains(searchQuery) ||
               room.bookingNumber.toLowerCase().contains(searchQuery) ||
               room.lastMessage.toLowerCase().contains(searchQuery);
         }).toList();
       }
 
-      return AsyncValue.data(rooms);
+      return AsyncValue.data(filteredRooms);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
@@ -65,12 +54,10 @@ final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
 });
 
 final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
-  final threadsAsync = ref.watch(chatThreadsProvider);
+  final roomsAsync = ref.watch(chatThreadsProvider);
 
-  return threadsAsync.maybeWhen(
-    data: (threads) {
-      final rooms = threads.map((t) => t.latestRoom).toList();
-
+  return roomsAsync.maybeWhen(
+    data: (rooms) {
       bool hasUnread(ChatCategory category) {
         return rooms.any((room) {
           if (!room.hasUnread) return false;
@@ -78,13 +65,13 @@ final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
           switch (category) {
             case ChatCategory.inProgress:
               return [
-                'ACCEPTED',
-                'IN_PROGRESS',
-                'WAITING_PAYMENT',
+                BookingStatus.accepted,
+                BookingStatus.inProgress,
+                BookingStatus.waitingPayment,
               ].contains(room.bookingStatus);
 
             case ChatCategory.completed:
-              return room.bookingStatus == 'COMPLETED';
+              return room.bookingStatus == BookingStatus.completed;
 
             case ChatCategory.all:
             default:
@@ -99,8 +86,7 @@ final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
         ChatCategory.completed: hasUnread(ChatCategory.completed),
       };
     },
-    orElse: () =>
-    {
+    orElse: () => {
       ChatCategory.all: false,
       ChatCategory.inProgress: false,
       ChatCategory.completed: false,
@@ -108,13 +94,6 @@ final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
   );
 });
 
-
-// ============================================================================
-// MAIN PAGE
-// ============================================================================
-
-/// Chat list page displaying all active chat rooms
-/// Supports search and real-time updates
 class ChatListPage extends ConsumerStatefulWidget {
   const ChatListPage({super.key});
 
@@ -145,9 +124,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
   }
 
   void _onSearchChanged() {
-    ref
-        .read(chatSearchQueryProvider.notifier)
-        .state = _searchController.text;
+    ref.read(chatSearchQueryProvider.notifier).state = _searchController.text;
   }
 
   void _clearSearch() {
@@ -160,23 +137,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
   }
 
   void _navigateToChatRoom(ChatRoom room) async {
-    // Unfocus search field
     _searchFocusNode.unfocus();
 
-    // Navigate to chat room
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            ChatRoomPage(
-              bookingId: room.bookingId,
-              title: room.otherPersonName,
-              otherPersonImg: room.otherPersonImg,
-            ),
+        builder: (_) => ChatRoomPage(
+          bookingId: room.bookingId,
+          title: room.otherPersonName,
+          otherPersonImg: room.otherPersonImg,
+        ),
       ),
     );
 
-    // Refresh chat rooms after returning
     if (mounted) {
       _refreshChatRooms();
     }
@@ -184,7 +157,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    super.build(context);
 
     final filteredRoomsAsync = ref.watch(filteredChatRoomsProvider);
     final totalUnreadCount = ref
@@ -198,7 +171,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
         onRefresh: _refreshChatRooms,
         child: Column(
           children: [
-            // Search bar
             _SearchBar(
               controller: _searchController,
               focusNode: _searchFocusNode,
@@ -207,7 +179,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
 
             _CategoryTabs(),
 
-            // Chat rooms list
             Expanded(
               child: filteredRoomsAsync.when(
                 data: (rooms) {
@@ -236,10 +207,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
   }
 }
 
-// ============================================================================
-// APP BAR
-// ============================================================================
-
 class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int unreadCount;
 
@@ -253,7 +220,7 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       toolbarHeight: 80,
       title: const SizedBox.shrink(),
-      // ไม่ใช้ title
+
       flexibleSpace: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 16),
@@ -301,10 +268,6 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
-// ============================================================================
-// SEARCH BAR
-// ============================================================================
 
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
@@ -362,10 +325,6 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// CHAT ROOMS LIST
-// ============================================================================
-
 class _ChatRoomsList extends StatelessWidget {
   final List<ChatRoom> rooms;
   final ValueChanged<ChatRoom> onRoomTap;
@@ -391,10 +350,6 @@ class _ChatRoomsList extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// CHAT ROOM LIST ITEM
-// ============================================================================
-
 class _ChatRoomListItem extends StatelessWidget {
   final ChatRoom room;
   final VoidCallback onTap;
@@ -409,12 +364,14 @@ class _ChatRoomListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUnread = room.hasUnread;
-    final preview = ChatHelper.formatMessagePreview(
-        room.lastMessage,
-        room.lastMsgType,
-      isMe:room.lastSender == "me",
-    );
 
+    final isMyMessage = room.lastSender == "me";
+
+    final preview = ChatHelper.formatMessagePreview(
+      room.lastMessage,
+      room.lastMsgType,
+      isMe: isMyMessage,
+    );
 
     return InkWell(
       onTap: onTap,
@@ -423,11 +380,9 @@ class _ChatRoomListItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Avatar
             _RoomAvatar(imageUrl: room.otherPersonImg, colorIndex: colorIndex),
             const SizedBox(width: 16),
 
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +391,7 @@ class _ChatRoomListItem extends StatelessWidget {
                     room.bookingNumber,
                     style: TextStyle(fontSize: 12, color: AppColors.primary),
                   ),
-                  // Name and time
+
                   Row(
                     children: [
                       Expanded(
@@ -467,26 +422,25 @@ class _ChatRoomListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
 
-                  // Last message and unread badge
                   Row(
                     children: [
                       Expanded(
                         child: preview.isEmpty
                             ? const SizedBox.shrink()
                             : Text(
-                          preview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isUnread
-                                ? Colors.black87
-                                : Colors.grey,
-                            fontWeight: isUnread
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                        ),
+                                preview,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isUnread
+                                      ? Colors.black87
+                                      : Colors.grey,
+                                  fontWeight: isUnread
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                                ),
+                              ),
                       ),
                       if (isUnread) ...[
                         const SizedBox(width: 8),
@@ -503,10 +457,6 @@ class _ChatRoomListItem extends StatelessWidget {
     );
   }
 }
-
-// ============================================================================
-// ROOM AVATAR
-// ============================================================================
 
 class _RoomAvatar extends StatelessWidget {
   final String imageUrl;
@@ -534,20 +484,16 @@ class _RoomAvatar extends StatelessWidget {
       backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
       child: imageUrl.isEmpty
           ? Image.asset(
-        "assets/image/Technician.png",
-        width: 70,
-        errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.person, color: Colors.white, size: 32);
-        },
-      )
+              "assets/image/Technician.png",
+              width: 70,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.person, color: Colors.white, size: 32);
+              },
+            )
           : null,
     );
   }
 }
-
-// ============================================================================
-// UNREAD BADGE
-// ============================================================================
 
 class _UnreadBadge extends StatelessWidget {
   final int count;
@@ -578,10 +524,6 @@ class _UnreadBadge extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// EMPTY STATE
-// ============================================================================
-
 class _EmptyStateView extends StatelessWidget {
   final bool isSearchResult;
   final VoidCallback? onClearSearch;
@@ -595,15 +537,8 @@ class _EmptyStateView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           isSearchResult
-              ? Icon(
-            Icons.search_off,
-            size: 80,
-            color: Colors.grey[300],
-          )
-              : Image.asset(
-            "assets/image/noChat.png",
-            width: 300,
-          ),
+              ? Icon(Icons.search_off, size: 80, color: Colors.grey[300])
+              : Image.asset("assets/image/noChat.png", width: 300),
 
           const SizedBox(height: 16),
           Text(
@@ -628,10 +563,6 @@ class _EmptyStateView extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// LOADING VIEW
-// ============================================================================
-
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
@@ -640,10 +571,6 @@ class _LoadingView extends StatelessWidget {
     return const Center(child: CircularProgressIndicator());
   }
 }
-
-// ============================================================================
-// ERROR VIEW
-// ============================================================================
 
 class _ErrorView extends StatelessWidget {
   final Object error;
@@ -743,20 +670,18 @@ class _CategoryTabs extends ConsumerWidget {
     );
   }
 
-
-  Widget _buildTab(WidgetRef ref, {
+  Widget _buildTab(
+    WidgetRef ref, {
     required String label,
     required ChatCategory value,
     required ChatCategory selected,
-    required bool hasUnread, // 👈 เพิ่ม
+    required bool hasUnread,
   }) {
     final isSelected = value == selected;
 
     return GestureDetector(
       onTap: () {
-        ref
-            .read(chatCategoryProvider.notifier)
-            .state = value;
+        ref.read(chatCategoryProvider.notifier).state = value;
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -794,6 +719,4 @@ class _CategoryTabs extends ConsumerWidget {
       ),
     );
   }
-
-
 }

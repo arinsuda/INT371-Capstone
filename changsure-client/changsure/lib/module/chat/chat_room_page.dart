@@ -12,12 +12,6 @@ import '../../../../state/chat_provider.dart';
 import '../../../../state/user_provider.dart';
 import '../../../../state/public_technician_provider.dart';
 
-// ============================================================================
-// MAIN PAGE
-// ============================================================================
-
-/// Chat room page for a specific booking
-/// Displays message history and allows sending text and image messages
 class ChatRoomPage extends ConsumerStatefulWidget {
   final int bookingId;
   final String? title;
@@ -57,13 +51,11 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.dispose();
   }
 
-  /// Initialize page by resolving participant info and marking as read
   Future<void> _initializePage() async {
     await _resolveParticipantInfo();
     await _markRoomAsRead();
   }
 
-  /// Mark the chat room as read
   Future<void> _markRoomAsRead() async {
     if (_isMarkingAsRead) return;
 
@@ -77,7 +69,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       }
     } on ChatServiceException catch (e) {
       debugPrint('Failed to mark room as read: ${e.message}');
-      // Don't show error to user - this is a background operation
     } catch (e) {
       debugPrint('Unexpected error marking room as read: $e');
     } finally {
@@ -85,7 +76,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Scroll to the bottom of the message list
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
@@ -96,10 +86,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Resolve participant information from technician profile or props
   Future<void> _resolveParticipantInfo() async {
     try {
-      // Try to get technician profile if ID is provided
       if (widget.technicianId != null) {
         final profileAsync = ref.read(
           publicTechnicianProvider(widget.technicianId!),
@@ -122,7 +110,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         );
       }
 
-      // Fallback to title from props
       if (_participantInfo == null && widget.title != null && mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo(
@@ -133,7 +120,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         });
       }
 
-      // Final fallback to unknown user
       if (_participantInfo == null && mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
@@ -149,7 +135,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Handle image selection and sending
   Future<void> _handleImageSelection() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -163,10 +148,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
       if (!mounted) return;
 
-      // Validate file size (10MB max)
       final file = File(image.path);
       final fileSize = await file.length();
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 10 * 1024 * 1024;
 
       if (fileSize > maxSize) {
         _showErrorSnackBar('รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 10MB)');
@@ -182,14 +166,12 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Send an image message
   Future<void> _sendImage(File imageFile) async {
     try {
       await ref
           .read(chatControllerProvider.notifier)
           .sendImage(widget.bookingId, imageFile);
 
-      // Scroll to bottom after sending
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     } on ValidationException catch (e) {
       _showErrorSnackBar(e.message);
@@ -203,11 +185,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Handle send message button press
   Future<void> _handleSendMessage() async {
     final text = _messageController.text.trim();
 
-    // Validate message
     final validationError = ChatHelper.validateMessageContent(
       text,
       MessageType.text,
@@ -218,7 +198,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       return;
     }
 
-    // Clear input immediately for better UX
     _messageController.clear();
 
     try {
@@ -226,10 +205,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
           .read(chatControllerProvider.notifier)
           .sendMessage(widget.bookingId, text);
 
-      // Scroll to bottom after sending
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     } on ValidationException catch (e) {
-      // Restore text if validation fails
       _messageController.text = text;
       _showErrorSnackBar(e.message);
     } on NetworkException catch (_) {
@@ -245,7 +222,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     }
   }
 
-  /// Show error message to user
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
 
@@ -280,7 +256,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       ),
       body: Column(
         children: [
-          // Messages list
           Expanded(
             child: messagesAsync.when(
               data: (messages) => _ChatMessagesList(
@@ -299,14 +274,12 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
             ),
           ),
 
-          // Loading indicator
           if (chatState.isLoading)
             const LinearProgressIndicator(
               minHeight: 2,
               backgroundColor: Colors.transparent,
             ),
 
-          // Input area
           _ChatInputArea(
             controller: _messageController,
             onImagePressed: _handleImageSelection,
@@ -318,10 +291,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     );
   }
 }
-
-// ============================================================================
-// APP BAR
-// ============================================================================
 
 class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ChatParticipantInfo? participantInfo;
@@ -361,7 +330,7 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
-      toolbarHeight: 110,   // 👈 เพิ่มตรงนี้
+      toolbarHeight: 110,
       leadingWidth: 60,
       titleSpacing: 0,
       iconTheme: const IconThemeData(color: Colors.black),
@@ -386,13 +355,9 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
 
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          color: AppColors.colorStroke,
-        ),
+        child: Container(height: 1, color: AppColors.colorStroke),
       ),
     );
-
   }
 
   @override
@@ -419,11 +384,7 @@ class _ParticipantAvatar extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// MESSAGES LIST
-// ============================================================================
-
-class _ChatMessagesList extends StatelessWidget {
+class _ChatMessagesList extends ConsumerWidget {
   final List<ChatMessage> messages;
   final int? myId;
   final ChatParticipantInfo? participantInfo;
@@ -437,10 +398,13 @@ class _ChatMessagesList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (messages.isEmpty) {
       return const _EmptyMessagesView();
     }
+
+    final currentUser = ref.watch(userProvider);
+    final currentUserRole = currentUser?.role;
 
     return ListView.builder(
       controller: scrollController,
@@ -453,7 +417,8 @@ class _ChatMessagesList extends StatelessWidget {
             ? messages[index + 1]
             : null;
 
-        final isMe = message.senderId == myId;
+        final isMe = message.senderId == currentUser?.id;
+
         final showDateSeparator = ChatHelper.shouldShowDateSeparator(
           message,
           previousMessage,
@@ -505,10 +470,6 @@ class _EmptyMessagesView extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// DATE SEPARATOR
-// ============================================================================
-
 class _DateSeparator extends StatelessWidget {
   final DateTime date;
 
@@ -536,10 +497,6 @@ class _DateSeparator extends StatelessWidget {
     );
   }
 }
-
-// ============================================================================
-// CHAT BUBBLE
-// ============================================================================
 
 class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -593,7 +550,7 @@ class _ChatBubble extends StatelessWidget {
 
   Widget _buildAvatar() {
     if (!showAvatar) {
-      return const SizedBox(width: 35); // Placeholder width
+      return const SizedBox(width: 35);
     }
 
     return _UserAvatar(participantInfo: participantInfo);
@@ -608,12 +565,10 @@ class _MessageBubbleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ ถ้าเป็นรูปภาพ → ไม่ต้องมี bubble
     if (message.isImageMessage) {
       return _ImageMessage(imageUrl: message.content);
     }
 
-    // ✅ ถ้าเป็นข้อความ → มี bubble ปกติ
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -621,10 +576,12 @@ class _MessageBubbleContent extends StatelessWidget {
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
-          bottomLeft:
-          isMe ? const Radius.circular(18) : const Radius.circular(0),
-          bottomRight:
-          isMe ? const Radius.circular(0) : const Radius.circular(18),
+          bottomLeft: isMe
+              ? const Radius.circular(18)
+              : const Radius.circular(0),
+          bottomRight: isMe
+              ? const Radius.circular(0)
+              : const Radius.circular(18),
         ),
         boxShadow: [
           BoxShadow(
@@ -634,13 +591,9 @@ class _MessageBubbleContent extends StatelessWidget {
           ),
         ],
       ),
-      child: _TextMessage(
-        text: message.content,
-        isMe: isMe,
-      ),
+      child: _TextMessage(text: message.content, isMe: isMe),
     );
   }
-
 }
 
 class _MessageTimestamp extends StatelessWidget {
@@ -816,10 +769,6 @@ class _ImageMessage extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// INPUT AREA
-// ============================================================================
-
 class _ChatInputArea extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onImagePressed;
@@ -858,7 +807,6 @@ class _ChatInputArea extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // _SendButton(onPressed: onSendPressed, isLoading: isLoading),
           ],
         ),
       ),
@@ -915,10 +863,7 @@ class _MessageTextField extends StatelessWidget {
           hintStyle: const TextStyle(color: Colors.grey),
           isDense: true,
 
-          // ⭐️ ตัวนี้คือหัวใจ
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12, // ปรับค่านี้ให้ text กลางพอดี
-          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
 
           suffixIconConstraints: const BoxConstraints(
             minHeight: 40,
