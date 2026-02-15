@@ -90,8 +90,8 @@ func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uin
 			RecipientRole: notification.RoleCustomer,
 			RecipientID:   full.CustomerID,
 			Type:          "BOOKING_ACCEPTED",
-			Title:         "ช่างรับงานแล้ว",
-			Message:       "ช่างตอบรับการจองของคุณแล้ว",
+			Title:         "ช่างรับงานเรียบร้อยแล้ว 👷‍♂️✨",
+			Message:       "ช่างได้ยืนยันรับงานบริการของคุณแล้ว คุณสามารถติดตามการดำเนินงานของช่างผ่าน หน้า “ติดตามสถานะ” ได้แล้วในตอนนี้ กรุณาตรวจสอบรายละเอียดวัน–เวลา และรอการติดต่อจากช่างผ่านแชทในแอป",
 			EntityType:    "booking",
 			EntityID:      full.ID,
 			Data: map[string]any{

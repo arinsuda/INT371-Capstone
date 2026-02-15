@@ -368,7 +368,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 	)
 
 	if s.notif != nil && created.TechnicianID != 0 {
-		s.sendBookingNotification(ctx, created, "BOOKING_CREATED", "มีงานใหม่", "มีลูกค้าจองบริการเข้ามา")
+		s.sendBookingNotification(ctx, created, "BOOKING_CREATED", "🔔คุณมีงานใหม่จากลูกค้า!", `"กรุณาตรวจสอบรายละเอียดงาน และกดรับงาน เพื่อยืนยันการให้บริการ คุณสามารถ รับงาน / ยกเลิกงาน และดูรายละเอียด วัน เวลา และสถานที่ให้บริการ ได้ที่หน้า “ติดตามสถานะงาน”`)
 	}
 
 	return created, nil
