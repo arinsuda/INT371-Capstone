@@ -265,13 +265,13 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 		techSvc, err := txRepo.GetTechnicianServiceByTechnicianAndService(
 			ctx,
 			req.TechnicianID,
-			req.ServiceID,
+			req.TechnicianServiceID,
 		)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				s.logger.Error("technician does not have this service",
 					slog.Uint64("technician_id", uint64(req.TechnicianID)),
-					slog.Uint64("technician_service_id", uint64(req.ServiceID)),
+					slog.Uint64("technician_service_id", uint64(req.TechnicianServiceID)),
 				)
 				return ErrTechnicianDoesNotHaveService
 			}
