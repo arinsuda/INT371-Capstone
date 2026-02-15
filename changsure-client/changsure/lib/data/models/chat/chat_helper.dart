@@ -170,25 +170,28 @@ class ChatHelper {
 
   static String formatRoomTime(DateTime timestamp) {
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final diff = now.difference(timestamp);
 
-    if (difference.inDays == 0) {
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(timestamp.year, timestamp.month, timestamp.day);
+
+    if (msgDay == today) {
       return DateFormat('HH:mm').format(timestamp);
     }
 
-    if (difference.inDays == 1) {
+    if (msgDay == today.subtract(const Duration(days: 1))) {
       return 'เมื่อวาน';
     }
 
-    if (difference.inDays < 7) {
-      return DateFormat('EEEE', 'th').format(timestamp);
+    if (diff.inDays < 7) {
+      return DateFormat('EEE', 'th').format(timestamp);
     }
 
     if (timestamp.year == now.year) {
       return DateFormat('d MMM', 'th').format(timestamp);
     }
 
-    return DateFormat('d/M/yy').format(timestamp);
+    return DateFormat('dd/MM/yy').format(timestamp);
   }
 
   static String getRelativeTime(DateTime timestamp) {

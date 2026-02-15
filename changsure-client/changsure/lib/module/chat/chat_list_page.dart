@@ -395,31 +395,47 @@ class _ChatRoomListItem extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'คุณ ${room.otherPersonName}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'คุณ ${room.otherPersonName}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE6F4FF),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                room.serviceCategory,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF007AFF),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+
                       const SizedBox(width: 8),
-                      Text(
-                        ChatHelper.formatRoomTime(room.lastMsgTime),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isUnread
-                              ? AppColors.primary
-                              : AppColors.primaryBorder,
-                          fontWeight: isUnread
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
                     ],
                   ),
+
                   const SizedBox(height: 4),
 
                   Row(
@@ -428,7 +444,7 @@ class _ChatRoomListItem extends StatelessWidget {
                         child: preview.isEmpty
                             ? const SizedBox.shrink()
                             : Text(
-                                preview,
+                                "$preview  ${ChatHelper.formatRoomTime(room.lastMsgTime)}",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -442,6 +458,7 @@ class _ChatRoomListItem extends StatelessWidget {
                                 ),
                               ),
                       ),
+
                       if (isUnread) ...[
                         const SizedBox(width: 8),
                         _UnreadBadge(count: room.unreadCount),
