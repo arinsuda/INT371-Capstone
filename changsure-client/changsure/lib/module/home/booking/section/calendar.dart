@@ -223,7 +223,7 @@ class _CalendarState extends ConsumerState<Calendar> {
       calendarStyle: const CalendarStyle(
         isTodayHighlighted: false,
         defaultTextStyle: TextStyle(color: AppColors.primaryText),
-        disabledTextStyle: TextStyle(color: AppColors.colorStroke),
+        disabledTextStyle: TextStyle(color: AppColors.secondaryBorder),
       ),
 
       calendarBuilders: CalendarBuilders(
@@ -242,7 +242,7 @@ class _CalendarState extends ConsumerState<Calendar> {
           if (data != null) {
             final status = data.status?.toUpperCase();
             if (status == 'CLOSED') {
-              textColor = AppColors.colorStroke; // ❌ ปิดรับ
+              textColor = AppColors.secondaryBorder; // ❌ ปิดรับ
             } else if (status == 'FULL') {
               textColor = AppColors.colorError; // 🔴 เต็ม
             }
@@ -257,6 +257,11 @@ class _CalendarState extends ConsumerState<Calendar> {
               data?.status != 'CLOSED' &&
               data?.status != 'FULL') {
             textColor = AppColors.primaryText;
+          }
+
+          if(normalized == today ) {
+            textColor = AppColors.primary;
+
           }
           return Center(
             child: Text(

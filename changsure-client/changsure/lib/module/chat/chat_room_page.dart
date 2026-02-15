@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:math';
 import '../../../../data/models/chat/chat_model.dart';
 import '../../../../data/models/chat/chat_helper.dart';
 import '../../../../data/services/chat_service.dart';
