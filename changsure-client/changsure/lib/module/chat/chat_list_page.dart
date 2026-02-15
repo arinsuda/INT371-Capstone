@@ -433,6 +433,19 @@ class _ChatRoomListItem extends StatelessWidget {
                       ),
 
                       const SizedBox(width: 8),
+
+                      Text(
+                        ChatHelper.formatRoomTime(room.lastMsgTime),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isUnread
+                              ? AppColors.primary
+                              : AppColors.primaryBorder,
+                          fontWeight: isUnread
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
                     ],
                   ),
 
@@ -444,7 +457,7 @@ class _ChatRoomListItem extends StatelessWidget {
                         child: preview.isEmpty
                             ? const SizedBox.shrink()
                             : Text(
-                                "$preview  ${ChatHelper.formatRoomTime(room.lastMsgTime)}",
+                                "$preview",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
