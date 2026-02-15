@@ -10,7 +10,6 @@ import (
 	"changsure-core-service/internal/modules/booking"
 	bookingPkg "changsure-core-service/internal/modules/booking"
 	timeslot "changsure-core-service/internal/modules/time_slot"
-	"changsure-core-service/pkg/storage"
 )
 
 var (
@@ -74,7 +73,7 @@ func (s *service) GetMonthlyCalendar(ctx context.Context, q CalendarQuery) (*Cal
 		return nil, fmt.Errorf("failed to fetch calendar data: %w", err)
 	}
 
-	days := s.generateCalendarDays(dateRange, data)
+	days := s.generateCalendarDays(ctx, dateRange, data)
 
 	s.logger.Info("calendar generated successfully",
 		slog.Uint64("technician_id", uint64(q.TechnicianID)),
@@ -121,114 +120,7 @@ func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery
 		filteredBookings = bookings
 	}
 
-	details := make([]BookingDetail, len(filteredBookings))
-	for i, b := range filteredBookings {
-
-		customerName := fmt.Sprintf("%s %s", b.Customer.FirstName, b.Customer.LastName)
-
-		serviceName := ""
-		if b.TechnicianService.Service.ID > 0 {
-			serviceName = b.TechnicianService.Service.SerName
-		}
-
-		// ---------- service images ----------
-		var serviceImages []string
-
-		for _, key := range b.TechnicianService.Service.ImageURLs {
-			if key == "" {
-				continue
-			}
-
-			url, err := storage.GlobalMinio.PresignGet(
-				ctx,
-				key,
-				time.Hour*6,
-				false,
-			)
-			if err != nil {
-				s.logger.Warn("presign service image failed",
-					slog.String("key", key),
-					slog.String("error", err.Error()),
-				)
-				continue
-			}
-
-			serviceImages = append(serviceImages, url)
-		}
-
-		var avatarURL string
-		if b.Customer.AvatarURL != nil && *b.Customer.AvatarURL != "" {
-			url, err := storage.GlobalMinio.PresignGet(
-				ctx,
-				*b.Customer.AvatarURL,
-				time.Hour*6,
-				false,
-			)
-			if err != nil {
-				s.logger.Warn("presign avatar failed",
-					slog.String("key", *b.Customer.AvatarURL),
-					slog.String("error", err.Error()),
-				)
-			} else {
-				avatarURL = url
-			}
-		}
-
-		imageURLs := make([]string, len(b.Images))
-
-		for j, img := range b.Images {
-
-			key := img.ImageURL
-			if key == "" {
-				continue
-			}
-
-			url, err := storage.GlobalMinio.PresignGet(
-				ctx,
-				key,
-				time.Hour*6,
-				false,
-			)
-
-			if err != nil {
-				s.logger.Warn("presign image failed",
-					slog.String("key", key),
-					slog.String("error", err.Error()),
-				)
-				continue
-			}
-
-			imageURLs[j] = url
-		}
-
-		details[i] = BookingDetail{
-			ID:              b.ID,
-			BookingNumber:   b.BookingNumber,
-			TimeSlotID:      b.TimeSlotID,
-			ServiceName:     serviceName,
-			ServiceImages:   serviceImages,
-			PricingType:     b.PricingType,
-			QuotedPrice:     b.QuotedPriceFixed,
-			QuotedPriceMin:  b.QuotedPriceMin,
-			QuotedPriceMax:  b.QuotedPriceMax,
-			FinalPrice:      b.FinalPrice,
-			AppointmentDate: booking.FormatDate(b.AppointmentDate),
-			Status:          b.Status,
-			CustomerID:      b.CustomerID,
-			CustomerName:    customerName,
-			CustomerPhone:   safeString(b.Customer.Phone),
-			CustomerAvatar:  avatarURL,
-			Images:          imageURLs,
-		}
-	}
-
-	s.logger.Info("calendar day bookings retrieved",
-		slog.Uint64("technician_id", uint64(q.TechnicianID)),
-		slog.String("date", dateStr),
-		slog.Int("booking_count", len(details)),
-	)
-
-	return details, nil
+	return s.convertBookingsToDetails(ctx, filteredBookings), nil
 }
 
 func (s *service) UpdateCalendarDate(ctx context.Context, technicianID uint, req UpdateCalendarDateRequest) (*UpdateCalendarDateResponse, error) {
@@ -286,7 +178,7 @@ func (s *service) UpdateTimeSlotsForDate(ctx context.Context, technicianID uint,
 		return nil, err
 	}
 
-	timeSlotDetails, err := s.fetchTimeSlotDetails(ctx, req.TimeSlotIDs)
+	timeSlotDetails, err := s.buildFullSlotResponse(ctx, req.TimeSlotIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch slot details: %w", err)
 	}
@@ -371,9 +263,8 @@ func (s *service) fetchCalendarData(ctx context.Context, technicianID uint, dr D
 	}, nil
 }
 
-func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []CalendarDayStatus {
+func (s *service) generateCalendarDays(ctx context.Context, dr DateRange, data *CalendarData) []CalendarDayStatus {
 	days := make([]CalendarDayStatus, 0, 31)
-	slotMap := BuildTimeSlotMap(data.AllTimeSlots)
 
 	for currentDate := dr.Start; !currentDate.After(dr.End); currentDate = currentDate.AddDate(0, 0, 1) {
 		dateStr := booking.FormatDate(currentDate)
@@ -383,21 +274,33 @@ func (s *service) generateCalendarDays(dr DateRange, data *CalendarData) []Calen
 			continue
 		}
 
-		slotIDs := s.resolveSlotIDsWithFallback(dateStr, data)
+		selected := buildSelectedMap(dateStr, data)
 
 		bookedSlots := data.Bookings[dateStr]
 		if bookedSlots == nil {
 			bookedSlots = make(map[uint]bool)
 		}
 
-		slotDetails := BuildSlotDetails(slotIDs, slotMap, bookedSlots)
+		slotDetails := make([]CalendarTimeSlot, 0, len(data.AllTimeSlots))
+
+		for _, slot := range data.AllTimeSlots {
+			slotDetails = append(slotDetails, CalendarTimeSlot{
+				ID:        slot.ID,
+				StartTime: slot.StartTime,
+				EndTime:   slot.EndTime,
+				IsActive:  selected[slot.ID],
+				CreatedAt: slot.CreatedAt,
+				UpdatedAt: slot.UpdatedAt,
+				IsBooked:  bookedSlots[slot.ID],
+			})
+		}
 
 		totalSlots := len(slotDetails)
 		bookedCount := CountBookedSlots(slotDetails)
 		availableSlots := totalSlots - bookedCount
 		status := CalculateDayStatus(totalSlots, bookedCount)
 
-		bookingDetails := s.convertBookingsToDetails(data.AllBookings[dateStr])
+		bookingDetails := s.convertBookingsToDetails(ctx, data.AllBookings[dateStr])
 
 		days = append(days, CalendarDayStatus{
 			Date:           dateStr,
@@ -430,26 +333,50 @@ func (s *service) resolveSlotIDsWithFallback(dateStr string, data *CalendarData)
 	return systemSlotIDs
 }
 
-func (s *service) fetchBookingsForRange(ctx context.Context, technicianID uint, dr DateRange) ([]bookingPkg.Booking, error) {
-	const maxBookings = 10000
+func (s *service) fetchBookingsForRange(
+	ctx context.Context,
+	technicianID uint,
+	dr DateRange,
+) ([]bookingPkg.Booking, error) {
+
+	const limit = 500
+
 	startStr := booking.FormatDate(dr.Start)
 	endStr := booking.FormatDate(dr.End)
 
-	bookings, _, err := s.bookingRepo.ListByTechnician(
-		ctx,
-		technicianID,
-		nil,
-		startStr,
-		endStr,
-		0,
-		maxBookings,
+	var (
+		allBookings []bookingPkg.Booking
+		offset      = 0
 	)
 
-	if err != nil {
-		return nil, fmt.Errorf("repository error: %w", err)
+	for {
+		list, total, err := s.bookingRepo.ListByTechnician(
+			ctx,
+			technicianID,
+			nil,
+			startStr,
+			endStr,
+			offset,
+			limit,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("repository error: %w", err)
+		}
+
+		if len(list) == 0 {
+			break
+		}
+
+		allBookings = append(allBookings, list...)
+
+		offset += limit
+
+		if offset >= int(total) {
+			break
+		}
 	}
 
-	return bookings, nil
+	return allBookings, nil
 }
 
 func (s *service) convertToBookingInfos(bookings []bookingPkg.Booking) []BookingInfo {
@@ -473,35 +400,64 @@ func (s *service) validateTimeSlotIDs(ctx context.Context, slotIDs []uint) error
 	return ValidateSlotIDs(slotIDs, validSlots)
 }
 
-func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]CalendarTimeSlot, error) {
-	if len(slotIDs) == 0 {
-		return []CalendarTimeSlot{}, nil
-	}
+// func (s *service) fetchTimeSlotDetails(ctx context.Context, slotIDs []uint) ([]CalendarTimeSlot, error) {
+// 	if len(slotIDs) == 0 {
+// 		return []CalendarTimeSlot{}, nil
+// 	}
+
+// 	allSlots, err := s.timeSlotRepo.FindActive(ctx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	slotMap := BuildTimeSlotMap(allSlots)
+// 	details := make([]CalendarTimeSlot, 0, len(slotIDs))
+
+// 	for _, slotID := range slotIDs {
+// 		slot, ok := slotMap[slotID]
+// 		if !ok {
+// 			continue
+// 		}
+
+// 		details = append(details, CalendarTimeSlot{
+// 			ID:        slot.ID,
+// 			StartTime: slot.StartTime,
+// 			EndTime:   slot.EndTime,
+// 			IsActive:  slot.IsActive,
+// 			CreatedAt: slot.CreatedAt,
+// 			UpdatedAt: slot.UpdatedAt,
+// 			IsBooked:  false,
+// 		})
+// 	}
+
+// 	return details, nil
+// }
+
+func (s *service) buildFullSlotResponse(ctx context.Context, activeIDs []uint) ([]CalendarTimeSlot, error) {
 
 	allSlots, err := s.timeSlotRepo.FindActive(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	slotMap := BuildTimeSlotMap(allSlots)
-	details := make([]CalendarTimeSlot, 0, len(slotIDs))
+	activeMap := make(map[uint]bool)
+	for _, id := range activeIDs {
+		activeMap[id] = true
+	}
 
-	for _, slotID := range slotIDs {
-		slot, ok := slotMap[slotID]
-		if !ok {
-			continue
-		}
+	result := make([]CalendarTimeSlot, 0, len(allSlots))
 
-		details = append(details, CalendarTimeSlot{
+	for _, slot := range allSlots {
+		result = append(result, CalendarTimeSlot{
 			ID:        slot.ID,
 			StartTime: slot.StartTime,
 			EndTime:   slot.EndTime,
-			IsActive:  slot.IsActive,
+			IsActive:  activeMap[slot.ID],
 			CreatedAt: slot.CreatedAt,
 			UpdatedAt: slot.UpdatedAt,
 			IsBooked:  false,
 		})
 	}
 
-	return details, nil
+	return result, nil
 }
