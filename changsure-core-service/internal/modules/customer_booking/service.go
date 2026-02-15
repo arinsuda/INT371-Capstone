@@ -271,7 +271,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				s.logger.Error("technician does not have this service",
 					slog.Uint64("technician_id", uint64(req.TechnicianID)),
-					slog.Uint64("service_id", uint64(req.ServiceID)),
+					slog.Uint64("technician_service_id", uint64(req.ServiceID)),
 				)
 				return ErrTechnicianDoesNotHaveService
 			}
