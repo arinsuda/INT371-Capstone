@@ -2,6 +2,8 @@
 // 1. Core Booking Models
 // ==========================================
 
+import 'package:changsure/core/profile/utils/time_parser.dart';
+
 class Booking {
   final int id;
   final String bookingNumber;
@@ -64,9 +66,7 @@ class Booking {
       technicianServiceId: json['technician_service_id'] ?? 0,
       addressId: json['address_id'] ?? 0,
       timeSlotId: json['time_slot_id'] ?? 0,
-      appointmentDate: json['appointment_date'] != null
-          ? DateTime.parse(json['appointment_date'])
-          : DateTime.now(),
+      appointmentDate: TimeParser.parse(json['appointment_date']),
       recordedAddress: json['recorded_address'] ?? '',
       pricingType: json['pricing_type'] ?? '',
       quotedPriceFixed: json['quoted_price_fixed']?.toDouble(),
@@ -78,12 +78,8 @@ class Booking {
           ? double.tryParse(json['final_price'].toString())
           : null,
       status: json['status'] ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : null,
+      createdAt: TimeParser.parseNullable(json['created_at']),
+      updatedAt: TimeParser.parseNullable(json['updated_at']),
       timeSlot: json['time_slot'] != null
           ? TimeSlotForBooking.fromJson(json['time_slot'])
           : null,
@@ -219,9 +215,7 @@ class BookingImage {
       id: json['id'] ?? 0,
       bookingId: json['booking_id'],
       imageUrl: json['image_url'] ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : null,
+      createdAt: TimeParser.parseNullable(json['created_at']),
     );
   }
 }
@@ -240,7 +234,6 @@ class TimeSlotForBooking {
     required this.startTime,
     required this.endTime,
     required this.isActive,
-
   });
 
   factory TimeSlotForBooking.fromJson(Map<String, dynamic> json) {
@@ -461,8 +454,8 @@ class PublicCalendarResponse {
       month: data?['month'] ?? "",
       days: data?['days'] != null
           ? (data['days'] as List)
-          .map((e) => PublicCalendarDay.fromJson(e))
-          .toList()
+                .map((e) => PublicCalendarDay.fromJson(e))
+                .toList()
           : [],
     );
   }
@@ -489,7 +482,7 @@ class PublicCalendarDay {
 
   factory PublicCalendarDay.fromJson(Map<String, dynamic> json) {
     return PublicCalendarDay(
-      date: DateTime.parse(json['date']),
+      date: TimeParser.parse(json['date']),
       status: json['status'] ?? '',
       totalSlots: json['total_slots'] ?? 0,
       bookedSlots: json['booked_slots'] ?? 0,
@@ -503,7 +496,6 @@ class PublicCalendarDay {
     );
   }
 }
-
 
 class TimeSlot {
   final int id;
@@ -530,7 +522,6 @@ class TimeSlot {
     );
   }
 }
-
 
 class BookingDetail {
   final int id;
@@ -574,7 +565,7 @@ class BookingDetail {
       pricingType: json['pricing_type'] ?? '',
       quotedPriceMin: (json['quoted_price_min'] as num?)?.toDouble(),
       quotedPriceMax: (json['quoted_price_max'] as num?)?.toDouble(),
-      appointmentDate: DateTime.parse(json['appointment_date']),
+      appointmentDate: TimeParser.parse(json['appointment_date']),
       status: json['status'] ?? '',
       customerId: json['customer_id'] ?? 0,
       customerName: json['customer_name'] ?? '',

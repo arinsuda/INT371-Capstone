@@ -22,6 +22,8 @@ class NotificationModel {
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    final raw = DateTime.parse(json['created_at']);
+
     return NotificationModel(
       id: json['id'],
       type: json['type'],
@@ -33,7 +35,7 @@ class NotificationModel {
           ? Map<String, dynamic>.from(json['data'])
           : null,
       isRead: json['is_read'] ?? false,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: raw.isUtc ? raw.toLocal() : raw,
     );
   }
 }
