@@ -1,13 +1,13 @@
 package customerbooking
 
 type CreateBookingRequest struct {
-	CustomerID          uint   `json:"-" form:"-"`
-	TechnicianID        uint   `json:"technician_id" validate:"required" form:"technician_id"`
-	TechnicianServiceID uint   `json:"technician_service_id" validate:"required" form:"technician_service_id"`
-	AddressID           uint   `json:"address_id" validate:"required" form:"address_id"`
-	TimeSlotID          uint   `json:"time_slot_id" validate:"required" form:"time_slot_id"`
-	AppointmentDate     string `json:"appointment_date" validate:"required" form:"appointment_date"`
-	CustomerNote        string `json:"customer_note" form:"customer_note"`
+	CustomerID      uint   `json:"-" form:"-"`
+	TechnicianID    uint   `json:"technician_id" validate:"required" form:"technician_id"`
+	ServiceID       uint   `json:"service_id" validate:"required" form:"service_id"`
+	AddressID       uint   `json:"address_id" validate:"required" form:"address_id"`
+	TimeSlotID      uint   `json:"time_slot_id" validate:"required" form:"time_slot_id"`
+	AppointmentDate string `json:"appointment_date" validate:"required" form:"appointment_date"`
+	CustomerNote    string `json:"customer_note" form:"customer_note"`
 
 	ImageURLs []string `json:"image_urls" form:"-"`
 }

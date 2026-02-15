@@ -13,7 +13,6 @@ import (
 
 type Repository interface {
 	WithTx(tx *gorm.DB) Repository
-
 	Create(ctx context.Context, booking *Booking) error
 	CreateImages(ctx context.Context, images []BookingImage) error
 	FindByID(ctx context.Context, id uint) (*Booking, error)
@@ -25,15 +24,19 @@ type Repository interface {
 		role string,
 		readAt time.Time,
 	) error
-
 	GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error)
 	IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error)
 
-	GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error)
+	// NEW: Get technician's service configuration by technician_id + service_id
+	GetTechnicianServiceByTechnicianAndService(
+		ctx context.Context,
+		technicianID uint,
+		serviceID uint,
+	) (*techService.TechnicianService, error)
+
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
 	MarkAsPaid(ctx context.Context, bookingID uint) error
-
 	ListByCustomer(
 		ctx context.Context,
 		customerID uint,
@@ -43,7 +46,6 @@ type Repository interface {
 		offset int,
 		limit int,
 	) ([]Booking, int64, error)
-
 	ListByTechnician(
 		ctx context.Context,
 		technicianID uint,
@@ -126,9 +128,7 @@ func (r *repository) GetBookedSlotIDs(ctx context.Context, technicianID uint, da
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
 		Where("technician_id = ? AND appointment_date = ? AND status NOT IN ?",
-			technicianID,
-			date,
-			ExcludedFromAvailability,
+			technicianID, date, ExcludedFromAvailability,
 		).
 		Pluck("time_slot_id", &slotIDs).Error
 	return slotIDs, err
@@ -139,21 +139,32 @@ func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date s
 	err := r.db.WithContext(ctx).
 		Model(&Booking{}).
 		Where("technician_id = ? AND appointment_date = ? AND time_slot_id = ? AND status NOT IN ?",
-			technicianID,
-			date,
-			slotID,
-			ExcludedFromAvailability,
+			technicianID, date, slotID, ExcludedFromAvailability,
 		).
 		Count(&count).Error
 	return count > 0, err
 }
 
-func (r *repository) GetTechnicianService(ctx context.Context, serviceID uint) (*techService.TechnicianService, error) {
-	var svc techService.TechnicianService
-	if err := r.db.WithContext(ctx).First(&svc, serviceID).Error; err != nil {
+// NEW: Get technician's service configuration by technician_id and service_id
+// This validates that the technician actually offers this service
+func (r *repository) GetTechnicianServiceByTechnicianAndService(
+	ctx context.Context,
+	technicianID uint,
+	serviceID uint,
+) (*techService.TechnicianService, error) {
+	var techSvc techService.TechnicianService
+	err := r.db.WithContext(ctx).
+		Preload("Service").
+		Preload("Service.Category").
+		Where("technician_id = ? AND service_id = ? AND is_active = ?",
+			technicianID, serviceID, true).
+		First(&techSvc).Error
+
+	if err != nil {
 		return nil, err
 	}
-	return &svc, nil
+
+	return &techSvc, nil
 }
 
 func (r *repository) GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error) {
@@ -173,9 +184,8 @@ func (r *repository) IsTechnicianServingProvince(ctx context.Context, technician
 	var count int64
 	err := r.db.WithContext(ctx).
 		Table("technician_service_areas").
-		Where("technician_id = ? AND province_id = ?", technicianID, provinceID).
+		Where("technician_id = ? AND province_id = ? AND is_active = ?", technicianID, provinceID, true).
 		Count(&count).Error
-
 	if err != nil {
 		return false, err
 	}
@@ -191,14 +201,12 @@ func (r *repository) ListByCustomer(
 	offset int,
 	limit int,
 ) ([]Booking, int64, error) {
-
 	q := r.db.WithContext(ctx).Model(&Booking{}).
 		Where("customer_id = ?", customerID)
 
 	if len(statuses) > 0 {
 		q = q.Where("status IN ?", statuses)
 	}
-
 	if startDate != "" && endDate != "" {
 		q = q.Where("appointment_date BETWEEN ? AND ?", startDate, endDate)
 	} else if startDate != "" {
@@ -223,7 +231,6 @@ func (r *repository) ListByCustomer(
 		Offset(offset).
 		Limit(limit).
 		Find(&bookings).Error
-
 	if err != nil {
 		return nil, 0, err
 	}
@@ -240,14 +247,12 @@ func (r *repository) ListByTechnician(
 	offset int,
 	limit int,
 ) ([]Booking, int64, error) {
-
 	q := r.db.WithContext(ctx).Model(&Booking{}).
 		Where("technician_id = ?", technicianID)
 
 	if len(statuses) > 0 {
 		q = q.Where("status IN ?", statuses)
 	}
-
 	if startDate != "" && endDate != "" {
 		q = q.Where("appointment_date BETWEEN ? AND ?", startDate, endDate)
 	} else if startDate != "" {
@@ -281,7 +286,6 @@ func (r *repository) ListByTechnician(
 		Offset(offset).
 		Limit(limit).
 		Find(&bookings).Error
-
 	if err != nil {
 		return nil, 0, err
 	}
@@ -305,7 +309,6 @@ func (r *repository) UpdateLastRead(
 	role string,
 	readAt time.Time,
 ) error {
-
 	column := "last_read_by_customer"
 	if role == "technician" {
 		column = "last_read_by_technician"

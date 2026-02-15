@@ -18,17 +18,17 @@ import (
 )
 
 var (
-	ErrSlotBooked            = errors.New("ช่วงเวลานี้ถูกจองเต็มแล้ว")
-	ErrServiceNotFound       = errors.New("ไม่พบบริการที่เลือก")
-	ErrAddressNotFound       = errors.New("ที่อยู่ไม่ถูกต้องหรือไม่มีสิทธิ์ใช้งาน")
-	ErrInvalidDateFormat     = errors.New("รูปแบบวันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)")
-	ErrTechnicianClosed      = errors.New("ช่างปิดรับงานในวันที่เลือก")
-	ErrInvalidTimeSlot       = errors.New("ช่วงเวลาไม่ถูกต้องหรือมีการเปลี่ยนแปลง กรุณาเลือกใหม่")
-	ErrServiceAreaNotCovered = errors.New("ช่างไม่ให้บริการในพื้นที่นี้")
-
-	ErrBookingNotFound             = errors.New("ไม่พบข้อมูลการจอง")
-	ErrForbiddenBooking            = errors.New("คุณไม่มีสิทธิ์เข้าถึงรายการนี้")
-	ErrBookingIsStartedOrCompleted = errors.New("ไม่สามารถยกเลิกรายการที่กำลังดำเนินการหรือเสร็จสิ้นแล้ว")
+	ErrSlotBooked                   = errors.New("ช่วงเวลานี้ถูกจองเต็มแล้ว")
+	ErrServiceNotFound              = errors.New("ไม่พบบริการที่เลือก")
+	ErrTechnicianDoesNotHaveService = errors.New("ช่างไม่มีบริการนี้ในรายการ")
+	ErrAddressNotFound              = errors.New("ที่อยู่ไม่ถูกต้องหรือไม่มีสิทธิ์ใช้งาน")
+	ErrInvalidDateFormat            = errors.New("รูปแบบวันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)")
+	ErrTechnicianClosed             = errors.New("ช่างปิดรับงานในวันที่เลือก")
+	ErrInvalidTimeSlot              = errors.New("ช่วงเวลาไม่ถูกต้องหรือมีการเปลี่ยนแปลง กรุณาเลือกใหม่")
+	ErrServiceAreaNotCovered        = errors.New("ช่างไม่ให้บริการในพื้นที่นี้")
+	ErrBookingNotFound              = errors.New("ไม่พบข้อมูลการจอง")
+	ErrForbiddenBooking             = errors.New("คุณไม่มีสิทธิ์เข้าถึงรายการนี้")
+	ErrBookingIsStartedOrCompleted  = errors.New("ไม่สามารถยกเลิกรายการที่กำลังดำเนินการหรือเสร็จสิ้นแล้ว")
 )
 
 type Service interface {
@@ -70,7 +70,6 @@ func NewService(
 }
 
 func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, dateStr string) ([]TimeSlotAvailability, error) {
-
 	parsedDate, err := booking.ParseDate(dateStr)
 	if err != nil {
 		return nil, ErrInvalidDateFormat
@@ -167,7 +166,6 @@ func (s *service) GetAvailableTimeSlots(ctx context.Context, technicianID uint, 
 }
 
 func (s *service) CreateBooking(ctx context.Context, customerID uint, req CreateBookingRequest) (*booking.Booking, error) {
-
 	appointDate, err := booking.ParseDate(req.AppointmentDate)
 	if err != nil {
 		return nil, ErrInvalidDateFormat
@@ -236,6 +234,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			break
 		}
 	}
+
 	if !isAllowed {
 		s.logger.Warn("invalid time slot",
 			slog.Uint64("slot_id", uint64(req.TimeSlotID)),
@@ -245,7 +244,6 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 	}
 
 	var newBooking *booking.Booking
-
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
 
@@ -254,6 +252,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			s.logger.Error("failed to check slot booking", slog.String("error", err.Error()))
 			return err
 		}
+
 		if isBooked {
 			s.logger.Warn("slot already booked",
 				slog.Uint64("technician_id", uint64(req.TechnicianID)),
@@ -263,9 +262,20 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			return ErrSlotBooked
 		}
 
-		techSvc, err := txRepo.GetTechnicianService(ctx, req.TechnicianServiceID)
+		techSvc, err := txRepo.GetTechnicianServiceByTechnicianAndService(
+			ctx,
+			req.TechnicianID,
+			req.ServiceID,
+		)
 		if err != nil {
-			s.logger.Error("service not found", slog.String("error", err.Error()))
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.logger.Error("technician does not have this service",
+					slog.Uint64("technician_id", uint64(req.TechnicianID)),
+					slog.Uint64("service_id", uint64(req.ServiceID)),
+				)
+				return ErrTechnicianDoesNotHaveService
+			}
+			s.logger.Error("failed to get technician service", slog.String("error", err.Error()))
 			return ErrServiceNotFound
 		}
 
@@ -281,6 +291,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 				s.logger.Error("failed to check service area", slog.String("error", err.Error()))
 				return err
 			}
+
 			if !isServing {
 				s.logger.Warn("service area not covered",
 					slog.Uint64("technician_id", uint64(req.TechnicianID)),
@@ -297,7 +308,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			BookingNumber:       bookingNumber,
 			CustomerID:          customerID,
 			TechnicianID:        req.TechnicianID,
-			TechnicianServiceID: req.TechnicianServiceID,
+			TechnicianServiceID: techSvc.ID,
 			AddressID:           req.AddressID,
 			TimeSlotID:          req.TimeSlotID,
 			AppointmentDate:     appointDate,
@@ -332,6 +343,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 					ImageURL:  url,
 				})
 			}
+
 			if err := txRepo.CreateImages(ctx, images); err != nil {
 				s.logger.Error("failed to create images", slog.String("error", err.Error()))
 				return err
@@ -356,7 +368,7 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 	)
 
 	if s.notif != nil && created.TechnicianID != 0 {
-		s.sendBookingNotification(ctx, created, "BOOKING_CREATED", "มีงานใหม่", "มีลูกค้าจองบริการเข้ามา")
+		s.sendBookingNotification(ctx, created, "BOOKING_CREATED", "🔔คุณมีงานใหม่จากลูกค้า!", `"กรุณาตรวจสอบรายละเอียดงาน และกดรับงาน เพื่อยืนยันการให้บริการ คุณสามารถ รับงาน / ยกเลิกงาน และดูรายละเอียด วัน เวลา และสถานที่ให้บริการ ได้ที่หน้า “ติดตามสถานะงาน”`)
 	}
 
 	return created, nil
@@ -379,7 +391,6 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 	)
 
 	var updated *booking.Booking
-
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
 
@@ -413,6 +424,7 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 
 		updated = b
 		updated.Status = booking.BookingStatusCancelled
+
 		return nil
 	})
 
@@ -437,6 +449,7 @@ func (s *service) CancelBooking(ctx context.Context, customerID, bookingID uint,
 func (s *service) ListBookings(ctx context.Context, customerID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error) {
 	page := q.Page
 	limit := q.Limit
+
 	if page <= 0 {
 		page = 1
 	}
@@ -464,6 +477,7 @@ func (s *service) sendBookingNotification(ctx context.Context, b *booking.Bookin
 		"status":           b.Status,
 		"appointment_date": booking.FormatDate(b.AppointmentDate),
 	}
+
 	_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
 		RecipientRole: notification.RoleTechnician,
 		RecipientID:   b.TechnicianID,
