@@ -333,11 +333,9 @@ class _ChatRoomsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: EdgeInsets.zero,
+    return ListView.builder(
+      padding: EdgeInsets.only(top: 16),
       itemCount: rooms.length,
-      separatorBuilder: (context, index) =>
-          Divider(height: 1, indent: 72, color: Colors.grey[200]),
       itemBuilder: (context, index) {
         final room = rooms[index];
         return _ChatRoomListItem(
@@ -376,7 +374,7 @@ class _ChatRoomListItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
