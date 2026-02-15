@@ -113,13 +113,13 @@ type CalendarResponse struct {
 }
 
 type CalendarDayStatus struct {
-	Date           string           `json:"date"`
-	Status         DayStatus        `json:"status"`
-	TotalSlots     int              `json:"total_slots"`
-	BookedSlots    int              `json:"booked_slots"`
-	AvailableSlots int              `json:"available_slots"`
+	Date           string             `json:"date"`
+	Status         DayStatus          `json:"status"`
+	TotalSlots     int                `json:"total_slots"`
+	BookedSlots    int                `json:"booked_slots"`
+	AvailableSlots int                `json:"available_slots"`
 	TimeSlots      []CalendarTimeSlot `json:"time_slots"`
-	Bookings       []BookingDetail  `json:"bookings"`
+	Bookings       []BookingDetail    `json:"bookings"`
 }
 
 type BookingDetail struct {
@@ -127,6 +127,7 @@ type BookingDetail struct {
 	BookingNumber   string   `json:"booking_number"`
 	TimeSlotID      uint     `json:"time_slot_id"`
 	ServiceName     string   `json:"service_name"`
+	ServiceImages   []string `json:"service_images"`
 	PricingType     string   `json:"pricing_type"`
 	QuotedPrice     *float64 `json:"quoted_price,omitempty"`
 	QuotedPriceMin  *float64 `json:"quoted_price_min,omitempty"`
@@ -147,8 +148,8 @@ type UpdateCalendarDateResponse struct {
 }
 
 type UpdateTimeSlotsResponse struct {
-	Date      string           `json:"date"`
-	IsDefault bool             `json:"is_default"`
+	Date      string             `json:"date"`
+	IsDefault bool               `json:"is_default"`
 	TimeSlots []CalendarTimeSlot `json:"time_slots"`
 }
 
