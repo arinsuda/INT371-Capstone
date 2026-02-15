@@ -27,7 +27,6 @@ type Repository interface {
 	GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error)
 	IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error)
 
-	// NEW: Get technician's service configuration by technician_id + service_id
 	GetTechnicianServiceByTechnicianAndService(
 		ctx context.Context,
 		technicianID uint,
@@ -145,8 +144,6 @@ func (r *repository) IsSlotBooked(ctx context.Context, technicianID uint, date s
 	return count > 0, err
 }
 
-// NEW: Get technician's service configuration by technician_id and service_id
-// This validates that the technician actually offers this service
 func (r *repository) GetTechnicianServiceByTechnicianAndService(
 	ctx context.Context,
 	technicianID uint,
