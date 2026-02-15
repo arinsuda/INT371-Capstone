@@ -418,7 +418,7 @@ class _ChatMessagesList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (messages.isEmpty) {
-      return const _EmptyMessagesView();
+      return const SizedBox.shrink();
     }
 
     final currentUser = ref.watch(userProvider);
@@ -464,30 +464,6 @@ class _ChatMessagesList extends ConsumerWidget {
   }
 }
 
-class _EmptyMessagesView extends StatelessWidget {
-  const _EmptyMessagesView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            'เริ่มการสนทนาได้เลย',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _DateSeparator extends StatelessWidget {
   final DateTime date;
