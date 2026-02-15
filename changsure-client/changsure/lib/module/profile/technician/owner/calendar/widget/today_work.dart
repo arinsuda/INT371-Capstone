@@ -1,20 +1,36 @@
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/profile/technician/owner/calendar/widget/service_card.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../../../../data/models/booking/booking_model.dart';
+import '../../../../../../state/booking_provider.dart';
 import 'manage_today_work_sheet.dart';
 
-class TodayWork extends StatefulWidget {
-  const TodayWork({super.key});
+class TodayWork extends ConsumerWidget {
+  final DateTime selectedDate;
+  final List<TimeSlot> timeSlots;
+  final int bookedSlots;
+  final bool isOpenFromApi;
+
+
+  const TodayWork({
+    super.key,
+    required this.selectedDate,
+    required this.timeSlots,
+    required this.bookedSlots,
+    required this.isOpenFromApi,
+  });
 
   @override
-  State<TodayWork> createState() => _TodayWorkState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
 
-class _TodayWorkState extends State<TodayWork> {
+    final asyncValue = ref.watch(
+      technicianCalendarByDateProvider((date: formattedDate)),
+    );
 
-  @override
-  Widget build(BuildContext context) {
+
     return Container(
       width: double.infinity,
       color: AppColors.primaryBGHover,
@@ -35,14 +51,55 @@ class _TodayWorkState extends State<TodayWork> {
                 ),
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const ManageTodayWorkSheet(),
+                  onTap: () async {
+                    final monthString = DateFormat('yyyy-MM').format(selectedDate);
+                    final formattedDate =
+                    DateFormat('yyyy-MM-dd').format(selectedDate);
+
+                    // 1️⃣ invalidate แบบมี parameter
+                    ref.invalidate(
+                      technicianCalendarProvider((month: monthString)),
                     );
+
+                    try {
+                      // 2️⃣ รอโหลดใหม่
+                      final monthData = await ref.read(
+                        technicianCalendarProvider((month: monthString)).future,
+                      );
+
+                      // 3️⃣ หา day ด้วย DateTime comparison
+                      final dayData = monthData.days.firstWhere(
+                            (e) =>
+                        DateFormat('yyyy-MM-dd').format(e.date) ==
+                            formattedDate,
+                      );
+
+                      // 4️⃣ เปิด modal
+                      final result = await showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => ManageTodayWorkSheet(
+                          timeSlots: dayData.timeSlots,
+                          date: selectedDate,
+                          bookedSlots: dayData.bookedSlots,
+                          isOpenFromApi: dayData.status != "CLOSED",
+                        ),
+                      );
+
+                      if (result == true) {
+                        ref.invalidate(
+                          technicianCalendarByDateProvider((date: formattedDate)),
+                        );
+                        ref.invalidate(
+                          technicianCalendarProvider((month: monthString)),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint("Error opening modal: $e");
+                    }
                   },
+
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -59,10 +116,17 @@ class _TodayWorkState extends State<TodayWork> {
                         width: 1.5,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: const [
-                        Icon(Icons.settings_outlined, color: Colors.white, size: 16),
+                        Icon(
+                          Icons.settings_outlined,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           "จัดการงานวันนี้",
@@ -76,11 +140,55 @@ class _TodayWorkState extends State<TodayWork> {
                     ),
                   ),
                 ),
-
               ],
             ),
-            SizedBox(height: 16,),
-            ServiceCard()
+            SizedBox(height: 16),
+            asyncValue.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+
+              error: (err, stack) => Text(
+                "เกิดข้อผิดพลาด: $err",
+                style: const TextStyle(color: Colors.red),
+              ),
+
+              data: (bookings) {
+                if (bookings.isEmpty) {
+                  return Padding(
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset("assets/image/no_work_calendar.png", width: 300,),
+                        SizedBox(height: 16,),
+                        Text(
+                          "ยังไม่มีงานในขณะนี้",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.primaryBorder,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final sortedBookings = [...bookings]
+                  ..sort((a, b) => a.timeSlotId.compareTo(b.timeSlotId));
+
+                return Column(
+                  children: sortedBookings
+                      .map(
+                        (e) => ServiceCard(
+                      booking: e,
+                      selectedDate: selectedDate,
+                    ),
+                  )
+                      .toList(),
+                );
+
+              },
+            ),
           ],
         ),
       ),

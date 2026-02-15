@@ -1,55 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../../../core/theme.dart';
+import '../../../../../../data/models/booking/booking_model.dart';
 
-class ServiceCard extends StatefulWidget {
-  const ServiceCard({super.key});
+class ServiceCard extends StatelessWidget {
+  final TechnicianBooking booking;
+  final DateTime selectedDate;
 
-  @override
-  State<ServiceCard> createState() => _ServiceCardState();
-}
+  const ServiceCard({
+    super.key,
+    required this.booking,
+    required this.selectedDate,
+  });
 
-class _ServiceCardState extends State<ServiceCard> {
+  String getTimeSlotDisplay(int timeSlotId) {
+    switch (timeSlotId) {
+      case 1:
+        return "09.00 - 12.00";
+      case 2:
+        return "13.00 - 16.00";
+      case 3:
+        return "17.00 - 20.00";
+      default:
+        return "-";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final formattedDate =
+    DateFormat('d MMMM yyyy', 'th_TH').format(selectedDate);
+
+    final timeText =
+    getTimeSlotDisplay(booking.timeSlotId);
+
+    final priceFormat = NumberFormat("#,###", "th_TH");
+
+    final minPrice = booking.quotedPriceMin ?? 0;
+    final maxPrice = booking.quotedPriceMax;
+
+    String priceText;
+
+    if (maxPrice != null && maxPrice > minPrice) {
+      priceText =
+      "฿${priceFormat.format(minPrice)} - ${priceFormat.format(maxPrice)}";
+    } else {
+      priceText = "฿${priceFormat.format(minPrice)}";
+    }
+
+    final imageUrl = (booking.serviceImages?.isNotEmpty ?? false)
+        ? booking.serviceImages!.first
+        : null;
+
+    print(booking.serviceImages);
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           Row(
             children: [
+              /// ❗ รูปภาพคงเดิมตามที่คุณบอก
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  "https://picsum.photos/100",
+                child: imageUrl != null
+                    ? Image.network(
+                  imageUrl,
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,
+                )
+                    : Container(
+                  width: 60,
+                  height: 60,
+                  color: AppColors.primaryBorder,
+                  child: const Icon(Icons.image_not_supported),
                 ),
               ),
+
+
               const SizedBox(width: 12),
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      "บริการทำความสะอาดภายใน เกรดอัลตร้าพรีเมียม",
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      booking.serviceName ?? "-",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      "฿400",
-                      style: TextStyle(
+                      priceText,
+                      style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+
                   ],
                 ),
               ),
@@ -59,33 +118,35 @@ class _ServiceCardState extends State<ServiceCard> {
           const SizedBox(height: 12),
 
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             decoration: BoxDecoration(
               color: const Color(0xFFEFF7FF),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SvgPicture.asset(
                   "assets/icons/calendar.svg",
                   width: 18,
                   height: 18,
                 ),
-                SizedBox(width: 8),
-                Text(
-                  "7 ธันวาคม 2025, 9:00 - 12:00",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                    color: AppColors.primaryText,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "$formattedDate, $timeText",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: AppColors.primaryText,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 12),
         ],
       ),
     );

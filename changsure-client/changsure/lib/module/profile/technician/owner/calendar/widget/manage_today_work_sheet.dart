@@ -1,24 +1,70 @@
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../../../core/theme.dart';
+import '../../../../../../data/models/booking/booking_model.dart';
+import '../../../../../../state/booking_provider.dart';
 
-class ManageTodayWorkSheet extends StatefulWidget {
-  const ManageTodayWorkSheet({super.key});
+class ManageTodayWorkSheet extends ConsumerStatefulWidget {
+  final List<TimeSlot> timeSlots;
+  final DateTime date;
+  final int bookedSlots;
+  final bool isOpenFromApi;
+
+  const ManageTodayWorkSheet({
+    super.key,
+    required this.timeSlots,
+    required this.date,
+    required this.bookedSlots,
+    required this.isOpenFromApi,
+  });
 
   @override
-  State<ManageTodayWorkSheet> createState() => _ManageTodayWorkSheetState();
+  ConsumerState<ManageTodayWorkSheet> createState() =>
+      _ManageTodayWorkSheetState();
 }
 
-class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
-  Set<String> selectedTimes = {"9:00 - 12:00", "13:00 - 16:00"};
-
-  bool isOpen = true;
+class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
+  Set<int> selectedSlotIds = {};
+  late bool isOpen;
   bool isDefaultTime = false;
+  late bool initialIsOpen;
+  late Set<int> initialSelectedSlotIds;
+
+  @override
+  void initState() {
+    super.initState();
+
+    isOpen = widget.isOpenFromApi;
+    initialIsOpen = widget.isOpenFromApi;
+
+    for (final slot in widget.timeSlots) {
+      if (slot.isActive) {
+        selectedSlotIds.add(slot.id);
+      }
+    }
+
+    initialSelectedSlotIds = Set.from(selectedSlotIds);
+  }
+
+  bool get hasChanged {
+    final slotChanged = !setEquals(selectedSlotIds, initialSelectedSlotIds);
+
+    final openChanged = isOpen != initialIsOpen;
+
+    final defaultChanged = isDefaultTime;
+
+    return slotChanged || openChanged || defaultChanged;
+  }
 
   @override
   Widget build(BuildContext context) {
+    print(DateFormat('yyyy-MM-dd').format(widget.date));
+    final bool isBooked;
+    final bool cannotClose = widget.bookedSlots > 0 && isOpen;
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
       maxChildSize: 0.6,
@@ -52,37 +98,41 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
 
                 const SizedBox(height: 24),
 
-                const Text(
-                  "เวลาที่สะดวกรับงาน",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                if (isOpen) ...[
+                  const Text(
+                    "เวลาที่สะดวกรับงาน",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
 
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final time in [
-                      "9:00 - 12:00",
-                      "13:00 - 16:00",
-                      "17:00 - 20:00",
-                    ])
-                      _TimeChip(
-                        text: time,
-                        selected: selectedTimes.contains(time),
-                        onTap: () {
-                          setState(() {
-                            if (selectedTimes.contains(time)) {
-                              selectedTimes.remove(time);
-                            } else {
-                              selectedTimes.add(time);
-                            }
-                          });
-                        },
-                      ),
-                  ],
-                ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final slot in widget.timeSlots)
+                        _TimeChip(
+                          text: "${slot.startTime} - ${slot.endTime}",
+                          selected: selectedSlotIds.contains(slot.id),
+                          isDisabled: slot.isBooked, // 👈 เพิ่มตรงนี้
+                          onTap: () {
+                            if (slot.isBooked) return; // 🔒 กันอีกชั้น
+
+                            setState(() {
+                              if (selectedSlotIds.contains(slot.id)) {
+                                selectedSlotIds.remove(slot.id);
+                              } else {
+                                selectedSlotIds.add(slot.id);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+
+
+                  const SizedBox(height: 16),
+                ],
 
                 const SizedBox(height: 16),
 
@@ -98,20 +148,42 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
                     ),
                     Switch(
                       value: isOpen,
-                      onChanged: (value) {
-                        setState(() => isOpen = value);
-                      },
+                      onChanged: cannotClose
+                          ? null
+                          : (value) async {
+                              final dateString = DateFormat(
+                                'yyyy-MM-dd',
+                              ).format(widget.date);
+
+                              print("data $dateString");
+
+                              try {
+                                await ref.read(
+                                  updateTechnicianCalendarProvider((
+                                    date: dateString,
+                                    isOpen: value,
+                                  )).future,
+                                );
+
+                                setState(() => isOpen = value);
+                              } catch (e) {
+                                debugPrint("Update failed: $e");
+                              }
+                            },
                       thumbColor: MaterialStateProperty.resolveWith((states) {
-                        if (states.contains(MaterialState.selected)) {
-                          return Colors.white; // ตอนเปิด
+                        if (states.contains(MaterialState.disabled)) {
+                          return Colors.white;
                         }
-                        return Colors.white; // ตอนปิด
+                        return Colors.white;
                       }),
                       trackColor: MaterialStateProperty.resolveWith((states) {
+                        if (states.contains(MaterialState.disabled)) {
+                          return AppColors.colorStroke.withOpacity(0.5);
+                        }
                         if (states.contains(MaterialState.selected)) {
                           return AppColors.primary;
                         }
-                        return AppColors.colorStroke; // พื้นในตอนปิด
+                        return AppColors.colorStroke;
                       }),
                       trackOutlineColor: MaterialStateProperty.resolveWith((
                         states,
@@ -119,7 +191,7 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
                         if (states.contains(MaterialState.selected)) {
                           return Colors.white;
                         }
-                        return Colors.white; // ขอบตอนปิด
+                        return Colors.white;
                       }),
                     ),
                   ],
@@ -183,6 +255,12 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
                         color: AppColors.primaryBorder, // สีกรอบ
                         width: 1.5,
                       ),
+                      fillColor: MaterialStateProperty.resolveWith((states) {
+                        if (states.contains(MaterialState.selected)) {
+                          return AppColors.primary;
+                        }
+                        return Colors.white;
+                      }),
                     ),
                   ],
                 ),
@@ -201,7 +279,33 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: PrimaryButton(
-                        onPressed: () {},
+                        onPressed: hasChanged
+                            ? () async {
+                                final formattedDate = DateFormat(
+                                  'yyyy-MM-dd',
+                                ).format(widget.date);
+
+                                final params = (
+                                  date: formattedDate,
+                                  isDefault: isDefaultTime,
+                                  timeSlotIds: List<int>.from(selectedSlotIds),
+                                );
+
+                                try {
+                                  await ref.read(
+                                    updateTechnicianTimeSlotProvider(
+                                      params,
+                                    ).future,
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.pop(context, true);
+                                  }
+                                } catch (e) {
+                                  debugPrint("ERROR: $e");
+                                }
+                              }
+                            : null, // 🔥 null = disabled
                         text: "บันทึก",
                         padding: EdgeInsetsGeometry.symmetric(vertical: 8),
                       ),
@@ -220,32 +324,46 @@ class _ManageTodayWorkSheetState extends State<ManageTodayWorkSheet> {
 class _TimeChip extends StatelessWidget {
   final String text;
   final bool selected;
+  final bool isDisabled;
   final VoidCallback onTap;
 
   const _TimeChip({
     required this.text,
     required this.selected,
     required this.onTap,
+    this.isDisabled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap, // 🔒 disable tap
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.shade300,
+            color: isDisabled
+                ? AppColors.primaryBorder
+                : selected
+                ? AppColors.primary
+                :  AppColors.colorStroke,
           ),
-          color: selected ? AppColors.primary.withOpacity(0.1) : Colors.white,
+          color: isDisabled
+              ? AppColors.primaryBGHover
+              : selected
+              ? AppColors.primary.withOpacity(0.1)
+              : Colors.white,
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: selected ? AppColors.primary : Colors.black,
+            color: isDisabled
+                ? AppColors.primaryBorder
+                : selected
+                ? AppColors.primary
+                : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -253,3 +371,4 @@ class _TimeChip extends StatelessWidget {
     );
   }
 }
+

@@ -7,6 +7,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:changsure/core/constants/api_constants.dart';
 
+import '../models/booking/booking_model.dart';
+
 class TechnicianService {
   Future<bool> updateProfile({
     required String token,

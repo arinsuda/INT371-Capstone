@@ -587,3 +587,145 @@ class BookingDetail {
   }
 }
 
+class TechnicianBooking {
+  final int id;
+  final String bookingNumber;
+  final int timeSlotId;
+  final String serviceName;
+  final String pricingType;
+  final int quotedPriceMin;
+  final int quotedPriceMax;
+  final String appointmentDate;
+  final String status;
+  final int customerId;
+  final String customerName;
+  final String customerPhone;
+  final String customerAvatar;
+  final List<String> images;
+  final List<String> serviceImages;
+
+  TechnicianBooking({
+    required this.id,
+    required this.bookingNumber,
+    required this.timeSlotId,
+    required this.serviceName,
+    required this.pricingType,
+    required this.quotedPriceMin,
+    required this.quotedPriceMax,
+    required this.appointmentDate,
+    required this.status,
+    required this.customerId,
+    required this.customerName,
+    required this.customerPhone,
+    required this.customerAvatar,
+    required this.images,
+    required this.serviceImages,
+
+  });
+
+  factory TechnicianBooking.fromJson(Map<String, dynamic> json) {
+    return TechnicianBooking(
+      id: json['id'] ?? 0,
+      bookingNumber: json['booking_number'] ?? "",
+      timeSlotId: json['time_slot_id'] ?? 0,
+      serviceName: json['service_name'] ?? "",
+      pricingType: json['pricing_type'] ?? "",
+      quotedPriceMin: json['quoted_price_min'] ?? 0,
+      quotedPriceMax: json['quoted_price_max'] ?? 0,
+      appointmentDate: json['appointment_date'] ?? "",
+      status: json['status'] ?? "",
+      customerId: json['customer_id'] ?? 0,
+      customerName: json['customer_name'] ?? "",
+      customerPhone: json['customer_phone'] ?? "",
+      customerAvatar: json['customer_avatar'] ?? "",
+      images: (json['images'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      serviceImages: (json['service_images'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList(),
+    );
+  }
+}
+
+class UpdateTechnicianCalendarResponse {
+  final TechnicianCalendarData data;
+  final String message;
+  final bool success;
+
+  UpdateTechnicianCalendarResponse({
+    required this.data,
+    required this.message,
+    required this.success,
+  });
+
+  factory UpdateTechnicianCalendarResponse.fromJson(
+      Map<String, dynamic> json) {
+    return UpdateTechnicianCalendarResponse(
+      data: TechnicianCalendarData.fromJson(json['data']),
+      message: json['message'] ?? "",
+      success: json['success'] ?? false,
+    );
+  }
+}
+
+class TechnicianCalendarData {
+  final String date;
+  final bool isOpen;
+
+  TechnicianCalendarData({
+    required this.date,
+    required this.isOpen,
+  });
+
+  factory TechnicianCalendarData.fromJson(Map<String, dynamic> json) {
+    return TechnicianCalendarData(
+      date: json['date'] ?? "",
+      isOpen: json['is_open'] ?? false,
+    );
+  }
+}
+
+class UpdateTimeSlotsResponse {
+  final TimeSlotData data;
+  final String message;
+  final bool success;
+
+  UpdateTimeSlotsResponse({
+    required this.data,
+    required this.message,
+    required this.success,
+  });
+
+  factory UpdateTimeSlotsResponse.fromJson(Map<String, dynamic> json) {
+    return UpdateTimeSlotsResponse(
+      data: TimeSlotData.fromJson(json['data']),
+      message: json['message'] ?? "",
+      success: json['success'] ?? false,
+    );
+  }
+}
+
+class TimeSlotData {
+  final String date;
+  final bool isDefault;
+  final List<TimeSlot> timeSlots;
+
+  TimeSlotData({
+    required this.date,
+    required this.isDefault,
+    required this.timeSlots,
+  });
+
+  factory TimeSlotData.fromJson(Map<String, dynamic> json) {
+    return TimeSlotData(
+      date: json['date'] ?? "",
+      isDefault: json['is_default'] ?? false,
+      timeSlots: (json['time_slots'] as List<dynamic>? ?? [])
+          .map((e) => TimeSlot.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+

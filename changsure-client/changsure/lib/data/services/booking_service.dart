@@ -136,24 +136,6 @@ class BookingService {
     return _handleResponse(response, (json) => Booking.fromJson(json['data']));
   }
 
-  Future<PublicCalendarResponse> getTechnicianCalendar({
-    required String token,
-    required int technicianId,
-    required String month,
-  }) async {
-    final uri = Uri.parse("${ApiConstants.baseUrl}/technicians/calendar")
-        .replace(
-          queryParameters: {
-            "technician_id": technicianId.toString(),
-            "month": month,
-          },
-        );
-
-    final response = await http.get(uri, headers: _authHeader(token));
-
-    return _handleResponse(response, (json) => PublicCalendarResponse.fromJson(json));
-  }
-
   Future<Booking> acceptBooking({
     required String token,
     required int bookingId,
@@ -267,30 +249,142 @@ class BookingService {
     required int technicianId,
     required String month, // yyyy-MM
   }) async {
-    final uri = Uri.parse(
-      "${ApiConstants.baseUrl}/technicians/calendar",
-    ).replace(
-      queryParameters: {
-        'technician_id': technicianId.toString(),
-        'month': month, // ใช้ตรง ๆ เลย
-      },
-    );
+    final uri = Uri.parse("${ApiConstants.baseUrl}/technicians/calendar")
+        .replace(
+          queryParameters: {
+            'technician_id': technicianId.toString(),
+            'month': month, // ใช้ตรง ๆ เลย
+          },
+        );
 
-    final response = await http.get(
-      uri,
-      headers: _authHeader(token),
-    );
+    final response = await http.get(uri, headers: _authHeader(token));
 
     print("RAW BODY: ${response.body}");
     print("Request URL: $uri");
     print("Base URL: ${ApiConstants.baseUrl}");
 
+    return _handleResponse(
+      response,
+      (json) => PublicCalendarResponse.fromJson(json),
+    );
+  }
+
+  Future<PublicCalendarResponse> getTechnicianCalendar({
+    required String token,
+    required String month, // yyyy-MM
+  }) async {
+    final uri = Uri.parse("${ApiConstants.baseUrl}/technicians/me/calendar")
+        .replace(
+          queryParameters: {
+            'month': month, // ใช้ตรง ๆ เลย
+          },
+        );
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Base URL: ${ApiConstants.baseUrl}");
 
     return _handleResponse(
       response,
-          (json) => PublicCalendarResponse.fromJson(json),
+      (json) => PublicCalendarResponse.fromJson(json),
+    );
+  }
+
+  Future<List<TechnicianBooking>> getTechnicianCalendarByDate({
+    required String token,
+    required String date,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/day",
+    ).replace(
+      queryParameters: {
+        'date': date,
+      },
     );
 
+    final response = await http.get(uri, headers: _authHeader(token));
 
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+
+    return _handleResponse(
+      response,
+          (json) => (json['data'] as List)
+          .map((e) => TechnicianBooking.fromJson(e))
+          .toList(),
+    );
+  }
+
+  Future<UpdateTechnicianCalendarResponse> updateTechnicianCalendarByDate({
+    required String token,
+    required String date, // yyyy-MM-dd
+    required bool isOpen,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/date",
+    );
+
+    final body = jsonEncode({
+      "date": date,
+      "is_open": isOpen,
+    });
+
+    final response = await http.patch(
+      uri,
+      headers: {
+        ..._authHeader(token),
+        "Content-Type": "application/json",
+      },
+      body: body,
+    );
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Request BODY: $body");
+
+    return _handleResponse(
+      response,
+          (json) => UpdateTechnicianCalendarResponse.fromJson(json),
+    );
+
+  }
+
+  Future<UpdateTimeSlotsResponse> updateTechnicianCalendarByTimeslot({
+    required String token,
+    required String date, // yyyy-MM-dd
+    required bool isDefault,
+    required List<int> timeSlotId
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/slots",).replace(
+      queryParameters: {
+        'date': date, // ใช้ตรง ๆ เลย
+      },
+    );
+
+    final body = jsonEncode({
+      "time_slot_ids": timeSlotId,
+      "is_default": isDefault,
+    });
+
+    final response = await http.patch(
+      uri,
+      headers: {
+        ..._authHeader(token),
+        "Content-Type": "application/json",
+      },
+      body: body,
+    );
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Request BODY: $body");
+
+    return _handleResponse(
+      response,
+          (json) => UpdateTimeSlotsResponse.fromJson(json),
+    );
   }
 }
