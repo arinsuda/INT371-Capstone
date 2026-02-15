@@ -131,6 +131,49 @@ func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery
 			serviceName = b.TechnicianService.Service.SerName
 		}
 
+		// ---------- service images ----------
+		var serviceImages []string
+
+		for _, key := range b.TechnicianService.Service.ImageURLs {
+			if key == "" {
+				continue
+			}
+
+			url, err := storage.GlobalMinio.PresignGet(
+				ctx,
+				key,
+				time.Hour*6,
+				false,
+			)
+			if err != nil {
+				s.logger.Warn("presign service image failed",
+					slog.String("key", key),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+
+			serviceImages = append(serviceImages, url)
+		}
+
+		var avatarURL string
+		if b.Customer.AvatarURL != nil && *b.Customer.AvatarURL != "" {
+			url, err := storage.GlobalMinio.PresignGet(
+				ctx,
+				*b.Customer.AvatarURL,
+				time.Hour*6,
+				false,
+			)
+			if err != nil {
+				s.logger.Warn("presign avatar failed",
+					slog.String("key", *b.Customer.AvatarURL),
+					slog.String("error", err.Error()),
+				)
+			} else {
+				avatarURL = url
+			}
+		}
+
 		imageURLs := make([]string, len(b.Images))
 
 		for j, img := range b.Images {
@@ -163,6 +206,7 @@ func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery
 			BookingNumber:   b.BookingNumber,
 			TimeSlotID:      b.TimeSlotID,
 			ServiceName:     serviceName,
+			ServiceImages:   serviceImages,
 			PricingType:     b.PricingType,
 			QuotedPrice:     b.QuotedPriceFixed,
 			QuotedPriceMin:  b.QuotedPriceMin,
@@ -173,7 +217,7 @@ func (s *service) GetCalendarDayBookings(ctx context.Context, q CalendarDayQuery
 			CustomerID:      b.CustomerID,
 			CustomerName:    customerName,
 			CustomerPhone:   safeString(b.Customer.Phone),
-			CustomerAvatar:  safeString(b.Customer.AvatarURL),
+			CustomerAvatar:  avatarURL,
 			Images:          imageURLs,
 		}
 	}
