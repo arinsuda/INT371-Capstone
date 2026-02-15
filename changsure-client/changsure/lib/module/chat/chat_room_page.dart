@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:math';
 import '../../../../data/models/chat/chat_model.dart';
 import '../../../../data/models/chat/chat_helper.dart';
@@ -371,15 +372,33 @@ class _ParticipantAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!participantInfo.hasAvatar) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: Colors.grey[300],
+        child: const Icon(Icons.person, color: Colors.white, size: 20),
+      );
+    }
+
+    // ใช้ CachedNetworkImage สำหรับ avatar ด้วย
     return CircleAvatar(
       radius: 18,
       backgroundColor: Colors.grey[300],
-      backgroundImage: participantInfo.hasAvatar
-          ? NetworkImage(participantInfo.avatarUrl!)
-          : null,
-      child: !participantInfo.hasAvatar
-          ? const Icon(Icons.person, color: Colors.white, size: 20)
-          : null,
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: participantInfo.avatarUrl!,
+          width: 36,
+          height: 36,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => const SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
+          ),
+          errorWidget: (context, url, error) =>
+              const Icon(Icons.person, color: Colors.white, size: 20),
+        ),
+      ),
     );
   }
 }
@@ -404,7 +423,6 @@ class _ChatMessagesList extends ConsumerWidget {
     }
 
     final currentUser = ref.watch(userProvider);
-    final currentUserRole = currentUser?.role;
 
     return ListView.builder(
       controller: scrollController,
@@ -416,6 +434,7 @@ class _ChatMessagesList extends ConsumerWidget {
         final previousMessage = index < messages.length - 1
             ? messages[index + 1]
             : null;
+        final nextMessage = index > 0 ? messages[index - 1] : null;
 
         final isMe = message.senderId == currentUser?.id;
 
@@ -423,9 +442,10 @@ class _ChatMessagesList extends ConsumerWidget {
           message,
           previousMessage,
         );
-        final shouldGroup = ChatHelper.shouldGroupMessages(
+
+        final shouldGroupWithNext = ChatHelper.shouldGroupMessages(
           message,
-          previousMessage,
+          nextMessage,
         );
 
         return Column(
@@ -435,8 +455,8 @@ class _ChatMessagesList extends ConsumerWidget {
               message: message,
               isMe: isMe,
               participantInfo: participantInfo,
-              showAvatar: !shouldGroup,
-              showTimestamp: !shouldGroup,
+              showAvatar: !shouldGroupWithNext,
+              showTimestamp: !shouldGroupWithNext,
             ),
           ],
         );
@@ -516,7 +536,7 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: isMe
             ? MainAxisAlignment.end
@@ -645,13 +665,32 @@ class _UserAvatar extends StatelessWidget {
     final hasAvatar = participantInfo?.hasAvatar ?? false;
     final avatarUrl = participantInfo?.avatarUrl;
 
+    if (!hasAvatar) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: Colors.grey[300],
+        child: const Icon(Icons.person, color: Colors.white, size: 18),
+      );
+    }
+
     return CircleAvatar(
       radius: 18,
       backgroundColor: Colors.grey[300],
-      backgroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
-      child: !hasAvatar
-          ? const Icon(Icons.person, color: Colors.white, size: 18)
-          : null,
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: avatarUrl!,
+          width: 36,
+          height: 36,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => const SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
+          ),
+          errorWidget: (context, url, error) =>
+              const Icon(Icons.person, color: Colors.white, size: 18),
+        ),
+      ),
     );
   }
 }
@@ -675,6 +714,7 @@ class _TextMessage extends StatelessWidget {
   }
 }
 
+// ✨ OPTIMIZED IMAGE MESSAGE WITH CACHING
 class _ImageMessage extends StatelessWidget {
   final String imageUrl;
 
@@ -685,28 +725,24 @@ class _ImageMessage extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showFullScreenImage(context),
       child: ClipRRect(
-        child: Image.network(
-          imageUrl,
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
           width: 200,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
 
-            return Container(
-              width: 200,
-              height: 150,
-              color: Colors.grey[200],
-              child: Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (_, __, ___) => Container(
+          // Placeholder ระหว่างโหลด
+          placeholder: (context, url) => Container(
+            width: 200,
+            height: 150,
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+
+          // Error widget
+          errorWidget: (context, url, error) => Container(
             width: 200,
             height: 150,
             color: Colors.grey[200],
@@ -722,6 +758,12 @@ class _ImageMessage extends StatelessWidget {
               ],
             ),
           ),
+
+          // ✨ OPTIMIZATION: Resize image ก่อนเก็บ cache
+          memCacheWidth: 600,
+          memCacheHeight: 450,
+          maxWidthDiskCache: 1200,
+          maxHeightDiskCache: 900,
         ),
       ),
     );
@@ -739,10 +781,13 @@ class _ImageMessage extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(
                     Icons.broken_image,
                     size: 100,
                     color: Colors.white,

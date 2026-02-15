@@ -183,7 +183,6 @@ class _PublicTechnicianContentState
 
                       const SizedBox(height: 16),
 
-                      
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
@@ -208,7 +207,6 @@ class _PublicTechnicianContentState
                       ),
                       const SizedBox(height: 16),
 
-                      
                       if (services.isNotEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
@@ -227,39 +225,42 @@ class _PublicTechnicianContentState
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: services.map((s) {
-                              final colors = ActivityConstants.getColors(
-                                s.categoryName,
-                              );
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.background,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: colors.border,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  s.serviceName,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: colors.text,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                            children:
+                                {
+                                  for (final s in services)
+                                    (s.categoryName ?? 'อื่นๆ'),
+                                }.map((category) {
+                                  final colors = ActivityConstants.getColors(
+                                    category,
+                                  );
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.background,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: colors.border,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      category,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colors.text,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                           ),
                         ),
                         const SizedBox(height: 16),
                       ],
 
-                      
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -276,7 +277,7 @@ class _PublicTechnicianContentState
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            
+
                             DropdownButtonHideUnderline(
                               child: DropdownButton2<String?>(
                                 isExpanded: false,
@@ -384,7 +385,6 @@ class _PublicTechnicianContentState
                   ),
                 ),
 
-                
                 if (displayedPosts.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
@@ -404,17 +404,16 @@ class _PublicTechnicianContentState
                             crossAxisCount: 2,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 12,
-                            childAspectRatio:
-                                0.85, 
+                            childAspectRatio: 0.85,
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final post = displayedPosts[index];
-                        
+
                         return TechnicianCard(
                           id: post.id,
                           serviceCategoryName:
                               post.categoryName ?? 'ไม่ระบุหมวดหมู่',
-                          
+
                           description: post.description ?? 'ไม่มีรายละเอียด',
                           images: post.images
                               .map((img) => img.imageUrl)

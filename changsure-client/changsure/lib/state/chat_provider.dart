@@ -156,14 +156,67 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   }
 
   void _handleNewMessage(Map<String, dynamic> messageData) {
-    if (messageData['booking_id'] != bookingId) return;
+    // Check if this message belongs to current booking
+    final eventBookingId = messageData['booking_id'];
+    if (eventBookingId != bookingId) return;
 
     try {
+      // **FIX: Ensure sender_id is properly structured**
+      // The realtime event might have sender data in different structure
+      final currentUserId = _ref.read(userProvider)?.id;
+
+      // Debug logging (remove in production)
+      print('ChatHistory[$bookingId]: New message event received');
+      print('Current user ID: $currentUserId');
+      print(
+        'Event sender_id: ${messageData['sender_id']} (${messageData['sender_id'].runtimeType})',
+      );
+
+      // **FIX: Ensure sender object exists for proper parsing**
+      if (!messageData.containsKey('sender')) {
+        // If sender object doesn't exist, create it from sender_id
+        final senderId = _ensureInt(messageData['sender_id']);
+        messageData['sender'] = {
+          'sender_id': senderId,
+          'sender_role': messageData['sender_role'] ?? '',
+          'sender_name': messageData['sender_name'] ?? '',
+          'sender_avatar': messageData['sender_avatar'] ?? '',
+        };
+      } else {
+        // Ensure sender_id inside sender object is int
+        final senderObj = messageData['sender'] as Map<String, dynamic>;
+        senderObj['sender_id'] = _ensureInt(senderObj['sender_id']);
+      }
+
+      // **FIX: Ensure booking object exists**
+      if (!messageData.containsKey('booking')) {
+        messageData['booking'] = {
+          'booking_id': eventBookingId,
+          'booking_number': messageData['booking_number'] ?? '',
+          'service_category': messageData['service_category'] ?? '',
+        };
+      }
+
       final newMessage = ChatMessage.fromJson(messageData);
+
+      print(
+        'Parsed message - Message ID: ${newMessage.id}, Sender ID: ${newMessage.senderId}, Current User: $currentUserId',
+      );
+      print('Is my message: ${newMessage.senderId == currentUserId}');
+
       _addMessageToState(newMessage);
     } catch (error, stackTrace) {
       _logError('Error parsing new message', error, stackTrace);
+      print('Raw message data: $messageData');
     }
+  }
+
+  // Helper to ensure value is int
+  int _ensureInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
   void _handleMessageRead(Map<String, dynamic> data) {
