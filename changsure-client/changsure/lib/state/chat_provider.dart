@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants/realtime_events.dart';
 import '../data/models/chat/chat_model.dart';
 import '../data/services/chat_service.dart';
 import 'user_provider.dart';
@@ -21,53 +22,6 @@ final chatRoomsProvider =
 
 final chatControllerProvider =
     AsyncNotifierProvider.autoDispose<ChatController, void>(ChatController.new);
-
-final chatThreadsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
-  final roomsAsync = ref.watch(chatRoomsProvider);
-
-  return roomsAsync;
-});
-
-final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
-  final roomsAsync = ref.watch(chatRoomsProvider);
-
-  return roomsAsync.maybeWhen(
-    data: (rooms) {
-      bool hasUnread(ChatCategory category) {
-        return rooms.any((room) {
-          if (!room.hasUnread) return false;
-
-          switch (category) {
-            case ChatCategory.inProgress:
-              return [
-                BookingStatus.accepted,
-                BookingStatus.inProgress,
-                BookingStatus.waitingPayment,
-              ].contains(room.bookingStatus);
-
-            case ChatCategory.completed:
-              return room.bookingStatus == BookingStatus.completed;
-
-            case ChatCategory.all:
-            default:
-              return true;
-          }
-        });
-      }
-
-      return {
-        ChatCategory.all: hasUnread(ChatCategory.all),
-        ChatCategory.inProgress: hasUnread(ChatCategory.inProgress),
-        ChatCategory.completed: hasUnread(ChatCategory.completed),
-      };
-    },
-    orElse: () => {
-      ChatCategory.all: false,
-      ChatCategory.inProgress: false,
-      ChatCategory.completed: false,
-    },
-  );
-});
 
 class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref _ref;
@@ -102,8 +56,6 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       return;
     }
 
-    state = const AsyncValue.loading();
-
     try {
       final messages = await service.getChatHistory(token, bookingId);
       if (mounted) {
@@ -120,9 +72,11 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     _realtimeSubscription = _ref
         .read(realtimeStreamProvider.stream)
         .listen(
-          _handleRealtimeEvent,
+          (event) {
+            _handleRealtimeEvent(event);
+          },
           onError: (error) {
-            _logError('Realtime subscription error', error);
+            print('ChatHistory[$bookingId] Realtime error: $error');
           },
         );
   }
@@ -135,83 +89,84 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       if (eventData == null || eventType == null) return;
 
       switch (eventType) {
-        case 'NEW_MESSAGE':
+        case RealtimeEvents.newMessage:
+        case RealtimeEvents.chatMessageNew:
           _handleNewMessage(eventData);
           break;
 
-        case 'CHAT_MESSAGE_READ':
+        case RealtimeEvents.roomRead:
+        case RealtimeEvents.chatRoomRead:
+          _handleRoomRead(eventData);
+          break;
+
+        case RealtimeEvents.messageRead:
+        case RealtimeEvents.chatMessageRead:
           _handleMessageRead(eventData);
           break;
 
-        case 'ROOM_READ':
-          _handleRoomRead(eventData);
+        case RealtimeEvents.chatRoomLocked:
+          _handleRoomLocked(eventData);
           break;
 
         default:
           break;
       }
-    } catch (error, stackTrace) {
-      _logError('Error handling realtime event', error, stackTrace);
+    } catch (error) {
+      print('Error handling realtime event: $error');
     }
   }
 
   void _handleNewMessage(Map<String, dynamic> messageData) {
-    // Check if this message belongs to current booking
-    final eventBookingId = messageData['booking_id'];
+    final eventBookingId = _ensureInt(messageData['booking_id']);
     if (eventBookingId != bookingId) return;
 
     try {
-      // **FIX: Ensure sender_id is properly structured**
-      // The realtime event might have sender data in different structure
       final currentUserId = _ref.read(userProvider)?.id;
-
-      // Debug logging (remove in production)
-      print('ChatHistory[$bookingId]: New message event received');
-      print('Current user ID: $currentUserId');
-      print(
-        'Event sender_id: ${messageData['sender_id']} (${messageData['sender_id'].runtimeType})',
-      );
-
-      // **FIX: Ensure sender object exists for proper parsing**
-      if (!messageData.containsKey('sender')) {
-        // If sender object doesn't exist, create it from sender_id
-        final senderId = _ensureInt(messageData['sender_id']);
-        messageData['sender'] = {
-          'sender_id': senderId,
-          'sender_role': messageData['sender_role'] ?? '',
-          'sender_name': messageData['sender_name'] ?? '',
-          'sender_avatar': messageData['sender_avatar'] ?? '',
-        };
-      } else {
-        // Ensure sender_id inside sender object is int
-        final senderObj = messageData['sender'] as Map<String, dynamic>;
-        senderObj['sender_id'] = _ensureInt(senderObj['sender_id']);
-      }
-
-      // **FIX: Ensure booking object exists**
-      if (!messageData.containsKey('booking')) {
-        messageData['booking'] = {
-          'booking_id': eventBookingId,
-          'booking_number': messageData['booking_number'] ?? '',
-          'service_category': messageData['service_category'] ?? '',
-        };
-      }
-
-      final newMessage = ChatMessage.fromJson(messageData);
-
-      print(
-        'Parsed message - Message ID: ${newMessage.id}, Sender ID: ${newMessage.senderId}, Current User: $currentUserId',
-      );
-      print('Is my message: ${newMessage.senderId == currentUserId}');
+      final parsedData = _normalizeMessageData(messageData);
+      final newMessage = ChatMessage.fromJson(parsedData);
 
       _addMessageToState(newMessage);
-    } catch (error, stackTrace) {
-      _logError('Error parsing new message', error, stackTrace);
-      print('Raw message data: $messageData');
+
+      if (newMessage.senderId != currentUserId && mounted) {
+        _autoMarkAsRead();
+      }
+    } catch (error) {
+      print('❌ Error parsing new message: $error');
     }
   }
 
-  // Helper to ensure value is int
+  Map<String, dynamic> _normalizeMessageData(Map<String, dynamic> data) {
+    final normalized = Map<String, dynamic>.from(data);
+
+    if (!normalized.containsKey('sender') || normalized['sender'] == null) {
+      normalized['sender'] = {
+        'sender_id': _ensureInt(data['sender_id']),
+        'sender_role': data['sender_role'] ?? '',
+        'sender_name': data['sender_name'] ?? '',
+        'sender_avatar': data['sender_avatar'] ?? '',
+      };
+    } else {
+      final sender = Map<String, dynamic>.from(normalized['sender']);
+      sender['sender_id'] = _ensureInt(sender['sender_id']);
+      normalized['sender'] = sender;
+    }
+
+    if (!normalized.containsKey('booking') || normalized['booking'] == null) {
+      normalized['booking'] = {
+        'booking_id': _ensureInt(data['booking_id']),
+        'booking_number': data['booking_number'] ?? '',
+        'service_category': data['service_category'] ?? '',
+      };
+    }
+
+    normalized['id'] = _ensureInt(data['id'] ?? data['message_id']);
+    normalized['booking_id'] = _ensureInt(data['booking_id']);
+    normalized['sender_id'] = _ensureInt(data['sender_id']);
+    normalized['is_read'] = data['is_read'] ?? false;
+
+    return normalized;
+  }
+
   int _ensureInt(dynamic value) {
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
@@ -220,11 +175,16 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   }
 
   void _handleMessageRead(Map<String, dynamic> data) {
-    if (data['booking_id'] != bookingId) return;
+    final eventBookingId = _ensureInt(data['booking_id']);
+    if (eventBookingId != bookingId) return;
+
+    print('✅ Message read event for booking $bookingId');
 
     state.whenData((messages) {
       final messageIds = _parseMessageIds(data['message_ids']);
       if (messageIds.isEmpty) return;
+
+      print('📖 Marking messages as read: $messageIds');
 
       final updatedMessages = messages.map((message) {
         return messageIds.contains(message.id)
@@ -239,7 +199,10 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   }
 
   void _handleRoomRead(Map<String, dynamic> data) {
-    if (data['booking_id'] != bookingId) return;
+    final eventBookingId = _ensureInt(data['booking_id']);
+    if (eventBookingId != bookingId) return;
+
+    print('✅ Room read event for booking $bookingId');
 
     state.whenData((messages) {
       final currentUserId = _ref.read(userProvider)?.id;
@@ -257,40 +220,80 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     });
   }
 
+  void addMessage(ChatMessage message) {
+    _addMessageToState(message);
+  }
+
+  void updateOptimisticMessage(int tempId, ChatMessage serverMsg) {
+    state.whenData((messages) {
+      final index = messages.indexWhere((m) => m.id == tempId);
+      if (index != -1) {
+        final newList = List<ChatMessage>.from(messages);
+        newList[index] = serverMsg;
+        state = AsyncValue.data(newList);
+        print(
+          '✅ [Optimistic] Updated temp message $tempId to server ID ${serverMsg.id}',
+        );
+      }
+    });
+  }
+
+  void markMessageAsError(int tempId) {
+    print('❌ [Optimistic] Message $tempId failed to send');
+  }
+
+  Future<void> refresh() => _loadMessages();
+
+  void _handleRoomLocked(Map<String, dynamic> data) {
+    final eventBookingId = _ensureInt(data['booking_id']);
+    if (eventBookingId != bookingId) return;
+
+    print('🔒 Room locked event for booking $bookingId');
+  }
+
   void _addMessageToState(ChatMessage newMessage) {
     state.whenData((currentMessages) {
       final isDuplicate = currentMessages.any((m) => m.id == newMessage.id);
-      if (isDuplicate) return;
+      if (isDuplicate) {
+        print('⚠️ Duplicate message detected: ${newMessage.id}');
+        return;
+      }
 
       if (mounted) {
         state = AsyncValue.data([newMessage, ...currentMessages]);
+        print(
+          '➕ Added new message to state. Total: ${currentMessages.length + 1}',
+        );
       }
     });
+  }
+
+  Future<void> _autoMarkAsRead() async {
+    try {
+      final service = _ref.read(chatServiceProvider);
+      final token = _ref.read(userProvider)?.token;
+
+      if (token != null) {
+        await service.markRoomAsRead(token, bookingId);
+        print('✅ Auto-marked booking $bookingId as read');
+      }
+    } catch (e) {
+      print('⚠️ Failed to auto-mark as read: $e');
+    }
   }
 
   List<int> _parseMessageIds(dynamic messageIds) {
     try {
       if (messageIds is List) {
-        return messageIds.whereType<int>().toList();
+        return messageIds.map((id) => _ensureInt(id)).toList();
+      } else if (messageIds is int) {
+        return [messageIds];
       }
       return [];
     } catch (_) {
       return [];
     }
   }
-
-  void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
-    print('ChatHistory[$bookingId] $context: $error');
-    if (stackTrace != null) {
-      print(stackTrace);
-    }
-  }
-
-  void addMessage(ChatMessage message) {
-    _addMessageToState(message);
-  }
-
-  Future<void> refresh() => _loadMessages();
 }
 
 class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
@@ -324,12 +327,11 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
       return;
     }
 
-    state = const AsyncValue.loading();
-
     try {
       final rooms = await service.getChatRooms(token);
       if (mounted) {
         state = AsyncValue.data(rooms);
+        print('✅ Loaded ${rooms.length} chat rooms');
       }
     } catch (error, stackTrace) {
       if (mounted) {
@@ -342,9 +344,11 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     _realtimeSubscription = _ref
         .read(realtimeStreamProvider.stream)
         .listen(
-          _handleRealtimeEvent,
+          (event) {
+            _handleRealtimeEvent(event);
+          },
           onError: (error) {
-            _logError('Realtime subscription error', error);
+            print('ChatRooms Realtime error: $error');
           },
         );
   }
@@ -356,38 +360,99 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
 
       if (type == null || data == null) return;
 
+      print('🔔 ChatRooms Event: $type');
+
       switch (type) {
-        case 'NEW_MESSAGE':
+        case RealtimeEvents.newMessage:
+        case RealtimeEvents.chatMessageNew:
+        case RealtimeEvents.chatListUpdated:
           _handleNewMessage(data);
           break;
 
-        case 'ROOM_READ':
+        case RealtimeEvents.roomRead:
+        case RealtimeEvents.chatRoomRead:
           _handleRoomRead(data);
           break;
 
+        case RealtimeEvents.chatRoomUpdated:
+          _handleRoomUpdated(data);
+          break;
+
+        case RealtimeEvents.chatRoomLocked:
+          _handleRoomLocked(data);
+          break;
+
+        case RealtimeEvents.bookingStatusChanged:
+        case RealtimeEvents.jobCompleted:
+        case RealtimeEvents.bookingCancelled:
+          _handleBookingStatusChange(data);
+          break;
+
         default:
+          if (type.startsWith('BOOKING_')) {
+            _handleBookingEvent(type, data);
+          }
           break;
       }
     } catch (error, stackTrace) {
-      _logError('Error handling realtime event', error, stackTrace);
+      print('Error handling realtime event: $error');
+      print(stackTrace);
     }
+  }
+
+  void _handleBookingStatusChange(Map<String, dynamic> data) {
+    final eventBookingId = _ensureInt(data['booking_id']);
+    final status = data['status'] as String?;
+    final canChat = data['can_chat'] as bool?;
+
+    print(
+      '📦 Booking status changed: $eventBookingId -> $status (canChat: $canChat)',
+    );
+
+    state.whenData((rooms) {
+      final index = rooms.indexWhere((r) => r.bookingId == eventBookingId);
+      if (index == -1) {
+        print('⚠️ Room not found, reloading');
+        _loadRooms();
+        return;
+      }
+
+      final updated = List<ChatRoom>.from(rooms);
+      final room = updated[index];
+
+      updated[index] = room.copyWith(
+        bookingStatus: status != null
+            ? BookingStatus.fromString(status)
+            : room.bookingStatus,
+        canSendMessage: canChat ?? room.canSendMessage,
+      );
+
+      if (mounted) {
+        state = AsyncValue.data(updated);
+        print('✅ Room ${room.bookingNumber} status updated');
+      }
+    });
   }
 
   void _handleNewMessage(Map<String, dynamic> messageData) {
     state.whenData((rooms) {
       try {
-        final bookingId = messageData['booking_id'] as int?;
-        if (bookingId == null) return;
+        final bookingId = _ensureInt(messageData['booking_id']);
+        if (bookingId == 0) return;
+
+        print('📩 New message for booking $bookingId');
 
         final roomIndex = rooms.indexWhere((r) => r.bookingId == bookingId);
 
         if (roomIndex != -1) {
           _updateExistingRoom(rooms, roomIndex, messageData);
         } else {
+          print('⚠️ Room not found, reloading all rooms');
           _loadRooms();
         }
       } catch (error, stackTrace) {
-        _logError('Error handling new message in rooms', error, stackTrace);
+        print('Error handling new message in rooms: $error');
+        print(stackTrace);
       }
     });
   }
@@ -400,18 +465,23 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     final updatedRooms = List<ChatRoom>.from(rooms);
     final oldRoom = updatedRooms[roomIndex];
 
-    final senderId = messageData['sender_id'] as int?;
-    final currentUserId = _ref.read(userProvider)?.id;
+    final lastSender = messageData['last_sender'] as String? ?? '';
+    final isMyMessage = lastSender == 'me';
+    final shouldIncrementUnread = !isMyMessage;
 
-    final shouldIncrementUnread = senderId != null && senderId != currentUserId;
+    print(
+      'Updating room ${oldRoom.bookingNumber}: isMyMessage=$isMyMessage, shouldIncrement=$shouldIncrementUnread',
+    );
 
     final updatedRoom = oldRoom.copyWith(
-      lastMessage: messageData['content'] as String? ?? oldRoom.lastMessage,
+      lastMessage:
+          messageData['last_message'] as String? ?? oldRoom.lastMessage,
       lastMsgType: MessageType.fromString(
-        messageData['type'] as String? ?? oldRoom.lastMsgType.value,
+        messageData['last_msg_type'] as String? ?? oldRoom.lastMsgType.value,
       ),
       lastMsgTime:
-          _parseDateTime(messageData['created_at']) ?? oldRoom.lastMsgTime,
+          _parseDateTime(messageData['last_msg_time']) ?? oldRoom.lastMsgTime,
+      lastSender: lastSender,
       unreadCount: shouldIncrementUnread
           ? oldRoom.unreadCount + 1
           : oldRoom.unreadCount,
@@ -422,15 +492,22 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
 
     if (mounted) {
       state = AsyncValue.data(updatedRooms);
+      print('✅ Room updated and moved to top');
     }
   }
 
   void _handleRoomRead(Map<String, dynamic> data) {
-    final eventBookingId = data['booking_id'];
+    final eventBookingId = _ensureInt(data['booking_id']);
+    if (eventBookingId == 0) return;
+
+    print('✅ Room read event for booking $eventBookingId');
 
     state.whenData((rooms) {
       final index = rooms.indexWhere((r) => r.bookingId == eventBookingId);
-      if (index == -1) return;
+      if (index == -1) {
+        print('⚠️ Room not found: $eventBookingId');
+        return;
+      }
 
       final updated = List<ChatRoom>.from(rooms);
       final room = updated[index];
@@ -439,8 +516,54 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
 
       if (mounted) {
         state = AsyncValue.data(updated);
+        print('✅ Unread count cleared for ${room.bookingNumber}');
       }
     });
+  }
+
+  void _handleRoomUpdated(Map<String, dynamic> data) {
+    final eventBookingId = _ensureInt(data['booking_id']);
+    final status = data['status'] as String?;
+
+    print('🔄 Room updated event for booking $eventBookingId, status: $status');
+
+    state.whenData((rooms) {
+      final index = rooms.indexWhere((r) => r.bookingId == eventBookingId);
+      if (index == -1) return;
+
+      final updated = List<ChatRoom>.from(rooms);
+      final room = updated[index];
+
+      if (status != null) {
+        updated[index] = room.copyWith(
+          bookingStatus: BookingStatus.fromString(status),
+        );
+
+        if (mounted) {
+          state = AsyncValue.data(updated);
+        }
+      }
+    });
+  }
+
+  void _handleRoomLocked(Map<String, dynamic> data) {
+    final eventBookingId = _ensureInt(data['booking_id']);
+    print('🔒 Room locked for booking $eventBookingId');
+
+    _loadRooms();
+  }
+
+  void _handleBookingEvent(String eventType, Map<String, dynamic> data) {
+    print('📦 Booking event: $eventType');
+
+    _loadRooms();
+  }
+
+  int _ensureInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
   DateTime? _parseDateTime(dynamic value) {
@@ -450,13 +573,6 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
       return DateTime.parse(value.toString());
     } catch (_) {
       return null;
-    }
-  }
-
-  void _logError(String context, dynamic error, [StackTrace? stackTrace]) {
-    print('ChatRooms $context: $error');
-    if (stackTrace != null) {
-      print(stackTrace);
     }
   }
 
@@ -476,75 +592,100 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
   Future<void> build() async {}
 
   Future<void> sendMessage(int bookingId, String content) async {
-    if (content.trim().isEmpty) {
-      throw Exception('Message cannot be empty');
+    final text = content.trim();
+    if (text.isEmpty) return;
+
+    final historyNotifier = ref.read(chatHistoryProvider(bookingId).notifier);
+    final tempId = DateTime.now().millisecondsSinceEpoch * -1;
+
+    final optimisticMsg = _createOptimisticMessage(
+      tempId,
+      bookingId,
+      text,
+      MessageType.text,
+    );
+    historyNotifier.addMessage(optimisticMsg);
+
+    try {
+      final serverMsg = await ref
+          .read(chatServiceProvider)
+          .sendMessage(
+            ref.read(userProvider)!.token!,
+            SendMessageRequest(
+              bookingId: bookingId,
+              content: text,
+              type: MessageType.text,
+            ),
+          );
+
+      if (serverMsg != null)
+        historyNotifier.updateOptimisticMessage(tempId, serverMsg);
+    } catch (e) {
+      historyNotifier.markMessageAsError(tempId);
+      rethrow;
     }
-
-    final service = ref.read(chatServiceProvider);
-    final token = ref.read(userProvider)?.token;
-
-    if (token == null) {
-      throw Exception('User not authenticated');
-    }
-
-    state = const AsyncValue.loading();
-
-    final result = await AsyncValue.guard(() async {
-      final newMessage = await service.sendMessage(
-        token,
-        SendMessageRequest(
-          bookingId: bookingId,
-          content: content.trim(),
-          type: MessageType.text,
-        ),
-      );
-
-      if (newMessage != null) {
-        ref
-            .read(chatHistoryProvider(bookingId).notifier)
-            .addMessage(newMessage);
-      }
-    });
-
-    state = result;
-
-    result.when(data: (_) {}, loading: () {}, error: (error, _) => throw error);
   }
 
   Future<void> sendImage(int bookingId, File imageFile) async {
-    if (!await imageFile.exists()) {
-      throw Exception('Image file does not exist');
+    final historyNotifier = ref.read(chatHistoryProvider(bookingId).notifier);
+    final tempId = DateTime.now().millisecondsSinceEpoch * -1;
+
+    final optimisticMsg = _createOptimisticMessage(
+      tempId,
+      bookingId,
+      imageFile.path,
+      MessageType.image,
+    );
+    historyNotifier.addMessage(optimisticMsg);
+
+    try {
+      final serverMsg = await ref
+          .read(chatServiceProvider)
+          .sendMessage(
+            ref.read(userProvider)!.token!,
+            SendMessageRequest(
+              bookingId: bookingId,
+              content: '',
+              type: MessageType.image,
+            ),
+            imageFile: imageFile,
+          );
+
+      if (serverMsg != null)
+        historyNotifier.updateOptimisticMessage(tempId, serverMsg);
+    } catch (e) {
+      historyNotifier.markMessageAsError(tempId);
+      rethrow;
     }
+  }
 
-    final service = ref.read(chatServiceProvider);
-    final token = ref.read(userProvider)?.token;
+  ChatMessage _createOptimisticMessage(
+    int id,
+    int bookingId,
+    String content,
+    MessageType type,
+  ) {
+    final user = ref.read(userProvider);
+    final rooms = ref.read(chatRoomsProvider).value ?? [];
+    final currentRoom = rooms.firstWhere(
+      (r) => r.bookingId == bookingId,
+      orElse: () => throw Exception('Room not found'),
+    );
 
-    if (token == null) {
-      throw Exception('User not authenticated');
-    }
+    return ChatMessage(
+      id: id,
+      bookingId: bookingId,
+      content: content,
+      type: type,
+      senderId: user?.id ?? 0,
+      isRead: false,
+      createdAt: DateTime.now(),
 
-    state = const AsyncValue.loading();
-
-    final result = await AsyncValue.guard(() async {
-      final newMessage = await service.sendMessage(
-        token,
-        SendMessageRequest(
-          bookingId: bookingId,
-          content: '',
-          type: MessageType.image,
-        ),
-        imageFile: imageFile,
-      );
-
-      if (newMessage != null) {
-        ref
-            .read(chatHistoryProvider(bookingId).notifier)
-            .addMessage(newMessage);
-      }
-    });
-
-    state = result;
-
-    result.when(data: (_) {}, loading: () {}, error: (error, _) => throw error);
+      bookingNumber: currentRoom.bookingNumber,
+      serviceCategory: currentRoom.serviceCategory,
+      senderRole: 'customer',
+      senderName: user?.fullName ?? '',
+      senderAvatar: user?.avatarUrl ?? '',
+    );
   }
 }

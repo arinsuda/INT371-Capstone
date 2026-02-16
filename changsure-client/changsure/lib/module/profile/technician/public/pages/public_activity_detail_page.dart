@@ -59,7 +59,6 @@ class PublicActivityDetailPage extends ConsumerWidget {
               );
             }
 
-            // หา post จาก profile.posts โดยตรง
             final activity = profile.posts.cast().firstWhere(
               (post) => post.id == postId,
               orElse: () => null,
@@ -86,7 +85,6 @@ class PublicActivityDetailPage extends ConsumerWidget {
               );
             }
 
-            // ✅ สร้าง List<String> สำหรับ images
             final imageUrls = <String>[];
             for (var img in activity.images) {
               imageUrls.add(img.imageUrl);
@@ -121,9 +119,7 @@ class PublicActivityDetailPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  ActivityImageGallery(
-                    images: imageUrls, // ✅ ส่ง List<String> โดยตรง
-                  ),
+                  ActivityImageGallery(images: imageUrls),
                 ],
               ),
             );

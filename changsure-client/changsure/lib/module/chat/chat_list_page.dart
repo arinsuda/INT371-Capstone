@@ -14,7 +14,7 @@ final chatCategoryProvider = StateProvider<ChatCategory>(
 );
 
 final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
-  final roomsAsync = ref.watch(chatThreadsProvider);
+  final roomsAsync = ref.watch(chatRoomsProvider);
   final searchQuery = ref.watch(chatSearchQueryProvider).toLowerCase();
   final category = ref.watch(chatCategoryProvider);
 
@@ -54,7 +54,7 @@ final filteredChatRoomsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
 });
 
 final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
-  final roomsAsync = ref.watch(chatThreadsProvider);
+  final roomsAsync = ref.watch(chatRoomsProvider);
 
   return roomsAsync.maybeWhen(
     data: (rooms) {
@@ -362,14 +362,14 @@ class _ChatRoomListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUnread = room.hasUnread;
-
     final isMyMessage = room.lastSender == "me";
-
     final preview = ChatHelper.formatMessagePreview(
       room.lastMessage,
       room.lastMsgType,
       isMe: isMyMessage,
     );
+
+    final isLocked = !room.canSendMessage;
 
     return InkWell(
       onTap: onTap,
@@ -378,7 +378,32 @@ class _ChatRoomListItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _RoomAvatar(imageUrl: room.otherPersonImg, colorIndex: colorIndex),
+            Stack(
+              children: [
+                _RoomAvatar(
+                  imageUrl: room.otherPersonImg,
+                  colorIndex: colorIndex,
+                ),
+
+                if (isLocked)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(width: 16),
 
             Expanded(

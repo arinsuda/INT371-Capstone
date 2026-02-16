@@ -192,6 +192,8 @@ class ChatMessage {
   final bool isRead;
   final DateTime createdAt;
 
+  
+
   const ChatMessage({
     required this.id,
     required this.bookingId,

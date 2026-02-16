@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:changsure/core/theme.dart';
+import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
@@ -11,6 +12,7 @@ import '../../../../data/services/chat_service.dart';
 import '../../../../state/chat_provider.dart';
 import '../../../../state/user_provider.dart';
 import '../../../../state/public_technician_provider.dart';
+import 'package:changsure/core/constants/realtime_events.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final int bookingId;
@@ -42,6 +44,56 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void initState() {
     super.initState();
     _initializePage();
+
+    _listenForRoomStatusChanges();
+  }
+
+  void _listenForRoomStatusChanges() {
+    ref.listenManual(realtimeStreamProvider, (previous, next) {
+      next.whenData((event) {
+        final type = event['type'] as String?;
+        final data = event['data'] as Map<String, dynamic>?;
+
+        if (type == null || data == null) return;
+
+        final eventBookingId = data['booking_id'];
+        if (eventBookingId != widget.bookingId) return;
+
+        switch (type) {
+          case RealtimeEvents.chatRoomLocked:
+            final reason = data['reason'] as String? ?? 'แชทถูกล็อค';
+            _showInfoSnackBar(reason);
+            break;
+
+          case RealtimeEvents.chatRoomUpdated:
+            final status = data['status'] as String?;
+            final canChat = data['can_chat'] as bool? ?? true;
+
+            if (!canChat) {
+              _showInfoSnackBar('สถานะงานเปลี่ยนเป็น: $status');
+            }
+            break;
+
+          case RealtimeEvents.jobCompleted:
+          case RealtimeEvents.bookingCancelled:
+            _showInfoSnackBar('แชทถูกล็อคเนื่องจากงานสิ้นสุดแล้ว');
+            break;
+        }
+      });
+    });
+  }
+
+  void _showInfoSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue[700],
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -66,6 +118,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
       if (token != null) {
         await service.markRoomAsRead(token, widget.bookingId);
+
+        ref.read(chatRoomsProvider.notifier).refresh();
       }
     } on ChatServiceException catch (e) {
       debugPrint('Failed to mark room as read: ${e.message}');
@@ -285,6 +339,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
             onImagePressed: _handleImageSelection,
             onSendPressed: _handleSendMessage,
             isLoading: chatState.isLoading,
+            bookingId: widget.bookingId,
           ),
         ],
       ),
@@ -371,11 +426,14 @@ class _ParticipantAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!participantInfo.hasAvatar) {
+    final avatarUrl = participantInfo.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    if (!hasAvatar) {
       return CircleAvatar(
         radius: 18,
         backgroundColor: Colors.grey[300],
-        child: const Icon(Icons.person, color: Colors.white, size: 20),
+        backgroundImage: AssetImage('assets/image/Technician.png'),
       );
     }
 
@@ -384,7 +442,7 @@ class _ParticipantAvatar extends StatelessWidget {
       backgroundColor: Colors.grey[300],
       child: ClipOval(
         child: CachedNetworkImage(
-          imageUrl: participantInfo.avatarUrl!,
+          imageUrl: avatarUrl,
           width: 36,
           height: 36,
           fit: BoxFit.cover,
@@ -393,8 +451,12 @@ class _ParticipantAvatar extends StatelessWidget {
             height: 36,
             child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
           ),
-          errorWidget: (context, url, error) =>
-              const Icon(Icons.person, color: Colors.white, size: 20),
+          errorWidget: (context, url, error) => Image.asset(
+            'assets/image/Technician.png',
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
     );
@@ -462,7 +524,6 @@ class _ChatMessagesList extends ConsumerWidget {
     );
   }
 }
-
 
 class _DateSeparator extends StatelessWidget {
   final DateTime date;
@@ -636,14 +697,14 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatar = participantInfo?.hasAvatar ?? false;
     final avatarUrl = participantInfo?.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
     if (!hasAvatar) {
       return CircleAvatar(
         radius: 18,
         backgroundColor: Colors.grey[300],
-        child: const Icon(Icons.person, color: Colors.white, size: 18),
+        backgroundImage: AssetImage('assets/image/Technician.png'),
       );
     }
 
@@ -652,7 +713,7 @@ class _UserAvatar extends StatelessWidget {
       backgroundColor: Colors.grey[300],
       child: ClipOval(
         child: CachedNetworkImage(
-          imageUrl: avatarUrl!,
+          imageUrl: avatarUrl,
           width: 36,
           height: 36,
           fit: BoxFit.cover,
@@ -661,8 +722,12 @@ class _UserAvatar extends StatelessWidget {
             height: 36,
             child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
           ),
-          errorWidget: (context, url, error) =>
-              const Icon(Icons.person, color: Colors.white, size: 18),
+          errorWidget: (context, url, error) => Image.asset(
+            'assets/image/Technician.png',
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
     );
@@ -688,7 +753,6 @@ class _TextMessage extends StatelessWidget {
   }
 }
 
-// ✨ OPTIMIZED IMAGE MESSAGE WITH CACHING
 class _ImageMessage extends StatelessWidget {
   final String imageUrl;
 
@@ -696,49 +760,71 @@ class _ImageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocalFile =
+        !imageUrl.startsWith('http') && !imageUrl.startsWith('https');
+
     return GestureDetector(
       onTap: () => _showFullScreenImage(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
+        child: isLocalFile ? _buildLocalImage() : _buildNetworkImage(),
+      ),
+    );
+  }
+
+  Widget _buildLocalImage() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Image.file(File(imageUrl), width: 200, height: 150, fit: BoxFit.cover),
+
+        Container(
           width: 200,
-          fit: BoxFit.cover,
-
-          // Placeholder ระหว่างโหลด
-          placeholder: (context, url) => Container(
-            width: 200,
-            height: 150,
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+          height: 150,
+          color: Colors.black26,
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
             ),
           ),
-
-          // Error widget
-          errorWidget: (context, url, error) => Container(
-            width: 200,
-            height: 150,
-            color: Colors.grey[200],
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                SizedBox(height: 8),
-                Text(
-                  'โหลดรูปภาพไม่สำเร็จ',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-
-          // ✨ OPTIMIZATION: Resize image ก่อนเก็บ cache
-          memCacheWidth: 600,
-          memCacheHeight: 450,
-          maxWidthDiskCache: 1200,
-          maxHeightDiskCache: 900,
         ),
+      ],
+    );
+  }
+
+  Widget _buildNetworkImage() {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      width: 200,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        width: 200,
+        height: 150,
+        color: Colors.grey[200],
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      errorWidget: (context, url, error) => _buildErrorWidget(),
+      memCacheWidth: 600,
+      memCacheHeight: 450,
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Container(
+      width: 200,
+      height: 150,
+      color: Colors.grey[200],
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            'โหลดรูปภาพไม่สำเร็จ',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -788,46 +874,114 @@ class _ImageMessage extends StatelessWidget {
   }
 }
 
-class _ChatInputArea extends StatelessWidget {
+class _ChatInputArea extends ConsumerWidget {
   final TextEditingController controller;
   final VoidCallback onImagePressed;
   final VoidCallback onSendPressed;
   final bool isLoading;
+  final int bookingId;
 
   const _ChatInputArea({
     required this.controller,
     required this.onImagePressed,
     required this.onSendPressed,
     required this.isLoading,
+    required this.bookingId,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final roomsAsync = ref.watch(chatRoomsProvider);
+
+    bool isChatLocked = false;
+    String lockReason = '';
+
+    roomsAsync.whenData((rooms) {
+      final room = rooms.firstWhere(
+        (r) => r.bookingId == bookingId,
+        orElse: () => ChatRoom(
+          bookingId: 0,
+          bookingNumber: '',
+          bookingStatus: BookingStatus.pending,
+          serviceCategory: '',
+          otherPersonId: 0,
+          otherPersonName: '',
+          otherPersonImg: '',
+          lastMessage: '',
+          lastMsgType: MessageType.text,
+          lastMsgTime: DateTime.now(),
+          lastSender: '',
+          unreadCount: 0,
+          canSendMessage: false,
+        ),
+      );
+
+      isChatLocked = !room.canSendMessage;
+
+      if (isChatLocked) {
+        switch (room.bookingStatus) {
+          case BookingStatus.pending:
+            lockReason = 'รอช่างยอมรับงานก่อน';
+            break;
+          case BookingStatus.completed:
+            lockReason = 'งานเสร็จสิ้นแล้ว';
+            break;
+          case BookingStatus.cancelled:
+            lockReason = 'งานถูกยกเลิกแล้ว';
+            break;
+          default:
+            lockReason = 'ไม่สามารถส่งข้อความได้';
+        }
+      }
+    });
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(color: AppColors.primaryBGHover),
+      decoration: BoxDecoration(
+        color: isChatLocked ? Colors.grey.shade200 : AppColors.primaryBGHover,
+      ),
       child: SafeArea(
-        child: Row(
-          children: [
-            IconButton(
-              icon: SvgPicture.asset(
-                'assets/icons/imageChat.svg',
-                width: 40,
-                height: 40,
+        child: isChatLocked
+            ? _buildLockedMessage(lockReason)
+            : Row(
+                children: [
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      'assets/icons/imageChat.svg',
+                      width: 40,
+                      height: 40,
+                    ),
+                    onPressed: isLoading ? null : onImagePressed,
+                    tooltip: 'แนบรูปภาพ',
+                  ),
+                  Expanded(
+                    child: _MessageTextField(
+                      controller: controller,
+                      onSendPressed: onSendPressed,
+                      isLoading: isLoading,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
               ),
-              onPressed: isLoading ? null : onImagePressed,
-              tooltip: 'แนบรูปภาพ',
+      ),
+    );
+  }
+
+  Widget _buildLockedMessage(String reason) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          Icon(Icons.lock_outline, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              reason,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
             ),
-            Expanded(
-              child: _MessageTextField(
-                controller: controller,
-                onSendPressed: onSendPressed,
-                isLoading: isLoading,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

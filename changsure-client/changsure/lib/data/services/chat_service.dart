@@ -231,6 +231,54 @@ class ChatService {
     return false;
   }
 
+  Future<void> markMessagesAsRead(
+    String token,
+    int bookingId,
+    List<int> messageIds,
+  ) async {
+    _validateToken(token);
+    _validateBookingId(bookingId);
+
+    if (messageIds.isEmpty) {
+      throw ValidationException('Message IDs cannot be empty');
+    }
+
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/chats/rooms/$bookingId/messages/read',
+    );
+
+    try {
+      final response = await _executeWithRetry(
+        () => _client
+            .post(
+              uri,
+              headers: _authHeader(token),
+              body: jsonEncode({'message_ids': messageIds}),
+            )
+            .timeout(_timeout),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ChatServiceException(
+          'Failed to mark messages as read',
+          statusCode: response.statusCode,
+        );
+      }
+
+      print('✅ Marked ${messageIds.length} messages as read');
+    } on SocketException catch (e) {
+      throw NetworkException('No internet connection', originalError: e);
+    } on TimeoutException catch (e) {
+      throw NetworkException('Request timed out', originalError: e);
+    } catch (e) {
+      if (e is ChatServiceException) rethrow;
+      throw ChatServiceException(
+        'Failed to mark messages as read',
+        originalError: e,
+      );
+    }
+  }
+
   Future<void> _addImageToRequest(
     http.MultipartRequest request,
     File imageFile,
