@@ -21,18 +21,9 @@ class NotificationItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFF295CDC),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.home_repair_service,
-                color: Colors.white,
-                size: 30,
-              ),
+            Image.asset(
+              "assets/image/Logo_ChangSure_Transparents.PNG",
+              width: 60,
             ),
             const SizedBox(width: 12),
 
@@ -49,20 +40,24 @@ class NotificationItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    item.message,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      height: 1.4,
+                  SizedBox(
+                    width: 280,
+                    child: Text(
+                      item.message,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.colorTertiaryText,
+                        height: 1.4,
+                      ),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
                   ),
+
                   const SizedBox(height: 4),
                   Text(
                     dateStr,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    style: TextStyle(fontSize: 12, color: AppColors.primaryBorder),
                   ),
                 ],
               ),
