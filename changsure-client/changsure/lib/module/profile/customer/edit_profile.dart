@@ -250,17 +250,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                               avatarUrl.isNotEmpty &&
                               avatarUrl.startsWith('http'))
                           ? NetworkImage(avatarUrl)
-                          : null,
-                      child:
-                          (avatarUrl == null ||
-                              avatarUrl.isEmpty ||
-                              !avatarUrl.startsWith('http'))
-                          ? const Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.white,
-                            )
-                          : null,
+                          : AssetImage('assets/image/Technician.png') as ImageProvider,
                     ),
                     Positioned(
                       bottom: 0,

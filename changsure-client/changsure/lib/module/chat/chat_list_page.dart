@@ -509,16 +509,9 @@ class _RoomAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: 35,
       backgroundColor: _getAvatarColor(colorIndex),
-      backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-      child: imageUrl.isEmpty
-          ? Image.asset(
-              "assets/image/Technician.png",
-              width: 70,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.person, color: Colors.white, size: 32);
-              },
-            )
-          : null,
+      backgroundImage: imageUrl.isNotEmpty
+          ? NetworkImage(imageUrl)
+          : AssetImage('assets/image/Technician.png') as ImageProvider,
     );
   }
 }

@@ -114,10 +114,7 @@ class TechnicianCardCTM extends ConsumerWidget {
                         backgroundImage:
                             tech.avatarUrl != null && tech.avatarUrl!.isNotEmpty
                             ? NetworkImage(tech.avatarUrl!)
-                            : null,
-                        child: tech.avatarUrl == null
-                            ? Icon(Icons.person, size: 40)
-                            : null,
+                            : const AssetImage('assets/image/Technician.png'),
                       ),
 
                       const SizedBox(height: 4),

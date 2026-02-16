@@ -13,6 +13,8 @@ import 'package:changsure/module/profile/address_page.dart' as shared_address;
 
 import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart'
     as public_tech_profile;
+import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart'
+    as public_activity_detail;
 
 import 'package:changsure/module/profile/technician/owner/pages/technician_profile_page.dart'
     as tech_profile;
@@ -115,6 +117,14 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.publicTechnicianProfile:
           if (subConfig.technicianId != null) {
             subPage = public_tech_profile.PublicTechnicianProfilePage(
+              technicianId: subConfig.technicianId!,
+            );
+          }
+          break;
+        case BottomSubPage.publicActivityDetail:
+          if (subConfig.activityId != null && subConfig.technicianId != null) {
+            subPage = public_activity_detail.PublicActivityDetailPage(
+              postId: subConfig.activityId!,
               technicianId: subConfig.technicianId!,
             );
           }

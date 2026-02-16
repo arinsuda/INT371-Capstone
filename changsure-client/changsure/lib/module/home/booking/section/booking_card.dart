@@ -357,8 +357,7 @@ class _BookingCardState extends State<BookingCard> {
   Widget build(BuildContext context) {
     final tech = widget.technician;
 
-    return
-      Padding(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(
         children: [
@@ -372,10 +371,8 @@ class _BookingCardState extends State<BookingCard> {
                     backgroundImage:
                         tech.avatarUrl != null && tech.avatarUrl!.isNotEmpty
                         ? NetworkImage(tech.avatarUrl!)
-                        : null,
-                    child: (tech.avatarUrl == null || tech.avatarUrl!.isEmpty)
-                        ? const Icon(Icons.person, size: 28)
-                        : null,
+                        : AssetImage('assets/image/Technician.png')
+                              as ImageProvider,
                   ),
 
                   const SizedBox(width: 12),

@@ -413,11 +413,12 @@ class _PublicTechnicianContentState
                           id: post.id,
                           serviceCategoryName:
                               post.categoryName ?? 'ไม่ระบุหมวดหมู่',
-
                           description: post.description ?? 'ไม่มีรายละเอียด',
                           images: post.images
                               .map((img) => img.imageUrl)
                               .toList(),
+                          technicianId: widget.technicianId,
+                          isPublicView: true,
                         );
                       }, childCount: displayedPosts.length),
                     ),

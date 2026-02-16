@@ -379,7 +379,6 @@ class _ParticipantAvatar extends StatelessWidget {
       );
     }
 
-    // ใช้ CachedNetworkImage สำหรับ avatar ด้วย
     return CircleAvatar(
       radius: 18,
       backgroundColor: Colors.grey[300],

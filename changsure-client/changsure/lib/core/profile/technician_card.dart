@@ -1,3 +1,4 @@
+import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/bottom_nav_provider.dart';
@@ -7,7 +8,9 @@ class TechnicianCard extends ConsumerWidget {
   final int id;
   final String serviceCategoryName;
   final String description;
-  final List<String> images; // Expecting URLs
+  final List<String> images;
+  final int? technicianId;
+  final bool isPublicView;
 
   const TechnicianCard({
     super.key,
@@ -15,11 +18,12 @@ class TechnicianCard extends ConsumerWidget {
     required this.serviceCategoryName,
     required this.description,
     required this.images,
+    this.technicianId,
+    this.isPublicView = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Color mapping for service categories
     final Map<String, Map<String, Color>> colorMap = {
       "งานทาสี": {
         "text": const Color(0xFFEB2F96),
@@ -51,9 +55,7 @@ class TechnicianCard extends ConsumerWidget {
           "border": Colors.purple.shade300,
         };
 
-    // Helper to build images safely
     Widget buildImages() {
-      // 1. Handle empty or null images (Prevents RangeError)
       if (images.isEmpty) {
         return Container(
           height: 120,
@@ -65,7 +67,6 @@ class TechnicianCard extends ConsumerWidget {
         );
       }
 
-      // 2. Single Image
       if (images.length == 1) {
         return Image.network(
           images[0],
@@ -80,7 +81,6 @@ class TechnicianCard extends ConsumerWidget {
         );
       }
 
-      // 3. Two Images
       if (images.length == 2) {
         return Row(
           children: [
@@ -117,7 +117,6 @@ class TechnicianCard extends ConsumerWidget {
         );
       }
 
-      // 4. Three or more images
       int extraCount = images.length - 3;
       return Row(
         children: [
@@ -145,7 +144,6 @@ class TechnicianCard extends ConsumerWidget {
                 children: List.generate(
                   images.length - 1 > 2 ? 2 : images.length - 1,
                   (index) {
-                    // index here starts from 0 for the right column list, so actual image index is index + 1
                     bool isLastWithExtra = index == 1 && extraCount > 0;
                     return Expanded(
                       child: Padding(
@@ -188,10 +186,20 @@ class TechnicianCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () {
-        ref.read(bottomSubPageProvider.notifier).state = SubPageConfig(
-          page: BottomSubPage.technicianViewActivityById,
-          activityId: id,
-        );
+        if (isPublicView && technicianId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  PublicActivityDetailPage(technicianId: technicianId!, postId: id),
+            ),
+          );
+        } else {
+          ref.read(bottomSubPageProvider.notifier).state = SubPageConfig(
+            page: BottomSubPage.technicianViewActivityById,
+            activityId: id,
+          );
+        }
       },
       child: Card(
         color: Colors.white,
@@ -201,7 +209,6 @@ class TechnicianCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Stack for Image + Label
             Stack(
               children: [
                 ClipRRect(
@@ -239,7 +246,7 @@ class TechnicianCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // Description
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: SizedBox(
@@ -257,7 +264,7 @@ class TechnicianCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Details Link
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Text(

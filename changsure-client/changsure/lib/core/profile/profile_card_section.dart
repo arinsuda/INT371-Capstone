@@ -34,7 +34,7 @@ class ProfileSection extends StatelessWidget {
                 (profileImage.startsWith('http') ||
                     profileImage.startsWith('https'))
                 ? NetworkImage(profileImage)
-                : AssetImage(profileImage) as ImageProvider,
+                : AssetImage('assets/image/Technician.png') as ImageProvider,
           ),
           SizedBox(width: 16),
 
