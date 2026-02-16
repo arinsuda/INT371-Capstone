@@ -113,8 +113,11 @@ func (h *Handler) CreateBooking(c fiber.Ctx) error {
 	if h.hub != nil {
 		payloadData := map[string]any{
 			"booking_id":       result.ID,
-			"appointment_date": result.AppointmentDate.Format("2006-01-02"),
+			"booking_number":   result.BookingNumber,
+			"customer_id":      result.CustomerID,
 			"technician_id":    result.TechnicianID,
+			"status":           result.Status,
+			"appointment_date": result.AppointmentDate.Format("2006-01-02"),
 			"pricing_type":     result.PricingType,
 		}
 
@@ -126,16 +129,25 @@ func (h *Handler) CreateBooking(c fiber.Ctx) error {
 		}
 
 		if result.TimeSlot.ID != 0 && result.TimeSlot.StartTime != "" {
-			payloadData["time_slot"] = result.TimeSlot.StartTime + " - " + result.TimeSlot.EndTime
-		}
-
-		if result.TechnicianService.ID != 0 && result.TechnicianService.Service.ID != 0 {
-			if result.TechnicianService.Service.SerName != "" {
-				payloadData["service_name"] = result.TechnicianService.Service.SerName
+			payloadData["time_slot"] = map[string]any{
+				"id":         result.TimeSlot.ID,
+				"start_time": result.TimeSlot.StartTime,
+				"end_time":   result.TimeSlot.EndTime,
+				"label":      result.TimeSlot.StartTime + " - " + result.TimeSlot.EndTime,
 			}
 		}
 
-		payload := realtime.MarshalEvent("BOOKING_CREATED", payloadData)
+		if result.TechnicianService.ID != 0 && result.TechnicianService.Service.ID != 0 {
+			payloadData["service"] = map[string]any{
+				"id":   result.TechnicianService.Service.ID,
+				"name": result.TechnicianService.Service.SerName,
+			}
+			if result.TechnicianService.Service.Category.ID != 0 {
+				payloadData["service_category"] = result.TechnicianService.Service.Category.CatName
+			}
+		}
+
+		payload := realtime.MarshalEvent(realtime.EventBookingCreated, payloadData)
 		go h.hub.BroadcastToTechnician(result.TechnicianID, payload)
 	}
 

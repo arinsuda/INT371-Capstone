@@ -11,4 +11,6 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	chats.Get("/rooms/:roomId", h.GetChatRoomMessages)
 	chats.Post("/rooms/:roomId/messages", h.SendMessage)
 	chats.Post("/rooms/:roomId/read", h.MarkRoomAsRead)
+	chats.Post("/rooms/:roomId/messages/read", h.MarkMessagesAsRead)
+
 }

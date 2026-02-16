@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,6 +50,18 @@ func (c *wsClient) writeLoop(onClose func()) {
 	pingTicker := time.NewTicker(25 * time.Second)
 	defer pingTicker.Stop()
 
+	pongReceived := make(chan bool, 1)
+	pongTimeout := time.NewTimer(35 * time.Second)
+	defer pongTimeout.Stop()
+
+	c.conn.SetPongHandler(func(string) error {
+		select {
+		case pongReceived <- true:
+		default:
+		}
+		return nil
+	})
+
 	for {
 		select {
 		case msg, ok := <-c.send:
@@ -58,8 +71,35 @@ func (c *wsClient) writeLoop(onClose func()) {
 			if err := c.safeWrite(websocket.TextMessage, msg); err != nil {
 				return
 			}
+
 		case <-pingTicker.C:
-			_ = c.safeWrite(websocket.PingMessage, []byte("ping"))
+
+			if err := c.safeWrite(websocket.PingMessage, []byte("ping")); err != nil {
+				return
+			}
+
+			if !pongTimeout.Stop() {
+				select {
+				case <-pongTimeout.C:
+				default:
+				}
+			}
+			pongTimeout.Reset(35 * time.Second)
+
+		case <-pongReceived:
+
+			if !pongTimeout.Stop() {
+				select {
+				case <-pongTimeout.C:
+				default:
+				}
+			}
+			pongTimeout.Reset(35 * time.Second)
+
+		case <-pongTimeout.C:
+
+			fmt.Println("⚠️ WebSocket: No pong received, closing connection")
+			return
 		}
 	}
 }

@@ -24,7 +24,6 @@ type Repository interface {
 	MarkMessagesAsRead(ctx context.Context, messageIDs []uint) error
 	GetUnreadCount(ctx context.Context, bookingID uint, userRole string, lastReadTime time.Time) (int64, error)
 	GetUserInfo(ctx context.Context, userID uint, userRole string) (name, avatar string, err error)
-
 	GetChatRooms(ctx context.Context, userID uint, role string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error)
 }
 
@@ -137,6 +136,7 @@ func (r *repository) MarkMessagesAsRead(ctx context.Context, messageIDs []uint) 
 	result := r.db.WithContext(ctx).
 		Model(&ChatMessage{}).
 		Where("id IN ?", messageIDs).
+		Where("is_read = ?", false).
 		Update("is_read", true)
 
 	if result.Error != nil {
@@ -154,6 +154,7 @@ func (r *repository) GetUnreadCount(ctx context.Context, bookingID uint, userRol
 		Where("booking_id = ?", bookingID).
 		Where("created_at > ?", lastReadTime).
 		Where("sender_role != ?", userRole).
+		Where("is_read = ?", false).
 		Count(&count).Error
 
 	if err != nil {
@@ -209,14 +210,14 @@ func (r *repository) GetChatRooms(ctx context.Context, userID uint, role string,
 	}
 
 	for i := range results {
-		if results[i].OtherPersonImg != "" {
+		if results[i].OtherPersonImg != "" && !strings.HasPrefix(results[i].OtherPersonImg, "http") {
 			url, err := r.storage.PresignGet(ctx, results[i].OtherPersonImg, 24*time.Hour, false)
 			if err == nil {
 				results[i].OtherPersonImg = url
 			}
 		}
 
-		if results[i].LastMsgType == MsgTypeImage && results[i].LastMessage != "" {
+		if results[i].LastMsgType == MsgTypeImage && results[i].LastMessage != "" && !strings.HasPrefix(results[i].LastMessage, "http") {
 			if url, err := r.storage.PresignGet(ctx, results[i].LastMessage, 24*time.Hour, false); err == nil {
 				results[i].LastMessage = url
 			}
@@ -238,17 +239,13 @@ func (r *repository) getRoomQueryParams(role string) (targetTable, targetIDCol, 
 }
 
 func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, nameExpr, imgCol, statusFilter, searchQuery string) string {
-
 	whereClause := fmt.Sprintf("WHERE b.%s = ?", myIDCol)
 
 	if statusFilter != "" {
-
 		statuses := strings.Split(statusFilter, ",")
 		if len(statuses) == 1 {
-
 			whereClause += fmt.Sprintf(" AND b.status = '%s'", strings.TrimSpace(statuses[0]))
 		} else {
-
 			statusList := make([]string, 0, len(statuses))
 			for _, s := range statuses {
 				trimmed := strings.TrimSpace(s)
@@ -261,7 +258,6 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 			}
 		}
 	} else {
-
 		whereClause += ` AND b.status IN (
             'ACCEPTED', 
             'IN_PROGRESS', 
@@ -272,9 +268,7 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 	}
 
 	if searchQuery != "" {
-
 		escapedQuery := strings.ReplaceAll(searchQuery, "'", "''")
-
 		whereClause += fmt.Sprintf(` AND (
 			b.booking_number LIKE '%%%s%%' OR
 			%s LIKE '%%%s%%' OR
@@ -309,6 +303,7 @@ func (r *repository) buildChatRoomsQuery(targetTable, targetIDCol, myIDCol, name
 						ELSE COALESCE(b.last_read_by_technician, '1970-01-01')
 					END
 				  AND cm.sender_role != ?
+				  AND cm.is_read = false
 			) as unread_count
 		FROM bookings b
 		LEFT JOIN %s u ON u.id = b.%s

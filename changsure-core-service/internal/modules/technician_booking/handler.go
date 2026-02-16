@@ -287,16 +287,38 @@ func (h *Handler) CompleteJob(c fiber.Ctx) error {
 	}
 
 	h.hydrateBookingMediaURLs(c.Context(), bkg)
-	h.broadcastToCustomer(bkg, "JOB_COMPLETED")
 
-	if h.hub != nil {
-		lockPayload := realtime.MarshalEvent("CHAT_ROOM_LOCKED", map[string]any{
+	if h.hub != nil && bkg.CustomerID != 0 {
+
+		statusPayload := realtime.MarshalEvent(realtime.EventBookingStatusChanged, map[string]any{
+			"booking_id":       bkg.ID,
+			"status":           bkg.Status,
+			"previous_status":  "IN_PROGRESS",
+			"action":           "COMPLETED",
+			"technician_id":    bkg.TechnicianID,
+			"customer_id":      bkg.CustomerID,
+			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
+			"can_chat":         false,
+		})
+		go h.hub.BroadcastToCustomer(bkg.CustomerID, statusPayload)
+		go h.hub.BroadcastToTechnician(bkg.TechnicianID, statusPayload)
+
+		lockPayload := realtime.MarshalEvent(realtime.EventChatRoomLocked, map[string]any{
 			"booking_id": bkg.ID,
 			"status":     bkg.Status,
 			"can_chat":   false,
+			"reason":     "Job completed - waiting for payment",
 		})
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, lockPayload)
 		go h.hub.BroadcastToTechnician(bkg.TechnicianID, lockPayload)
+
+		completedPayload := realtime.MarshalEvent(realtime.EventJobCompleted, map[string]any{
+			"booking_id":       bkg.ID,
+			"status":           bkg.Status,
+			"technician_id":    bkg.TechnicianID,
+			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
+		})
+		go h.hub.BroadcastToCustomer(bkg.CustomerID, completedPayload)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "แจ้งงานเสร็จสิ้น", "data": bkg})
