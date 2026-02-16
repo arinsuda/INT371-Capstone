@@ -13,7 +13,6 @@ class TodayWork extends ConsumerWidget {
   final int bookedSlots;
   final bool isOpenFromApi;
 
-
   const TodayWork({
     super.key,
     required this.selectedDate,
@@ -29,7 +28,6 @@ class TodayWork extends ConsumerWidget {
     final asyncValue = ref.watch(
       technicianCalendarByDateProvider((date: formattedDate)),
     );
-
 
     return Container(
       width: double.infinity,
@@ -52,9 +50,12 @@ class TodayWork extends ConsumerWidget {
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () async {
-                    final monthString = DateFormat('yyyy-MM').format(selectedDate);
-                    final formattedDate =
-                    DateFormat('yyyy-MM-dd').format(selectedDate);
+                    final monthString = DateFormat(
+                      'yyyy-MM',
+                    ).format(selectedDate);
+                    final formattedDate = DateFormat(
+                      'yyyy-MM-dd',
+                    ).format(selectedDate);
 
                     // 1️⃣ invalidate แบบมี parameter
                     ref.invalidate(
@@ -69,14 +70,14 @@ class TodayWork extends ConsumerWidget {
 
                       // 3️⃣ หา day ด้วย DateTime comparison
                       final dayData = monthData.days.firstWhere(
-                            (e) =>
-                        DateFormat('yyyy-MM-dd').format(e.date) ==
+                        (e) =>
+                            DateFormat('yyyy-MM-dd').format(e.date) ==
                             formattedDate,
                       );
                       final bookings = await ref.read(
-                        technicianCalendarByDateProvider(
-                          (date: formattedDate),
-                        ).future,
+                        technicianCalendarByDateProvider((
+                          date: formattedDate,
+                        )).future,
                       );
 
                       // 4️⃣ เปิด modal
@@ -95,7 +96,9 @@ class TodayWork extends ConsumerWidget {
 
                       if (result == true) {
                         ref.invalidate(
-                          technicianCalendarByDateProvider((date: formattedDate)),
+                          technicianCalendarByDateProvider((
+                            date: formattedDate,
+                          )),
                         );
                         ref.invalidate(
                           technicianCalendarProvider((month: monthString)),
@@ -160,7 +163,9 @@ class TodayWork extends ConsumerWidget {
               data: (bookings) {
                 // ✅ กรอง REJECTED ออก
                 final filteredBookings = bookings
-                    .where((b) => b.status != "REJECTED")
+                    .where(
+                      (b) => b.status != "REJECTED" && b.status != "CANCELLED",
+                    )
                     .toList();
 
                 if (filteredBookings.isEmpty) {
@@ -192,15 +197,12 @@ class TodayWork extends ConsumerWidget {
                 return Column(
                   children: sortedBookings
                       .map(
-                        (e) => ServiceCard(
-                      booking: e,
-                      selectedDate: selectedDate,
-                    ),
-                  )
+                        (e) =>
+                            ServiceCard(booking: e, selectedDate: selectedDate),
+                      )
                       .toList(),
                 );
               },
-
             ),
           ],
         ),
