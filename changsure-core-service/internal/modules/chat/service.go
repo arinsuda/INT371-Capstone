@@ -43,6 +43,13 @@ type Service interface {
 	GetChatHistory(ctx context.Context, userID uint, bookingID uint, query GetHistoryQuery) ([]ChatMessageResponse, error)
 	GetChatRooms(ctx context.Context, userID uint, userRole string, statusFilter string, searchQuery string) ([]ChatRoomResponse, error)
 	MarkRoomAsRead(ctx context.Context, userID uint, userRole string, bookingID uint) error
+	MarkMessagesAsRead(
+		ctx context.Context,
+		userID uint,
+		userRole string,
+		bookingID uint,
+		messageIDs []uint,
+	) error
 }
 
 type service struct {
@@ -224,6 +231,38 @@ func (s *service) MarkRoomAsRead(
 	return nil
 }
 
+func (s *service) MarkMessagesAsRead(
+	ctx context.Context,
+	userID uint,
+	userRole string,
+	bookingID uint,
+	messageIDs []uint,
+) error {
+	bk, _, err := s.verifyBookingAccess(ctx, userID, userRole, bookingID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.chatRepo.MarkMessagesAsRead(ctx, messageIDs); err != nil {
+		return err
+	}
+
+	payload := realtime.MarshalEvent(realtime.EventChatMessageRead, map[string]any{
+		"booking_id":  bookingID,
+		"message_ids": messageIDs,
+		"reader_role": userRole,
+		"read_at":     time.Now(),
+	})
+
+	if userRole == "technician" {
+		s.hub.BroadcastToCustomer(bk.CustomerID, payload)
+	} else {
+		s.hub.BroadcastToTechnician(bk.TechnicianID, payload)
+	}
+
+	return nil
+}
+
 func (s *service) verifyBookingAccess(
 	ctx context.Context,
 	userID uint,
@@ -365,45 +404,68 @@ func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) 
 }
 
 func (s *service) broadcastNewMessage(msg *ChatMessage, senderID uint, senderRole string, receiverID uint) {
-
-	newMsgPayload := realtime.MarshalEvent("NEW_MESSAGE", msg)
-
-	lastMessage := msg.Content
+	content := msg.Content
 	if msg.Type == MsgTypeImage && msg.Content != "" {
 		if url, err := s.storage.PresignGet(context.Background(), msg.Content, 24*time.Hour, false); err == nil {
-			lastMessage = url
+			content = url
 		}
 	}
 
-	chatListPayloadSender := realtime.MarshalEvent("CHAT_LIST_UPDATE", map[string]any{
+	senderAvatar := msg.SenderAvatar
+	if senderAvatar != "" && !strings.HasPrefix(senderAvatar, "http") {
+		if url, err := s.storage.PresignGet(context.Background(), senderAvatar, 24*time.Hour, false); err == nil {
+			senderAvatar = url
+		}
+	}
+
+	newMsgPayload := realtime.MarshalEvent(realtime.EventChatMessageNew, map[string]any{
+		"id":         msg.ID,
+		"booking_id": msg.BookingID,
+		"booking": map[string]any{
+			"booking_number":   msg.BookingNumber,
+			"service_category": msg.ServiceCategory,
+		},
+		"sender": map[string]any{
+			"sender_id":     msg.SenderID,
+			"sender_role":   msg.SenderRole,
+			"sender_name":   msg.SenderName,
+			"sender_avatar": senderAvatar,
+		},
+		"type":       msg.Type,
+		"content":    content,
+		"is_read":    msg.IsRead,
+		"created_at": msg.CreatedAt,
+	})
+
+	if senderRole == "technician" {
+		s.hub.BroadcastToTechnician(senderID, newMsgPayload)
+		s.hub.BroadcastToCustomer(receiverID, newMsgPayload)
+	} else {
+		s.hub.BroadcastToCustomer(senderID, newMsgPayload)
+		s.hub.BroadcastToTechnician(receiverID, newMsgPayload)
+	}
+
+	chatListPayloadSender := realtime.MarshalEvent(realtime.EventChatListUpdated, map[string]any{
 		"booking_id":    msg.BookingID,
-		"last_message":  lastMessage,
+		"last_message":  content,
 		"last_msg_type": msg.Type,
 		"last_msg_time": msg.CreatedAt,
 		"last_sender":   "me",
 	})
 
-	chatListPayloadReceiver := realtime.MarshalEvent("CHAT_LIST_UPDATE", map[string]any{
+	chatListPayloadReceiver := realtime.MarshalEvent(realtime.EventChatListUpdated, map[string]any{
 		"booking_id":    msg.BookingID,
-		"last_message":  lastMessage,
+		"last_message":  content,
 		"last_msg_type": msg.Type,
 		"last_msg_time": msg.CreatedAt,
 		"last_sender":   "other",
 	})
 
 	if senderRole == "technician" {
-
-		s.hub.BroadcastToTechnician(senderID, newMsgPayload)
 		s.hub.BroadcastToTechnician(senderID, chatListPayloadSender)
-
-		s.hub.BroadcastToCustomer(receiverID, newMsgPayload)
 		s.hub.BroadcastToCustomer(receiverID, chatListPayloadReceiver)
 	} else {
-
-		s.hub.BroadcastToCustomer(senderID, newMsgPayload)
 		s.hub.BroadcastToCustomer(senderID, chatListPayloadSender)
-
-		s.hub.BroadcastToTechnician(receiverID, newMsgPayload)
 		s.hub.BroadcastToTechnician(receiverID, chatListPayloadReceiver)
 	}
 }
@@ -416,22 +478,21 @@ func (s *service) updateRoomReadState(
 ) error {
 	now := time.Now()
 
-	if err := s.bookingRepo.UpdateLastRead(ctx, bk.ID, role, now); err != nil {
+	err := s.bookingRepo.UpdateLastRead(ctx, bk.ID, role, now)
+	if err != nil {
 		return err
 	}
 
-	payload := RoomReadEventPayload{
-		BookingID:  bk.ID,
-		ReaderRole: role,
-		ReadAt:     now,
-	}
-
-	event := realtime.MarshalEvent("ROOM_READ", payload)
+	payload := realtime.MarshalEvent(realtime.EventChatRoomRead, map[string]any{
+		"booking_id":  bk.ID,
+		"reader_role": role,
+		"read_at":     now,
+	})
 
 	if role == "technician" {
-		s.hub.BroadcastToCustomer(bk.CustomerID, event)
+		s.hub.BroadcastToCustomer(bk.CustomerID, payload)
 	} else {
-		s.hub.BroadcastToTechnician(bk.TechnicianID, event)
+		s.hub.BroadcastToTechnician(bk.TechnicianID, payload)
 	}
 
 	return nil

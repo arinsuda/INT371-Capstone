@@ -306,14 +306,33 @@ func (r *repository) UpdateLastRead(
 	role string,
 	readAt time.Time,
 ) error {
-	column := "last_read_by_customer"
-	if role == "technician" {
-		column = "last_read_by_technician"
-	}
+	// ✅ Use transaction to update both last_read and mark messages as read atomically
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Determine which column to update
+		column := "last_read_by_customer"
+		otherRole := "technician"
+		if role == "technician" {
+			column = "last_read_by_technician"
+			otherRole = "customer"
+		}
 
-	return r.db.WithContext(ctx).
-		Table("bookings").
-		Where("id = ?", bookingID).
-		Update(column, readAt).
-		Error
+		// Update last read timestamp
+		if err := tx.Table("bookings").
+			Where("id = ?", bookingID).
+			Update(column, readAt).
+			Error; err != nil {
+			return err
+		}
+
+		// Mark all unread messages from the other party as read
+		if err := tx.Table("chat_messages").
+			Where("booking_id = ? AND sender_role = ? AND is_read = ?",
+				bookingID, otherRole, false).
+			Update("is_read", true).
+			Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
