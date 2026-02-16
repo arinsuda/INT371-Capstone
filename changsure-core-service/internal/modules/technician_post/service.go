@@ -98,25 +98,46 @@ func (s *service) Create(ctx context.Context, techID uint, req CreateTechnicianP
 	return ToPostResponse(full), nil
 }
 
-func (s *service) Update(ctx context.Context, techID uint, postID uint, req UpdateTechnicianPostDTO) (*TechnicianPostResponse, error) {
+func (s *service) Update(
+	reqCtx context.Context,
+	techID uint,
+	postID uint,
+	req UpdateTechnicianPostDTO,
+) (*TechnicianPostResponse, error) {
 
-	_, err := s.repo.GetPost(ctx, postID, techID)
+	logPrefix := fmt.Sprintf("[UpdatePost post=%d tech=%d]", postID, techID)
+
+	_, err := s.repo.GetPost(reqCtx, postID, techID)
 	if err != nil {
 		return nil, ErrPostNotFound
 	}
 
 	var newImages []TechnicianPostImage
+
 	if len(req.NewImages) > 0 {
-		uploadedImgs, err := s.uploadAndBuildImages(ctx, postID, req.NewImages)
+
+		uploadCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		fmt.Println(logPrefix, "uploading images:", len(req.NewImages))
+
+		imgs, err := s.uploadAndBuildImages(uploadCtx, postID, req.NewImages)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("upload images failed: %w", err)
 		}
-		newImages = uploadedImgs
+
+		newImages = imgs
+
+		fmt.Println(logPrefix, "upload complete")
 	}
 
-	err = s.repo.DB().Transaction(func(tx *gorm.DB) error {
+	txCtx, cancelTx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelTx()
+
+	err = s.repo.DB().WithContext(txCtx).Transaction(func(tx *gorm.DB) error {
 
 		updateData := map[string]any{}
+
 		if req.Title != nil {
 			updateData["title"] = *req.Title
 		}
@@ -126,29 +147,34 @@ func (s *service) Update(ctx context.Context, techID uint, postID uint, req Upda
 		if req.ServiceCategoryID != nil {
 			updateData["service_category_id"] = *req.ServiceCategoryID
 		}
-
 		if req.IsPublished != nil {
 			updateData["is_published"] = *req.IsPublished
 		}
 
 		if len(updateData) > 0 {
+
 			if err := tx.Model(&TechnicianPost{}).
 				Where("id = ? AND technician_id = ?", postID, techID).
 				Updates(updateData).Error; err != nil {
+
 				return fmt.Errorf("update post failed: %w", err)
 			}
 		}
 
 		if len(req.ImageIDsToDelete) > 0 {
 
-			if err := s.repo.RemovePostImagesByID(ctx, postID, req.ImageIDsToDelete); err != nil {
-				return fmt.Errorf("failed to delete images: %w", err)
+			if err := tx.
+				Where("post_id = ? AND id IN ?", postID, req.ImageIDsToDelete).
+				Delete(&TechnicianPostImage{}).Error; err != nil {
+
+				return fmt.Errorf("delete images failed: %w", err)
 			}
 		}
 
 		if len(newImages) > 0 {
-			if err := s.repo.AddPostImages(ctx, newImages); err != nil {
-				return fmt.Errorf("failed to save new images: %w", err)
+
+			if err := tx.Create(&newImages).Error; err != nil {
+				return fmt.Errorf("insert new images failed: %w", err)
 			}
 		}
 
@@ -159,7 +185,11 @@ func (s *service) Update(ctx context.Context, techID uint, postID uint, req Upda
 		return nil, err
 	}
 
-	full, _ := s.repo.GetPost(ctx, postID, techID)
+	full, err := s.repo.GetPost(context.Background(), postID, techID)
+	if err != nil {
+		return nil, fmt.Errorf("reload post failed: %w", err)
+	}
+
 	return ToPostResponse(full), nil
 }
 
@@ -178,38 +208,55 @@ func (s *service) uploadAndBuildImages(
 	files []*multipart.FileHeader,
 ) ([]TechnicianPostImage, error) {
 
+	const maxRetry = 3
+
 	var images []TechnicianPostImage
 
 	for i, file := range files {
 
-		src, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("failed to open file: %w", err)
+		var lastErr error
+
+		for attempt := 1; attempt <= maxRetry; attempt++ {
+
+			src, err := file.Open()
+			if err != nil {
+				return nil, fmt.Errorf("open file failed: %w", err)
+			}
+
+			filename := fmt.Sprintf("%d_%d_%s",
+				postID,
+				time.Now().UnixNano(),
+				file.Filename,
+			)
+
+			key, err := storage.GlobalMinio.UploadFile(
+				ctx,
+				src,
+				filename,
+				fmt.Sprintf("posts/%d", postID),
+				file.Size,
+				file.Header.Get("Content-Type"),
+			)
+
+			src.Close()
+
+			if err == nil {
+				images = append(images, TechnicianPostImage{
+					PostID:    postID,
+					ImageURL:  key,
+					SortOrder: i,
+				})
+				lastErr = nil
+				break
+			}
+
+			lastErr = err
+			time.Sleep(time.Duration(attempt) * 200 * time.Millisecond)
 		}
 
-		defer src.Close()
-
-		filename := fmt.Sprintf("%d_%d_%s", postID, time.Now().UnixNano(), file.Filename)
-
-		key, err := storage.GlobalMinio.UploadFile(
-			ctx,
-			src,
-			filename,
-			fmt.Sprintf("posts/%d", postID),
-			file.Size,
-			file.Header.Get("Content-Type"),
-		)
-		if err != nil {
-
-			return nil, fmt.Errorf("upload failed: %w", err)
+		if lastErr != nil {
+			return nil, fmt.Errorf("upload failed after retries: %w", lastErr)
 		}
-
-		images = append(images, TechnicianPostImage{
-			PostID:    postID,
-			ImageURL:  key,
-			SortOrder: i,
-		})
-
 	}
 
 	return images, nil
