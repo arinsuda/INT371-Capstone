@@ -130,7 +130,8 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 			return ErrForbiddenBooking
 		}
 
-		if b.Status != booking.BookingStatusPending {
+		if b.Status != booking.BookingStatusPending &&
+			b.Status != booking.BookingStatusAccepted {
 			return ErrInvalidBookingStatus
 		}
 

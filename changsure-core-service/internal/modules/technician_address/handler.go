@@ -60,7 +60,7 @@ func (h *Handler) mapServiceError(c fiber.Ctx, action string, err error) error {
 	return customErr.InternalError(c, "failed to "+action, err)
 }
 
-func (h *Handler) CreateAddress(c fiber.Ctx) error {
+func (h *Handler) Create(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (h *Handler) CreateAddress(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) ListAddresses(c fiber.Ctx) error {
+func (h *Handler) List(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (h *Handler) ListAddresses(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": list})
 }
 
-func (h *Handler) GetAddress(c fiber.Ctx) error {
+func (h *Handler) Get(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (h *Handler) GetAddress(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) UpdateAddress(c fiber.Ctx) error {
+func (h *Handler) Update(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (h *Handler) UpdateAddress(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) DeleteAddress(c fiber.Ctx) error {
+func (h *Handler) Delete(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func (h *Handler) DeleteAddress(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "address deleted"})
 }
 
-func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
+func (h *Handler) SetPrimary(c fiber.Ctx) error {
 	techID, err := h.mustTechID(c)
 	if err != nil {
 		return err

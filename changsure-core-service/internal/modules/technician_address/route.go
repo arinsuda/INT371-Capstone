@@ -13,13 +13,13 @@ func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
 		middleware.TechnicianOnly(),
 	)
 
-	me.Post("", h.CreateAddress)
-	me.Get("", h.ListAddresses)
-	me.Get("/:id", h.GetAddress)
-	me.Put("/:id", h.UpdateAddress)
-	me.Delete("/:id", h.DeleteAddress)
+	me.Post("", h.Create)
+	me.Get("", h.List)
+	me.Get("/:id", h.Get)
+	me.Put("/:id", h.Update)
+	me.Delete("/:id", h.Delete)
 
-	me.Patch("/:id/primary", h.SetPrimaryAddress)
+	me.Patch("/:id/primary", h.SetPrimary)
 }
 
 func (h *Handler) RegisterRoutesPublic(r fiber.Router, cfg *config.Config) {
