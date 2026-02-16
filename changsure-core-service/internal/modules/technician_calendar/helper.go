@@ -29,6 +29,7 @@ type CalendarData struct {
 type BookingInfo struct {
 	Date       time.Time
 	TimeSlotID uint
+	Status     string
 }
 
 func CalculateMonthRange(monthStart time.Time) DateRange {
@@ -175,6 +176,10 @@ func (s *service) groupBookingsByDate(bookings []bookingPkg.Booking) map[string]
 	result := make(map[string][]bookingPkg.Booking)
 
 	for _, b := range bookings {
+		if !IsActiveStatus(b.Status) {
+			continue
+		}
+
 		dateKey := booking.FormatDate(b.AppointmentDate)
 		result[dateKey] = append(result[dateKey], b)
 	}
@@ -343,4 +348,13 @@ func CountBookedActiveSlots(slots []CalendarTimeSlot) int {
 		}
 	}
 	return count
+}
+
+func IsActiveStatus(status string) bool {
+	for _, s := range booking.ExcludedFromAvailability {
+		if s == status {
+			return false
+		}
+	}
+	return true
 }
