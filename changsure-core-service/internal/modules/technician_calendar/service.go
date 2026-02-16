@@ -380,13 +380,20 @@ func (s *service) fetchBookingsForRange(
 }
 
 func (s *service) convertToBookingInfos(bookings []bookingPkg.Booking) []BookingInfo {
-	infos := make([]BookingInfo, len(bookings))
-	for i, b := range bookings {
-		infos[i] = BookingInfo{
+	infos := make([]BookingInfo, 0, len(bookings))
+
+	for _, b := range bookings {
+		if !IsActiveStatus(b.Status) {
+			continue
+		}
+
+		infos = append(infos, BookingInfo{
 			Date:       b.AppointmentDate,
 			TimeSlotID: b.TimeSlotID,
-		}
+			Status:     b.Status,
+		})
 	}
+
 	return infos
 }
 
