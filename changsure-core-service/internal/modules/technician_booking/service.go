@@ -113,7 +113,10 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 		reason = reason[:255]
 	}
 
-	var updated *booking.Booking
+	var (
+		prevStatus string
+		updated    *booking.Booking
+	)
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := s.repo.WithTx(tx)
@@ -134,6 +137,8 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 			b.Status != booking.BookingStatusAccepted {
 			return ErrInvalidBookingStatus
 		}
+
+		prevStatus = b.Status
 
 		now := time.Now()
 		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusRejected, now); err != nil {
@@ -156,12 +161,23 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 	}
 
 	if s.notif != nil && full != nil && full.CustomerID != 0 {
+
+		title := "ช่างปฏิเสธงาน"
+		message := "ช่างปฏิเสธการจองของคุณ"
+		notifType := "BOOKING_REJECTED"
+
+		if prevStatus == booking.BookingStatusAccepted {
+			title = "ช่างยกเลิกงาน"
+			message = "ช่างยกเลิกงานที่เคยรับแล้ว กรุณาเลือกช่างใหม่"
+			notifType = "BOOKING_CANCELLED_BY_TECH"
+		}
+
 		_, _ = s.notif.Create(ctx, notification.CreateNotificationInput{
 			RecipientRole: notification.RoleCustomer,
 			RecipientID:   full.CustomerID,
-			Type:          "BOOKING_REJECTED",
-			Title:         "ช่างปฏิเสธงาน",
-			Message:       "ช่างปฏิเสธการจองของคุณ",
+			Type:          notifType,
+			Title:         title,
+			Message:       message,
 			EntityType:    "booking",
 			EntityID:      full.ID,
 			Data: map[string]any{
