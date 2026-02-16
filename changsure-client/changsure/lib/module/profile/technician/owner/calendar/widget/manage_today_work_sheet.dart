@@ -82,7 +82,7 @@ class _ManageTodayWorkSheetState
         if (syncedDate != dateString) {
           syncedDate = dateString;
 
-          isOpen = dayData.status == "AVAILABLE";
+          isOpen = dayData.status != "CLOSED";
           initialIsOpen = dayData.status == "AVAILABLE";
 
           selectedSlotIds = {
@@ -106,7 +106,7 @@ class _ManageTodayWorkSheetState
         }
 
         final cannotClose =
-            bookedSlots > 0 && isOpen;
+            bookedSlots > 0 || isOpen;
 
         return _buildSheet(
           context,
