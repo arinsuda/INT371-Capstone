@@ -23,73 +23,14 @@ final chatRoomsProvider =
 final chatControllerProvider =
     AsyncNotifierProvider.autoDispose<ChatController, void>(ChatController.new);
 
-final chatThreadsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
-  final roomsAsync = ref.watch(chatRoomsProvider);
-
-  return roomsAsync;
-});
-
-
-final chatMessagesProvider =
-FutureProvider.family<List<ChatMessage>, int>((ref, roomId) async {
-  final user = ref.read(userProvider);
-
-  if (user == null || user.token == null) {
-    throw Exception("User not logged in");
-  }
-
-  final token = user.token!;
-
-  final service = ref.read(chatServiceProvider);
-
-  return service.getChatMessages(token, roomId);
-});
-
-final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
-  final roomsAsync = ref.watch(chatRoomsProvider);
-
-  return roomsAsync.maybeWhen(
-    data: (rooms) {
-      bool hasUnread(ChatCategory category) {
-        return rooms.any((room) {
-          if (!room.hasUnread) return false;
-
-          switch (category) {
-            case ChatCategory.inProgress:
-              return [
-                BookingStatus.accepted,
-                BookingStatus.inProgress,
-                BookingStatus.waitingPayment,
-              ].contains(room.bookingStatus);
-
-            case ChatCategory.completed:
-              return room.bookingStatus == BookingStatus.completed;
-
-            case ChatCategory.all:
-            default:
-              return true;
-          }
-        });
-      }
-
-      return {
-        ChatCategory.all: hasUnread(ChatCategory.all),
-        ChatCategory.inProgress: hasUnread(ChatCategory.inProgress),
-        ChatCategory.completed: hasUnread(ChatCategory.completed),
-      };
-    },
-    orElse: () => {
-      ChatCategory.all: false,
-      ChatCategory.inProgress: false,
-      ChatCategory.completed: false,
-    },
-  );
-});
-
 class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref _ref;
   final int bookingId;
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
+
+  // FIX: เพิ่ม Sets เพื่อ track state และป้องกัน duplicates
+  final Set<int> _processedMessageIds = {};
+  final Set<int> _replacedTempIds = {};
 
   ChatHistoryNotifier(this._ref, this.bookingId)
     : super(const AsyncValue.loading()) {
@@ -103,6 +44,8 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
   @override
   void dispose() {
+    _processedMessageIds.clear();
+    _replacedTempIds.clear();
     _realtimeSubscription?.cancel();
     super.dispose();
   }
@@ -123,6 +66,18 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       final messages = await service.getChatHistory(token, bookingId);
       if (mounted) {
         state = AsyncValue.data(messages);
+
+        // FIX: เก็บ IDs ของ messages ที่โหลดมา
+        _processedMessageIds.clear();
+        _replacedTempIds.clear();
+        for (final msg in messages) {
+          if (msg.id > 0) {
+            _processedMessageIds.add(msg.id);
+          }
+        }
+
+        print('📚 Loaded ${messages.length} messages');
+        print('   Tracked ${_processedMessageIds.length} message IDs');
       }
     } catch (error, stackTrace) {
       if (mounted) {
@@ -188,15 +143,26 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       final parsedData = _normalizeMessageData(messageData);
       final newMessage = ChatMessage.fromJson(parsedData);
 
-      if (newMessage.senderId == currentUserId) {
-        print(
-          '⏭️ Skipping own message from realtime (already optimistic): ${newMessage.id}',
-        );
+      print('🔔 Realtime: NEW_MESSAGE');
+      print('   ID: ${newMessage.id}');
+      print('   Sender: ${newMessage.senderId} (current: $currentUserId)');
+      print('   Type: ${newMessage.type.value}');
 
+      // FIX: เช็คก่อนว่า message นี้ถูก process ไปแล้วหรือยัง
+      if (_processedMessageIds.contains(newMessage.id)) {
+        print('⏭️ Message ${newMessage.id} already processed, skipping');
+        return;
+      }
+
+      // FIX: ถ้าเป็นข้อความของเรา ให้ update optimistic message
+      if (newMessage.senderId == currentUserId) {
+        print('📤 This is MY message - updating optimistic');
         _updateOptimisticWithServer(newMessage);
         return;
       }
 
+      // เพิ่มข้อความจากคนอื่น
+      print('📥 Message from OTHER user - adding to state');
       _addMessageToState(newMessage);
 
       if (mounted) {
@@ -207,37 +173,107 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     }
   }
 
+  // FIX: แก้ไขการหา optimistic message และป้องกัน duplicates
   void _updateOptimisticWithServer(ChatMessage serverMessage) {
-    state.whenData((messages) {
-      final recentThreshold = DateTime.now().subtract(
-        const Duration(seconds: 10),
-      );
+    print('🔄 _updateOptimisticWithServer called');
+    print('   Server message ID: ${serverMessage.id}');
+    print('   Type: ${serverMessage.type.value}');
 
-      final optimisticIndex = messages.indexWhere(
-        (msg) =>
-            msg.id < 0 &&
-            msg.content == serverMessage.content &&
-            msg.type == serverMessage.type &&
-            msg.createdAt.isAfter(recentThreshold),
+    state.whenData((messages) {
+      // FIX: เช็คซ้ำก่อนทำอะไร
+      if (_processedMessageIds.contains(serverMessage.id)) {
+        print('⏭️ Server message ${serverMessage.id} already processed');
+        return;
+      }
+
+      final recentThreshold = DateTime.now().subtract(
+        const Duration(seconds: 15),
       );
+      int optimisticIndex = -1;
+
+      if (serverMessage.type == MessageType.image) {
+        // FIX: สำหรับรูปภาพ - ไม่ใช้ content เพราะ local path ≠ server URL
+        optimisticIndex = messages.indexWhere(
+          (msg) =>
+              msg.id < 0 &&
+              msg.type == MessageType.image &&
+              msg.senderId == serverMessage.senderId &&
+              msg.createdAt.isAfter(recentThreshold),
+        );
+
+        print('🔍 Looking for optimistic IMAGE (within 15s)');
+        print('   Found at index: $optimisticIndex');
+
+        // FIX: ถ้าไม่เจอ ลองเช็คว่า temp ID ถูก replace ไปแล้วหรือยัง
+        if (optimisticIndex == -1) {
+          print('🔍 Checking if already replaced...');
+
+          final hasBeenReplaced = _replacedTempIds.any(
+            (tempId) => DateTime.fromMillisecondsSinceEpoch(
+              tempId.abs(),
+            ).isAfter(recentThreshold),
+          );
+
+          if (hasBeenReplaced) {
+            print('✅ Optimistic was already replaced');
+
+            final alreadyExists = messages.any((m) => m.id == serverMessage.id);
+
+            if (alreadyExists) {
+              print('⏭️ Server message ${serverMessage.id} already in state');
+              _processedMessageIds.add(serverMessage.id);
+              return;
+            } else {
+              print('⚠️ Was replaced but not found, adding...');
+            }
+          }
+        }
+      } else {
+        // สำหรับข้อความ - ใช้ content ได้
+        optimisticIndex = messages.indexWhere(
+          (msg) =>
+              msg.id < 0 &&
+              msg.content == serverMessage.content &&
+              msg.type == serverMessage.type &&
+              msg.createdAt.isAfter(recentThreshold),
+        );
+
+        print('🔍 Looking for optimistic TEXT');
+        print('   Found at index: $optimisticIndex');
+      }
 
       if (optimisticIndex != -1) {
+        // เจอ optimistic message → replace
+        final oldTempId = messages[optimisticIndex].id;
+
+        print('✅ Replacing optimistic at index $optimisticIndex');
+        print(
+          '   Old temp ID: $oldTempId → New server ID: ${serverMessage.id}',
+        );
+
         final updated = List<ChatMessage>.from(messages);
         updated[optimisticIndex] = serverMessage;
 
         if (mounted) {
           state = AsyncValue.data(updated);
-          print(
-            '✅ Updated optimistic message to server version: ${serverMessage.id}',
-          );
+          _processedMessageIds.add(serverMessage.id);
+          _replacedTempIds.add(oldTempId);
+
+          print('✅ Replaced successfully');
+          print('   Tracked IDs: ${_processedMessageIds.length}');
         }
       } else {
+        // ไม่เจอ optimistic → เช็คซ้ำอีกรอบ
+        print('⚠️ Optimistic message not found');
+
         final isDuplicate = messages.any((m) => m.id == serverMessage.id);
+
         if (!isDuplicate) {
+          print('➕ Adding as new message');
           _addMessageToState(serverMessage);
-          print('⚠️ No optimistic message found, adding server message');
         } else {
-          print('⏭️ Message already exists: ${serverMessage.id}');
+          print('⏭️ Message ${serverMessage.id} already exists');
+          _processedMessageIds.add(serverMessage.id);
         }
       }
     });
@@ -313,9 +349,7 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
     print('✅ Room read event for booking $bookingId');
 
     state.whenData((messages) {
-      final currentUserId = _ref.read(userProvider)?.id;
-      if (currentUserId == null) return;
-
+      // FIX: Mark ALL messages as read (not just from others)
       final updatedMessages = messages.map((message) {
         return message.copyWith(isRead: true);
       }).toList();
@@ -327,59 +361,51 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   }
 
   void addMessage(ChatMessage message) {
+    print('➕ Adding optimistic message: ${message.id}');
     _addMessageToState(message);
   }
 
   void updateOptimisticMessage(int tempId, ChatMessage serverMsg) {
+    print('🔄 Direct update optimistic message');
+    print('   Temp ID: $tempId → Server ID: ${serverMsg.id}');
+
     state.whenData((messages) {
       final index = messages.indexWhere((m) => m.id == tempId);
 
       if (index != -1) {
+        print('✅ Found optimistic at index $index, replacing...');
+
         final newList = List<ChatMessage>.from(messages);
         newList[index] = serverMsg;
 
         if (mounted) {
           state = AsyncValue.data(newList);
-          print(
-            '✅ [Direct] Updated temp message $tempId to server ID ${serverMsg.id}',
-          );
+          // FIX: บันทึกว่า process แล้ว
+          _processedMessageIds.add(serverMsg.id);
+          _replacedTempIds.add(tempId);
+
+          print('✅ [Direct] Replaced successfully');
+          print('   Tracked: ${_processedMessageIds.length} IDs');
         }
       } else {
-        if (serverMsg.type == MessageType.image) {
-          final recentThreshold = DateTime.now().subtract(
-            const Duration(seconds: 10),
-          );
+        print('⚠️ Temp message $tempId not found');
 
-          final imageIndex = messages.indexWhere(
-            (msg) =>
-                msg.id < 0 &&
-                msg.type == MessageType.image &&
-                msg.senderId == serverMsg.senderId &&
-                msg.createdAt.isAfter(recentThreshold),
-          );
+        // ถ้าไม่เจอ temp ID เช็คว่ามี server message แล้วหรือยัง
+        final serverExists = messages.any((m) => m.id == serverMsg.id);
 
-          if (imageIndex != -1) {
-            final newList = List<ChatMessage>.from(messages);
-            newList[imageIndex] = serverMsg;
-
-            if (mounted) {
-              state = AsyncValue.data(newList);
-              print(
-                '✅ [Fallback] Found and updated image at index $imageIndex',
-              );
-            }
-            return;
-          }
+        if (!serverExists && !_processedMessageIds.contains(serverMsg.id)) {
+          print('➕ Adding server message directly');
+          _addMessageToState(serverMsg);
+        } else {
+          print('⏭️ Server message already exists');
+          _processedMessageIds.add(serverMsg.id);
         }
-
-        print('⚠️ Temp message $tempId not found in state');
       }
     });
   }
 
   void markMessageAsError(int tempId) {
     print('❌ [Optimistic] Message $tempId failed to send');
-
     state.whenData((messages) {
       final newList = messages.where((m) => m.id != tempId).toList();
       if (mounted) {
@@ -399,17 +425,27 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
   void _addMessageToState(ChatMessage newMessage) {
     state.whenData((currentMessages) {
+      // FIX: เช็คซ้ำด้วย Set ก่อน
+      if (_processedMessageIds.contains(newMessage.id)) {
+        print('⚠️ Message ${newMessage.id} already tracked');
+        return;
+      }
+
+      // เช็คซ้ำในข้อความปัจจุบัน
       final isDuplicate = currentMessages.any((m) => m.id == newMessage.id);
       if (isDuplicate) {
         print('⚠️ Duplicate message detected: ${newMessage.id}');
+        _processedMessageIds.add(newMessage.id);
         return;
       }
 
       if (mounted) {
         state = AsyncValue.data([newMessage, ...currentMessages]);
-        print(
-          '➕ Added new message to state. Total: ${currentMessages.length + 1}',
-        );
+        // FIX: บันทึกว่าเพิ่มแล้ว
+        _processedMessageIds.add(newMessage.id);
+
+        print('➕ Added message ${newMessage.id}');
+        print('   Total: ${currentMessages.length + 1}');
       }
     });
   }
@@ -552,7 +588,7 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
     final canChat = data['can_chat'] as bool?;
 
     print(
-      '📦 Booking status changed: $eventBookingId -> $status (canChat: $canChat)',
+      '📦 Booking status changed: $eventBookingId → $status (canChat: $canChat)',
     );
 
     state.whenData((rooms) {
@@ -613,12 +649,9 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
 
     final lastSender = messageData['last_sender'] as String? ?? '';
     final isMyMessage = lastSender == 'me';
-
     final shouldIncrementUnread = !isMyMessage;
 
-    print(
-      'Updating room ${oldRoom.bookingNumber}: isMyMessage=$isMyMessage, shouldIncrement=$shouldIncrementUnread',
-    );
+    print('Updating room ${oldRoom.bookingNumber}: isMyMessage=$isMyMessage');
 
     final updatedRoom = oldRoom.copyWith(
       lastMessage:
@@ -767,8 +800,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
 
       if (serverMsg != null) {
         historyNotifier.updateOptimisticMessage(tempId, serverMsg);
-
-        print('✅ Message sent successfully: ${serverMsg.id}');
       }
     } catch (e) {
       historyNotifier.markMessageAsError(tempId);
@@ -803,7 +834,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
 
       if (serverMsg != null) {
         historyNotifier.updateOptimisticMessage(tempId, serverMsg);
-        print('✅ Image sent successfully: ${serverMsg.id}');
       }
     } catch (e) {
       historyNotifier.markMessageAsError(tempId);
