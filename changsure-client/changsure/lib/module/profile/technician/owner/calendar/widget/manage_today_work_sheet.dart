@@ -106,7 +106,7 @@ class _ManageTodayWorkSheetState
         }
 
         final cannotClose =
-            bookedSlots > 0 || isOpen;
+            bookedSlots > 0 && isOpen;
 
         return _buildSheet(
           context,
