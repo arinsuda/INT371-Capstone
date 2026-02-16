@@ -1,3 +1,4 @@
+import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/profile/widgets/address_form_fields.dart';
 import 'package:changsure/data/models/master_data_models.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
@@ -302,46 +303,78 @@ class _AddressPageState extends ConsumerState<Address> {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('ยืนยันการลบ'),
-        content: const Text('คุณต้องการลบที่อยู่นี้ใช่หรือไม่?'),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  "ยืนยันที่จะลบที่อยู่นี้หรือไม่?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "คุณแน่ใจหรือไม่ว่าต้องการลบที่อยู่นี้ การลบที่อยู่จะไม่สามารถกู้คืนได้",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TertiaryButton(
+                        text: "ยกเลิก",
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: PrimaryButton(
+                        text: "ลบ",
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        onPressed: () => Navigator.pop(context, true),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            child: const Text('ลบ'),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirmed == true) {
       try {
         await widget.onDelete!(widget.addressId!);
-        if (mounted) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ลบที่อยู่เรียบร้อยแล้ว')),
-          );
-        }
+
+        if (!mounted) return;
+
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ลบที่อยู่เรียบร้อยแล้ว')),
+        );
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
-        }
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -443,6 +476,7 @@ class _AddressPageState extends ConsumerState<Address> {
                       child: PrimaryButton(
                         text: "บันทึก",
                         onPressed: _isDirty ? _onSave : null,
+                        padding: EdgeInsetsGeometry.symmetric(vertical: 6),
                       ),
                     ),
                     if (isEditing && widget.onDelete != null)
@@ -559,21 +593,8 @@ class _DeleteButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: OutlinedButton(
-        onPressed: onDelete,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.red,
-          side: const BorderSide(color: Colors.red),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: const Text(
-          'ลบที่อยู่',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
+      child: TertiaryButton(text: 'ลบที่อยู่', onPressed: onDelete, padding: EdgeInsetsGeometry.symmetric(vertical: 6),),
+
     );
   }
 }

@@ -281,7 +281,8 @@ class TrackingCard extends ConsumerWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return Dialog(
+        return
+          Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
