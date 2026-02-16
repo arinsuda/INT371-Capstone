@@ -23,11 +23,43 @@ class TrackingCard extends ConsumerWidget {
     this.onViewDetail,
   });
 
+  Future<void> _showCancelConfirmDialog(
+      BuildContext context,
+      WidgetRef ref,
+      Booking booking,
+      ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _CancelWorkDialog(
+        onConfirm: () async {
+          Navigator.of(context).pop();
+
+          try {
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .cancelBooking(booking.id, "User cancelled booking");
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ปฏิเสธการจองสำเร็จ")));
+
+            Navigator.pop(context);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ปฏิเสธการจองสำเร็จไม่สำเร็จ")),
+            );
+          }
+        },
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
-    final controller = ref.read(bookingControllerProvider.notifier);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
@@ -67,7 +99,7 @@ class TrackingCard extends ConsumerWidget {
             if (booking.status == 'WAITING_PAYMENT')
               _buildClientPaymentAction(context)
             else
-              _buildTechnicianActions(context, controller),
+              _buildTechnicianActions(context, ref),
           ] else ...[
             if (booking.status == 'WAITING_PAYMENT')
               const Center(child: Text("กรุณาชำระเงินผ่าน QR Code ของช่าง")),
@@ -77,17 +109,22 @@ class TrackingCard extends ConsumerWidget {
     );
   }
 
+
+
   Widget _buildTechnicianActions(
-    BuildContext context,
-    BookingController controller,
-  ) {
+      BuildContext context,
+      WidgetRef ref,
+      ) {
+    final controller = ref.read(bookingControllerProvider.notifier);
+
     switch (booking.status) {
       case 'PENDING':
         return Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _showRejectDialog(context, controller),
+                onPressed: () =>
+                    _showCancelConfirmDialog(context, ref, booking),
                 icon: const Icon(Icons.close, size: 16),
                 label: const Text("ปฏิเสธ"),
                 style: OutlinedButton.styleFrom(
@@ -300,7 +337,65 @@ class TrackingCard extends ConsumerWidget {
     );
   }
 
-  void _showRejectDialog(BuildContext context, BookingController controller) {
-    controller.rejectBooking(booking.id, "ไม่สะดวกรับงาน");
+}
+
+class _CancelWorkDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _CancelWorkDialog({required this.onConfirm, required this.onCancel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ต้องการปฏิเสธงานนี้ใช่หรือไม่ ?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 280,
+              child: Text(
+                "คุณแน่ใจหรือไม่ว่าต้องการปฏิเสธงานนี้ หากปฏิเสธแล้ว คุณจะไม่สามารถรับงานนี้ได้อีก",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "ยกเลิก",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrimaryButton(
+                    text: "ยืนยัน",
+                    onPressed: onConfirm,
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
+
