@@ -378,10 +378,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   child: TertiaryButton(
                     text: "ติดตามสถานะ",
                     onPressed: () async {
-                      // ✅ ไม่ต้อง invalidate ที่นี่แล้ว แต่ละหน้าจะจัดการเอง
                       Navigator.popUntil(context, (route) => route.isFirst);
-
-                      // ไปหน้า Tracking
                       ref.read(bottomNavIndexProvider.notifier).state = 1;
                     },
                     padding: const EdgeInsets.symmetric(vertical: 8),

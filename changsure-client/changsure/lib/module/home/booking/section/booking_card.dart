@@ -371,8 +371,7 @@ class _BookingCardState extends State<BookingCard> {
                     backgroundImage:
                         tech.avatarUrl != null && tech.avatarUrl!.isNotEmpty
                         ? NetworkImage(tech.avatarUrl!)
-                        : AssetImage('assets/image/Technician.png')
-                              as ImageProvider,
+                        : const AssetImage('assets/image/Technician.png'),
                   ),
 
                   const SizedBox(width: 12),
