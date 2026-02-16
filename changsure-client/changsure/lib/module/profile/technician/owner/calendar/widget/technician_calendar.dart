@@ -321,7 +321,11 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
             }
           }
 
-          final hasBooked = (data?.bookedSlots ?? 0) > 0;
+          final hasBooked = data?.bookings
+              ?.where((b) => b.status?.toUpperCase() != "REJECTED")
+              .isNotEmpty ??
+              false;
+
 
           return SizedBox(
             height: 50,
@@ -359,9 +363,15 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
           final normalized = DateTime(day.year, day.month, day.day);
           final data = calendarMap[normalized];
 
-          final bookedSlots = data?.bookedSlots ?? 0;
+          final validBookings = data?.bookings
+              ?.where((b) => b.status?.toUpperCase() != "REJECTED")
+              .toList() ??
+              [];
+
+          final bookedSlots = validBookings.length;
           final hasBooked = bookedSlots > 0;
           final isFulled = bookedSlots >= 3;
+
 
           Color backgroundColor;
 
