@@ -1,5 +1,4 @@
 import 'package:changsure/module/home/booking/section/booking_card.dart';
-import 'package:changsure/module/tracking/tracking_status_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -53,8 +52,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   "User cancelled immediately after booking",
                 );
 
-            final state = ref.read(bookingControllerProvider);
-
             if (!mounted) return;
 
             ScaffoldMessenger.of(
@@ -98,12 +95,21 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
     } else {
       bookingDateStr = "-";
     }
+
+    Future.microtask(() {
+      ref.invalidate(
+        myBookingsProvider((status: null, page: 1)),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final data = widget.response.data;
     final note = data?.customerNote;
+
+    print(widget.address?.subDistrict);
+    print(widget.address?.district);
 
     return Scaffold(
       body: SafeArea(
@@ -184,7 +190,11 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${widget.address!.addressLine}\n",
+                              "${widget.address!.addressLine} "
+                              "${widget.address!.subDistrict} "
+                              "${widget.address!.district} "
+                              "${widget.address!.province} "
+                              "${widget.address!.postalCode} ",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -300,7 +310,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       : Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: data!.images!.map((img) {
+                          children: data.images!.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
@@ -369,11 +379,18 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                 Expanded(
                   child: TertiaryButton(
                     text: "ติดตามสถานะ",
-                    onPressed: () {
-                      Navigator.popUntil(context, (route) => route.isFirst);
-                      ref.read(bottomNavIndexProvider.notifier).state = 1;
+                    onPressed: () async {
+                      // ✅ รีเฟรช API ก่อน
+                      ref.invalidate(
+                        myBookingsProvider((status: "PENDING", page: 1)),
+                      );
 
+                      Navigator.popUntil(context, (route) => route.isFirst);
+
+                      // ไปหน้า Tracking
+                      ref.read(bottomNavIndexProvider.notifier).state = 1;
                     },
+
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
