@@ -1,3 +1,5 @@
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +39,149 @@ class BookingDetailPage extends ConsumerWidget {
     return formatter.format(date);
   }
 
+  Future<void> _showExitConfirmDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Booking booking,
+  ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DeleteConfirmationDialog(
+        onConfirm: () async {
+          Navigator.of(context).pop();
+
+          try {
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .cancelBooking(booking.id, "User cancelled booking");
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ยกเลิกการจองสำเร็จ")));
+
+            Navigator.pop(context);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ยกเลิกการจองไม่สำเร็จ")),
+            );
+          }
+        },
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
+  Future<void> _showCancelConfirmDialog(
+      BuildContext context,
+      WidgetRef ref,
+      Booking booking,
+      ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DeleteConfirmationDialog(
+        onConfirm: () async {
+          Navigator.of(context).pop();
+
+          try {
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .cancelBooking(booking.id, "User cancelled booking");
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ปฏิเสธการจองสำเร็จ")));
+
+            Navigator.pop(context);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ปฏิเสธการจองสำเร็จไม่สำเร็จ")),
+            );
+          }
+        },
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
+  Future<void> _showTechnicianCancelDialog(
+      BuildContext context,
+      WidgetRef ref,
+      Booking booking,
+      ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _TechnicianWorkDialog(
+        onConfirm: () async {
+          Navigator.of(context).pop();
+
+          try {
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .rejectBooking(booking.id, "Technician cancelled booking");
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ยกเลิกกการบริการสำเร็จ")));
+
+            Navigator.pop(context);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ยกเลิกกการบริการไม่สำเร็จ")),
+            );
+          }
+        },
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
+  Widget _buildCustomerCancelButton(
+    BuildContext context,
+    Booking booking,
+    WidgetRef ref,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: IntrinsicWidth(
+          child: TertiaryButton(
+            padding: EdgeInsetsGeometry.symmetric(horizontal: 24, vertical: 4),
+            text: "ยกเลิกการจอง",
+            onPressed: () async {
+              await _showExitConfirmDialog(context, ref, booking);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTechnicianCancelButton(
+      BuildContext context,
+      Booking booking,
+      WidgetRef ref,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: IntrinsicWidth(
+          child: TertiaryButton(
+            padding: EdgeInsetsGeometry.symmetric(horizontal: 24, vertical: 4),
+            text: "ยกเลิกการบริการ",
+            onPressed: () async {
+              await _showTechnicianCancelDialog(context, ref, booking);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
@@ -69,7 +214,7 @@ class BookingDetailPage extends ConsumerWidget {
             final isTechnician = user?.role == UserRole.technician;
 
             return ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 0),
               children: [
                 Header(header: "รายละเอียดการจอง"),
                 Container(height: 16, color: AppColors.primaryBGHover),
@@ -86,10 +231,18 @@ class BookingDetailPage extends ConsumerWidget {
 
                 _buildAdditionalInfoSection(booking),
                 Container(height: 16, color: AppColors.primaryBGHover),
-
-                if (isTechnician && booking.status == 'PENDING')
+                if (isTechnician && booking.status?.toUpperCase() == 'PENDING')
                   _buildPendingActionRow(context, booking, ref),
 
+                if (isTechnician && booking.status?.toUpperCase() == 'ACCEPTED')
+                  _buildTechnicianCancelButton(context, booking, ref),
+
+                if (!isTechnician &&
+                    [
+                      'PENDING',
+                      'ACCEPTED',
+                    ].contains(booking.status?.toUpperCase()))
+                  _buildCustomerCancelButton(context, booking, ref),
               ],
             );
           },
@@ -145,8 +298,7 @@ class BookingDetailPage extends ConsumerWidget {
     final imageUrl = service?.getFirstImage() ?? '';
     final timeSlot = booking.timeSlot;
 
-    return
-      Padding(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         children: [
@@ -394,7 +546,7 @@ class BookingDetailPage extends ConsumerWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
-      child:  Padding(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Column(
           children: [
@@ -408,17 +560,17 @@ class BookingDetailPage extends ConsumerWidget {
                       backgroundColor: Colors.grey.shade200,
                       child: ClipOval(
                         child:
-                        customer?.avatarUrl != null &&
-                            customer!.avatarUrl!.isNotEmpty
+                            customer?.avatarUrl != null &&
+                                customer!.avatarUrl!.isNotEmpty
                             ? Image.network(
-                          customer.avatarUrl!,
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.person, size: 28);
-                          },
-                        )
+                                customer.avatarUrl!,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(Icons.person, size: 28);
+                                },
+                              )
                             : const Icon(Icons.person, size: 28),
                       ),
                     ),
@@ -508,26 +660,26 @@ class BookingDetailPage extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: imageUrl.isNotEmpty
                             ? Image.network(
-                          imageUrl,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                                imageUrl,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(
+                                        Icons.image_not_supported,
+                                      ),
+                                    ),
+                              )
+                            : Container(
                                 width: 60,
                                 height: 60,
                                 color: Colors.grey.shade200,
-                                child: const Icon(
-                                  Icons.image_not_supported,
-                                ),
+                                child: const Icon(Icons.cleaning_services),
                               ),
-                        )
-                            : Container(
-                          width: 60,
-                          height: 60,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.cleaning_services),
-                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -591,8 +743,7 @@ class BookingDetailPage extends ConsumerWidget {
             ),
           ],
         ),
-      )
-
+      ),
     );
   }
 
@@ -627,14 +778,6 @@ class BookingDetailPage extends ConsumerWidget {
                 ? formatThaiShortDate(booking.createdAt!)
                 : '-',
           ),
-          if (booking.finalPrice != null) ...[
-            const SizedBox(height: 12),
-            _buildDetailRow(
-              'ราคาจริง',
-              '฿${booking.finalPrice!.toStringAsFixed(0)}',
-              valueColor: Colors.green,
-            ),
-          ],
         ],
       ),
     );
@@ -694,15 +837,13 @@ class BookingDetailPage extends ConsumerWidget {
 
   Widget _buildAdditionalInfoSection(Booking booking) {
     final hasImages = booking.images != null && booking.images!.isNotEmpty;
-    final hasNote = booking.customerNote.isNotEmpty;
 
-    if (!hasImages && !hasNote) {
-      return const SizedBox.shrink();
-    }
+    final hasNote =
+        booking.customerNote != null && booking.customerNote!.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white),
+      decoration: const BoxDecoration(color: Colors.white),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -710,185 +851,329 @@ class BookingDetailPage extends ConsumerWidget {
             'ข้อมูลเพิ่มเติม',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          if (hasImages) ...[
-            const SizedBox(height: 16),
-            const Text('รูปภาพหน้างาน', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 4),
+
+          /// ------------------ รูปภาพ ------------------
+          const SizedBox(height: 16),
+          const Text('รูปภาพหน้างาน'),
+          const SizedBox(height: 8),
+
+          if (hasImages)
             SizedBox(
               height: 100,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: booking.images!.length,
                 itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: ClipRRect(
-                      child: Image.network(
-                        booking.images![index].imageUrl,
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 100,
-                          height: 100,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.broken_image),
-                        ),
-                      ),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Image.network(
+                      booking.images![index].imageUrl,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
                     ),
                   );
                 },
               ),
-            ),
-          ],
-          if (hasNote) ...[
-            const SizedBox(height: 16),
-            const Text('รายละเอียดเพิ่มเติม', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 8),
-            Text(
-              booking.customerNote,
-              style: const TextStyle(
+            )
+          else
+            const Text(
+              "ไม่มีรูปภาพเพิ่มเติม",
+              style: TextStyle(
                 fontSize: 14,
                 color: AppColors.colorTertiaryText,
               ),
             ),
+
+          /// ------------------ Note ------------------
+          const SizedBox(height: 16),
+          const Text('รายละเอียดเพิ่มเติม'),
+          const SizedBox(height: 8),
+
+          if (hasNote)
+            Text(
+              booking.customerNote!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.colorTertiaryText,
+              ),
+            )
+          else
+            const Text(
+              "ไม่มีรายละเอียดเพิ่มเติม",
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.colorTertiaryText,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _buildPendingActionRow(
+  BuildContext context,
+  Booking booking,
+  WidgetRef ref,
+) {
+  final controller = ref.read(bookingControllerProvider.notifier);
+
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+    child: Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogContext) {
+                  return _CancelWorkDialog(
+                    onConfirm: () async {
+                      Navigator.of(dialogContext).pop(); // ปิด dialog ก่อน
+
+                      await controller.rejectBooking(
+                        booking.id,
+                        "ไม่สะดวกรับงาน",
+                      );
+
+                      Navigator.pop(context); // กลับหน้าก่อนหน้า
+                    },
+                    onCancel: () {
+                      Navigator.of(dialogContext).pop();
+                    },
+                  );
+                },
+              );
+            },
+            icon: const Icon(Icons.close, size: 16),
+            label: const Text("ปฏิเสธ"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              minimumSize: const Size(0, 34),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              side: const BorderSide(color: Colors.red),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 8),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              controller.acceptBooking(booking.id);
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.check, size: 16, color: AppColors.primary),
+            label: const Text(
+              "รับงาน",
+              style: TextStyle(color: AppColors.primary),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBG,
+              minimumSize: const Size(0, 34),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DeleteConfirmationDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _DeleteConfirmationDialog({
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ต้องการยกเลิกการจองใช่หรือไม่ ?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 280,
+              child: Text(
+                "คุณต้องการยกเลิกการจองครั้งนี้ใช่หรือไม่ หากยกเลิก ข้อมูลการจองของคุณจะไม่ถูกบันทึก",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "อยู่ต่อ",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFF5222D)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      foregroundColor: const Color(0xFFF5222D),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: onConfirm,
+                    child: const Text(
+                      "ยกเลิกการจอง",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildActionButtons(
-    BuildContext context,
-    Booking booking,
-    WidgetRef ref,
-  ) {
-    final controller = ref.read(bookingControllerProvider.notifier);
-    final user = ref.watch(userProvider);
-    final isTechnician = user?.role == UserRole.technician;
+class _CancelWorkDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
 
-    // Only show action buttons for technicians with PENDING status
-    if (!isTechnician || booking.status != 'PENDING') {
-      return const SizedBox.shrink();
-    }
-    // Only show action buttons for technicians with PENDING status
-    if (!isTechnician || booking.status != 'PENDING') {
-      return const SizedBox.shrink();
-    }
+  const _CancelWorkDialog({required this.onConfirm, required this.onCancel});
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {
-                controller.rejectBooking(booking.id, "ไม่สะดวกรับงาน");
-                Navigator.pop(context);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text(
-                'ปฏิเสธ',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ต้องการปฏิเสธงานนี้ใช่หรือไม่ ?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 280,
+              child: Text(
+                "คุณแน่ใจหรือไม่ว่าต้องการปฏิเสธงานนี้ หากปฏิเสธแล้ว คุณจะไม่สามารถรับงานนี้ได้อีก",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                controller.acceptBooking(booking.id);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "ยกเลิก",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text(
-                'รับงาน',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrimaryButton(text: "ยืนยัน", onPressed: onConfirm, padding: EdgeInsetsGeometry.symmetric(vertical: 10),),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildPendingActionRow(
-      BuildContext context,
-      Booking booking,
-      WidgetRef ref,
-      ) {
-    final controller = ref.read(bookingControllerProvider.notifier);
+class _TechnicianWorkDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {
-                controller.rejectBooking(booking.id, "ไม่สะดวกรับงาน");
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.close, size: 16),
-              label: const Text("ปฏิเสธ"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                minimumSize: const Size(0, 34),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+  const _TechnicianWorkDialog({required this.onConfirm, required this.onCancel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ยืนยันการยกเลิกการให้บริการ? ?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 280,
+              child: Text(
+                "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการให้บริการงานนี้ หากยกเลิกแล้วระบบจะแจ้งลูกค้าทันที",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () {
-                controller.acceptBooking(booking.id);
-                Navigator.pop(context);
-              },
-              icon: const Icon(
-                Icons.check,
-                size: 16,
-                color: AppColors.primary,
-              ),
-              label: const Text(
-                "รับงาน",
-                style: TextStyle(color: AppColors.primary),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBG,
-                minimumSize: const Size(0, 34),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "ยกเลิก",
+                    onPressed: onCancel,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrimaryButton(text: "ยืนยัน", onPressed: onConfirm, padding: EdgeInsetsGeometry.symmetric(vertical: 10),),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-
 }

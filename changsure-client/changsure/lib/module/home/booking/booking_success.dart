@@ -445,7 +445,7 @@ class _DeleteConfirmationDialog extends StatelessWidget {
                     ),
                     onPressed: onConfirm,
                     child: const Text(
-                      "ยกเลิกกการจอง",
+                      "ยกเลิกการจอง",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
