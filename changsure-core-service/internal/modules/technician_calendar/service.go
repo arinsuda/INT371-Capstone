@@ -295,8 +295,8 @@ func (s *service) generateCalendarDays(ctx context.Context, dr DateRange, data *
 			})
 		}
 
-		totalSlots := len(slotDetails)
-		bookedCount := CountBookedSlots(slotDetails)
+		totalSlots := CountActiveSlots(slotDetails)
+		bookedCount := CountBookedActiveSlots(slotDetails)
 		availableSlots := totalSlots - bookedCount
 		status := CalculateDayStatus(totalSlots, bookedCount)
 

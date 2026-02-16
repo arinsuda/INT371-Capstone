@@ -324,3 +324,23 @@ func buildSelectedMap(dateStr string, data *CalendarData) map[uint]bool {
 	}
 	return selected
 }
+
+func CountActiveSlots(slots []CalendarTimeSlot) int {
+	count := 0
+	for _, s := range slots {
+		if s.IsActive {
+			count++
+		}
+	}
+	return count
+}
+
+func CountBookedActiveSlots(slots []CalendarTimeSlot) int {
+	count := 0
+	for _, s := range slots {
+		if s.IsActive && s.IsBooked {
+			count++
+		}
+	}
+	return count
+}
