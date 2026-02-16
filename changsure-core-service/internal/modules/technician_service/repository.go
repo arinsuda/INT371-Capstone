@@ -2,7 +2,6 @@ package technicianservice
 
 import (
 	"errors"
-	"fmt"
 	"gorm.io/gorm"
 )
 
@@ -105,31 +104,88 @@ func (r *repository) ReplaceAllWithPricing(
 	techID uint,
 	items []TechnicianServicePatchReq,
 ) error {
+
 	if tx == nil {
 		tx = r.db
 	}
 
-	if err := tx.Where("technician_id = ?", techID).
-		Delete(&TechnicianService{}).Error; err != nil {
-		return fmt.Errorf("failed to clear existing services: %w", err)
+	var existing []TechnicianService
+	if err := tx.
+		Where("technician_id = ?", techID).
+		Find(&existing).Error; err != nil {
+		return err
 	}
 
+	exMap := make(map[uint]TechnicianService)
+	for _, e := range existing {
+		exMap[e.ServiceID] = e
+	}
+
+	inMap := make(map[uint]TechnicianServicePatchReq)
+	for _, i := range items {
+		inMap[i.ServiceID] = i
+	}
+
+	// -------------------------
+	// UPSERT
+	// -------------------------
 	for _, item := range items {
-		rec := TechnicianService{
-			TechnicianID: techID,
-			ServiceID:    item.ServiceID,
-			PricingType:  item.PricingType,
-			PriceFixed:   item.PriceFixed,
-			PriceMin:     item.PriceMin,
-			PriceMax:     item.PriceMax,
-			IsActive:     true,
+
+		if old, ok := exMap[item.ServiceID]; ok {
+
+			old.PricingType = item.PricingType
+			old.PriceFixed = item.PriceFixed
+			old.PriceMin = item.PriceMin
+			old.PriceMax = item.PriceMax
+			old.IsActive = true
+
+			if err := tx.Save(&old).Error; err != nil {
+				return err
+			}
+
+			delete(exMap, item.ServiceID)
+
+		} else {
+
+			rec := TechnicianService{
+				TechnicianID: techID,
+				ServiceID:    item.ServiceID,
+				PricingType:  item.PricingType,
+				PriceFixed:   item.PriceFixed,
+				PriceMin:     item.PriceMin,
+				PriceMax:     item.PriceMax,
+				IsActive:     true,
+			}
+
+			if err := tx.Create(&rec).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	// -------------------------
+	// REMOVE OLD
+	// -------------------------
+	for _, old := range exMap {
+
+		var count int64
+		if err := tx.Table("bookings").
+			Where("technician_service_id = ?", old.ID).
+			Count(&count).Error; err != nil {
+			return err
 		}
 
-		if err := tx.Create(&rec).Error; err != nil {
-			return fmt.Errorf(
-				"failed to insert service_id=%d: %w",
-				item.ServiceID, err,
-			)
+		if count > 0 {
+			// disable instead delete
+			if err := tx.Model(&old).
+				Update("is_active", false).Error; err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := tx.Delete(&old).Error; err != nil {
+			return err
 		}
 	}
 
