@@ -125,14 +125,59 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       final parsedData = _normalizeMessageData(messageData);
       final newMessage = ChatMessage.fromJson(parsedData);
 
+      if (newMessage.senderId == currentUserId) {
+        print(
+          '⏭️ Skipping own message from realtime (already optimistic): ${newMessage.id}',
+        );
+
+        _updateOptimisticWithServer(newMessage);
+        return;
+      }
+
       _addMessageToState(newMessage);
 
-      if (newMessage.senderId != currentUserId && mounted) {
+      if (mounted) {
         _autoMarkAsRead();
       }
     } catch (error) {
       print('❌ Error parsing new message: $error');
     }
+  }
+
+  void _updateOptimisticWithServer(ChatMessage serverMessage) {
+    state.whenData((messages) {
+      final recentThreshold = DateTime.now().subtract(
+        const Duration(seconds: 10),
+      );
+
+      final optimisticIndex = messages.indexWhere(
+        (msg) =>
+            msg.id < 0 &&
+            msg.content == serverMessage.content &&
+            msg.type == serverMessage.type &&
+            msg.createdAt.isAfter(recentThreshold),
+      );
+
+      if (optimisticIndex != -1) {
+        final updated = List<ChatMessage>.from(messages);
+        updated[optimisticIndex] = serverMessage;
+
+        if (mounted) {
+          state = AsyncValue.data(updated);
+          print(
+            '✅ Updated optimistic message to server version: ${serverMessage.id}',
+          );
+        }
+      } else {
+        final isDuplicate = messages.any((m) => m.id == serverMessage.id);
+        if (!isDuplicate) {
+          _addMessageToState(serverMessage);
+          print('⚠️ No optimistic message found, adding server message');
+        } else {
+          print('⏭️ Message already exists: ${serverMessage.id}');
+        }
+      }
+    });
   }
 
   Map<String, dynamic> _normalizeMessageData(Map<String, dynamic> data) {
@@ -209,9 +254,7 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
       if (currentUserId == null) return;
 
       final updatedMessages = messages.map((message) {
-        return message.senderId != currentUserId
-            ? message.copyWith(isRead: true)
-            : message;
+        return message.copyWith(isRead: true);
       }).toList();
 
       if (mounted) {
@@ -240,6 +283,13 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
   void markMessageAsError(int tempId) {
     print('❌ [Optimistic] Message $tempId failed to send');
+
+    state.whenData((messages) {
+      final newList = messages.where((m) => m.id != tempId).toList();
+      if (mounted) {
+        state = AsyncValue.data(newList);
+      }
+    });
   }
 
   Future<void> refresh() => _loadMessages();
@@ -467,6 +517,7 @@ class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
 
     final lastSender = messageData['last_sender'] as String? ?? '';
     final isMyMessage = lastSender == 'me';
+
     final shouldIncrementUnread = !isMyMessage;
 
     print(
@@ -618,8 +669,11 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
             ),
           );
 
-      if (serverMsg != null)
+      if (serverMsg != null) {
         historyNotifier.updateOptimisticMessage(tempId, serverMsg);
+
+        print('✅ Message sent successfully: ${serverMsg.id}');
+      }
     } catch (e) {
       historyNotifier.markMessageAsError(tempId);
       rethrow;
@@ -651,8 +705,10 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
             imageFile: imageFile,
           );
 
-      if (serverMsg != null)
+      if (serverMsg != null) {
         historyNotifier.updateOptimisticMessage(tempId, serverMsg);
+        print('✅ Image sent successfully: ${serverMsg.id}');
+      }
     } catch (e) {
       historyNotifier.markMessageAsError(tempId);
       rethrow;
@@ -680,7 +736,6 @@ class ChatController extends AutoDisposeAsyncNotifier<void> {
       senderId: user?.id ?? 0,
       isRead: false,
       createdAt: DateTime.now(),
-
       bookingNumber: currentRoom.bookingNumber,
       serviceCategory: currentRoom.serviceCategory,
       senderRole: 'customer',
