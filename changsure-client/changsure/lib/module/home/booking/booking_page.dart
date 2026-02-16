@@ -254,6 +254,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                 "${date.month.toString().padLeft(2, '0')}-"
                                 "${date.day.toString().padLeft(2, '0')}";
 
+
+
                             final req = BookingCreateRequest(
                               technicianId: widget.technician.id,
                               technicianServiceId: widget.data.id,
@@ -265,6 +267,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                   : customerNote,
                               images: images,
                             );
+
+                            debugPrint("=== BOOKING REQUEST ===");
+                            debugPrint("technicianId: ${req.technicianId}");
+                            debugPrint("technicianServiceId: ${req.technicianServiceId}");
+                            debugPrint("addressId: ${req.addressId}");
+                            debugPrint("timeSlotId: ${req.timeSlotId}");
+                            debugPrint("appointmentDate: ${req.appointmentDate}");
+                            debugPrint("customerNote: ${req.customerNote}");
+                            debugPrint("images: ${req.images}");
+                            debugPrint("=======================");
 
                             try {
                               final result = await ref

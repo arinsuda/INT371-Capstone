@@ -34,6 +34,7 @@ class SystemChoose extends ConsumerStatefulWidget {
 }
 
 class _SystemChooseState extends ConsumerState<SystemChoose> {
+
   Widget _buildTag(String iconUrl, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -180,6 +181,7 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
                         tech: tech,
                         buildTag: _buildTag,
                         serviceData: widget.data,
+                        provinceId: widget.provinceId,
                       ),
                       Positioned(
                         top: 16,
@@ -204,11 +206,13 @@ class _TechnicianCard extends StatelessWidget {
   final Technician tech;
   final Widget Function(String, String) buildTag;
   final ServiceModel serviceData;
+  final int? provinceId;
 
   const _TechnicianCard({
     required this.tech,
     required this.buildTag,
     required this.serviceData,
+    required this.provinceId
   });
 
   @override
@@ -353,7 +357,7 @@ class _TechnicianCard extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            (BookingPage(data: serviceData, technician: tech)),
+                            (BookingPage(data: serviceData, technician: tech, provinceId: provinceId,)),
                       ),
                     );
                   },

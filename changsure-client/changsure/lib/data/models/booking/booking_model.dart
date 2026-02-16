@@ -254,6 +254,8 @@ class Technician {
   final String lastName;
   final String? avatarUrl;
   final String? phoneNumber;
+  final int ratingAvg;
+  final int totalJobs;
 
   Technician({
     required this.id,
@@ -261,6 +263,8 @@ class Technician {
     required this.lastName,
     this.avatarUrl,
     this.phoneNumber,
+    required this.ratingAvg,
+    required this.totalJobs
   });
 
   factory Technician.fromJson(Map<String, dynamic> json) {
@@ -270,6 +274,8 @@ class Technician {
       lastName: json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
       phoneNumber: json['phone_number'],
+      ratingAvg: json['rating_avg'] ?? 0,
+      totalJobs: json['total_jobs'] ?? 0,
     );
   }
 

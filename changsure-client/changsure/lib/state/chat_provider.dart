@@ -23,6 +23,69 @@ final chatRoomsProvider =
 final chatControllerProvider =
     AsyncNotifierProvider.autoDispose<ChatController, void>(ChatController.new);
 
+final chatThreadsProvider = Provider<AsyncValue<List<ChatRoom>>>((ref) {
+  final roomsAsync = ref.watch(chatRoomsProvider);
+
+  return roomsAsync;
+});
+
+
+final chatMessagesProvider =
+FutureProvider.family<List<ChatMessage>, int>((ref, roomId) async {
+  final user = ref.read(userProvider);
+
+  if (user == null || user.token == null) {
+    throw Exception("User not logged in");
+  }
+
+  final token = user.token!;
+
+  final service = ref.read(chatServiceProvider);
+
+  return service.getChatMessages(token, roomId);
+});
+
+final chatCategoryUnreadProvider = Provider<Map<ChatCategory, bool>>((ref) {
+  final roomsAsync = ref.watch(chatRoomsProvider);
+
+  return roomsAsync.maybeWhen(
+    data: (rooms) {
+      bool hasUnread(ChatCategory category) {
+        return rooms.any((room) {
+          if (!room.hasUnread) return false;
+
+          switch (category) {
+            case ChatCategory.inProgress:
+              return [
+                BookingStatus.accepted,
+                BookingStatus.inProgress,
+                BookingStatus.waitingPayment,
+              ].contains(room.bookingStatus);
+
+            case ChatCategory.completed:
+              return room.bookingStatus == BookingStatus.completed;
+
+            case ChatCategory.all:
+            default:
+              return true;
+          }
+        });
+      }
+
+      return {
+        ChatCategory.all: hasUnread(ChatCategory.all),
+        ChatCategory.inProgress: hasUnread(ChatCategory.inProgress),
+        ChatCategory.completed: hasUnread(ChatCategory.completed),
+      };
+    },
+    orElse: () => {
+      ChatCategory.all: false,
+      ChatCategory.inProgress: false,
+      ChatCategory.completed: false,
+    },
+  );
+});
+
 class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref _ref;
   final int bookingId;

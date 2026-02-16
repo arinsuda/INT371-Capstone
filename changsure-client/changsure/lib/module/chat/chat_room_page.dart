@@ -19,6 +19,8 @@ class ChatRoomPage extends ConsumerStatefulWidget {
   final String? title;
   final String? otherPersonImg;
   final int? technicianId;
+  final int? roomId;
+  final ChatParticipantInfo? participantInfo;
 
   const ChatRoomPage({
     super.key,
@@ -26,6 +28,8 @@ class ChatRoomPage extends ConsumerStatefulWidget {
     this.title,
     this.otherPersonImg,
     this.technicianId,
+    this.roomId,
+    this.participantInfo,
   });
 
   @override
@@ -142,18 +146,25 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   Future<void> _resolveParticipantInfo() async {
     try {
+      // ✅ ใช้ค่าที่ส่งมาจากหน้า Booking ก่อน
+      if (widget.participantInfo != null && mounted) {
+        setState(() {
+          _participantInfo = widget.participantInfo;
+        });
+        return; // หยุดเลย ไม่ต้องไป fallback
+      }
+
+      // 🔹 กรณีมี technicianId
       if (widget.technicianId != null) {
-        final profileAsync = ref.read(
-          publicTechnicianProvider(widget.technicianId!),
-        );
+        final profileAsync =
+        ref.read(publicTechnicianProvider(widget.technicianId!));
 
         await profileAsync.when(
           data: (profile) {
             if (profile != null && mounted) {
               setState(() {
-                _participantInfo = ChatParticipantInfo.fromTechnicianProfile(
-                  profile,
-                );
+                _participantInfo =
+                    ChatParticipantInfo.fromTechnicianProfile(profile);
               });
             }
           },
@@ -164,7 +175,11 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         );
       }
 
-      if (_participantInfo == null && widget.title != null && mounted) {
+      // 🔹 fallback จาก title
+      if (_participantInfo == null &&
+          widget.title != null &&
+          widget.title!.isNotEmpty &&
+          mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo(
             userId: 0,
@@ -174,6 +189,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         });
       }
 
+      // 🔹 fallback สุดท้าย
       if (_participantInfo == null && mounted) {
         setState(() {
           _participantInfo = ChatParticipantInfo.unknown;
@@ -188,6 +204,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       }
     }
   }
+
 
   Future<void> _handleImageSelection() async {
     try {

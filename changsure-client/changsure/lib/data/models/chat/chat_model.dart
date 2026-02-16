@@ -177,7 +177,6 @@ class ChatRoom {
 
 class ChatMessage {
   final int id;
-
   final int bookingId;
   final String bookingNumber;
   final String serviceCategory;

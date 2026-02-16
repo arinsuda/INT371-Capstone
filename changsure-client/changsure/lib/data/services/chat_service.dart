@@ -392,4 +392,27 @@ class ChatService {
   void dispose() {
     _client.close();
   }
+
+  Future<List<ChatMessage>> getChatMessages(
+      String token,
+      int roomId,
+      ) async {
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/chats/rooms/$roomId'),
+      headers: {
+        'Content-Type': 'application/json',
+        ..._authHeader(token), // ✅ ใช้ spread operator
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      final List data = jsonData['data'];
+
+      return data.map((e) => ChatMessage.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to load chat messages');
+    }
+  }
+
 }

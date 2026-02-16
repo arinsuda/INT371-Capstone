@@ -1,15 +1,18 @@
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/core/header.dart';
+import 'package:changsure/module/chat/chat_room_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../core/theme.dart';
 import '../../data/models/booking/booking_model.dart';
+import '../../data/models/chat/chat_helper.dart';
 import '../../data/models/users/users_model.dart';
 import '../../state/booking_provider.dart';
 import '../../state/user_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:changsure/state/bottom_nav_provider.dart';
 
 class BookingDetailPage extends ConsumerWidget {
   final int bookingId;
@@ -73,10 +76,10 @@ class BookingDetailPage extends ConsumerWidget {
   }
 
   Future<void> _showCancelConfirmDialog(
-      BuildContext context,
-      WidgetRef ref,
-      Booking booking,
-      ) async {
+    BuildContext context,
+    WidgetRef ref,
+    Booking booking,
+  ) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -106,10 +109,10 @@ class BookingDetailPage extends ConsumerWidget {
   }
 
   Future<void> _showTechnicianCancelDialog(
-      BuildContext context,
-      WidgetRef ref,
-      Booking booking,
-      ) async {
+    BuildContext context,
+    WidgetRef ref,
+    Booking booking,
+  ) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -122,9 +125,9 @@ class BookingDetailPage extends ConsumerWidget {
                 .read(bookingControllerProvider.notifier)
                 .rejectBooking(booking.id, "Technician cancelled booking");
 
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text("ยกเลิกกการบริการสำเร็จ")));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("ยกเลิกกการบริการสำเร็จ")),
+            );
 
             Navigator.pop(context);
           } catch (e) {
@@ -161,10 +164,10 @@ class BookingDetailPage extends ConsumerWidget {
   }
 
   Widget _buildTechnicianCancelButton(
-      BuildContext context,
-      Booking booking,
-      WidgetRef ref,
-      ) {
+    BuildContext context,
+    Booking booking,
+    WidgetRef ref,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
       child: Align(
@@ -182,117 +185,11 @@ class BookingDetailPage extends ConsumerWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
-    final user = ref.watch(userProvider);
-    final isTechnician = user?.role == UserRole.technician;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: bookingAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('เกิดข้อผิดพลาด: $error'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () =>
-                      ref.invalidate(bookingDetailProvider(bookingId)),
-                  child: const Text('ลองอีกครั้ง'),
-                ),
-              ],
-            ),
-          ),
-          data: (booking) {
-            final user = ref.watch(userProvider);
-            final isTechnician = user?.role == UserRole.technician;
-
-            return ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              children: [
-                Header(header: "รายละเอียดการจอง"),
-                Container(height: 16, color: AppColors.primaryBGHover),
-                _buildAddressSection(booking),
-                Container(height: 16, color: AppColors.primaryBGHover),
-
-                isTechnician
-                    ? _buildCustomerSection(booking)
-                    : _buildTechnicianSection(booking),
-                Container(height: 16, color: AppColors.primaryBGHover),
-
-                _buildOrderDetailsSection(booking),
-                Container(height: 16, color: AppColors.primaryBGHover),
-
-                _buildAdditionalInfoSection(booking),
-                Container(height: 16, color: AppColors.primaryBGHover),
-                if (isTechnician && booking.status?.toUpperCase() == 'PENDING')
-                  _buildPendingActionRow(context, booking, ref),
-
-                if (isTechnician && booking.status?.toUpperCase() == 'ACCEPTED')
-                  _buildTechnicianCancelButton(context, booking, ref),
-
-                if (!isTechnician &&
-                    [
-                      'PENDING',
-                      'ACCEPTED',
-                    ].contains(booking.status?.toUpperCase()))
-                  _buildCustomerCancelButton(context, booking, ref),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddressSection(Booking booking) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Stack(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ที่อยู่จัดส่ง',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      booking.recordedAddress,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF666666),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTechnicianSection(Booking booking) {
+  Widget _buildTechnicianSection(
+    Booking booking,
+    WidgetRef ref,
+    BuildContext context,
+  ) {
     final technician = booking.technician;
     final service = booking.technicianService?.service;
     final imageUrl = service?.getFirstImage() ?? '';
@@ -354,7 +251,7 @@ class BookingDetailPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Row(
-                          children: const [
+                          children: [
                             Icon(
                               Icons.star_rate_rounded,
                               color: Color(0xFFFFC53D),
@@ -362,7 +259,7 @@ class BookingDetailPage extends ConsumerWidget {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              "เลข",
+                              "${technician?.ratingAvg ?? 0}",
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             Text(
@@ -379,7 +276,7 @@ class BookingDetailPage extends ConsumerWidget {
                             ),
                             SizedBox(width: 6),
                             Text(
-                              "จำนวนงานที่รับ: เลข",
+                              "จำนวนงานที่รับ: ${technician?.totalJobs ?? 0} ",
                               style: TextStyle(
                                 fontSize: 10,
                                 color: AppColors.colorTertiaryText,
@@ -395,34 +292,54 @@ class BookingDetailPage extends ConsumerWidget {
               Positioned(
                 top: 0,
                 right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.primary, width: 1),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        "assets/icons/chatIcon.svg",
-                        width: 18,
-                        height: 18,
-                        color: AppColors.primary,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        "แชท",
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                child: GestureDetector(
+                  onTap: () {
+                    final technician = booking.technician;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatRoomPage(
+                          bookingId: bookingId,
+                          participantInfo: ChatParticipantInfo(
+                            userId: technician?.id ?? 0,
+                            name:
+                                "${technician?.firstName ?? ''} ${technician?.lastName ?? ''}"
+                                    .trim(),
+                            avatarUrl: technician?.avatarUrl,
+                          ),
                         ),
                       ),
-                    ],
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary, width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        SvgPicture.asset(
+                          "assets/icons/chatIcon.svg",
+                          width: 18,
+                          height: 18,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          "แชท",
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -532,7 +449,117 @@ class BookingDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildCustomerSection(Booking booking) {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
+    final user = ref.watch(userProvider);
+    final isTechnician = user?.role == UserRole.technician;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: bookingAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('เกิดข้อผิดพลาด: $error'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () =>
+                      ref.invalidate(bookingDetailProvider(bookingId)),
+                  child: const Text('ลองอีกครั้ง'),
+                ),
+              ],
+            ),
+          ),
+          data: (booking) {
+            final user = ref.watch(userProvider);
+            final isTechnician = user?.role == UserRole.technician;
+
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              children: [
+                Header(header: "รายละเอียดการจอง"),
+                Container(height: 16, color: AppColors.primaryBGHover),
+                _buildAddressSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
+
+                isTechnician
+                    ? _buildCustomerSection(booking, context)
+                    : _buildTechnicianSection(booking, ref, context),
+                Container(height: 16, color: AppColors.primaryBGHover),
+
+                _buildOrderDetailsSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
+
+                _buildAdditionalInfoSection(booking),
+                Container(height: 16, color: AppColors.primaryBGHover),
+                if (isTechnician && booking.status?.toUpperCase() == 'PENDING')
+                  _buildPendingActionRow(context, booking, ref),
+
+                if (isTechnician && booking.status?.toUpperCase() == 'ACCEPTED')
+                  _buildTechnicianCancelButton(context, booking, ref),
+
+                if (!isTechnician &&
+                    [
+                      'PENDING',
+                      'ACCEPTED',
+                    ].contains(booking.status?.toUpperCase()))
+                  _buildCustomerCancelButton(context, booking, ref),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressSection(Booking booking) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Stack(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ที่อยู่จัดส่ง',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      booking.recordedAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF666666),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerSection(Booking booking, BuildContext context) {
     final service = booking.technicianService?.service;
     final customer = booking.customer;
     print(customer);
@@ -609,34 +636,55 @@ class BookingDetailPage extends ConsumerWidget {
                 Positioned(
                   top: 0,
                   right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.primary, width: 1),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          "assets/icons/chatIcon.svg",
-                          width: 18,
-                          height: 18,
-                          color: AppColors.primary,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          "แชท",
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                  child: GestureDetector(
+                    onTap: () {
+                      final customer = booking.customer;
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatRoomPage(
+                            bookingId: booking.id,
+                            participantInfo: ChatParticipantInfo(
+                              userId: customer?.id ?? 0,
+                              name:
+                                  "${customer?.firstName ?? ''} ${customer?.lastName ?? ''}"
+                                      .trim(),
+                              avatarUrl: customer?.avatarUrl,
+                            ),
                           ),
                         ),
-                      ],
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.primary, width: 1),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SvgPicture.asset(
+                            "assets/icons/chatIcon.svg",
+                            width: 18,
+                            height: 18,
+                            color: AppColors.primary,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            "แชท",
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1111,7 +1159,11 @@ class _CancelWorkDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: PrimaryButton(text: "ยืนยัน", onPressed: onConfirm, padding: EdgeInsetsGeometry.symmetric(vertical: 10),),
+                  child: PrimaryButton(
+                    text: "ยืนยัน",
+                    onPressed: onConfirm,
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 10),
+                  ),
                 ),
               ],
             ),
@@ -1126,7 +1178,10 @@ class _TechnicianWorkDialog extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
 
-  const _TechnicianWorkDialog({required this.onConfirm, required this.onCancel});
+  const _TechnicianWorkDialog({
+    required this.onConfirm,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1167,7 +1222,11 @@ class _TechnicianWorkDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: PrimaryButton(text: "ยืนยัน", onPressed: onConfirm, padding: EdgeInsetsGeometry.symmetric(vertical: 10),),
+                  child: PrimaryButton(
+                    text: "ยืนยัน",
+                    onPressed: onConfirm,
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 10),
+                  ),
                 ),
               ],
             ),
