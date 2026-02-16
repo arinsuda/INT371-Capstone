@@ -73,6 +73,11 @@ class TodayWork extends ConsumerWidget {
                         DateFormat('yyyy-MM-dd').format(e.date) ==
                             formattedDate,
                       );
+                      final bookings = await ref.read(
+                        technicianCalendarByDateProvider(
+                          (date: formattedDate),
+                        ).future,
+                      );
 
                       // 4️⃣ เปิด modal
                       final result = await showModalBottomSheet(
@@ -80,10 +85,11 @@ class TodayWork extends ConsumerWidget {
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (_) => ManageTodayWorkSheet(
-                          timeSlots: dayData.timeSlots,
+                          // timeSlots: dayData.timeSlots,
                           date: selectedDate,
-                          bookedSlots: dayData.bookedSlots,
-                          isOpenFromApi: dayData.status != "CLOSED",
+                          // bookedSlots: dayData.bookedSlots,
+                          // isOpenFromApi: dayData.status != "CLOSED",
+                          // bookings: bookings,
                         ),
                       );
 
@@ -152,20 +158,27 @@ class TodayWork extends ConsumerWidget {
               ),
 
               data: (bookings) {
-                if (bookings.isEmpty) {
+                // ✅ กรอง REJECTED ออก
+                final filteredBookings = bookings
+                    .where((b) => b.status != "REJECTED")
+                    .toList();
+
+                if (filteredBookings.isEmpty) {
                   return Padding(
-                    padding: EdgeInsetsGeometry.symmetric(vertical: 24),
+                    padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset("assets/image/no_work_calendar.png", width: 300,),
-                        SizedBox(height: 16,),
-                        Text(
+                        Image.asset(
+                          "assets/image/no_work_calendar.png",
+                          width: 300,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
                           "ยังไม่มีงานในขณะนี้",
                           style: TextStyle(
                             fontSize: 16,
-                            color: AppColors.primaryBorder,
-                            fontWeight: FontWeight.bold
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -173,7 +186,7 @@ class TodayWork extends ConsumerWidget {
                   );
                 }
 
-                final sortedBookings = [...bookings]
+                final sortedBookings = [...filteredBookings]
                   ..sort((a, b) => a.timeSlotId.compareTo(b.timeSlotId));
 
                 return Column(
@@ -186,8 +199,8 @@ class TodayWork extends ConsumerWidget {
                   )
                       .toList(),
                 );
-
               },
+
             ),
           ],
         ),

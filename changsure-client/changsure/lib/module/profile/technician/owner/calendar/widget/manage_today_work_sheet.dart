@@ -1,5 +1,6 @@
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,17 +10,11 @@ import '../../../../../../data/models/booking/booking_model.dart';
 import '../../../../../../state/booking_provider.dart';
 
 class ManageTodayWorkSheet extends ConsumerStatefulWidget {
-  final List<TimeSlot> timeSlots;
   final DateTime date;
-  final int bookedSlots;
-  final bool isOpenFromApi;
 
   const ManageTodayWorkSheet({
     super.key,
-    required this.timeSlots,
     required this.date,
-    required this.bookedSlots,
-    required this.isOpenFromApi,
   });
 
   @override
@@ -27,44 +22,111 @@ class ManageTodayWorkSheet extends ConsumerStatefulWidget {
       _ManageTodayWorkSheetState();
 }
 
-class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
+class _ManageTodayWorkSheetState
+    extends ConsumerState<ManageTodayWorkSheet> {
+
   Set<int> selectedSlotIds = {};
-  late bool isOpen;
+  bool isOpen = false;
   bool isDefaultTime = false;
-  late bool initialIsOpen;
-  late Set<int> initialSelectedSlotIds;
 
-  @override
-  void initState() {
-    super.initState();
+  bool initialIsOpen = false;
+  Set<int> initialSelectedSlotIds = {};
 
-    isOpen = widget.isOpenFromApi;
-    initialIsOpen = widget.isOpenFromApi;
-
-    for (final slot in widget.timeSlots) {
-      if (slot.isActive) {
-        selectedSlotIds.add(slot.id);
-      }
-    }
-
-    initialSelectedSlotIds = Set.from(selectedSlotIds);
-  }
+  String? syncedDate; // 🔥 ใช้แทน initialized
 
   bool get hasChanged {
-    final slotChanged = !setEquals(selectedSlotIds, initialSelectedSlotIds);
-
-    final openChanged = isOpen != initialIsOpen;
-
-    final defaultChanged = isDefaultTime;
-
-    return slotChanged || openChanged || defaultChanged;
+    return !setEquals(selectedSlotIds, initialSelectedSlotIds) ||
+        isOpen != initialIsOpen ||
+        isDefaultTime;
   }
 
   @override
   Widget build(BuildContext context) {
-    print(DateFormat('yyyy-MM-dd').format(widget.date));
-    final bool isBooked;
-    final bool cannotClose = widget.bookedSlots > 0 && isOpen;
+    final monthString = DateFormat('yyyy-MM').format(widget.date);
+    final dateString = DateFormat('yyyy-MM-dd').format(widget.date);
+
+    final asyncMonth =
+    ref.watch(technicianCalendarProvider((month: monthString)));
+
+
+    return asyncMonth.when(
+      loading: () =>
+      const Center(child: CircularProgressIndicator()),
+      error: (e, _) =>
+          Center(child: Text("Error: $e")),
+      data: (monthData) {
+        final PublicCalendarDay? dayData =
+        monthData.days.firstWhereOrNull(
+              (d) =>
+          d.date.year == widget.date.year &&
+              d.date.month == widget.date.month &&
+              d.date.day == widget.date.day,
+        );
+
+
+        if (dayData == null) {
+          return const Center(child: Text("No data"));
+        }
+
+        final List<TimeSlot> timeSlots =
+            dayData.timeSlots;
+
+        final List<BookingDetail> bookings =
+            dayData.bookings;
+
+        final bookedSlots = bookings
+            .where((b) => b.status != "REJECTED")
+            .length;
+
+        /// 🔥 sync state เฉพาะตอนเปลี่ยนวัน
+        if (syncedDate != dateString) {
+          syncedDate = dateString;
+
+          isOpen = dayData.status == "AVAILABLE";
+          initialIsOpen = dayData.status == "AVAILABLE";
+
+          selectedSlotIds = {
+            for (final slot in timeSlots)
+              if (slot.isActive) slot.id
+          };
+
+          initialSelectedSlotIds = Set.from(selectedSlotIds);
+        }
+
+        bool isSlotReallyBooked(int slotId) {
+          final booking = bookings
+              .firstWhereOrNull(
+                  (b) => b.timeSlotId == slotId);
+
+          if (booking == null) return false;
+          if (booking.status == "REJECTED")
+            return false;
+
+          return true;
+        }
+
+        final cannotClose =
+            bookedSlots > 0 && isOpen;
+
+        return _buildSheet(
+          context,
+          timeSlots,
+          isSlotReallyBooked,
+          cannotClose,
+        );
+      },
+    );
+  }
+
+  Widget _buildSheet(
+      BuildContext context,
+      List<TimeSlot> timeSlots,
+      bool Function(int) isSlotReallyBooked,
+      bool cannotClose,
+      ) {
+    final monthString =
+    DateFormat('yyyy-MM').format(widget.date);
+
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
       maxChildSize: 0.6,
@@ -73,27 +135,27 @@ class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius:
+            BorderRadius.vertical(
+                top: Radius.circular(28)),
           ),
           child: SingleChildScrollView(
             controller: controller,
             padding: const EdgeInsets.all(24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.settings_outlined, size: 16),
-                    SizedBox(width: 8),
-                    Text(
-                      "จัดการงานวันนี้",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+
+                const Center(
+                  child: Text(
+                    "จัดการงานวันนี้",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight:
+                      FontWeight.bold,
                     ),
-                  ],
+                  ),
                 ),
 
                 const SizedBox(height: 24),
@@ -101,48 +163,65 @@ class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
                 if (isOpen) ...[
                   const Text(
                     "เวลาที่สะดวกรับงาน",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                        fontWeight:
+                        FontWeight.bold,
+                        fontSize: 16),
                   ),
-
                   const SizedBox(height: 8),
 
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      for (final slot in widget.timeSlots)
+                      for (final slot
+                      in timeSlots)
                         _TimeChip(
-                          text: "${slot.startTime} - ${slot.endTime}",
-                          selected: selectedSlotIds.contains(slot.id),
-                          isDisabled: slot.isBooked, // 👈 เพิ่มตรงนี้
+                          text:
+                          "${slot.startTime} - ${slot.endTime}",
+                          selected:
+                          selectedSlotIds
+                              .contains(
+                              slot.id),
+                          isDisabled:
+                          isSlotReallyBooked(
+                              slot.id),
                           onTap: () {
-                            if (slot.isBooked) return; // 🔒 กันอีกชั้น
+                            if (isSlotReallyBooked(
+                                slot.id))
+                              return;
 
                             setState(() {
-                              if (selectedSlotIds.contains(slot.id)) {
-                                selectedSlotIds.remove(slot.id);
+                              if (selectedSlotIds
+                                  .contains(
+                                  slot.id)) {
+                                selectedSlotIds
+                                    .remove(
+                                    slot.id);
                               } else {
-                                selectedSlotIds.add(slot.id);
+                                selectedSlotIds
+                                    .add(
+                                    slot.id);
                               }
                             });
                           },
                         ),
                     ],
                   ),
-
-
                   const SizedBox(height: 16),
                 ],
 
-                const SizedBox(height: 16),
-
+                /// SWITCH
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment:
+                  MainAxisAlignment
+                      .spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       "เปิดรับงาน",
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                        FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
@@ -151,53 +230,55 @@ class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
                       onChanged: cannotClose
                           ? null
                           : (value) async {
-                              final dateString = DateFormat(
-                                'yyyy-MM-dd',
-                              ).format(widget.date);
+                        final dateString =
+                        DateFormat('yyyy-MM-dd').format(widget.date);
 
-                              print("data $dateString");
+                        await ref.read(
+                          updateTechnicianCalendarProvider((
+                          date: dateString,
+                          isOpen: value,
+                          )).future,
+                        );
 
-                              try {
-                                await ref.read(
-                                  updateTechnicianCalendarProvider((
-                                    date: dateString,
-                                    isOpen: value,
-                                  )).future,
-                                );
+                        ref.invalidate(
+                          technicianCalendarProvider((
+                          month: monthString,
+                          )),
+                        );
 
-                                setState(() => isOpen = value);
-                              } catch (e) {
-                                debugPrint("Update failed: $e");
-                              }
-                            },
+                        setState(() => isOpen = value);
+                      },
+
+                      /// 👇 เพิ่มตรงนี้
                       thumbColor: MaterialStateProperty.resolveWith((states) {
                         if (states.contains(MaterialState.disabled)) {
                           return Colors.white;
                         }
-                        return Colors.white;
+                        if (states.contains(MaterialState.selected)) {
+                          return Colors.white; // ตอนเปิด
+                        }
+                        return Colors.white; // ตอนปิด
                       }),
+
                       trackColor: MaterialStateProperty.resolveWith((states) {
                         if (states.contains(MaterialState.disabled)) {
                           return AppColors.colorStroke.withOpacity(0.5);
                         }
                         if (states.contains(MaterialState.selected)) {
-                          return AppColors.primary;
+                          return AppColors.primary; // ตอนเปิด
                         }
-                        return AppColors.colorStroke;
+                        return AppColors.colorStroke; // ตอนปิด
                       }),
-                      trackOutlineColor: MaterialStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(MaterialState.selected)) {
-                          return Colors.white;
-                        }
+
+                      trackOutlineColor:
+                      MaterialStateProperty.resolveWith((states) {
                         return Colors.white;
                       }),
                     ),
+
                   ],
                 ),
 
-                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -265,49 +346,70 @@ class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 Row(
                   children: [
                     Expanded(
-                      child: TertiaryButton(
+                      child:
+                      TertiaryButton(
                         text: "ยกเลิก",
-                        onPressed: () => Navigator.pop(context),
-                        padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                        onPressed: () =>
+                            Navigator.pop(
+                                context),
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                            vertical:
+                            8),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: PrimaryButton(
-                        onPressed: hasChanged
-                            ? () async {
-                                final formattedDate = DateFormat(
-                                  'yyyy-MM-dd',
-                                ).format(widget.date);
-
-                                final params = (
-                                  date: formattedDate,
-                                  isDefault: isDefaultTime,
-                                  timeSlotIds: List<int>.from(selectedSlotIds),
-                                );
-
-                                try {
-                                  await ref.read(
-                                    updateTechnicianTimeSlotProvider(
-                                      params,
-                                    ).future,
-                                  );
-
-                                  if (mounted) {
-                                    Navigator.pop(context, true);
-                                  }
-                                } catch (e) {
-                                  debugPrint("ERROR: $e");
-                                }
-                              }
-                            : null, // 🔥 null = disabled
                         text: "บันทึก",
-                        padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                            vertical:
+                            8),
+                        onPressed:
+                        hasChanged
+                            ? () async {
+                          final formattedDate =
+                          DateFormat(
+                              'yyyy-MM-dd')
+                              .format(
+                              widget
+                                  .date);
+
+                          await ref
+                              .read(
+                            updateTechnicianTimeSlotProvider((
+                            date:
+                            formattedDate,
+                            isDefault:
+                            isDefaultTime,
+                            timeSlotIds:
+                            selectedSlotIds
+                                .toList(),
+                            )).future,
+                          );
+
+                          ref.invalidate(
+                            technicianCalendarProvider((
+                            month:
+                            monthString,
+                            )),
+                          );
+
+                          if (mounted) {
+                            Navigator.pop(
+                                context,
+                                true);
+                          }
+                        }
+                            : null,
                       ),
                     ),
                   ],
@@ -320,6 +422,7 @@ class _ManageTodayWorkSheetState extends ConsumerState<ManageTodayWorkSheet> {
     );
   }
 }
+
 
 class _TimeChip extends StatelessWidget {
   final String text;
@@ -348,7 +451,7 @@ class _TimeChip extends StatelessWidget {
                 ? AppColors.primaryBorder
                 : selected
                 ? AppColors.primary
-                :  AppColors.colorStroke,
+                : AppColors.colorStroke,
           ),
           color: isDisabled
               ? AppColors.primaryBGHover
@@ -371,4 +474,3 @@ class _TimeChip extends StatelessWidget {
     );
   }
 }
-

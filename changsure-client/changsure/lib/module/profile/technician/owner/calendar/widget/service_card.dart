@@ -38,16 +38,25 @@ class ServiceCard extends StatelessWidget {
 
     final priceFormat = NumberFormat("#,###", "th_TH");
 
-    final minPrice = booking.quotedPriceMin ?? 0;
-    final maxPrice = booking.quotedPriceMax;
-
     String priceText;
 
-    if (maxPrice != null && maxPrice > minPrice) {
-      priceText =
-      "฿${priceFormat.format(minPrice)} - ${priceFormat.format(maxPrice)}";
+    if (booking.pricingType == "RANGE") {
+      final minPrice = booking.quotedPriceMin ?? 0;
+      final maxPrice = booking.quotedPriceMax ?? 0;
+
+      if (maxPrice > minPrice) {
+        priceText =
+        "฿${priceFormat.format(minPrice)} - ${priceFormat.format(maxPrice)}";
+      } else {
+        priceText = "฿${priceFormat.format(minPrice)}";
+      }
+    } else if (booking.pricingType == "FIXED") {
+      final fixedPrice =
+          booking.finalPrice ?? booking.quotedPrice ?? 0;
+
+      priceText = "฿${priceFormat.format(fixedPrice)}";
     } else {
-      priceText = "฿${priceFormat.format(minPrice)}";
+      priceText = "-";
     }
 
     final imageUrl = (booking.serviceImages?.isNotEmpty ?? false)

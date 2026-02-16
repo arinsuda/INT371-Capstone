@@ -264,7 +264,7 @@ class Technician {
     this.avatarUrl,
     this.phoneNumber,
     required this.ratingAvg,
-    required this.totalJobs
+    required this.totalJobs,
   });
 
   factory Technician.fromJson(Map<String, dynamic> json) {
@@ -590,8 +590,8 @@ class TechnicianBooking {
   final int timeSlotId;
   final String serviceName;
   final String pricingType;
-  final int quotedPriceMin;
-  final int quotedPriceMax;
+  final int? quotedPriceMin;
+  final int? quotedPriceMax;
   final String appointmentDate;
   final String status;
   final int customerId;
@@ -600,6 +600,8 @@ class TechnicianBooking {
   final String customerAvatar;
   final List<String> images;
   final List<String> serviceImages;
+  final int? quotedPrice; // สำหรับ FIXED
+  final int? finalPrice;
 
   TechnicianBooking({
     required this.id,
@@ -607,8 +609,8 @@ class TechnicianBooking {
     required this.timeSlotId,
     required this.serviceName,
     required this.pricingType,
-    required this.quotedPriceMin,
-    required this.quotedPriceMax,
+    this.quotedPriceMin,
+    this.quotedPriceMax,
     required this.appointmentDate,
     required this.status,
     required this.customerId,
@@ -617,18 +619,27 @@ class TechnicianBooking {
     required this.customerAvatar,
     required this.images,
     required this.serviceImages,
-
+    this.finalPrice,
+    this.quotedPrice,
   });
 
   factory TechnicianBooking.fromJson(Map<String, dynamic> json) {
+    final pricingType = json['pricing_type'] ?? "";
+
     return TechnicianBooking(
       id: json['id'] ?? 0,
       bookingNumber: json['booking_number'] ?? "",
       timeSlotId: json['time_slot_id'] ?? 0,
       serviceName: json['service_name'] ?? "",
-      pricingType: json['pricing_type'] ?? "",
-      quotedPriceMin: json['quoted_price_min'] ?? 0,
-      quotedPriceMax: json['quoted_price_max'] ?? 0,
+      pricingType: pricingType,
+
+      quotedPriceMin: (json['quoted_price_min'] as num?)?.toInt(),
+      quotedPriceMax: (json['quoted_price_max'] as num?)?.toInt(),
+
+      // ✅ สำคัญมาก
+      quotedPrice: (json['quoted_price'] as num?)?.toInt(),
+      finalPrice: (json['final_price'] as num?)?.toInt(),
+
       appointmentDate: json['appointment_date'] ?? "",
       status: json['status'] ?? "",
       customerId: json['customer_id'] ?? 0,
@@ -639,10 +650,11 @@ class TechnicianBooking {
           .map((e) => e.toString())
           .toList(),
       serviceImages: (json['service_images'] as List<dynamic>? ?? [])
-        .map((e) => e.toString())
-        .toList(),
+          .map((e) => e.toString())
+          .toList(),
     );
   }
+
 }
 
 class UpdateTechnicianCalendarResponse {
@@ -656,8 +668,7 @@ class UpdateTechnicianCalendarResponse {
     required this.success,
   });
 
-  factory UpdateTechnicianCalendarResponse.fromJson(
-      Map<String, dynamic> json) {
+  factory UpdateTechnicianCalendarResponse.fromJson(Map<String, dynamic> json) {
     return UpdateTechnicianCalendarResponse(
       data: TechnicianCalendarData.fromJson(json['data']),
       message: json['message'] ?? "",
@@ -670,10 +681,7 @@ class TechnicianCalendarData {
   final String date;
   final bool isOpen;
 
-  TechnicianCalendarData({
-    required this.date,
-    required this.isOpen,
-  });
+  TechnicianCalendarData({required this.date, required this.isOpen});
 
   factory TechnicianCalendarData.fromJson(Map<String, dynamic> json) {
     return TechnicianCalendarData(
@@ -724,5 +732,3 @@ class TimeSlotData {
     );
   }
 }
-
-
