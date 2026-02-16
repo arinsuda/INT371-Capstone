@@ -270,13 +270,46 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   void updateOptimisticMessage(int tempId, ChatMessage serverMsg) {
     state.whenData((messages) {
       final index = messages.indexWhere((m) => m.id == tempId);
+
       if (index != -1) {
         final newList = List<ChatMessage>.from(messages);
         newList[index] = serverMsg;
-        state = AsyncValue.data(newList);
-        print(
-          '✅ [Optimistic] Updated temp message $tempId to server ID ${serverMsg.id}',
-        );
+
+        if (mounted) {
+          state = AsyncValue.data(newList);
+          print(
+            '✅ [Direct] Updated temp message $tempId to server ID ${serverMsg.id}',
+          );
+        }
+      } else {
+        if (serverMsg.type == MessageType.image) {
+          final recentThreshold = DateTime.now().subtract(
+            const Duration(seconds: 10),
+          );
+
+          final imageIndex = messages.indexWhere(
+            (msg) =>
+                msg.id < 0 &&
+                msg.type == MessageType.image &&
+                msg.senderId == serverMsg.senderId &&
+                msg.createdAt.isAfter(recentThreshold),
+          );
+
+          if (imageIndex != -1) {
+            final newList = List<ChatMessage>.from(messages);
+            newList[imageIndex] = serverMsg;
+
+            if (mounted) {
+              state = AsyncValue.data(newList);
+              print(
+                '✅ [Fallback] Found and updated image at index $imageIndex',
+              );
+            }
+            return;
+          }
+        }
+
+        print('⚠️ Temp message $tempId not found in state');
       }
     });
   }
