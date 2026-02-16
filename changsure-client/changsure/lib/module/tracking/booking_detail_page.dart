@@ -585,21 +585,10 @@ class BookingDetailPage extends ConsumerWidget {
                     CircleAvatar(
                       radius: 25,
                       backgroundColor: Colors.grey.shade200,
-                      child: ClipOval(
-                        child:
-                            customer?.avatarUrl != null &&
-                                customer!.avatarUrl!.isNotEmpty
-                            ? Image.network(
-                                customer.avatarUrl!,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.person, size: 28);
-                                },
-                              )
-                            : const Icon(Icons.person, size: 28),
-                      ),
+                      backgroundImage:
+                          (customer?.avatarUrl?.isNotEmpty ?? false)
+                          ? NetworkImage(customer!.avatarUrl!)
+                          : const AssetImage('assets/image/Technician.png'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
