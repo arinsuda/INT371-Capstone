@@ -16,9 +16,9 @@ final chatHistoryProvider = StateNotifierProvider.autoDispose
     );
 
 final chatRoomsProvider =
-    StateNotifierProvider<ChatRoomsNotifier, AsyncValue<List<ChatRoom>>>(
-      (ref) => ChatRoomsNotifier(ref),
-    );
+    StateNotifierProvider<ChatRoomsNotifier, AsyncValue<List<ChatRoom>>>((ref) {
+      return ChatRoomsNotifier(ref);
+    });
 
 final chatControllerProvider =
     AsyncNotifierProvider.autoDispose<ChatController, void>(ChatController.new);
@@ -480,15 +480,40 @@ class ChatHistoryNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
 class ChatRoomsNotifier extends StateNotifier<AsyncValue<List<ChatRoom>>> {
   final Ref _ref;
+
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
 
   ChatRoomsNotifier(this._ref) : super(const AsyncValue.loading()) {
+    _ref.listen(userProvider, (prev, next) {
+      if (prev?.id != next?.id) {
+        _reset();
+      }
+    });
+
     _initialize();
   }
 
   void _initialize() {
+    final user = _ref.read(userProvider);
+    if (user == null) return;
+
     _loadRooms();
     _subscribeToRealtimeEvents();
+  }
+
+  void _reset() {
+    _realtimeSubscription?.cancel();
+
+    final newUser = _ref.read(userProvider);
+
+    if (newUser == null) {
+      state = const AsyncValue.data([]);
+      return;
+    }
+
+    state = const AsyncValue.loading();
+
+    _initialize();
   }
 
   @override
