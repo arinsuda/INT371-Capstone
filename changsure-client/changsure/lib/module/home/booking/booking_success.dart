@@ -97,9 +97,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
     }
 
     Future.microtask(() {
-      ref.invalidate(
-        myBookingsProvider((status: null, page: 1)),
-      );
+      ref.invalidate(myBookingsProvider((status: null, page: 1)));
     });
   }
 
@@ -141,7 +139,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   SizedBox(
                     width: 300,
                     child: Text(
-                      "กรุณารอช่างรับงานซักครู่ ท่านสามารถติดตามสถานะ การดำเนินการได้ที่แถบเมนู ‘ติดตามสถานะ’",
+                      "กรุณารอช่างรับงานซักครู่ ท่านสามารถติดตามสถานะ การดำเนินการได้ที่แถบเมนู 'ติดตามสถานะ'",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -380,17 +378,12 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   child: TertiaryButton(
                     text: "ติดตามสถานะ",
                     onPressed: () async {
-                      // ✅ รีเฟรช API ก่อน
-                      ref.invalidate(
-                        myBookingsProvider((status: "PENDING", page: 1)),
-                      );
-
+                      // ✅ ไม่ต้อง invalidate ที่นี่แล้ว แต่ละหน้าจะจัดการเอง
                       Navigator.popUntil(context, (route) => route.isFirst);
 
                       // ไปหน้า Tracking
                       ref.read(bottomNavIndexProvider.notifier).state = 1;
                     },
-
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
