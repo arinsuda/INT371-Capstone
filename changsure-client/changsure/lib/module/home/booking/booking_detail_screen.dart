@@ -47,14 +47,14 @@ class BookingDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (bookingData) {
-          return _buildContent(context, bookingData);
+        data: (booking) {
+          return _buildContent(context, booking);
         },
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, BookingData data) {
+  Widget _buildContent(BuildContext context, Booking data) {
     final dateFormat = DateFormat('dd MMM yyyy, HH:mm', 'th');
 
     return SingleChildScrollView(
@@ -121,7 +121,7 @@ class BookingDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          if (data.images.isNotEmpty) ...[
+          if (data.images != null && data.images!.isNotEmpty) ...[
             const Text(
               "รูปภาพประกอบ",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -131,13 +131,13 @@ class BookingDetailScreen extends ConsumerWidget {
               height: 100,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: data.images.length,
+                itemCount: data.images!.length,
                 separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      data.images[index].imageUrl,
+                      data.images![index].imageUrl,
                       width: 100,
                       height: 100,
                       fit: BoxFit.cover,
@@ -178,8 +178,8 @@ class BookingDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      data.priceAmount != null
-                          ? "฿${NumberFormat("#,###").format(data.priceAmount)}"
+                      data.finalPrice != null
+                          ? "฿${NumberFormat("#,###").format(data.finalPrice)}"
                           : "รอประเมิน",
                       style: const TextStyle(
                         fontSize: 18,

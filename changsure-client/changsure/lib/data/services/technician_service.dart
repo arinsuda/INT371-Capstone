@@ -7,6 +7,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:changsure/core/constants/api_constants.dart';
 
+import '../models/booking/booking_model.dart';
+
 class TechnicianService {
   Future<bool> updateProfile({
     required String token,
@@ -260,44 +262,37 @@ class TechnicianService {
 
   Future<bool> createAddress({
     required String token,
-
-    required String houseNumber,
+    String? label,
+    String? phoneNumber,
+    bool? isPrimary,
+    required String addressLine,
+    String? postCode,
     required int provinceId,
     required int districtId,
     required int subDistrictId,
     required double lat,
     required double lng,
-
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
-    String? label,
-    bool? isPrimary,
-
-    String? postCode,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses');
 
     try {
       final Map<String, dynamic> body = {
-        'house_number': houseNumber,
-
+        'address_line': addressLine,
         'province_id': provinceId,
         'district_id': districtId,
         'sub_district_id': subDistrictId,
-
         'latitude': lat,
         'longitude': lng,
       };
 
       if (label != null) body['label'] = label;
-      if (isPrimary != null) body['is_primary'] = isPrimary;
 
-      if (village != null) body['village'] = village;
-      if (moo != null) body['moo'] = moo;
-      if (soi != null) body['soi'] = soi;
-      if (road != null) body['road'] = road;
+      if (phoneNumber != null) {
+        final p = phoneNumber.trim();
+        if (p.isNotEmpty) body['phone_number'] = p;
+      }
+
+      if (isPrimary != null) body['is_primary'] = isPrimary;
 
       if (postCode != null) body['postal_code'] = postCode;
 
@@ -325,22 +320,16 @@ class TechnicianService {
   Future<bool> updateAddress({
     required String token,
     required int addressId,
-
-    required String houseNumber,
+    String? phoneNumber,
+    String? label,
+    bool? isPrimary,
+    required String addressLine,
+    String? postCode,
     required int provinceId,
     required int districtId,
     required int subDistrictId,
     required double lat,
     required double lng,
-
-    String? village,
-    String? moo,
-    String? soi,
-    String? road,
-    String? label,
-    bool? isPrimary,
-
-    String? postCode,
   }) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
@@ -348,7 +337,7 @@ class TechnicianService {
 
     try {
       final Map<String, dynamic> body = {
-        'house_number': houseNumber,
+        'address_line': addressLine,
 
         'province_id': provinceId,
         'district_id': districtId,
@@ -359,12 +348,12 @@ class TechnicianService {
       };
 
       if (label != null) body['label'] = label;
-      if (isPrimary != null) body['is_primary'] = isPrimary;
+      if (phoneNumber != null) {
+        final p = phoneNumber.trim();
+        body['phone_number'] = p.isEmpty ? null : p;
+      }
 
-      if (village != null) body['village'] = village;
-      if (moo != null) body['moo'] = moo;
-      if (soi != null) body['soi'] = soi;
-      if (road != null) body['road'] = road;
+      if (isPrimary != null) body['is_primary'] = isPrimary;
 
       if (postCode != null) body['postal_code'] = postCode;
 

@@ -3,15 +3,31 @@ import 'package:changsure/module/home/booking/booking_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/state/notifications/notification_provider.dart';
+import '../../../core/theme.dart';
+import '../../../state/bottom_nav_provider.dart';
 import 'widgets/notification_item.dart';
 
-class NotificationListScreen extends ConsumerWidget {
+class NotificationListScreen extends ConsumerStatefulWidget {
   const NotificationListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationListScreen> createState() =>
+      _NotificationListScreenState();
+}
+
+class _NotificationListScreenState
+    extends ConsumerState<NotificationListScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(notificationProvider);
     final notifier = ref.read(notificationProvider.notifier);
+
 
     void onNotificationTap(NotificationModel item) {
       if (!item.isRead) {
@@ -19,25 +35,21 @@ class NotificationListScreen extends ConsumerWidget {
       }
 
       if (item.entityType == 'booking' && item.entityId != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                BookingDetailScreen(bookingId: item.entityId!),
-          ),
-        );
+        ref.read(bottomNavIndexProvider.notifier).state = 1;
+
+        Navigator.pop(context);
 
         print("🚀 Navigate to Booking ID: ${item.entityId}");
       }
     }
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        toolbarHeight: 80,
         title: const Text(
           'การแจ้งเตือน',
           style: TextStyle(
-            color: Color(0xFF0038A8),
+            color: AppColors.primary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -45,7 +57,10 @@ class NotificationListScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () async {
+            Navigator.pop(context);
+            await ref.read(notificationProvider.notifier).readAll();
+          },
         ),
         centerTitle: true,
       ),
@@ -73,7 +88,9 @@ class NotificationListScreen extends ConsumerWidget {
                   ...newItems.map(
                     (item) => NotificationItem(
                       item: item,
-                      onTap: () => onNotificationTap(item),
+                      onTap: () {
+                        onNotificationTap(item);
+                      },
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -84,7 +101,9 @@ class NotificationListScreen extends ConsumerWidget {
                   ...oldItems.map(
                     (item) => NotificationItem(
                       item: item,
-                      onTap: () => onNotificationTap(item),
+                      onTap: () {
+                        onNotificationTap(item);
+                      },
                     ),
                   ),
                 ],
@@ -104,7 +123,7 @@ class NotificationListScreen extends ConsumerWidget {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          color: Colors.black,
         ),
       ),
     );

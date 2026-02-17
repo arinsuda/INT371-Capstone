@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import '../models/booking/booking_model.dart';
 import '../../core/constants/api_constants.dart';
 
@@ -8,98 +11,380 @@ class BookingService {
     BookingCreateRequest req,
     String token,
   ) async {
-    final uri = Uri.parse("${ApiConstants.baseUrl}/bookings");
-
+    final uri = Uri.parse("${ApiConstants.baseUrl}/customers/me/bookings");
     final request = http.MultipartRequest("POST", uri);
 
     request.headers["Authorization"] = "Bearer $token";
-    // ❗ ห้าม set Content-Type เอง
 
-    // fields (ข้อความ)
     request.fields.addAll({
       "technician_id": req.technicianId.toString(),
       "technician_service_id": req.technicianServiceId.toString(),
       "address_id": req.addressId.toString(),
       "time_slot_id": req.timeSlotId.toString(),
-      "appointment_date": req.appointmentDate, // yyyy-mm-dd
+      "appointment_date": req.appointmentDate,
       "customer_note": req.customerNote ?? "",
     });
 
-    // files
-    for (final path in req.images) {
-      request.files.add(await http.MultipartFile.fromPath("images", path));
+    if (req.images.isNotEmpty) {
+      for (final path in req.images) {
+        final file = File(path);
+        if (await file.exists()) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              "images",
+              path,
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        }
+      }
     }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
-    final json = jsonDecode(response.body);
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return BookingResponse.fromJson(json);
-    } else {
-      print("BOOKING ERROR => ${response.body}");
-      throw Exception(json["message"] ?? "Create booking failed");
-    }
+    return _handleResponse(response, (json) => BookingResponse.fromJson(json));
   }
 
-  Future<List<TimeSlot>> getTimeSlots(String token) async {
-    final response = await http.get(
-      Uri.parse("${ApiConstants.baseUrl}/time-slots"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
+  Future<List<Booking>> getMyBookings({
+    required String token,
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = {"page": page.toString(), "limit": limit.toString()};
+    if (status != null && status.isNotEmpty) {
+      queryParams["status"] = status;
+    }
+
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/customers/me/bookings",
+    ).replace(queryParameters: queryParams);
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) {
+      final List list = json['data']['items'];
+      return list.map((e) => Booking.fromJson(e)).toList();
+    });
+  }
+
+  Future<Booking> getCustomerBookingDetail({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/customers/me/bookings/$bookingId",
+    );
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) {
+      return Booking.fromJson(json['data']);
+    });
+  }
+
+  Future<Booking> cancelBooking({
+    required String token,
+    required int bookingId,
+    String reason = "",
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/customers/me/bookings/$bookingId/cancel",
     );
 
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-
-      final List list = json['data'];
-
-      return list.map((e) => TimeSlot.fromJson(e)).toList();
-    } else {
-      print("❌ TIME SLOT ERROR: ${response.body}");
-      throw Exception("Failed to load time slots");
-    }
-  }
-
-  Future<BookingData> getBookingDetail(String token, int bookingId) async {
-    final uri = Uri.parse("${ApiConstants.baseUrl}/bookings/$bookingId");
-
-    final response = await http.get(
+    final response = await http.patch(
       uri,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+      headers: _authHeader(token),
+      body: jsonEncode({"reason": reason}),
+    );
+
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<List<Booking>> getTechnicianBookings({
+    required String token,
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = {"page": page.toString(), "limit": limit.toString()};
+    if (status != null && status.isNotEmpty) {
+      queryParams["status"] = status;
+    }
+
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings",
+    ).replace(queryParameters: queryParams);
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) {
+      final List list = json['data']['items'];
+      return list.map((e) => Booking.fromJson(e)).toList();
+    });
+  }
+
+  Future<Booking> getTechnicianBookingDetail({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId",
+    );
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> acceptBooking({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/accept",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> rejectBooking({
+    required String token,
+    required int bookingId,
+    String reason = "",
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/reject",
+    );
+    final response = await http.patch(
+      uri,
+      headers: _authHeader(token),
+      body: jsonEncode({"reason": reason}),
+    );
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> startJob({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/start",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<Booking> completeJob({
+    required String token,
+    required int bookingId,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/bookings/$bookingId/complete",
+    );
+    final response = await http.patch(uri, headers: _authHeader(token));
+    return _handleResponse(response, (json) => Booking.fromJson(json['data']));
+  }
+
+  Future<List<TimeSlot>> getAvailableTimeSlots({
+    required String token,
+    required int technicianId,
+    required String date,
+  }) async {
+    final uri =
+        Uri.parse(
+          "${ApiConstants.baseUrl}/customers/me/bookings/availability",
+        ).replace(
+          queryParameters: {
+            "technician_id": technicianId.toString(),
+            "date": date,
+          },
+        );
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    return _handleResponse(response, (json) {
+      final List list = json['data'];
+      return list.map((e) => TimeSlot.fromJson(e)).toList();
+    });
+  }
+
+  Map<String, String> _authHeader(String token) {
+    return {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+  }
+
+  T _handleResponse<T>(
+    http.Response response,
+    T Function(Map<String, dynamic>) onSuccess,
+  ) {
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (_) {
+      throw Exception("Server Error: ${response.statusCode}");
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return onSuccess(json);
+    }
+
+    String errorMessage = "Something went wrong";
+    if (json.containsKey('error')) {
+      if (json['error'] is Map) {
+        errorMessage = json['error']['message'] ?? errorMessage;
+      } else if (json['error'] is String) {
+        errorMessage = json['error'];
+      }
+    } else if (json.containsKey('message')) {
+      errorMessage = json['message'];
+    }
+
+    throw Exception(errorMessage);
+  }
+
+  Future<PublicCalendarResponse> getPublicCalendar({
+    required String token,
+    required int technicianId,
+    required String month, // yyyy-MM
+  }) async {
+    final uri = Uri.parse("${ApiConstants.baseUrl}/technicians/calendar")
+        .replace(
+          queryParameters: {
+            'technician_id': technicianId.toString(),
+            'month': month, // ใช้ตรง ๆ เลย
+          },
+        );
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Base URL: ${ApiConstants.baseUrl}");
+
+    return _handleResponse(
+      response,
+      (json) => PublicCalendarResponse.fromJson(json),
+    );
+  }
+
+  Future<PublicCalendarResponse> getTechnicianCalendar({
+    required String token,
+    required String month, // yyyy-MM
+  }) async {
+    final uri = Uri.parse("${ApiConstants.baseUrl}/technicians/me/calendar")
+        .replace(
+          queryParameters: {
+            'month': month, // ใช้ตรง ๆ เลย
+          },
+        );
+
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Base URL: ${ApiConstants.baseUrl}");
+
+    return _handleResponse(
+      response,
+      (json) => PublicCalendarResponse.fromJson(json),
+    );
+  }
+
+  Future<List<TechnicianBooking>> getTechnicianCalendarByDate({
+    required String token,
+    required String date,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/day",
+    ).replace(
+      queryParameters: {
+        'date': date,
       },
     );
 
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      return BookingData.fromJson(json['data']);
-    } else {
-      print("❌ GET BOOKING DETAIL ERROR: ${response.body}");
-      throw Exception("Failed to load booking detail");
-    }
+    final response = await http.get(uri, headers: _authHeader(token));
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+
+    return _handleResponse(
+      response,
+          (json) => (json['data'] as List)
+          .map((e) => TechnicianBooking.fromJson(e))
+          .toList(),
+    );
   }
 
-  Future<BookingResponse> cancelBooking(String token, int bookingId) async {
-    final uri = Uri.parse("${ApiConstants.baseUrl}/bookings/$bookingId/cancel");
+  Future<UpdateTechnicianCalendarResponse> updateTechnicianCalendarByDate({
+    required String token,
+    required String date, // yyyy-MM-dd
+    required bool isOpen,
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/date",
+    );
+
+    final body = jsonEncode({
+      "date": date,
+      "is_open": isOpen,
+    });
 
     final response = await http.patch(
       uri,
       headers: {
+        ..._authHeader(token),
         "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Request BODY: $body");
+
+    return _handleResponse(
+      response,
+          (json) => UpdateTechnicianCalendarResponse.fromJson(json),
+    );
+
+  }
+
+  Future<UpdateTimeSlotsResponse> updateTechnicianCalendarByTimeslot({
+    required String token,
+    required String date, // yyyy-MM-dd
+    required bool isDefault,
+    required List<int> timeSlotId
+  }) async {
+    final uri = Uri.parse(
+      "${ApiConstants.baseUrl}/technicians/me/calendar/slots",).replace(
+      queryParameters: {
+        'date': date, // ใช้ตรง ๆ เลย
       },
     );
 
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      return BookingResponse.fromJson(json);
-    } else {
-      throw Exception("Cancel booking failed: ${response.body}");
-    }
+    final body = jsonEncode({
+      "time_slot_ids": timeSlotId,
+      "is_default": isDefault,
+    });
+
+    final response = await http.patch(
+      uri,
+      headers: {
+        ..._authHeader(token),
+        "Content-Type": "application/json",
+      },
+      body: body,
+    );
+
+    print("RAW BODY: ${response.body}");
+    print("Request URL: $uri");
+    print("Request BODY: $body");
+
+    return _handleResponse(
+      response,
+          (json) => UpdateTimeSlotsResponse.fromJson(json),
+    );
   }
 }

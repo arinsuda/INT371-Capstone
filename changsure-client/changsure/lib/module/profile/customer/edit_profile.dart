@@ -29,6 +29,11 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
   CustomerModel? originalCustomer;
 
+  String? _originalFirstName;
+  String? _originalLastName;
+  String? _originalEmail;
+  String? _originalPhone;
+
   void _validateForm() {
     final isValid = _formKey.currentState?.validate() ?? false;
     isFormValid.value = isValid;
@@ -47,7 +52,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   void _initializeData() {
     if (_isInitialized) return;
 
-    final user = ref.watch(userProvider);
+    final user = ref.read(userProvider);
     final customer = user?.customerProfile;
     originalCustomer = customer;
 
@@ -59,9 +64,13 @@ class _EditProfileState extends ConsumerState<EditProfile> {
       if (parts.length > 1) lastName = parts.sublist(1).join(' ');
     }
 
-    nameController.text = customer?.firstName ?? firstName;
-    lastNameController.text = customer?.lastName ?? lastName;
-    emailController.text = customer?.email ?? '';
+    _originalFirstName = customer?.firstName ?? firstName;
+    _originalLastName = customer?.lastName ?? lastName;
+    _originalEmail = customer?.email ?? '';
+
+    nameController.text = _originalFirstName ?? '';
+    lastNameController.text = _originalLastName ?? '';
+    emailController.text = _originalEmail ?? '';
 
     String rawPhone = customer?.phone ?? '';
     if (rawPhone.isNotEmpty &&
@@ -72,6 +81,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     } else {
       phoneController.text = rawPhone;
     }
+    _originalPhone = phoneController.text;
 
     nameController.addListener(_checkChanged);
     lastNameController.addListener(_checkChanged);
@@ -82,9 +92,22 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   }
 
   void _checkChanged() {
-    setState(() {
-      hasChanged = true;
-    });
+    final currentFirstName = nameController.text.trim();
+    final currentLastName = lastNameController.text.trim();
+    final currentEmail = emailController.text.trim();
+    final currentPhone = phoneController.text.trim();
+
+    final isChanged =
+        currentFirstName != (_originalFirstName ?? '') ||
+        currentLastName != (_originalLastName ?? '') ||
+        currentEmail != (_originalEmail ?? '') ||
+        currentPhone != (_originalPhone ?? '');
+
+    if (hasChanged != isChanged) {
+      setState(() {
+        hasChanged = isChanged;
+      });
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -93,42 +116,66 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     final user = ref.read(userProvider);
 
     if (user == null || user.token == null || originalCustomer == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเข้าสู่ระบบใหม่')));
+      return;
+    }
+
+    final Map<String, dynamic> updates = {};
+
+    final currentFirstName = nameController.text.trim();
+    final currentLastName = lastNameController.text.trim();
+    final currentEmail = emailController.text.trim();
+    final currentPhone = phoneController.text.replaceAll('-', '');
+
+    if (currentFirstName != (_originalFirstName ?? '')) {
+      updates['firstname'] = currentFirstName;
+    }
+
+    if (currentLastName != (_originalLastName ?? '')) {
+      updates['lastname'] = currentLastName;
+    }
+
+    if (currentEmail != (_originalEmail ?? '')) {
+      updates['email'] = currentEmail;
+    }
+
+    final originalPhone = (_originalPhone ?? '').replaceAll('-', '');
+    if (currentPhone != originalPhone) {
+      updates['phone'] = currentPhone;
+    }
+
+    if (updates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเข้าสู่ระบบใหม่')),
+        const SnackBar(content: Text('ไม่มีการเปลี่ยนแปลงข้อมูล')),
       );
       return;
     }
 
-    final rawPhone = phoneController.text.replaceAll('-', '');
-
-    final updatedCustomer = originalCustomer!.copyWith(
-      firstName: nameController.text.trim(),
-      lastName: lastNameController.text.trim(),
-      email: emailController.text.trim(),
-      phone: rawPhone,
-    );
-
     try {
       final success = await CustomerService().updateCustomer(
-        user.token!, // ✅ safe แล้ว
+        user.token!,
         user.role,
-        updatedCustomer,
+        updates,
       );
 
       if (success) {
-        ref.read(userProvider.notifier)
-            .updateCustomerProfile(updatedCustomer);
+        await ref.read(userProvider.notifier).refreshUser();
+
+        if (!mounted) return;
 
         ref.read(bottomSubPageProvider.notifier).state = null;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
   }
 
@@ -158,14 +205,14 @@ class _EditProfileState extends ConsumerState<EditProfile> {
           inputFormatters: inputFormatters,
           onChanged: (value) => _validateForm(),
           decoration: const InputDecoration(
-            isDense: true, // ทำให้ช่องไม่สูงเกินไป
+            isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
-        const SizedBox(height: 16), // เว้นระยะห่างด้านล่างแต่ละช่อง
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -175,6 +222,11 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     if (!_isInitialized) {
       _initializeData();
     }
+
+    final user = ref.watch(userProvider);
+    final customer = user?.customerProfile;
+    final avatarUrl = customer?.avatarUrl;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -186,15 +238,19 @@ class _EditProfileState extends ConsumerState<EditProfile> {
               Header(header: "แก้ไขโปรไฟล์"),
               const SizedBox(height: 16),
 
-              // ---------- Avatar ----------
               Center(
                 child: Stack(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 50,
-                      backgroundImage: AssetImage(
-                        'assets/image/Technician.png',
-                      ),
+                      backgroundColor: Colors.grey[300],
+
+                      backgroundImage:
+                          (avatarUrl != null &&
+                              avatarUrl.isNotEmpty &&
+                              avatarUrl.startsWith('http'))
+                          ? NetworkImage(avatarUrl)
+                          : AssetImage('assets/image/Technician.png') as ImageProvider,
                     ),
                     Positioned(
                       bottom: 0,
@@ -221,7 +277,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
               ),
               const SizedBox(height: 24),
 
-              // ---------- Form Fields ----------
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
@@ -275,7 +330,6 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                 ),
               ),
 
-              // ---------- Save Button ----------
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -286,9 +340,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                   builder: (context, valid, _) {
                     return PrimaryButton(
                       text: "บันทึกการแก้ไข",
-                      onPressed: valid && hasChanged
-                          ? _saveProfile
-                          : null,
+                      onPressed: valid && hasChanged ? _saveProfile : null,
                     );
                   },
                 ),
@@ -298,5 +350,14 @@ class _EditProfileState extends ConsumerState<EditProfile> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
   }
 }

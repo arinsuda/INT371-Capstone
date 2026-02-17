@@ -128,8 +128,10 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
   Widget build(BuildContext context) {
     ref.listen<NotificationState>(notificationProvider, (previous, next) {
       if (previous != null && next.items.length > previous.items.length) {
-        if (next.items.isNotEmpty) {
-          _showNotificationBanner(next.items.first);
+        final unreadNotifications = next.items.where((n) => !n.isRead).toList();
+
+        if (unreadNotifications.isNotEmpty) {
+          _showNotificationBanner(unreadNotifications.first);
         }
       }
     });
@@ -272,7 +274,6 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
                     notification: _currentNotification!,
                     onDismiss: _closeBanner,
                     onTap: () {
-
                       _closeBanner();
                     },
                   )

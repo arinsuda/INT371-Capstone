@@ -1,9 +1,11 @@
 import 'package:changsure/data/models/users/users_model.dart';
+import 'package:changsure/module/tracking/tracking_status_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/module/home/home_page.dart';
+import 'package:changsure/module/chat/chat_list_page.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 
@@ -11,6 +13,8 @@ import 'package:changsure/module/profile/address_page.dart' as shared_address;
 
 import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart'
     as public_tech_profile;
+import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart'
+    as public_activity_detail;
 
 import 'package:changsure/module/profile/technician/owner/pages/technician_profile_page.dart'
     as tech_profile;
@@ -117,8 +121,15 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
             );
           }
           break;
+        case BottomSubPage.publicActivityDetail:
+          if (subConfig.activityId != null && subConfig.technicianId != null) {
+            subPage = public_activity_detail.PublicActivityDetailPage(
+              postId: subConfig.activityId!,
+              technicianId: subConfig.technicianId!,
+            );
+          }
+          break;
 
-        // Technician
         case BottomSubPage.technicianViewProfile:
           subPage = const tech_view_profile.ViewProfilePage();
           break;
@@ -144,7 +155,6 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
           }
           break;
 
-        // Customer
         case BottomSubPage.customerEditProfile:
           subPage = const user_edit.EditProfile();
           break;
@@ -160,9 +170,9 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
     List<Widget> getPages() {
       final commonPages = [
-        HomePage(),
-        const Center(child: Text('ติดตามสถานะ')),
-        const Center(child: Text('แชท')),
+        const HomePage(),
+        const TrackingStatusTab(),
+        const ChatListPage(),
       ];
 
       Widget profilePage;
@@ -178,13 +188,10 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
     final pages = getPages();
 
     return Scaffold(
-      // The main content of the screen
       body: Stack(
         children: [
-          // Display the page corresponding to the selected index
           IndexedStack(index: selectedIndex, children: pages),
 
-          // ถ้ามี subpage → วาง overlay ชั้นบนสุด
           if (subPage != null) subPage,
         ],
       ),
@@ -221,7 +228,6 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
             return GestureDetector(
               onTapDown: (_) {
-                // Set focus state for visual feedback on press
                 setState(() {
                   _focusedIndex = index;
                 });
@@ -229,14 +235,9 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
               onTapUp: (_) {
                 setState(() => _focusedIndex = -1);
 
-                // Update the selected index using Riverpod
                 ref.read(bottomNavIndexProvider.notifier).state = index;
 
-                // ปิด sub page ทุกครั้งที่เปลี่ยน tab
                 ref.read(bottomSubPageProvider.notifier).state = null;
-
-                // NOTE: Removed the line below as _tabController is not defined
-                // _tabController.index = index;
               },
               onTapCancel: () {
                 setState(() {
@@ -250,17 +251,13 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
                     inactivePaths[index],
                     activePaths[index],
                     index,
-                    // Use Riverpod's selected index
+
                     selectedIndex,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     labels[index],
-                    style: _tabTextStyle(
-                      index,
-                      // Use Riverpod's selected index
-                      selectedIndex,
-                    ),
+                    style: _tabTextStyle(index, selectedIndex),
                   ),
                 ],
               ),

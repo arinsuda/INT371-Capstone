@@ -21,7 +21,8 @@ enum BottomSubPage {
   customerEditProfile,
   customerHistoryServicePage,
 
-  publicTechnicianProfile,
+  publicTechnicianProfile, 
+  publicActivityDetail,
 }
 
 /// config สำหรับหน้า subpage

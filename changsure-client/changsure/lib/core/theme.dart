@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   static const Color primary = Color(0xFF003EB3);
-  static const Color secondary = Color(0xFF3071C7);
+  static const Color secondary = Color(0xFF5990D4);
   static const Color primaryBG = Colors.white;
   static const Color primaryBGHover = Color(0xFFF8F9FE);
   static const Color primaryBorder = Color(0xFFAAAAAA);
@@ -16,4 +16,9 @@ class AppColors {
   static const Color colorStroke = Color(0xFFE8E8E8);
   static const Color colorError = Color(0xFFFF4D4F);
   static const Color colorWarning = Color(0xFFFFF1B8);
+  static const Color secondaryBorder = Color(0xFFD6D6D6);
+  static const Color gold01 = Color(0xFFFFFBE6);
+  static const Color gold03 = Color(0xFFFFE58F);
+  static const Color gold06 = Color(0xFFFAAD14);
+
 }

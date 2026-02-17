@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/button/primary_button.dart';
 import '../../../../core/theme.dart';
+import '../../../../data/models/booking/booking_model.dart';
 import '../../../../state/booking_provider.dart';
 import 'booking_card.dart';
 import 'calendar.dart';
@@ -32,8 +33,14 @@ String _formatBookingDate(DateTime day, String time) {
 class BookingCalendar extends ConsumerStatefulWidget {
   final DateTime? initialDay;
   final String? initialTime;
+  final int technicianId;
 
-  const BookingCalendar({super.key, this.initialDay, this.initialTime});
+  const BookingCalendar({
+    super.key,
+    this.initialDay,
+    this.initialTime,
+    required this.technicianId,
+  });
 
   @override
   ConsumerState<BookingCalendar> createState() => _BookingCalendarState();
@@ -53,16 +60,28 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    final timeSlotsAsync = ref.watch(timeSlotsProvider);
+    /// 🔥 ถ้ามี selectedDay → ดึง slot
+    final List<TimeSlot> slots = selectedDay != null
+        ? ref.watch(
+      availableTimeSlotsProvider((
+      technicianId: widget.technicianId,
+      date:
+      "${selectedDay!.year}-${selectedDay!.month.toString().padLeft(2, '0')}-${selectedDay!.day.toString().padLeft(2, '0')}",
+      month:
+      "${selectedDay!.year}-${selectedDay!.month.toString().padLeft(2, '0')}",
+      )),
+    )
+        : [];
 
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           children: [
             Header(header: "เลือกวันรับบริการ"),
             Container(height: 24, color: AppColors.primaryBGHover),
 
+            /// 📅 Calendar
             Calendar(
               selectedDay: selectedDay,
               onDaySelected: (day) {
@@ -72,12 +91,15 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
                   selectedTimeSlotId = null;
                 });
               },
+              technicianId: widget.technicianId,
             ),
 
             Container(height: 24, color: AppColors.primaryBGHover),
 
+            /// ⏰ Time Slots
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              padding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -91,34 +113,48 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
                   ),
                   const SizedBox(height: 12),
 
-                  timeSlotsAsync.when(
-                    data: (slots) {
-                      return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: slots.map((slot) {
-                          return _selectTag(slot.displayText, selectedTime, (
-                            v,
-                          ) {
+                  if (selectedDay == null)
+                    const Text(
+                      "กรุณาเลือกวันที่ก่อน",
+                      style: TextStyle(color: AppColors.colorStroke),
+                    )
+                  else if (slots.isEmpty)
+                    const Text(
+                      "ไม่มีช่วงเวลาว่าง",
+                      style: TextStyle(color: AppColors.colorStroke),
+                    )
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: slots.map((slot) {
+                        final bool isBooked = slot.isBooked;
+
+                        return _selectTag(
+                          "${slot.startTime} - ${slot.endTime}",
+                          selectedTime,
+                              (v) {
+                            if (isBooked) return;
+
                             setState(() {
                               selectedTime = v;
-                              selectedTimeSlotId = slot.id; // ✅ เก็บ id จริง
+                              selectedTimeSlotId = slot.id;
                             });
-                          });
-                        }).toList(),
-                      );
-                    },
-                    loading: () => const CircularProgressIndicator(),
-                    error: (e, _) => Text("โหลดช่วงเวลาไม่สำเร็จ: $e"),
-                  ),
+                          },
+                          isDisabled: isBooked,
+                        );
+                      }).toList(),
+                    ),
                 ],
               ),
             ),
 
             Container(height: 24, color: AppColors.primaryBGHover),
 
+            /// 📌 Summary
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              padding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -135,15 +171,12 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
                   if (selectedDay != null && selectedTime.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                          horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF7FF),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           SvgPicture.asset(
                             "assets/icons/calendar.svg",
@@ -174,7 +207,7 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
         ),
       ),
 
-      /// bottom button
+      /// 🔘 Bottom Button
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
           left: 16,
@@ -195,21 +228,20 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
         child: PrimaryButton(
           text: "ยืนยัน",
           onPressed:
-              (selectedTime.isEmpty ||
-                  selectedDay == null ||
-                  selectedTimeSlotId == null)
+          (selectedTime.isEmpty ||
+              selectedDay == null ||
+              selectedTimeSlotId == null)
               ? null
               : () {
-                  Navigator.pop(
-                    context,
-                    BookingDateResult(
-                      day: selectedDay!,
-                      time: selectedTime,
-                      timeSlotId: selectedTimeSlotId!,
-                    ),
-                  );
-                },
-
+            Navigator.pop(
+              context,
+              BookingDateResult(
+                day: selectedDay!,
+                time: selectedTime,
+                timeSlotId: selectedTimeSlotId!,
+              ),
+            );
+          },
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
@@ -217,24 +249,44 @@ class _BookingCalendarState extends ConsumerState<BookingCalendar> {
   }
 }
 
-Widget _selectTag(String label, String current, Function(String) onTap) {
+Widget _selectTag(
+    String label,
+    String current,
+    Function(String) onTap, {
+      bool isDisabled = false,
+    }) {
   final bool isSelected = label == current;
 
   return GestureDetector(
-    onTap: () => onTap(label),
+    onTap: isDisabled ? null : () => onTap(label),
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: isSelected ? AppColors.primaryBGHover : Colors.transparent,
+        color: isDisabled
+            ? Colors.grey.shade200
+            : isSelected
+            ? AppColors.primaryBGHover
+            : Colors.transparent,
         border: Border.all(
-          color: isSelected ? AppColors.primary : AppColors.colorStroke,
+          color: isDisabled
+              ? Colors.grey
+              : isSelected
+              ? AppColors.primary
+              : AppColors.colorStroke,
         ),
       ),
       child: Text(
         label,
-        style: TextStyle(color: isSelected ? AppColors.primary : Colors.black),
+        style: TextStyle(
+          color: isDisabled
+              ? Colors.grey
+              : isSelected
+              ? AppColors.primary
+              : Colors.black,
+        ),
       ),
     ),
   );
 }
+

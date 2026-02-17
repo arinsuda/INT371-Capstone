@@ -1,4 +1,5 @@
 import 'package:changsure/module/profile/technician/owner/activities/shared/constants/activity_constants.dart';
+import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/header.dart';
@@ -33,6 +34,7 @@ class SystemChoose extends ConsumerStatefulWidget {
 }
 
 class _SystemChooseState extends ConsumerState<SystemChoose> {
+
   Widget _buildTag(String iconUrl, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -57,8 +59,9 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
     );
   }
 
-  Widget _buildCategoryTag(String categoryName) {
-    final colors = ActivityConstants.getColors(categoryName);
+  Widget _buildCategoryTag(String shortName) {
+    final categoryKey = _toActivityCategoryKey(shortName);
+    final colors = ActivityConstants.getColors(categoryKey);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -68,7 +71,7 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
         border: Border.all(color: colors.border, width: 1),
       ),
       child: Text(
-        categoryName,
+        shortName, // โชว์แบบสั้นเหมือนเดิม
         style: TextStyle(color: colors.text, fontSize: 12),
       ),
     );
@@ -83,6 +86,19 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
     };
 
     return map[categoryName] ?? categoryName;
+  }
+
+  String _toActivityCategoryKey(String shortName) {
+    const map = {
+      "ทาสี": "งานทาสี",
+      "การประปา": "งานประปา",
+      "ประปา": "งานประปา",
+      "การไฟฟ้า": "งานไฟฟ้า",
+      "ไฟฟ้า": "งานไฟฟ้า",
+      "เครื่องใช้ไฟฟ้า": "งานเครื่องใช้ไฟฟ้า",
+    };
+
+    return map[shortName] ?? shortName;
   }
 
   @override
@@ -165,6 +181,7 @@ class _SystemChooseState extends ConsumerState<SystemChoose> {
                         tech: tech,
                         buildTag: _buildTag,
                         serviceData: widget.data,
+                        provinceId: widget.provinceId,
                       ),
                       Positioned(
                         top: 16,
@@ -189,11 +206,13 @@ class _TechnicianCard extends StatelessWidget {
   final Technician tech;
   final Widget Function(String, String) buildTag;
   final ServiceModel serviceData;
+  final int? provinceId;
 
   const _TechnicianCard({
     required this.tech,
     required this.buildTag,
     required this.serviceData,
+    required this.provinceId
   });
 
   @override
@@ -232,10 +251,7 @@ class _TechnicianCard extends StatelessWidget {
             backgroundImage:
                 tech.avatarUrl != null && tech.avatarUrl!.isNotEmpty
                 ? NetworkImage(tech.avatarUrl!)
-                : null,
-            child: tech.avatarUrl == null || tech.avatarUrl!.isEmpty
-                ? const Icon(Icons.person, size: 40)
-                : null,
+                : AssetImage('assets/image/Technician.png') as ImageProvider,
           ),
           SizedBox(height: 8),
           Text(
@@ -324,7 +340,8 @@ class _TechnicianCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const ViewProfilePage(),
+                        builder: (_) =>
+                            PublicTechnicianProfilePage(technicianId: tech.id),
                       ),
                     );
                   },
@@ -340,7 +357,7 @@ class _TechnicianCard extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            (BookingPage(data: serviceData, technician: tech,)),
+                            (BookingPage(data: serviceData, technician: tech, provinceId: provinceId,)),
                       ),
                     );
                   },

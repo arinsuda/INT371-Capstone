@@ -6,9 +6,10 @@ import '../../../core/button/tertiary_button.dart';
 import '../../../core/header.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/address_model.dart';
-import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/booking/booking_model.dart' hide Technician;
 import '../../../data/models/master_data_models.dart';
 import '../../../state/booking_provider.dart';
+import '../../../state/bottom_nav_provider.dart';
 
 class BookingSuccess extends ConsumerStatefulWidget {
   final BookingDateResult bookingDate;
@@ -39,25 +40,29 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
         onConfirm: () async {
           Navigator.of(context).pop(); // ปิด dialog ก่อน
 
-          final bookingId = widget.response.data.id;
+          final bookingId = widget.response.data?.id;
+
+          if (bookingId == null) return;
 
           try {
-            final result = await ref.read(
-              cancelBookingProvider(bookingId).future,
-            );
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .cancelBooking(
+                  bookingId,
+                  "User cancelled immediately after booking",
+                );
 
             if (!mounted) return;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(result.message ?? "ยกเลิกการจองสำเร็จ")),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("ยกเลิกการจองสำเร็จ")));
 
             Navigator.popUntil(
               context,
-                  (route) => route.settings.name == '/serviceDetail',
+              (route) => route.settings.name == '/serviceDetail',
             );
             debugPrint("CANCEL BOOKING Success");
-
           } catch (e) {
             debugPrint("CANCEL BOOKING ERROR => $e");
             if (!mounted) return;
@@ -72,28 +77,37 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
     );
   }
 
-
   final List<String> images = [
     "assets/image/clean1.png",
     "assets/image/clean2.png",
   ];
-  late String bookingDate;
+
+  late String bookingDateStr;
 
   @override
   void initState() {
     super.initState();
 
-    bookingDate = DateFormat(
-      "d MMM yy",
-      "th",
-    ).format(widget.response.data.createdAt);
+    if (widget.response.data != null) {
+      bookingDateStr = DateFormat("d MMM yy", "th").format(
+        DateTime.parse(widget.response.data!.appointmentDate.toString()),
+      );
+    } else {
+      bookingDateStr = "-";
+    }
+
+    Future.microtask(() {
+      ref.invalidate(myBookingsProvider((status: null, page: 1)));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final note = widget.response.data.customerNote;
-    debugPrint("IMAGES FROM API => ${widget.response.data.images}");
-    final bookingId = widget.response.data.id;
+    final data = widget.response.data;
+    final note = data?.customerNote;
+
+    print(widget.address?.subDistrict);
+    print(widget.address?.district);
 
     return Scaffold(
       body: SafeArea(
@@ -125,7 +139,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   SizedBox(
                     width: 300,
                     child: Text(
-                      "กรุณารอช่างรับงานซักครู่ ท่านสามารถติดตามสถานะ การดำเนินการได้ที่แถบเมนู ‘ติดตามสถานะ’",
+                      "กรุณารอช่างรับงานซักครู่ ท่านสามารถติดตามสถานะ การดำเนินการได้ที่แถบเมนู 'ติดตามสถานะ'",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -159,12 +173,12 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             Row(
                               children: [
                                 Text(
-                                  "ธนชนก บรรจงจินดา",
+                                  "${widget.address?.displayName}",
                                   style: const TextStyle(fontSize: 16),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  "0982887376",
+                                  "${widget.address?.phoneNumber}",
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.colorTertiaryText,
@@ -174,7 +188,11 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${widget.address!.combinedAddressInfo}\n",
+                              "${widget.address!.addressLine} "
+                              "${widget.address!.subDistrict} "
+                              "${widget.address!.district} "
+                              "${widget.address!.province} "
+                              "${widget.address!.postalCode} ",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -215,7 +233,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       Text("หมายเลขบริการ"),
                       const Spacer(),
                       Text(
-                        "8439849384",
+                        data?.bookingNumber ?? "-",
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.colorTertiaryText,
@@ -249,7 +267,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       Text("วันที่จองบริการ"),
                       const Spacer(),
                       Text(
-                        bookingDate,
+                        bookingDateStr,
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.colorTertiaryText,
@@ -279,7 +297,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                   const Text("รูปภาพหน้างาน", style: TextStyle(fontSize: 14)),
                   const SizedBox(height: 8),
 
-                  widget.response.data.images.isEmpty
+                  (data?.images == null || data!.images!.isEmpty)
                       ? const Text(
                           "ไม่มีรูปภาพเพิ่มเติม",
                           style: TextStyle(
@@ -290,7 +308,7 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       : Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: widget.response.data.images.map((img) {
+                          children: data.images!.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
@@ -359,13 +377,9 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                 Expanded(
                   child: TertiaryButton(
                     text: "ติดตามสถานะ",
-                    onPressed: () {
-                      // Navigator.push(
-                      //   context,
-                      //   MaterialPageRoute(
-                      //     builder: (context) => (),
-                      //   ),
-                      // );
+                    onPressed: () async {
+                      Navigator.popUntil(context, (route) => route.isFirst);
+                      ref.read(bottomNavIndexProvider.notifier).state = 1;
                     },
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
@@ -438,7 +452,7 @@ class _DeleteConfirmationDialog extends StatelessWidget {
                     ),
                     onPressed: onConfirm,
                     child: const Text(
-                      "ยกเลิกกการจอง",
+                      "ยกเลิกการจอง",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

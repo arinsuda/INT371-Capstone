@@ -1,3 +1,5 @@
+import 'package:changsure/data/models/master_data_models.dart';
+import 'package:changsure/mockDB/services_categories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +16,9 @@ class ActivityCategoryDropdown extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(activityEditorProvider(activityId));
     final notifier = ref.read(activityEditorProvider(activityId).notifier);
-    final categoriesAsync = ref.watch(serviceCategoriesProvider);
+    final AsyncValue<List<ServiceCategoryModel>> categoriesAsync = ref.watch(
+      serviceCategoriesProvider,
+    );
 
     final selectedCategory = state.selectedCategory;
 
@@ -56,7 +60,7 @@ class ActivityCategoryDropdown extends ConsumerWidget {
             ),
             data: (categories) => Column(
               mainAxisSize: MainAxisSize.min,
-              children: categories.map((category) {
+              children: categories.map<Widget>((ServiceCategoryModel category) {
                 final categoryName = category.catName;
                 final textColor = ActivityConstants.getTextColor(categoryName);
 

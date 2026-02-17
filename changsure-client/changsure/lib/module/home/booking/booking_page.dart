@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import '../../../core/button/primary_button.dart';
 import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
-import '../../../data/models/booking/booking_model.dart';
+import '../../../data/models/booking/booking_model.dart' hide Technician;
 import '../../../data/models/master_data_models.dart';
 import '../../../data/models/users/users_model.dart';
 import '../../../state/booking_provider.dart';
@@ -88,7 +88,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         addresses.isNotEmpty) {
       final primary = addresses.where((a) => a.isPrimary == true).toList();
       if (primary.isNotEmpty) {
-        selectedAddressId = primary.first.id; // ✅ auto select
+        selectedAddressId = primary.first.id;
       }
     }
 
@@ -110,7 +110,28 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 }
               },
             ),
-            Container(height: 24, color: AppColors.primaryBGHover),
+            Container(
+              height: !isProvinceValid ? 40 : 24,
+              color: AppColors.primaryBGHover,
+              child: !isProvinceValid
+                  ? Padding(
+                      padding: const EdgeInsets.only(
+                        top: 18,
+                        bottom: 0,
+                        left: 18,
+                      ),
+                      child: Text(
+                        "*ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
+                        style: TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
+
             AddressCard(
               selectedAddressId: selectedAddressId,
               onTap: () async {
@@ -120,6 +141,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     builder: (_) => AddressList(
                       initialSelectedAddressId: selectedAddressId,
                       provinceId: widget.provinceId,
+                      allowSelect: true,
                     ),
                   ),
                 );
@@ -132,19 +154,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               },
               provinceId: widget.provinceId,
             ),
-
-            if (!isProvinceValid)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16, left: 40),
-                child: Text(
-                  "ที่อยู่ที่เลือกอยู่นอกพื้นที่ให้บริการ กรุณาเลือกที่อยู่ใหม่",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-
 
             Container(height: 24, color: AppColors.primaryBGHover),
             BookingCard(
@@ -245,6 +254,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                 "${date.month.toString().padLeft(2, '0')}-"
                                 "${date.day.toString().padLeft(2, '0')}";
 
+
+
                             final req = BookingCreateRequest(
                               technicianId: widget.technician.id,
                               technicianServiceId: widget.data.id,
@@ -257,27 +268,49 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               images: images,
                             );
 
+                            debugPrint("=== BOOKING REQUEST ===");
+                            debugPrint("technicianId: ${req.technicianId}");
+                            debugPrint("technicianServiceId: ${req.technicianServiceId}");
+                            debugPrint("addressId: ${req.addressId}");
+                            debugPrint("timeSlotId: ${req.timeSlotId}");
+                            debugPrint("appointmentDate: ${req.appointmentDate}");
+                            debugPrint("customerNote: ${req.customerNote}");
+                            debugPrint("images: ${req.images}");
+                            debugPrint("=======================");
+
                             try {
-                              final result = await ref.read(
-                                createBookingProvider(req).future,
-                              );
+                              final result = await ref
+                                  .read(bookingControllerProvider.notifier)
+                                  .createBooking(req);
+
                               debugPrint("BOOKING RESULT => $result");
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => BookingSuccess(
-                                    bookingDate: selectedBookingDate!,
-                                    technician: widget.technician,
-                                    service: widget.data,
-                                    response: result,
-                                    address: selectedAddress,
+
+                              if (result != null && result.success && mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BookingSuccess(
+                                      bookingDate: selectedBookingDate!,
+                                      technician: widget.technician,
+                                      service: widget.data,
+                                      response: result,
+                                      address: selectedAddress,
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      result?.message ?? "จองไม่สำเร็จ",
+                                    ),
+                                  ),
+                                );
+                              }
                             } catch (e) {
                               debugPrint("BOOKING ERROR => $e");
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("จองไม่สำเร็จ")),
+                                SnackBar(content: Text("เกิดข้อผิดพลาด: $e")),
                               );
                             }
                           }

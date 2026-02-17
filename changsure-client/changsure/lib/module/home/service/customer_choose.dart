@@ -15,14 +15,13 @@ class CustomerChoose extends ConsumerStatefulWidget {
   final int? provinceId;
   final ServiceModel data;
 
-
   const CustomerChoose({
     super.key,
     required this.serviceName,
     required this.category,
     required this.serviceId,
     required this.provinceId,
-    required this.data
+    required this.data,
   });
 
   @override
@@ -83,23 +82,16 @@ class _CustomerChooseState extends ConsumerState<CustomerChoose> {
     }
 
     if (filter['highRating'] == true) {
-      list = list
-          .where((t) => _hasActiveBadge(t, "High Rating"))
-          .toList();
+      list = list.where((t) => _hasActiveBadge(t, "High Rating")).toList();
     }
 
     if (filter['topService'] == true) {
-      list = list
-          .where((t) => _hasActiveBadge(t, "Top Service"))
-          .toList();
+      list = list.where((t) => _hasActiveBadge(t, "Top Service")).toList();
     }
 
     if (filter['fastResponse'] == true) {
-      list = list
-          .where((t) => _hasActiveBadge(t, "Fast Response"))
-          .toList();
+      list = list.where((t) => _hasActiveBadge(t, "Fast Response")).toList();
     }
-
 
     setState(() {
       _filteredTechnicians = list;
@@ -117,10 +109,10 @@ class _CustomerChooseState extends ConsumerState<CustomerChoose> {
 
     final result = await ref
         .read(masterDataServiceProvider)
-        .getAllTechnician(
-          user?.token,
-          widget.serviceId,
-          widget.provinceId ?? 0,
+        .getAllTechnicians(
+          token: user?.token,
+          serviceId: widget.serviceId,
+          provinceId: widget.provinceId ?? 0,
         );
 
     setState(() {
@@ -276,7 +268,11 @@ class _CustomerChooseState extends ConsumerState<CustomerChoose> {
                         .map(
                           (tech) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TechnicianCardCTM(technician: tech, data:widget.data, provinceId: widget.provinceId),
+                            child: TechnicianCardCTM(
+                              technician: tech,
+                              data: widget.data,
+                              provinceId: widget.provinceId,
+                            ),
                           ),
                         )
                         .toList(),

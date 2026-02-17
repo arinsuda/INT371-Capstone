@@ -40,7 +40,7 @@ class AddressCard extends ConsumerWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 10),
+        padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
         child: Stack(
           children: [
             /// 🔹 Content หลัก
@@ -81,7 +81,7 @@ class AddressCard extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${selectedAddress.combinedAddressInfo} "
+                              "${selectedAddress.addressLine} "
                               "${selectedAddress.subDistrict} "
                               "${selectedAddress.district} "
                               "${selectedAddress.province} "

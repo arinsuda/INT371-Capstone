@@ -30,7 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  cached_network_image: ^3.2.3
   web_socket_channel: ^2.4.0
   shared_preferences: ^2.2.2
   jwt_decoder: ^2.0.1
@@ -66,7 +66,9 @@ dependencies:
 
 flutter_icons:
   android: true
-  image_path: "assets/image/Logo_Light.png"
+  image_path: "assets/image/Logo_ChangSure_Transparents.PNG"
+  adaptive_icon_foreground: "assets/image/Logo_ChangSure_Transparents.PNG"
+  adaptive_icon_background: "#FFFFFF"
 
 dev_dependencies:
   flutter_test:
