@@ -370,7 +370,7 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
 
           final bookedSlots = validBookings.length;
           final hasBooked = bookedSlots > 0;
-          final isFulled = bookedSlots >= 3;
+          final isFulled = data?.status == "FULL";
 
 
           Color backgroundColor;
