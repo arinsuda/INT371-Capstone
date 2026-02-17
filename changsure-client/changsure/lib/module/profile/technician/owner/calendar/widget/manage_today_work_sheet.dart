@@ -91,6 +91,7 @@ class _ManageTodayWorkSheetState
           };
 
           initialSelectedSlotIds = Set.from(selectedSlotIds);
+          isDefaultTime = false;
         }
 
         bool isSlotReallyBooked(int slotId) {
@@ -117,6 +118,8 @@ class _ManageTodayWorkSheetState
       },
     );
   }
+
+
 
   Widget _buildSheet(
       BuildContext context,
@@ -373,43 +376,33 @@ class _ManageTodayWorkSheetState
                             .symmetric(
                             vertical:
                             8),
-                        onPressed:
-                        hasChanged
+                        onPressed: hasChanged
                             ? () async {
                           final formattedDate =
-                          DateFormat(
-                              'yyyy-MM-dd')
-                              .format(
-                              widget
-                                  .date);
+                          DateFormat('yyyy-MM-dd').format(widget.date);
 
-                          await ref
-                              .read(
+                          final bool sendDefault = isDefaultTime == true;
+
+                          debugPrint("Send isDefault: $sendDefault");
+
+                          await ref.read(
                             updateTechnicianTimeSlotProvider((
-                            date:
-                            formattedDate,
-                            isDefault:
-                            isDefaultTime,
-                            timeSlotIds:
-                            selectedSlotIds
-                                .toList(),
+                            date: formattedDate,
+                            isDefault: sendDefault,   // ✅ ส่งจาก checkbox จริง ๆ
+                            timeSlotIds: selectedSlotIds.toList(),
                             )).future,
                           );
 
                           ref.invalidate(
-                            technicianCalendarProvider((
-                            month:
-                            monthString,
-                            )),
+                            technicianCalendarProvider((month: monthString)),
                           );
 
                           if (mounted) {
-                            Navigator.pop(
-                                context,
-                                true);
+                            Navigator.pop(context, true);
                           }
                         }
                             : null,
+
                       ),
                     ),
                   ],

@@ -142,6 +142,7 @@ FutureProvider.autoDispose.family<
       throw Exception("User not logged in");
     }
 
+
     return service.updateTechnicianCalendarByDate(
       token: token,
       date: params.date,
