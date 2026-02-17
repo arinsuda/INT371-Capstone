@@ -35,21 +35,13 @@ class TrackingCard extends ConsumerWidget {
         onConfirm: () async {
           Navigator.of(context).pop();
 
-          try {
-            await ref
-                .read(bookingControllerProvider.notifier)
-                .cancelBooking(booking.id, "User cancelled booking");
+          final controller = ref.read(bookingControllerProvider.notifier);
+          await controller.rejectBooking(
+            booking.id,
+            "ไม่สะดวกรับงาน",
+          );
 
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text("ปฏิเสธการจองสำเร็จ")));
-
-            Navigator.pop(context);
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("ปฏิเสธการจองสำเร็จไม่สำเร็จ")),
-            );
-          }
+          Navigator.pop(context); // กลับหน้าก่อนหน้า
         },
         onCancel: () => Navigator.of(context).pop(),
       ),
