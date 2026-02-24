@@ -7,8 +7,6 @@ import (
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	"changsure-core-service/internal/modules/district"
 	subdistrict "changsure-core-service/internal/modules/sub_district"
-	"changsure-core-service/pkg/security"
-	"changsure-core-service/pkg/utils"
 )
 
 var (
@@ -21,10 +19,8 @@ type Service interface {
 	Delete(ctx context.Context, id uint, techID uint) error
 	Get(ctx context.Context, id uint, techID uint) (*TechnicianAddressResponse, error)
 	List(ctx context.Context, techID uint) ([]TechnicianAddressResponse, error)
-	SetPrimary(ctx context.Context, id uint, techID uint) error
-
+	SetPrimary(ctx context.Context, id uint, techID uint, isPrimary bool) error
 	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
-	ListPublic(ctx context.Context, techID uint) ([]TechnicianAddressResponse, error)
 }
 
 type service struct {
@@ -43,11 +39,6 @@ func NewService(
 		districtRepo:    districtRepo,
 		subDistrictRepo: subDistrictRepo,
 	}
-}
-
-func (s *service) checkOwn(ctx context.Context, techID uint) error {
-	requesterID := utils.GetUserIDFromContext(ctx)
-	return security.CheckOwner(techID, requesterID)
 }
 
 func (s *service) normalizeLocation(
@@ -75,15 +66,12 @@ func (s *service) applyUpdateFields(addr *TechnicianAddress, req *UpdateTechnici
 	if req.Label != nil {
 		addr.Label = req.Label
 	}
-
 	if req.PhoneNumber != nil {
 		addr.PhoneNumber = req.PhoneNumber
 	}
-
 	if req.AddressLine != nil {
 		addr.AddressLine = req.AddressLine
 	}
-
 	if req.HouseNumber != nil {
 		addr.HouseNumber = req.HouseNumber
 	}
@@ -105,11 +93,9 @@ func (s *service) applyUpdateFields(addr *TechnicianAddress, req *UpdateTechnici
 	if req.Longitude != nil {
 		addr.Longitude = req.Longitude
 	}
-
 	if req.IsPrimary != nil {
 		addr.IsPrimary = *req.IsPrimary
 	}
-
 	if req.ProvinceID != nil {
 		addr.ProvinceID = req.ProvinceID
 		locationChanged = true
@@ -122,15 +108,10 @@ func (s *service) applyUpdateFields(addr *TechnicianAddress, req *UpdateTechnici
 		addr.SubDistrictID = req.SubDistrictID
 		locationChanged = true
 	}
-
 	return locationChanged
 }
 
 func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnicianAddressRequest) (*TechnicianAddressResponse, error) {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return nil, err
-	}
-
 	pid, did, sdid, err := s.normalizeLocation(ctx, req.ProvinceID, req.DistrictID, req.SubDistrictID)
 	if err != nil {
 		return nil, err
@@ -163,22 +144,8 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 	}
 
 	if req.AddressLine != nil {
-		if req.HouseNumber == nil {
-			addr.HouseNumber = nil
-		}
-		if req.Moo == nil {
-			addr.Moo = nil
-		}
-		if req.Soi == nil {
-			addr.Soi = nil
-		}
-		if req.Road == nil {
-			addr.Road = nil
-		}
-
 		addressshared.NormalizeAddressFields(&addr.AddressFields)
 		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
-
 		if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
 			return nil, err
 		}
@@ -203,10 +170,6 @@ func (s *service) Create(ctx context.Context, techID uint, req *CreateTechnician
 }
 
 func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateTechnicianAddressRequest) (*TechnicianAddressResponse, error) {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return nil, err
-	}
-
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return nil, err
@@ -218,22 +181,8 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 	locationChanged := s.applyUpdateFields(addr, req)
 
 	if req.AddressLine != nil {
-		if req.HouseNumber == nil {
-			addr.HouseNumber = nil
-		}
-		if req.Moo == nil {
-			addr.Moo = nil
-		}
-		if req.Soi == nil {
-			addr.Soi = nil
-		}
-		if req.Road == nil {
-			addr.Road = nil
-		}
-
 		addressshared.NormalizeAddressFields(&addr.AddressFields)
 		addressshared.ParseAddressLineToStructured(&addr.AddressFields)
-
 		if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
 			return nil, err
 		}
@@ -268,10 +217,6 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 }
 
 func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return err
-	}
-
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return err
@@ -284,7 +229,6 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 		if err := r.DeleteTx(ctx, id, techID); err != nil {
 			return err
 		}
-
 		if addr.IsPrimary {
 			next, err := r.FindNextPrimaryCandidateTx(ctx, techID, id)
 			if err != nil {
@@ -294,16 +238,11 @@ func (s *service) Delete(ctx context.Context, id uint, techID uint) error {
 				return r.SetPrimaryTx(ctx, techID, next.ID)
 			}
 		}
-
 		return nil
 	})
 }
 
 func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAddressResponse, error) {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return nil, err
-	}
-
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return nil, err
@@ -318,10 +257,6 @@ func (s *service) Get(ctx context.Context, id uint, techID uint) (*TechnicianAdd
 }
 
 func (s *service) List(ctx context.Context, techID uint) ([]TechnicianAddressResponse, error) {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return nil, err
-	}
-
 	addrs, err := s.repo.ListByTechnician(ctx, techID)
 	if err != nil {
 		return nil, err
@@ -331,11 +266,7 @@ func (s *service) List(ctx context.Context, techID uint) ([]TechnicianAddressRes
 	return ToResponseList(addrs, defaultPhone), nil
 }
 
-func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
-	if err := s.checkOwn(ctx, techID); err != nil {
-		return err
-	}
-
+func (s *service) SetPrimary(ctx context.Context, id uint, techID uint, isPrimary bool) error {
 	addr, err := s.repo.Get(ctx, id, techID)
 	if err != nil {
 		return err
@@ -345,21 +276,15 @@ func (s *service) SetPrimary(ctx context.Context, id uint, techID uint) error {
 	}
 
 	return s.repo.Transaction(ctx, func(r Repository) error {
-		return r.SetPrimaryTx(ctx, techID, id)
+		if isPrimary {
+
+			return r.SetPrimaryTx(ctx, techID, id)
+		}
+
+		return r.UnsetPrimaryTx(ctx, techID, id)
 	})
 }
 
 func (s *service) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-
 	return s.repo.FindNearby(ctx, q)
-}
-
-func (s *service) ListPublic(ctx context.Context, techID uint) ([]TechnicianAddressResponse, error) {
-	addrs, err := s.repo.ListByTechnician(ctx, techID)
-	if err != nil {
-		return nil, err
-	}
-
-	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
-	return ToResponseList(addrs, defaultPhone), nil
 }

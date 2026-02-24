@@ -11,8 +11,7 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("address not found")
-	ErrUnauthorized = errors.New("unauthorized")
+	ErrNotFound = errors.New("address not found")
 )
 
 type Service interface {
@@ -42,21 +41,6 @@ func NewService(
 	}
 }
 
-func (s *service) checkOwner(ctx context.Context, customerID uint) error {
-	userID := utils.GetUserIDFromContext(ctx)
-	if userID == 0 || userID != customerID {
-		return ErrUnauthorized
-	}
-	return nil
-}
-
-func shouldBePrimaryOnCreate(existingCount int, reqPrimary *bool) bool {
-	if existingCount == 0 {
-		return true
-	}
-	return reqPrimary != nil && *reqPrimary
-}
-
 func (s *service) normalizeLocation(
 	ctx context.Context,
 	provinceID, districtID, subDistrictID *uint,
@@ -71,67 +55,7 @@ func (s *service) normalizeLocation(
 	)
 }
 
-func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAddressRequest) (locationChanged bool) {
-	if req.Label != nil {
-		addr.Label = req.Label
-	}
-
-	if req.PhoneNumber != nil {
-		addr.PhoneNumber = req.PhoneNumber
-	}
-
-	if req.AddressLine != nil {
-		addr.AddressLine = req.AddressLine
-	}
-
-	if req.HouseNumber != nil {
-		addr.HouseNumber = req.HouseNumber
-	}
-	if req.Village != nil {
-		addr.Village = req.Village
-	}
-	if req.Moo != nil {
-		addr.Moo = req.Moo
-	}
-	if req.Soi != nil {
-		addr.Soi = req.Soi
-	}
-	if req.Road != nil {
-		addr.Road = req.Road
-	}
-
-	if req.Latitude != nil {
-		addr.Latitude = req.Latitude
-	}
-	if req.Longitude != nil {
-		addr.Longitude = req.Longitude
-	}
-
-	if req.IsPrimary != nil {
-		addr.IsPrimary = *req.IsPrimary
-	}
-
-	if req.ProvinceID != nil {
-		addr.ProvinceID = req.ProvinceID
-		locationChanged = true
-	}
-	if req.DistrictID != nil {
-		addr.DistrictID = req.DistrictID
-		locationChanged = true
-	}
-	if req.SubDistrictID != nil {
-		addr.SubDistrictID = req.SubDistrictID
-		locationChanged = true
-	}
-
-	return locationChanged
-}
-
 func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddressResponse, error) {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
 	pid, did, sdid, err := s.normalizeLocation(ctx, req.ProvinceID, req.DistrictID, req.SubDistrictID)
 	if err != nil {
 		return nil, err
@@ -182,6 +106,8 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 		return nil, err
 	}
 
+	_ = utils.GetUserIDFromContext(ctx)
+
 	newAddr, err := s.repo.FindByID(ctx, addr.ID, customerID)
 	if err != nil {
 		return nil, err
@@ -197,10 +123,6 @@ func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustom
 }
 
 func (s *service) Update(ctx context.Context, id uint, customerID uint, req *UpdateCustomerAddressRequest) (*CustomerAddressResponse, error) {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
 	addr, err := s.repo.FindByID(ctx, id, customerID)
 	if err != nil {
 		return nil, err
@@ -210,26 +132,6 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	}
 
 	locationChanged := s.applyUpdateFields(addr, req)
-
-	if req.AddressLine != nil {
-		addr.AddressLine = req.AddressLine
-
-		if req.HouseNumber == nil {
-			addr.HouseNumber = nil
-		}
-		if req.Moo == nil {
-			addr.Moo = nil
-		}
-		if req.Soi == nil {
-			addr.Soi = nil
-		}
-		if req.Road == nil {
-			addr.Road = nil
-		}
-		if req.Village == nil {
-			addr.Village = nil
-		}
-	}
 
 	addressshared.NormalizeAddressFields(&addr.AddressFields)
 	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
@@ -265,15 +167,12 @@ func (s *service) Update(ctx context.Context, id uint, customerID uint, req *Upd
 	if err != nil {
 		return nil, err
 	}
+
 	resp := ToResponse(updatedAddr, defaultPhone)
 	return &resp, nil
 }
 
 func (s *service) Delete(ctx context.Context, id uint, customerID uint) error {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return err
-	}
-
 	addr, err := s.repo.FindByID(ctx, id, customerID)
 	if err != nil {
 		return err
@@ -302,10 +201,6 @@ func (s *service) Delete(ctx context.Context, id uint, customerID uint) error {
 }
 
 func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerAddressResponse, error) {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
 	addr, err := s.repo.FindByID(ctx, id, customerID)
 	if err != nil {
 		return nil, err
@@ -318,15 +213,12 @@ func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerA
 	if err != nil {
 		return nil, err
 	}
+
 	resp := ToResponse(addr, defaultPhone)
 	return &resp, nil
 }
 
 func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressResponse, error) {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
 	addrs, err := s.repo.FindAllByCustomerID(ctx, customerID)
 	if err != nil {
 		return nil, err
@@ -336,14 +228,11 @@ func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressR
 	if err != nil {
 		return nil, err
 	}
+
 	return ToResponseList(addrs, defaultPhone), nil
 }
 
 func (s *service) SetPrimary(ctx context.Context, id uint, customerID uint) error {
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return err
-	}
-
 	addr, err := s.repo.FindByID(ctx, id, customerID)
 	if err != nil {
 		return err
@@ -353,4 +242,68 @@ func (s *service) SetPrimary(ctx context.Context, id uint, customerID uint) erro
 	}
 
 	return s.repo.SetPrimary(ctx, customerID, id)
+}
+
+func shouldBePrimaryOnCreate(existingCount int, reqPrimary *bool) bool {
+	if existingCount == 0 {
+		return true
+	}
+	return reqPrimary != nil && *reqPrimary
+}
+
+func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAddressRequest) (locationChanged bool) {
+	if req.Label != nil {
+		addr.Label = req.Label
+	}
+	if req.PhoneNumber != nil {
+		addr.PhoneNumber = req.PhoneNumber
+	}
+	if req.AddressLine != nil {
+		addr.AddressLine = req.AddressLine
+
+		addr.HouseNumber = req.HouseNumber
+		addr.Moo = req.Moo
+		addr.Soi = req.Soi
+		addr.Road = req.Road
+		addr.Village = req.Village
+	} else {
+
+		if req.HouseNumber != nil {
+			addr.HouseNumber = req.HouseNumber
+		}
+		if req.Village != nil {
+			addr.Village = req.Village
+		}
+		if req.Moo != nil {
+			addr.Moo = req.Moo
+		}
+		if req.Soi != nil {
+			addr.Soi = req.Soi
+		}
+		if req.Road != nil {
+			addr.Road = req.Road
+		}
+	}
+	if req.Latitude != nil {
+		addr.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		addr.Longitude = req.Longitude
+	}
+	if req.IsPrimary != nil {
+		addr.IsPrimary = *req.IsPrimary
+	}
+	if req.ProvinceID != nil {
+		addr.ProvinceID = req.ProvinceID
+		locationChanged = true
+	}
+	if req.DistrictID != nil {
+		addr.DistrictID = req.DistrictID
+		locationChanged = true
+	}
+	if req.SubDistrictID != nil {
+		addr.SubDistrictID = req.SubDistrictID
+		locationChanged = true
+	}
+	return locationChanged
 }

@@ -23,7 +23,8 @@ type TimeSlotAvailability struct {
 	IsAvailable bool   `json:"is_available"`
 }
 
-type CancelBookingRequest struct {
+type UpdateBookingRequest struct {
+	Status string `json:"status" validate:"required,oneof=cancelled"`
 	Reason string `json:"reason" validate:"max=255"`
 }
 

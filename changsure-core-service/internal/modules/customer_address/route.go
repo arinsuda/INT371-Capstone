@@ -2,20 +2,16 @@ package customeraddress
 
 import (
 	"changsure-core-service/internal/config"
-	"changsure-core-service/internal/middleware"
 	"github.com/gofiber/fiber/v3"
 )
 
-func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
-	g := r.Group("/addresses",
-		middleware.AuthMiddleware(cfg),
-		middleware.CustomerOnly(),
-	)
+func (h *Handler) RegisterRoutes(api fiber.Router, cfg *config.Config) {
+	g := api.Group("/:customerID/addresses")
 
-	g.Post("", h.Create)
-	g.Get("", h.List)
-	g.Get("/:id", h.Get)
-	g.Put("/:id", h.Update)
-	g.Delete("/:id", h.Delete)
-	g.Patch("/:id/primary", h.SetPrimary)
+	g.Post("/", h.Create)
+	g.Get("/", h.List)
+	g.Get("/:addressID", h.Get)
+	g.Put("/:addressID", h.Update)
+	g.Delete("/:addressID", h.Delete)
+	g.Patch("/:addressID", h.SetPrimary)
 }

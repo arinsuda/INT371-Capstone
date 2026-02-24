@@ -16,7 +16,7 @@ type Handler struct{ svc Service }
 func NewHandler(svc Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) Assign(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
@@ -49,7 +49,7 @@ func (h *Handler) Assign(c fiber.Ctx) error {
 }
 
 func (h *Handler) ListByTechnician(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
@@ -69,7 +69,7 @@ func (h *Handler) ListByTechnician(c fiber.Ctx) error {
 }
 
 func (h *Handler) Unassign(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
@@ -83,6 +83,15 @@ func (h *Handler) Unassign(c fiber.Ctx) error {
 	defer cancel()
 
 	if err := h.svc.RemoveBadge(ctx, techID, badgeID); err != nil {
+
+		if stdErrors.Is(err, ErrTechnicianNotFound) {
+			return appErrors.NotFound(c, "technician not found")
+		}
+
+		if stdErrors.Is(err, ErrBadgeNotAssigned) {
+			return appErrors.NotFound(c, "badge not assigned to technician")
+		}
+
 		return appErrors.InternalError(c, "failed to remove badge", err)
 	}
 

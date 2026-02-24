@@ -1,6 +1,7 @@
 package servicecategory
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -15,7 +16,7 @@ import (
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
 
-	"changsure-core-service/internal/errors"
+	apperrors "changsure-core-service/internal/errors"
 )
 
 type Handler struct {
@@ -53,12 +54,12 @@ func (h *Handler) ListServiceCategories(c fiber.Ctx) error {
 func (h *Handler) GetServiceCategoryById(c fiber.Ctx) error {
 	id, err := toUint(c.Params("id"))
 	if err != nil || id == 0 {
-		return errors.BadRequest(c, "invalid id")
+		return apperrors.BadRequest(c, "invalid id")
 	}
 
 	m, err := h.svc.GetServiceCategoryById(c.Context(), uint(id))
 	if err != nil {
-		return errors.NotFound(c, err.Error())
+		return apperrors.NotFound(c, err.Error())
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": MapCategoryToResponse(m)})
@@ -71,10 +72,10 @@ func (h *Handler) CreateServiceCategory(c fiber.Ctx) error {
 	}
 
 	if err := c.Bind().Body(&body); err != nil {
-		return errors.BadRequest(c, "invalid request body")
+		return apperrors.BadRequest(c, "invalid request body")
 	}
 	if body.CatName == "" {
-		return errors.BadRequest(c, "cat_name is required")
+		return apperrors.BadRequest(c, "cat_name is required")
 	}
 
 	m := &ServiceCategory{
@@ -93,7 +94,7 @@ func (h *Handler) CreateServiceCategory(c fiber.Ctx) error {
 func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 	id64, err := toUint(c.Params("id"))
 	if err != nil || id64 == 0 {
-		return errors.BadRequest(c, "invalid id")
+		return apperrors.BadRequest(c, "invalid id")
 	}
 	id := uint(id64)
 
@@ -104,15 +105,17 @@ func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 	}
 
 	if err := c.Bind().Body(&body); err != nil {
-		return errors.BadRequest(c, "invalid request body")
+		return apperrors.BadRequest(c, "invalid request body")
 	}
 
 	fields := map[string]any{}
 
-	if body.CatName != nil {
+	if body.CatName != nil && *body.CatName != "" {
 		fields["cat_name"] = *body.CatName
 	}
-	if body.CatDesc != nil {
+	// Only update cat_description if explicitly provided and non-empty
+	// If you want to allow clearing the description, remove the `*body.CatDesc != ""` check
+	if body.CatDesc != nil && *body.CatDesc != "" {
 		fields["cat_description"] = *body.CatDesc
 	}
 	if body.IsActive != nil {
@@ -123,13 +126,13 @@ func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 	if err == nil && fileHeader != nil {
 		file, err := fileHeader.Open()
 		if err != nil {
-			return errors.BadRequest(c, "cannot open icon file")
+			return apperrors.BadRequest(c, "cannot open icon file")
 		}
 		defer file.Close()
 
 		mime := sniffMIME(file)
 		if _, ok := allowedMIME[mime]; !ok {
-			return errors.BadRequest(c, "only jpg/png/webp allowed")
+			return apperrors.BadRequest(c, "only jpg/png/webp allowed")
 		}
 
 		file.(multipart.File).Seek(0, io.SeekStart)
@@ -144,21 +147,27 @@ func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 
 		_, err = h.storage.Put(c.Context(), key, file, fileHeader.Size, mime)
 		if err != nil {
-			return errors.InternalServerError(c, "icon upload failed")
+			return apperrors.InternalServerError(c, "icon upload failed")
 		}
 
 		fields["icon_url"] = key
 	}
 
 	if len(fields) == 0 {
-		return errors.BadRequest(c, "no fields to update")
+		return apperrors.BadRequest(c, "no fields to update")
 	}
 
 	if err := h.svc.UpdateFields(c.Context(), id, fields); err != nil {
-		return errors.InternalServerError(c, err.Error())
+		if errors.Is(err, ErrServiceCategoryNotFound) {
+			return apperrors.NotFound(c, "service category not found")
+		}
+		return apperrors.InternalServerError(c, err.Error())
 	}
 
-	m, _ := h.svc.GetServiceCategoryById(c.Context(), id)
+	m, err := h.svc.GetServiceCategoryById(c.Context(), id)
+	if err != nil {
+		return apperrors.NotFound(c, "service category not found")
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -169,14 +178,17 @@ func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 func (h *Handler) DeleteServiceCategoryById(c fiber.Ctx) error {
 	id64, err := toUint(c.Params("id"))
 	if err != nil || id64 == 0 {
-		return errors.BadRequest(c, "invalid id")
+		return apperrors.BadRequest(c, "invalid id")
 	}
 	id := uint(id64)
 
 	fields := map[string]any{"is_active": false}
 
 	if err := h.svc.UpdateFields(c.Context(), id, fields); err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+		if errors.Is(err, ErrServiceCategoryNotFound) {
+			return apperrors.NotFound(c, "service category not found")
+		}
+		return apperrors.InternalServerError(c, err.Error())
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "service category deleted"})
@@ -185,31 +197,31 @@ func (h *Handler) DeleteServiceCategoryById(c fiber.Ctx) error {
 func (h *Handler) UploadIconServiceCategory(c fiber.Ctx) error {
 	id64, err := toUint(c.Params("id"))
 	if err != nil || id64 == 0 {
-		return errors.BadRequest(c, "invalid id")
+		return apperrors.BadRequest(c, "invalid id")
 	}
 	id := uint(id64)
 
 	fh, err := c.FormFile("file")
 	if err != nil {
-		return errors.BadRequest(c, "file is required")
+		return apperrors.BadRequest(c, "file is required")
 	}
 	if fh.Size == 0 {
-		return errors.BadRequest(c, "empty file")
+		return apperrors.BadRequest(c, "empty file")
 	}
 
 	file, err := fh.Open()
 	if err != nil {
-		return errors.BadRequest(c, err.Error())
+		return apperrors.BadRequest(c, err.Error())
 	}
 	defer file.Close()
 
 	mime := sniffMIME(file)
 	if _, ok := allowedMIME[mime]; !ok {
-		return errors.BadRequest(c, "only image/jpeg,image/png,image/webp")
+		return apperrors.BadRequest(c, "only image/jpeg,image/png,image/webp")
 	}
 
 	if _, err := file.(multipart.File).Seek(0, io.SeekStart); err != nil {
-		return errors.BadRequest(c, "failed to rewind file")
+		return apperrors.BadRequest(c, "failed to rewind file")
 	}
 
 	ext := strings.ToLower(filepath.Ext(fh.Filename))

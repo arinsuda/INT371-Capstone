@@ -2,6 +2,13 @@ package servicecategory
 
 import (
 	"context"
+	"errors"
+
+	"gorm.io/gorm"
+)
+
+var (
+	ErrServiceCategoryNotFound = errors.New("service category not found")
 )
 
 type Service interface {
@@ -27,7 +34,14 @@ func (s *service) UpdateImageURL(ctx context.Context, id uint, url string) error
 }
 
 func (s *service) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
-	return s.repo.UpdateFields(ctx, id, fields)
+	err := s.repo.UpdateFields(ctx, id, fields)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrServiceCategoryNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *service) CreateServiceCategory(ctx context.Context, sc *ServiceCategory) error {

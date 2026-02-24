@@ -2,350 +2,302 @@ package technician
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"strings"
+	"mime/multipart"
 	"time"
 
-	technicianposts "changsure-core-service/internal/modules/technician_post"
-	tsvc "changsure-core-service/internal/modules/technician_service"
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
 	"changsure-core-service/pkg/imageutil"
-	"changsure-core-service/pkg/security"
 	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
-
-	appErrors "changsure-core-service/internal/errors"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
 	svc   Service
-	store *storage.MinioStorage
+	store storage.Storage
 }
 
-func NewHandler(s Service, store *storage.MinioStorage) *Handler {
-	return &Handler{
-		svc:   s,
-		store: store,
-	}
+func NewHandler(s Service, store storage.Storage) *Handler {
+	return &Handler{svc: s, store: store}
 }
 
 func (h *Handler) GetProfile(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
+	// if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+	// 	return err
+	// }
 
 	res, err := h.svc.GetProfile(c.Context(), techID)
 	if err != nil {
-		return appErrors.NotFound(c, err.Error())
+		return appErrors.NotFound(c, "technician not found")
 	}
-
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    res,
-	})
+	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
 func (h *Handler) UpdateProfile(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
-	var req TechnicianProfileReq
-	contentType := c.Get(fiber.HeaderContentType)
-
-	if strings.HasPrefix(contentType, fiber.MIMEApplicationJSON) {
-		if err := c.Bind().Body(&req); err != nil {
-			return appErrors.BadRequest(c, "invalid json")
-		}
-	} else {
-
-		req.FirstName = c.FormValue("firstname")
-		req.LastName = c.FormValue("lastname")
-
-		if req.FirstName == "" || req.LastName == "" {
-			return appErrors.BadRequest(c, "firstname & lastname required")
-		}
-		if v := c.FormValue("bio"); v != "" {
-			req.Bio = &v
-		}
-		if v := c.FormValue("phone"); v != "" {
-			req.Phone = &v
-		}
-		if v := c.FormValue("email"); v != "" {
-			req.Email = &v
-		}
-
-		if v := c.FormValue("province_ids"); v != "" {
-			if err := json.Unmarshal([]byte(v), &req.ProvinceIDs); err != nil {
-				return appErrors.BadRequest(c, "invalid province_ids")
-			}
-		}
-
-		if v := c.FormValue("services"); v != "" {
-			if err := json.Unmarshal([]byte(v), &req.Services); err != nil {
-				return appErrors.BadRequest(c, "invalid services")
-			}
-		}
-
-		fileHeader, err := c.FormFile("avatar")
-		if err == nil {
-			file, _ := fileHeader.Open()
-			defer file.Close()
-
-			var raw bytes.Buffer
-			raw.ReadFrom(file)
-
-			opt := imageutil.ResizeOptions{
-				MaxWidth:    800,
-				MaxFileSize: 500000,
-				Quality:     85,
-			}
-
-			imgBuf, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), opt)
-			if err != nil {
-				return appErrors.BadRequest(c, "image invalid")
-			}
-
-			filename := fmt.Sprintf("%d_%d.jpg", techID, time.Now().Unix())
-
-			key, err := h.store.UploadFile(
-				c.Context(),
-				bytes.NewReader(imgBuf.Bytes()),
-				filename,
-				"avatars",
-				int64(imgBuf.Len()),
-				"image/jpeg",
-			)
-			if err != nil {
-				return appErrors.InternalError(c, "upload failed", err)
-			}
-
-			req.AvatarURL = &key
-		}
+	req, err := h.bindProfileReq(c, techID)
+	if err != nil {
+		return appErrors.BadRequest(c, err.Error())
 	}
 
-	id, err := h.svc.UpsertProfile(c.Context(), techID, req)
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	id, err := h.svc.UpsertProfile(ctx, techID, req)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to update profile", err)
 	}
 
-	return c.JSON(fiber.Map{"success": true, "message": "profile updated", "technician_id": id})
-}
-
-func (h *Handler) PatchProvinces(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
-
-	var req TechnicianProvincesPatchReq
-	if err := c.Bind().Body(&req); err != nil || len(req.ProvinceIDs) == 0 {
-		return appErrors.BadRequest(c, "invalid province_ids")
-	}
-
-	if err := h.svc.UpdateProvinces(c.Context(), techID, req.ProvinceIDs); err != nil {
-		return appErrors.InternalError(c, "failed to update provinces", err)
-	}
-
-	return c.JSON(fiber.Map{"success": true})
-}
-
-func (h *Handler) AddService(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
-
-	var req AddTechServiceReq
-	if err := c.Bind().Body(&req); err != nil {
-		return appErrors.BadRequest(c, "invalid body")
-	}
-
-	res, err := h.svc.AddService(c.Context(), techID, req)
+	profile, err := h.svc.GetProfile(ctx, id)
 	if err != nil {
-		return appErrors.InternalError(c, "failed to add service", err)
-	}
-
-	return c.JSON(fiber.Map{"success": true, "data": res})
-}
-
-func (h *Handler) UpdateService(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
-
-	svcID, err := utils.ParseUintParam(c, "id")
-	if err != nil {
-		return appErrors.BadRequest(c, "invalid service id")
-	}
-
-	var req tsvc.UpdateTechServiceReq
-	if err := c.Bind().Body(&req); err != nil {
-		return appErrors.BadRequest(c, "invalid body")
-	}
-
-	req.ServiceID = svcID
-
-	res, err := h.svc.UpdateService(c.Context(), techID, req)
-	if err != nil {
-		return appErrors.InternalError(c, "failed to update service", err)
-	}
-
-	return c.JSON(fiber.Map{"success": true, "data": res})
-}
-
-func (h *Handler) RemoveService(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
-
-	svcID, err := utils.ParseUintParam(c, "id")
-	if err != nil {
-		return appErrors.BadRequest(c, "invalid service id")
-	}
-
-	err = h.svc.RemoveService(c.Context(), techID, RemoveTechServiceReq{ServiceID: svcID})
-	if err != nil {
-		return appErrors.InternalError(c, "failed to remove service", err)
-	}
-
-	return c.JSON(fiber.Map{"success": true})
-}
-
-func (h *Handler) UploadAvatar(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return appErrors.Unauthorized(c, "unauthorized")
-	}
-
-	if err := security.CheckOwner(techID, techID); err != nil {
-		return appErrors.Forbidden(c, err.Error())
-	}
-
-	file, err := c.FormFile("file")
-	if err != nil {
-		return appErrors.BadRequest(c, "file required")
-	}
-
-	src, _ := file.Open()
-	defer src.Close()
-
-	filename := fmt.Sprintf("%d_%d%s", techID, time.Now().Unix(), filepath.Ext(file.Filename))
-
-	key, err := h.store.UploadFile(c.Context(), src, filename, "avatars", file.Size, file.Header.Get("Content-Type"))
-	if err != nil {
-		return appErrors.InternalError(c, "upload failed", err)
-	}
-
-	_ = h.svc.UpdateAvatar(c.Context(), techID, key)
-
-	url, _ := h.store.PresignGet(c.Context(), key, time.Hour, false)
-
-	return c.JSON(fiber.Map{"success": true, "url": url, "key": key})
-}
-
-func (h *Handler) GetPublicProfile(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "id")
-	if err != nil || techID == 0 {
-		return appErrors.BadRequest(c, "invalid technician id")
-	}
-
-	res, err := h.svc.GetPublicProfile(c.Context(), techID)
-	if err != nil {
-		return appErrors.NotFound(c, err.Error())
-	}
-
-	posts, err := h.getPublishedPosts(c.Context(), techID)
-	if err == nil {
-		res.Posts = posts
+		return appErrors.InternalError(c, "failed to fetch updated profile", err)
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    res,
+		"data":    profile,
 	})
 }
 
-func (h *Handler) getPublishedPosts(ctx context.Context, techID uint) ([]PublicPostSummary, error) {
-	var posts []technicianposts.TechnicianPost
-
-	err := h.svc.(*service).db.WithContext(ctx).
-		Where("technician_id = ? AND is_published = ? AND deleted_at IS NULL", techID, true).
-		Preload("Category").
-		Preload("Images", "deleted_at IS NULL").
-		Order("created_at DESC").
-		Limit(10).
-		Find(&posts).Error
-
+func (h *Handler) UploadAvatar(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
-		return nil, err
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
-	result := make([]PublicPostSummary, 0, len(posts))
-	for _, p := range posts {
-		var categoryName *string
-		if p.Category != nil {
-			categoryName = &p.Category.CatName
-		}
-
-		images := make([]technicianposts.TechnicianPostImageResponse, 0, len(p.Images))
-		for _, img := range p.Images {
-			url := img.ImageURL
-			if storage.GlobalMinio != nil && url != "" {
-				presigned, err := storage.GlobalMinio.PresignGet(ctx, url, time.Hour, false)
-				if err == nil {
-					url = presigned
-				}
-			}
-			images = append(images, technicianposts.TechnicianPostImageResponse{
-				ID:       img.ID,
-				ImageURL: url,
-				Order:    img.SortOrder,
-			})
-		}
-
-		result = append(result, PublicPostSummary{
-			ID:           p.ID,
-			Title:        p.Title,
-			Description:  p.Description,
-			CategoryID:   p.ServiceCategoryID,
-			CategoryName: categoryName,
-			Images:       images,
-			CreatedAt:    p.CreatedAt.Unix(),
-		})
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
-	return result, nil
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return appErrors.BadRequest(c, "file is required")
+	}
+
+	key, err := h.processAndUploadAvatar(c, techID, fileHeader)
+	if err != nil {
+		return appErrors.InternalError(c, "upload avatar failed", err)
+	}
+
+	if err := h.svc.UpdateAvatar(c.Context(), techID, key); err != nil {
+		return appErrors.InternalError(c, "failed to update avatar record", err)
+	}
+
+	profile, err := h.svc.GetProfile(c.Context(), techID)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to fetch updated profile", err)
+	}
+
+	url, _ := h.store.PresignGet(c.Context(), key, time.Hour, false)
+	return c.JSON(fiber.Map{"success": true, "data": fiber.Map{"url": url, "profile": profile}})
+}
+
+func (h *Handler) PatchProvinces(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	var req TechnicianProvincesPatchReq
+	if err := c.Bind().Body(&req); err != nil || len(req.ProvinceIDs) == 0 {
+		return appErrors.BadRequest(c, "province_ids is required")
+	}
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	if err := h.svc.UpdateProvinces(ctx, techID, req.ProvinceIDs); err != nil {
+		return appErrors.InternalError(c, "failed to update provinces", err)
+	}
+
+	profile, err := h.svc.GetProfile(ctx, techID)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to fetch updated profile", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": profile})
+}
+
+func (h *Handler) AddService(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	var req AddTechServiceReq
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	res, err := h.svc.AddService(ctx, techID, req)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to add service", err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})
+}
+
+func (h *Handler) UpdateService(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	serviceID, err := utils.ParseUintParam(c, "serviceID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid service id")
+	}
+
+	var req UpdateTechServiceReq
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+	req.ServiceID = serviceID
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	res, err := h.svc.UpdateService(ctx, techID, req)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": res})
+}
+
+func (h *Handler) RemoveService(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	serviceID, err := utils.ParseUintParam(c, "serviceID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid service id")
+	}
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	if err := h.svc.RemoveService(ctx, techID, RemoveTechServiceReq{ServiceID: serviceID}); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) bindProfileReq(c fiber.Ctx, techID uint) (TechnicianProfileReq, error) {
+	var req TechnicianProfileReq
+
+	if c.Is("json") {
+		if err := c.Bind().Body(&req); err != nil {
+			return req, fmt.Errorf("invalid JSON body")
+		}
+		return req, nil
+	}
+
+	req.FirstName = c.FormValue("firstname")
+	req.LastName = c.FormValue("lastname")
+	if req.FirstName == "" || req.LastName == "" {
+		return req, fmt.Errorf("firstname and lastname are required")
+	}
+	if v := c.FormValue("bio"); v != "" {
+		req.Bio = &v
+	}
+	if v := c.FormValue("phone"); v != "" {
+		req.Phone = &v
+	}
+	if v := c.FormValue("email"); v != "" {
+		req.Email = &v
+	}
+
+	if fileHeader, err := c.FormFile("avatar"); err == nil {
+		key, uploadErr := h.processAndUploadAvatar(c, techID, fileHeader)
+		if uploadErr != nil {
+			return req, fmt.Errorf("avatar upload failed")
+		}
+		req.AvatarURL = &key
+	}
+
+	if v := c.FormValue("province_ids"); v != "" {
+		if err := json.Unmarshal([]byte(v), &req.ProvinceIDs); err != nil {
+			return req, fmt.Errorf("invalid province_ids format")
+		}
+	}
+
+	if v := c.FormValue("services"); v != "" {
+		if err := json.Unmarshal([]byte(v), &req.Services); err != nil {
+			return req, fmt.Errorf("invalid services format")
+		}
+	}
+
+	return req, nil
+}
+
+func (h *Handler) processAndUploadAvatar(c fiber.Ctx, techID uint, fh *multipart.FileHeader) (string, error) {
+	src, err := fh.Open()
+	if err != nil {
+		return "", appErrors.BadRequest(c, "failed to open avatar file")
+	}
+	defer src.Close()
+
+	var raw bytes.Buffer
+	if _, err := raw.ReadFrom(src); err != nil {
+		return "", appErrors.BadRequest(c, "failed to read avatar file")
+	}
+
+	optimized, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), imageutil.ResizeOptions{
+		MaxWidth:    800,
+		MaxFileSize: 500_000,
+		Quality:     85,
+	})
+	if err != nil {
+		return "", appErrors.BadRequest(c, "invalid image format")
+	}
+
+	filename := fmt.Sprintf("%d_%d.jpg", techID, time.Now().Unix())
+	key, err := h.store.UploadFile(
+		c.Context(),
+		bytes.NewReader(optimized.Bytes()),
+		filename, "avatars",
+		int64(optimized.Len()),
+		"image/jpeg",
+	)
+	if err != nil {
+		return "", appErrors.InternalError(c, "failed to upload avatar", err)
+	}
+	return key, nil
 }

@@ -32,8 +32,13 @@ func (r *repo) GetByProvinceID(ctx context.Context, provinceID uint) ([]*Distric
 
 func (r *repo) GetByID(ctx context.Context, id uint) (*District, error) {
 	var d District
+
 	err := r.db.WithContext(ctx).First(&d, id).Error
-	return &d, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }
 
 func (r *repo) GetBySubDistrictID(ctx context.Context, subDistrictID uint) ([]*District, error) {
@@ -49,16 +54,20 @@ func (r *repo) GetBySubDistrictID(ctx context.Context, subDistrictID uint) ([]*D
 }
 
 func (r *repo) Search(ctx context.Context, provinceID *uint, q string, limit int) ([]*District, error) {
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 || limit > 200 {
 		limit = 200
 	}
+
 	db := r.db.WithContext(ctx).Model(&District{})
+
 	if provinceID != nil {
 		db = db.Where("province_id = ?", *provinceID)
 	}
-	if q != "" {
+
+	if len(q) >= 2 && len(q) <= 100 {
 		db = db.Where("name_th LIKE ?", "%"+q+"%")
 	}
+
 	var items []*District
 	err := db.Order("name_th ASC").Limit(limit).Find(&items).Error
 	return items, err

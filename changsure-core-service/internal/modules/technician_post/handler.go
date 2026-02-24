@@ -1,12 +1,13 @@
 package technicianposts
 
 import (
-	"context"
 	"strconv"
 	"strings"
-	"time"
 
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
 	"changsure-core-service/pkg/utils"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -19,254 +20,179 @@ func NewHandler(svc Service) *Handler {
 }
 
 func (h *Handler) CreatePost(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
-	}
-
-	var body CreateTechnicianPostDTO
-
-	body.Title = c.FormValue("title")
-	if desc := c.FormValue("description"); desc != "" {
-		body.Description = &desc
-	}
-
-	if cid := c.FormValue("service_category_id"); cid != "" {
-		if n, err := strconv.ParseUint(cid, 10, 64); err == nil {
-			t := uint(n)
-			body.ServiceCategoryID = &t
-		}
-	}
-
-	// if sid := c.FormValue("service_id"); sid != "" {
-	// 	if v, err := strconv.ParseUint(sid, 10, 64); err == nil {
-	// 		tmp := uint(v)
-	// 		body.ServiceID = &tmp
-	// 	}
-	// }
-
-	// if pid := c.FormValue("province_id"); pid != "" {
-	// 	if v, err := strconv.ParseUint(pid, 10, 64); err == nil {
-	// 		tmp := uint(v)
-	// 		body.ProvinceID = &tmp
-	// 	}
-	// }
-
-	form, err := c.MultipartForm()
-	if err == nil && form.File != nil {
-		body.Images = form.File["images"]
-	}
-
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	res, err := h.svc.Create(ctx, techID, body)
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
-		return fiber.NewError(500, err.Error())
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
-	return c.Status(201).JSON(fiber.Map{"success": true, "data": res})
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	body, err := bindCreateDTO(c)
+	if err != nil {
+		return appErrors.BadRequest(c, err.Error())
+	}
+
+	res, err := h.svc.Create(c.Context(), techID, body)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})
 }
 
 func (h *Handler) GetPost(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
-	}
-
-	postID, err := utils.ParseUintParam(c, "id")
-	if err != nil || postID == 0 {
-		return fiber.NewError(400, "invalid post id")
-	}
-
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	res, err := h.svc.Get(ctx, techID, postID)
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
-		return fiber.NewError(404, err.Error())
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	postID, err := parseUintParam(c, "id")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid post id")
+	}
+
+	res, err := h.svc.Get(c.Context(), techID, postID)
+	if err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
 func (h *Handler) ListPosts(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
 	var q ListTechnicianPostsQuery
 	if err := c.Bind().Query(&q); err != nil {
-		return fiber.NewError(400, "invalid query")
+		return appErrors.BadRequest(c, "invalid query")
 	}
+	q.SetDefaults()
 
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	items, total, err := h.svc.List(ctx, techID, q)
+	result, err := h.svc.List(c.Context(), techID, q)
 	if err != nil {
-		return fiber.NewError(500, err.Error())
+		return appErrors.HandleError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"items":    items,
-			"page":     q.Page,
-			"per_page": q.PerPage,
-			"total":    total,
-		},
-	})
+	return c.JSON(fiber.Map{"success": true, "data": result})
 }
 
 func (h *Handler) UpdatePost(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
-	}
-
-	postID, err := utils.ParseUintParam(c, "id")
-	if err != nil || postID == 0 {
-		return fiber.NewError(400, "invalid post id")
-	}
-
-	var body UpdateTechnicianPostDTO
-
-	if title := c.FormValue("title"); title != "" {
-		body.Title = &title
-	}
-	if desc := c.FormValue("description"); desc != "" {
-		body.Description = &desc
-	}
-
-	if cid := c.FormValue("service_category_id"); cid != "" {
-		if n, err := strconv.ParseUint(cid, 10, 64); err == nil {
-			t := uint(n)
-			body.ServiceCategoryID = &t
-		}
-	}
-
-	// if sid := c.FormValue("service_id"); sid != "" {
-	// 	if n, err := strconv.ParseUint(sid, 10, 64); err == nil {
-	// 		t := uint(n)
-	// 		body.ServiceID = &t
-	// 	}
-	// }
-
-	// if pid := c.FormValue("province_id"); pid != "" {
-	// 	if n, err := strconv.ParseUint(pid, 10, 64); err == nil {
-	// 		t := uint(n)
-	// 		body.ProvinceID = &t
-	// 	}
-	// }
-
-	if pub := c.FormValue("is_published"); pub != "" {
-		if parsed, err := strconv.ParseBool(pub); err == nil {
-			body.IsPublished = &parsed
-		}
-	}
-
-	form, err := c.MultipartForm()
-	if err == nil && form.File != nil {
-		body.NewImages = form.File["new_images"]
-	}
-
-	ids := c.FormValue("image_ids_to_delete")
-	if ids != "" {
-		for _, s := range strings.Split(ids, ",") {
-			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
-				body.ImageIDsToDelete = append(body.ImageIDsToDelete, uint(n))
-			}
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	res, err := h.svc.Update(ctx, techID, postID, body)
+	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
-		return fiber.NewError(500, err.Error())
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	postID, err := parseUintParam(c, "id")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid post id")
+	}
+
+	body, err := bindUpdateDTO(c)
+	if err != nil {
+		return appErrors.BadRequest(c, err.Error())
+	}
+
+	res, err := h.svc.Update(c.Context(), techID, postID, body)
+	if err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
 func (h *Handler) DeletePost(c fiber.Ctx) error {
-	techID := utils.GetUserID(c)
-	if techID == 0 {
-		return fiber.NewError(401, "unauthorized")
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
-	postID, err := utils.ParseUintParam(c, "id")
-	if err != nil || postID == 0 {
-		return fiber.NewError(400, "invalid post id")
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	postID, err := parseUintParam(c, "id")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid post id")
 	}
 
 	hard := c.Query("hard") == "true"
 
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	if err := h.svc.Delete(ctx, techID, postID, hard); err != nil {
-		return fiber.NewError(500, err.Error())
+	if err := h.svc.Delete(c.Context(), techID, postID, hard); err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
 	return c.JSON(fiber.Map{"success": true, "message": "post deleted"})
 }
 
-func (h *Handler) ListPublicPosts(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(400, "invalid technician id")
+func bindCreateDTO(c fiber.Ctx) (CreateTechnicianPostDTO, error) {
+	var dto CreateTechnicianPostDTO
+	dto.Title = c.FormValue("title")
+	if desc := c.FormValue("description"); desc != "" {
+		dto.Description = &desc
 	}
-
-	var q ListTechnicianPostsQuery
-	if err := c.Bind().Query(&q); err != nil {
-		return fiber.NewError(400, "invalid query")
+	if v := parseOptionalUint(c.FormValue("service_category_id")); v != nil {
+		dto.ServiceCategoryID = v
 	}
-
-	// Force published posts only for public API
-	published := true
-	q.IsPublished = &published
-
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	items, total, err := h.svc.ListPublicPosts(ctx, techID, q)
-	if err != nil {
-		return fiber.NewError(500, err.Error())
+	if form, err := c.MultipartForm(); err == nil && form.File != nil {
+		dto.Images = form.File["images"]
 	}
-
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"items":    items,
-			"page":     q.Page,
-			"per_page": q.PerPage,
-			"total":    total,
-		},
-	})
+	return dto, nil
 }
 
-func (h *Handler) GetPublicPost(c fiber.Ctx) error {
-	techID, err := utils.ParseUintParam(c, "technician_id")
-	if err != nil || techID == 0 {
-		return fiber.NewError(400, "invalid technician id")
+func bindUpdateDTO(c fiber.Ctx) (UpdateTechnicianPostDTO, error) {
+	var dto UpdateTechnicianPostDTO
+	if title := c.FormValue("title"); title != "" {
+		dto.Title = &title
 	}
-
-	postID, err := utils.ParseUintParam(c, "id")
-	if err != nil || postID == 0 {
-		return fiber.NewError(400, "invalid post id")
+	if desc := c.FormValue("description"); desc != "" {
+		dto.Description = &desc
 	}
+	if v := parseOptionalUint(c.FormValue("service_category_id")); v != nil {
+		dto.ServiceCategoryID = v
+	}
+	if pub := c.FormValue("is_published"); pub != "" {
+		if b, err := strconv.ParseBool(pub); err == nil {
+			dto.IsPublished = &b
+		}
+	}
+	if form, err := c.MultipartForm(); err == nil && form.File != nil {
+		dto.NewImages = form.File["new_images"]
+	}
+	if ids := c.FormValue("image_ids_to_delete"); ids != "" {
+		for _, s := range strings.Split(ids, ",") {
+			if n, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil {
+				dto.ImageIDsToDelete = append(dto.ImageIDsToDelete, uint(n))
+			}
+		}
+	}
+	return dto, nil
+}
 
-	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
-	defer cancel()
-
-	res, err := h.svc.GetPublic(ctx, techID, postID)
+func parseOptionalUint(s string) *uint {
+	if s == "" {
+		return nil
+	}
+	n, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
-		return fiber.NewError(404, err.Error())
+		return nil
 	}
+	v := uint(n)
+	return &v
+}
 
-	return c.JSON(fiber.Map{"success": true, "data": res})
+func parseUintParam(c fiber.Ctx, name string) (uint, error) {
+	n, err := strconv.ParseUint(c.Params(name), 10, 64)
+	if err != nil || n == 0 {
+		return 0, fiber.ErrBadRequest
+	}
+	return uint(n), nil
 }

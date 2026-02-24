@@ -10,19 +10,14 @@ import (
 type Repository interface {
 	WithTx(tx *gorm.DB) Repository
 	Transaction(ctx context.Context, fn func(r Repository) error) error
-
 	Create(ctx context.Context, addr *CustomerAddress) error
 	Update(ctx context.Context, addr *CustomerAddress) error
-
 	FindByID(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
 	FindAllByCustomerID(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
-
 	DeleteTx(ctx context.Context, id uint, customerID uint) error
 	SetPrimaryTx(ctx context.Context, customerID uint, addressID uint) error
 	FindNextPrimaryCandidateTx(ctx context.Context, customerID uint, excludeID uint) (*CustomerAddress, error)
-
 	SetPrimary(ctx context.Context, customerID uint, addressID uint) error
-
 	GetCustomerPhone(ctx context.Context, customerID uint) (*string, error)
 }
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"changsure-core-service/pkg/imageutil"
+
 	"github.com/google/uuid"
 
 	appErr "changsure-core-service/internal/errors"
@@ -33,7 +34,7 @@ func NewHandler(svc Service, store *storage.MinioStorage) *Handler {
 }
 
 func (h *Handler) GetBadge(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
+	id, err := utils.ParseUintParam(c, "badgeID")
 	if err != nil {
 		return appErr.BadRequest(c, "Invalid badge ID")
 	}
@@ -58,67 +59,42 @@ func (h *Handler) GetBadge(c fiber.Ctx) error {
 }
 
 func (h *Handler) CreateBadge(c fiber.Ctx) error {
-	var dto CreateBadgeDTO
-
-	if err := c.Bind().Body(&dto); err != nil {
-		return appErr.BadRequest(c, "Invalid request body")
-	}
-	if errs, err := validation.ValidateStruct(dto); err != nil {
-		return appErr.ValidationError(c, errs)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	badge, err := h.svc.CreateBadge(ctx, dto)
-	if err != nil {
-		return appErr.InternalError(c, "Failed to create badge", err)
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"data":    toResponse(badge, h.store),
-	})
-}
-
-func (h *Handler) UpdateBadge(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
-	if err != nil {
-		return appErr.BadRequest(c, "invalid badge ID")
-	}
-
 	name := c.FormValue("name")
+	if name == "" {
+		return appErr.BadRequest(c, "name is required")
+	}
+
 	description := c.FormValue("description")
 	levelStr := c.FormValue("level")
 	activeStr := c.FormValue("is_active")
 
-	var dto UpdateBadgeDTO
+	var dto CreateBadgeDTO
+	dto.Name = name
 
-	if name != "" {
-		dto.Name = &name
-	}
 	if description != "" {
 		dto.Description = &description
 	}
+
 	if levelStr != "" {
-		u64, err := strconv.ParseUint(levelStr, 10, 64)
+		v, err := strconv.ParseUint(levelStr, 10, 64)
 		if err != nil {
-			return appErr.BadRequest(c, "level must be a valid number")
+			return appErr.BadRequest(c, "invalid level")
 		}
-		lvl := uint(u64)
-		dto.Level = &lvl
+		l := uint(v)
+		dto.Level = &l
 	}
 
 	if activeStr != "" {
-		isActive := activeStr == "true" || activeStr == "1"
-		dto.IsActive = &isActive
+		val := activeStr == "true" || activeStr == "1"
+		dto.IsActive = &val
 	}
 
-	fileHeader, err := c.FormFile("file")
-	if err != nil || fileHeader == nil {
-		fileHeader, err = c.FormFile("icon_url")
+	fileHeader, _ := c.FormFile("icon_url")
+	if fileHeader == nil {
+		fileHeader, _ = c.FormFile("file")
 	}
-	if err == nil && fileHeader != nil {
+
+	if fileHeader != nil {
 		file, err := fileHeader.Open()
 		if err != nil {
 			return fiber.NewError(500, "cannot open file")
@@ -128,12 +104,11 @@ func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 		var raw bytes.Buffer
 		raw.ReadFrom(file)
 
-		opt := imageutil.ResizeOptions{
+		imgBuf, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), imageutil.ResizeOptions{
 			MaxWidth:    512,
 			MaxFileSize: 500_000,
 			Quality:     85,
-		}
-		imgBuf, err := imageutil.OptimizeImage(bytes.NewReader(raw.Bytes()), opt)
+		})
 		if err != nil {
 			return fiber.NewError(400, "invalid image")
 		}
@@ -144,8 +119,7 @@ func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 		}
 
 		key := fmt.Sprintf(
-			"badges/%d/%d_%s%s",
-			id,
+			"badges/%d_%s%s",
 			time.Now().Unix(),
 			uuid.NewString(),
 			ext,
@@ -154,15 +128,13 @@ func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
 		defer cancel()
 
-		_, err = h.store.Put(
-			ctx,
-			key,
+		_, err = h.store.Put(ctx, key,
 			bytes.NewReader(imgBuf.Bytes()),
 			int64(imgBuf.Len()),
 			"image/png",
 		)
 		if err != nil {
-			return fiber.NewError(500, "failed to upload image: "+err.Error())
+			return fiber.NewError(500, "upload failed: "+err.Error())
 		}
 
 		dto.IconURL = &key
@@ -171,7 +143,58 @@ func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	badge, err := h.svc.UpdateBadge(ctx, id, dto)
+	badge, err := h.svc.CreateBadge(ctx, dto)
+	if err != nil {
+		return appErr.InternalError(c, "create failed", err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    toResponse(badge, h.store),
+	})
+}
+
+func (h *Handler) UpdateBadge(c fiber.Ctx) error {
+
+	id, err := utils.ParseUintParam(c, "badgeID")
+	if err != nil {
+		return appErr.BadRequest(c, "invalid badge ID")
+	}
+
+	var dto UpdateBadgeDTO
+
+	if v := c.FormValue("name"); v != "" {
+		dto.Name = &v
+	}
+	if v := c.FormValue("description"); v != "" {
+		dto.Description = &v
+	}
+	if v := c.FormValue("level"); v != "" {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return appErr.BadRequest(c, "invalid level")
+		}
+		u := uint(n)
+		dto.Level = &u
+	}
+	if v := c.FormValue("is_active"); v != "" {
+		b := v == "true" || v == "1"
+		dto.IsActive = &b
+	}
+
+	if errs, err := validation.ValidateStruct(dto); err != nil {
+		return appErr.ValidationError(c, errs)
+	}
+
+	fileHeader, _ := c.FormFile("file")
+	if fileHeader == nil {
+		fileHeader, _ = c.FormFile("icon_url")
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
+	defer cancel()
+
+	badge, err := h.svc.UpdateBadgeWithFile(ctx, id, dto, fileHeader)
 	if err != nil {
 		if err == ErrNotFound {
 			return appErr.NotFound(c, "badge not found")
@@ -186,7 +209,7 @@ func (h *Handler) UpdateBadge(c fiber.Ctx) error {
 }
 
 func (h *Handler) DeleteBadge(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
+	id, err := utils.ParseUintParam(c, "badgeID")
 	if err != nil {
 		return appErr.BadRequest(c, "Invalid badge ID")
 	}
@@ -224,7 +247,7 @@ func (h *Handler) DeleteBadge(c fiber.Ctx) error {
 }
 
 func (h *Handler) RestoreBadge(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
+	id, err := utils.ParseUintParam(c, "badgeID")
 	if err != nil {
 		return appErr.BadRequest(c, "Invalid badge ID")
 	}
@@ -263,7 +286,7 @@ func (h *Handler) ListBadges(c fiber.Ctx) error {
 }
 
 func (h *Handler) UploadIcon(c fiber.Ctx) error {
-	id, err := utils.ParseUintParam(c, "id")
+	id, err := utils.ParseUintParam(c, "badgeID")
 	if err != nil {
 		return fiber.NewError(400, "invalid id")
 	}

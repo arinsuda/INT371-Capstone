@@ -1,18 +1,11 @@
-package customers
+package customer
 
-import (
-	"github.com/gofiber/fiber/v3"
-)
+import "github.com/gofiber/fiber/v3"
 
-func (h *Handler) RegisterRoutes(router fiber.Router) {
-	// Profile routes
-	router.Get("/profile", h.GetProfile)
-	router.Patch("/profile", h.UpdateProfile)
+func (h *Handler) RegisterRoutes(api fiber.Router) {
 
-	// Admin/General routes
-	router.Get("/", h.ListCustomers)
-	router.Get("/:id", h.GetCustomer)
-
-	router.Patch("/:id", h.UpdateCustomer)
-	router.Delete("/:id", h.DeleteCustomer)
+	api.Get("/", h.ListCustomers)
+	api.Get("/:customerID", h.GetCustomer)
+	api.Patch("/:customerID", h.UpdateCustomer)
+	api.Delete("/:customerID", h.DeleteCustomer)
 }

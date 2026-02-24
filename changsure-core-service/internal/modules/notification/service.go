@@ -3,16 +3,18 @@ package notification
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"changsure-core-service/internal/realtime"
 )
 
+
 type Service interface {
 	Create(ctx context.Context, in CreateNotificationInput) (*Notification, error)
-	List(ctx context.Context, role RecipientRole, recipientID uint, q ListQuery) ([]Notification, uint, error)
-	UnreadCount(ctx context.Context, role RecipientRole, recipientID uint) (int64, error)
-	MarkRead(ctx context.Context, role RecipientRole, recipientID uint, ids []uint) (int64, error)
-	ReadAll(ctx context.Context, role RecipientRole, recipientID uint) (int64, error)
+	Get(ctx context.Context, role RecipientRole, recipientID, id uint) (*Notification, error)
+	List(ctx context.Context, role RecipientRole, recipientID uint, q ListQuery) (ListResponse, error)
+	Patch(ctx context.Context, role RecipientRole, recipientID, id uint, req PatchRequest) (*Notification, error)
+	PatchBulk(ctx context.Context, role RecipientRole, recipientID uint, req PatchBulkRequest) (int64, error)
 }
 
 type service struct {
@@ -26,7 +28,7 @@ func NewService(repo Repository, hub *realtime.Hub) Service {
 
 func (s *service) Create(ctx context.Context, in CreateNotificationInput) (*Notification, error) {
 	if !in.RecipientRole.Valid() || in.RecipientID == 0 {
-		return nil, errors.New("invalid recipient")
+		return nil, ErrInvalidRecipient
 	}
 	if in.Data == nil {
 		in.Data = map[string]any{}
@@ -44,35 +46,65 @@ func (s *service) Create(ctx context.Context, in CreateNotificationInput) (*Noti
 	}
 
 	if err := s.repo.Create(ctx, n); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create notification: %w", err)
 	}
 
-	if s.hub != nil {
-		payload := realtime.MarshalEvent("NOTIFICATION_NEW", map[string]any{
-			"notification": n,
-		})
-		if in.RecipientRole == RoleTechnician {
-			s.hub.BroadcastToTechnician(in.RecipientID, payload)
-		} else {
-			s.hub.BroadcastToCustomer(in.RecipientID, payload)
-		}
-	}
-
+	s.pushRealtime(in.RecipientRole, in.RecipientID, n)
 	return n, nil
 }
 
-func (s *service) List(ctx context.Context, role RecipientRole, recipientID uint, q ListQuery) ([]Notification, uint, error) {
-	return s.repo.List(ctx, role, recipientID, q)
+func (s *service) Get(ctx context.Context, role RecipientRole, recipientID, id uint) (*Notification, error) {
+	n, err := s.repo.Get(ctx, role, recipientID, id)
+	if err != nil {
+		return nil, fmt.Errorf("get notification: %w", err)
+	}
+	return n, nil
 }
 
-func (s *service) UnreadCount(ctx context.Context, role RecipientRole, recipientID uint) (int64, error) {
-	return s.repo.UnreadCount(ctx, role, recipientID)
+func (s *service) List(ctx context.Context, role RecipientRole, recipientID uint, q ListQuery) (ListResponse, error) {
+	items, nextCursor, err := s.repo.List(ctx, role, recipientID, q)
+	if err != nil {
+		return ListResponse{}, fmt.Errorf("list notifications: %w", err)
+	}
+	return ListResponse{
+		Items:      toResponseList(items),
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != nil,
+	}, nil
 }
 
-func (s *service) MarkRead(ctx context.Context, role RecipientRole, recipientID uint, ids []uint) (int64, error) {
-	return s.repo.MarkRead(ctx, role, recipientID, ids)
+func (s *service) Patch(ctx context.Context, role RecipientRole, recipientID, id uint, req PatchRequest) (*Notification, error) {
+	n, err := s.repo.Patch(ctx, role, recipientID, id, *req.IsRead)
+	if err != nil {
+		return nil, fmt.Errorf("patch notification: %w", err)
+	}
+	return n, nil
 }
 
-func (s *service) ReadAll(ctx context.Context, role RecipientRole, recipientID uint) (int64, error) {
-	return s.repo.ReadAll(ctx, role, recipientID)
+func (s *service) PatchBulk(ctx context.Context, role RecipientRole, recipientID uint, req PatchBulkRequest) (int64, error) {
+	affected, err := s.repo.PatchBulk(ctx, role, recipientID, req.IDs, *req.IsRead)
+	if err != nil {
+		return 0, fmt.Errorf("patch bulk notifications: %w", err)
+	}
+	return affected, nil
+}
+
+
+func (s *service) pushRealtime(role RecipientRole, recipientID uint, n *Notification) {
+	if s.hub == nil {
+		return
+	}
+	payload := realtime.MarshalEvent(realtime.EventNotificationNew, map[string]any{
+		"notification": toResponse(*n),
+	})
+	if role == RoleTechnician {
+		s.hub.BroadcastToTechnician(recipientID, payload)
+	} else {
+		s.hub.BroadcastToCustomer(recipientID, payload)
+	}
+}
+
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, ErrNotFound)
 }

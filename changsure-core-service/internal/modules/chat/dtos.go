@@ -94,11 +94,16 @@ type chatMessageRow struct {
 	SenderAvatar    string
 }
 
-type MarkAsReadReq struct {
-	MessageIDs []uint `json:"message_ids" validate:"required,min=1"`
+type UpdateMessagesReq struct {
+	MessageIDs []uint `json:"message_ids"`
+	IsRead     *bool  `json:"is_read"`
 }
 
-func (req *MarkAsReadReq) Validate() error {
+type UpdateRoomReq struct {
+	Read *bool `json:"read"`
+}
+
+func (req *UpdateMessagesReq) Validate() error {
 	if len(req.MessageIDs) == 0 {
 		return errors.New("message_ids cannot be empty")
 	}

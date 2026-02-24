@@ -16,6 +16,14 @@ func ParseUintParam(c fiber.Ctx, key string) (uint, error) {
 	return uint(id64), nil
 }
 
+func ParseUint(s string) (uint, error) {
+	id64, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id64), nil
+}
+
 func QueryBool(c fiber.Ctx, key string, def bool) bool {
 	raw := c.Query(key)
 	if raw == "" {

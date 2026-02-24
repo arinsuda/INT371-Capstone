@@ -3,11 +3,11 @@ package customerbooking
 import "github.com/gofiber/fiber/v3"
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	group := router.Group("/bookings")
+	group := router.Group("/:customerID/bookings")
 
 	group.Post("/", h.CreateBooking)
 	group.Get("/", h.ListBookings)
 	group.Get("/availability", h.CheckAvailability)
-	group.Get("/:id", h.GetBookingDetail)
-	group.Patch("/:id/cancel", h.CancelBooking)
+	group.Get("/:bookingID", h.GetBookingDetail)
+	group.Patch("/:bookingID", h.UpdateBooking)
 }

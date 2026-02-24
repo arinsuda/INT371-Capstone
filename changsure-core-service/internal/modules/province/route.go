@@ -13,5 +13,4 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	g.Get("/:id", h.GetProvince)
 	g.Patch("/:id", h.UpdateProvince)
 	g.Delete("/:id", h.DeleteProvince)
-
 }

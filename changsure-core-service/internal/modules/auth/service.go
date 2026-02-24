@@ -28,9 +28,9 @@ type Service interface {
 }
 
 type CustomerReader interface {
-	FindByEmail(ctx context.Context, email string) (*customers.Customer, error)
-	FindByID(ctx context.Context, id uint) (*customers.Customer, error)
-	Create(ctx context.Context, c *customers.Customer) error
+	FindByEmail(ctx context.Context, email string) (*customer.Customer, error)
+	FindByID(ctx context.Context, id uint) (*customer.Customer, error)
+	Create(ctx context.Context, c *customer.Customer) error
 }
 
 type TechnicianReader interface {
@@ -111,7 +111,7 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 
 	switch role {
 	case "customer":
-		c := &customers.Customer{
+		c := &customer.Customer{
 			FirstName:    "",
 			LastName:     "",
 			Email:        &email,

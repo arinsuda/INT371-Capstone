@@ -2,11 +2,11 @@ package notification
 
 import "github.com/gofiber/fiber/v3"
 
-func (h *Handler) RegisterRoutes(r fiber.Router) {
-	grp := r.Group("/notifications")
+func (h *Handler) RegisterRoutes(api fiber.Router) {
+	noti := api.Group("/notifications")
 
-	grp.Get("/", h.List)
-	grp.Get("/unread-count", h.UnreadCount)
-	grp.Patch("/read", h.MarkRead)
-	grp.Patch("/read-all", h.ReadAll)
+	noti.Get("/", h.List)
+	noti.Get("/:id", h.Get)
+	noti.Patch("/", h.PatchBulk)
+	noti.Patch("/:id", h.Patch)
 }

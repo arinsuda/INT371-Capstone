@@ -1,7 +1,8 @@
 package technicianservice
 
 import (
-	"net/http"
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -10,23 +11,23 @@ type Handler struct{ svc Service }
 
 func NewHandler(s Service) *Handler { return &Handler{svc: s} }
 
-func (h *Handler) PostPricing(c fiber.Ctx) error {
-	var req TechnicianPricingReq
-	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+func (h *Handler) UpsertPricing(c fiber.Ctx) error {
+	techID, ok := middleware.GetUserID(c)
+	if !ok {
+		return appErrors.Unauthorized(c, "unauthorized")
 	}
 
-	id, err := h.svc.SetPricing(c.Context(), req)
-	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+	var req UpsertPricingReq
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
 	}
-	return c.Status(http.StatusCreated).JSON(fiber.Map{
+
+	id, err := h.svc.UpsertPricing(c.Context(), techID, req)
+	if err != nil {
+		return appErrors.BadRequest(c, err.Error())
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
 		"data":    fiber.Map{"pricing_id": id},
 	})
@@ -35,27 +36,16 @@ func (h *Handler) PostPricing(c fiber.Ctx) error {
 func (h *Handler) SearchTechnicians(c fiber.Ctx) error {
 	var q SearchTechniciansQuery
 	if err := c.Bind().Query(&q); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return appErrors.BadRequest(c, "invalid query parameters")
+	}
+	if q.ServiceID == 0 {
+		return appErrors.BadRequest(c, "service_id is required")
 	}
 
-	items, total, err := h.svc.SearchTechnicians(c.Context(), q)
+	result, err := h.svc.SearchTechnicians(c.Context(), q)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return appErrors.HandleError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"items":     items,
-			"total":     total,
-			"page":      q.Page,
-			"page_size": q.PageSize,
-		},
-	})
+	return c.JSON(fiber.Map{"success": true, "data": result})
 }

@@ -22,6 +22,7 @@ type Repository interface {
 	CountByTechnician(ctx context.Context, techID uint) (int64, error)
 
 	SetPrimaryTx(ctx context.Context, techID uint, addressID uint) error
+	UnsetPrimaryTx(ctx context.Context, techID uint, addressID uint) error
 	FindNextPrimaryCandidateTx(ctx context.Context, techID uint, excludeID uint) (*TechnicianAddress, error)
 
 	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
@@ -106,10 +107,16 @@ func (r *repo) SetPrimaryTx(ctx context.Context, techID uint, addressID uint) er
 		Update("is_primary", false).Error; err != nil {
 		return err
 	}
-
 	return r.db.WithContext(ctx).Model(&TechnicianAddress{}).
 		Where("id = ? AND technician_id = ?", addressID, techID).
 		Update("is_primary", true).Error
+}
+
+func (r *repo) UnsetPrimaryTx(ctx context.Context, techID uint, addressID uint) error {
+
+	return r.db.WithContext(ctx).Model(&TechnicianAddress{}).
+		Where("id = ? AND technician_id = ?", addressID, techID).
+		Update("is_primary", false).Error
 }
 
 func (r *repo) FindNextPrimaryCandidateTx(ctx context.Context, techID uint, excludeID uint) (*TechnicianAddress, error) {
@@ -138,7 +145,6 @@ func (r *repo) GetTechnicianPhone(ctx context.Context, techID uint) (*string, er
 }
 
 func (r *repo) FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-
 	if q.Limit <= 0 || q.Limit > 200 {
 		q.Limit = 50
 	}
