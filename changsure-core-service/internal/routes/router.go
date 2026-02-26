@@ -58,13 +58,13 @@ func (r *Router) setupHealthRoutes() {
 }
 
 func (r *Router) setupPublicRoutes() {
-	api := r.app.Group("/api")
+	api := r.app.Group("/api/v2")
 	r.container.AuthHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
 }
 
 func (r *Router) setupProtectedRoutes() {
-	v1 := r.app.Group("/api", middleware.AuthMiddleware(r.cfg))
+	v1 := r.app.Group("/api/v2", middleware.AuthMiddleware(r.cfg))
 
 	r.setupSharedRoutes(v1)
 	r.setupTechnicianRoutes(v1)

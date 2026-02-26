@@ -54,6 +54,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Bangkok
+      MINIO_SERVER_URL: https://cp25ssa1.sit.kmutt.ac.th/minio
+      MINIO_BROWSER_REDIRECT_URL: https://cp25ssa1.sit.kmutt.ac.th/minio-console
     volumes:
       - minio_dev:/data
     ports:
