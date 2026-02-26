@@ -146,7 +146,7 @@ services:
         max-file: "3"
 
   # ================================
-  # CORE SERVICE (Golang API)
+  # CORE SERVICE
   # ================================
   core-service:
     build:
@@ -173,6 +173,26 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+  core-service-v2:
+    build:
+      context: ../../be-v2/changsure-core-service
+      dockerfile: Dockerfile
+    container_name: changsure-core-service-v2-dev
+    restart: unless-stopped
+    env_file: ../../be-v2/deploy/dev/.env
+    ports:
+      - "3002:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      ocr:
+        condition: service_started
+    networks:
+      - changsure-network
 
 # ================================
 # NETWORKS & VOLUMES
