@@ -7,9 +7,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:changsure/state/user_provider.dart';
-import 'package:changsure/module/auth/login.dart';
+import 'package:changsure/module/auth/login_page.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/footer/footer_bar.dart';
+
+import '../module/auth/start_page.dart';
 
 class DevHttpOverrides extends HttpOverrides {
   @override
@@ -66,6 +68,6 @@ class AppRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userProvider);
-    return userState == null ? const LoginScreen() : const FooterBarTemplate();
+    return userState == null ? const StartPage() : const FooterBarTemplate();
   }
 }

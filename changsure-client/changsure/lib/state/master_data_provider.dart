@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/master_data_models.dart';
 import '../core/constants/api_constants.dart';
+import '../data/models/users/users_model.dart';
 import 'user_provider.dart';
 
 class ApiException implements Exception {
@@ -74,7 +75,7 @@ class MasterDataService {
         body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body);
         return parser(json['data']);
       }
@@ -97,6 +98,15 @@ class MasterDataService {
           (data as List).map((e) => ProvinceModel.fromJson(e)).toList(),
     );
   }
+
+  Future<Map<String, dynamic>?> register(RegisterModel model) async {
+    return _post<Map<String, dynamic>?>(
+      endpoint: '/auth/register',
+      body: model.toJson(),
+      parser: (data) => data, // คืน data ตรง ๆ
+    );
+  }
+
 
   Future<List<DistrictModel>> getDistricts({
     required String? token,
@@ -259,6 +269,31 @@ final provincesProvider = FutureProvider<List<ProvinceModel>>((ref) async {
   final token = ref.watch(tokenProvider);
   return ref.read(masterDataServiceProvider).getProvinces(token);
 });
+class RegisterNotifier
+    extends AsyncNotifier<Map<String, dynamic>?> {
+
+  @override
+  Future<Map<String, dynamic>?> build() async {
+    return null;
+  }
+
+  Future<void> register(RegisterModel model) async {
+    state = const AsyncLoading();
+
+    try {
+      final service = ref.read(masterDataServiceProvider);
+      final result = await service.register(model);
+      state = AsyncData(result);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+}
+
+final registerProvider =
+AsyncNotifierProvider<RegisterNotifier, Map<String, dynamic>?>(
+  RegisterNotifier.new,
+);
 
 final districtsProvider = FutureProvider.family<List<DistrictModel>, int>((
   ref,

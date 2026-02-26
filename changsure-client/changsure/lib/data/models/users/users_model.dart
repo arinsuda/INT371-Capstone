@@ -69,3 +69,53 @@ class UserModel {
     );
   }
 }
+
+class RegisterModel {
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String role;
+
+  RegisterModel({
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.role,
+  });
+
+  /// 🔥 ใช้ส่งไป backend
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      'confirm_password': confirmPassword,
+      'role': role,
+    };
+  }
+
+  /// 🔄 ใช้กรณี backend ส่งกลับมา (ถ้ามี)
+  factory RegisterModel.fromJson(Map<String, dynamic> json) {
+    return RegisterModel(
+      email: json['email'] ?? '',
+      password: json['password'] ?? '',
+      confirmPassword: json['confirm_password'] ?? '',
+      role: json['role'] ?? '',
+    );
+  }
+
+  /// 🧠 optional: copyWith ไว้แก้ค่าแบบ immutable
+  RegisterModel copyWith({
+    String? email,
+    String? password,
+    String? confirmPassword,
+    String? role,
+  }) {
+    return RegisterModel(
+      email: email ?? this.email,
+      password: password ?? this.password,
+      confirmPassword: confirmPassword ?? this.confirmPassword,
+      role: role ?? this.role,
+    );
+  }
+}
+

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:changsure/core/button/primary_button.dart';
 import '../../core/theme.dart';
-import 'login.dart';
-
-double toLogicalPx(BuildContext context, double px) =>
-    px / MediaQuery.of(context).devicePixelRatio;
+import 'login_page.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -29,10 +26,18 @@ class _StartPageState extends State<StartPage> {
         child: Align(
           alignment: Alignment.center,
           child: Padding(
-            padding: EdgeInsets.all(toLogicalPx(context, 24)),
-            child: PrimaryButton(
-              text: 'เริ่มต้นใช้งาน',
-              onPressed: _onStartPressed,
+            padding: EdgeInsets.only(right: 24, left: 24 ,top: 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset("assets/image/Logo_ChangSure_Transparents.PNG", width: 300,),
+
+                PrimaryButton(
+                  text: 'เริ่มต้นใช้งาน',
+                  onPressed: _onStartPressed,
+                ),
+              ],
             ),
           ),
         ),

@@ -303,7 +303,8 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                     backgroundColor: Colors.transparent,
                     isScrollControlled: true,
                     builder: (context) {
-                      return GestureDetector(
+                      return
+                        GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
                           color: Colors.black.withOpacity(0.5),

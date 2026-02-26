@@ -1,56 +1,45 @@
-import 'package:changsure/core/header.dart';
-import 'package:changsure/data/models/customer/customer_model.dart';
+import 'dart:io';
+
+import 'package:changsure/module/profile/address_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/button/primary_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:changsure/state/user_provider.dart';
+
+import '../../../core/button/primary_button.dart';
+import '../../../core/header.dart';
 import '../../../core/profile/editProfile/phone_formatter.dart';
 import '../../../data/services/customer_service.dart';
 import '../../../state/bottom_nav_provider.dart';
+import '../../../state/user_provider.dart';
 
-class EditProfile extends ConsumerStatefulWidget {
-  const EditProfile({super.key});
+class SetupProfilePage extends ConsumerStatefulWidget {
+  final String email;
+  const SetupProfilePage({super.key, required this.email});
 
   @override
-  ConsumerState<EditProfile> createState() => _EditProfileState();
+  ConsumerState<SetupProfilePage> createState() => _SetupProfilePageState();
 }
 
-class _EditProfileState extends ConsumerState<EditProfile> {
+class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final ValueNotifier<bool> isFormValid = ValueNotifier(false);
+  bool hasChanged = false;
   late TextEditingController nameController;
   late TextEditingController lastNameController;
   late TextEditingController emailController;
   late TextEditingController phoneController;
-
-  bool hasChanged = false;
-  bool _isInitialized = false;
-
-  CustomerModel? originalCustomer;
-
   String? _originalFirstName;
   String? _originalLastName;
   String? _originalEmail;
   String? _originalPhone;
+  String? avatarUrl;
+  dynamic originalCustomer;
+  File? selectedImage;
 
-  void _validateForm() {
-    final isValid = _formKey.currentState?.validate() ?? false;
-    isFormValid.value = isValid;
-  }
 
   @override
   void initState() {
     super.initState();
-
-    nameController = TextEditingController();
-    lastNameController = TextEditingController();
-    emailController = TextEditingController();
-    phoneController = TextEditingController();
-  }
-
-  void _initializeData() {
-    if (_isInitialized) return;
 
     final user = ref.read(userProvider);
     final customer = user?.customerProfile;
@@ -66,48 +55,52 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
     _originalFirstName = customer?.firstName ?? firstName;
     _originalLastName = customer?.lastName ?? lastName;
-    _originalEmail = customer?.email ?? '';
+    _originalEmail = widget.email.isNotEmpty
+        ? widget.email
+        : (user?.email ?? '');
 
-    nameController.text = _originalFirstName ?? '';
-    lastNameController.text = _originalLastName ?? '';
-    emailController.text = _originalEmail ?? '';
+    _originalPhone = user?.phone ?? '';
+    avatarUrl = user?.avatarUrl;
 
-    String rawPhone = customer?.phone ?? '';
-    if (rawPhone.isNotEmpty &&
-        rawPhone.length == 10 &&
-        !rawPhone.contains('-')) {
-      phoneController.text =
-          "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
-    } else {
-      phoneController.text = rawPhone;
-    }
-    _originalPhone = phoneController.text;
+    nameController = TextEditingController(text: _originalFirstName);
+    lastNameController = TextEditingController(text: _originalLastName);
+    emailController = TextEditingController(text: _originalEmail);
+    phoneController = TextEditingController(text: _originalPhone);
 
-    nameController.addListener(_checkChanged);
-    lastNameController.addListener(_checkChanged);
-    emailController.addListener(_checkChanged);
-    phoneController.addListener(_checkChanged);
-
-    _isInitialized = true;
+    nameController.addListener(_checkIfChanged);
+    lastNameController.addListener(_checkIfChanged);
+    emailController.addListener(_checkIfChanged);
+    phoneController.addListener(_checkIfChanged);
   }
 
-  void _checkChanged() {
-    final currentFirstName = nameController.text.trim();
-    final currentLastName = lastNameController.text.trim();
-    final currentEmail = emailController.text.trim();
-    final currentPhone = phoneController.text.trim();
+  void _checkIfChanged() {
+    final changed =
+        nameController.text.trim() != (_originalFirstName ?? '') ||
+        lastNameController.text.trim() != (_originalLastName ?? '') ||
+        emailController.text.trim() != (_originalEmail ?? '') ||
+        phoneController.text.replaceAll('-', '') !=
+            (_originalPhone ?? '').replaceAll('-', '');
 
-    final isChanged =
-        currentFirstName != (_originalFirstName ?? '') ||
-        currentLastName != (_originalLastName ?? '') ||
-        currentEmail != (_originalEmail ?? '') ||
-        currentPhone != (_originalPhone ?? '');
+    setState(() {
+      hasChanged = changed;
+    });
 
-    if (hasChanged != isChanged) {
-      setState(() {
-        hasChanged = isChanged;
-      });
-    }
+    _validateForm();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    isFormValid.dispose();
+    super.dispose();
+  }
+
+  void _validateForm() {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    isFormValid.value = isValid;
   }
 
   Future<void> _saveProfile() async {
@@ -165,11 +158,13 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
         if (!mounted) return;
 
-        ref.read(bottomSubPageProvider.notifier).state = null;
-
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')));
+          MaterialPageRoute<void>(
+            builder: (context) => const AddressPage(),
+          ),
+        );
+
       }
     } catch (e) {
       if (!mounted) return;
@@ -219,16 +214,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      _initializeData();
-    }
-
-    final user = ref.watch(userProvider);
-    final customer = user?.customerProfile;
-    final avatarUrl = customer?.avatarUrl;
-
-    return
-      Scaffold(
+    return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Form(
@@ -236,7 +222,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             children: [
-              Header(header: "แก้ไขโปรไฟล์"),
+              Header(header: "ตั้งค่าโปรไฟล์"),
               const SizedBox(height: 16),
 
               Center(
@@ -245,14 +231,12 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.grey[300],
-
-                      backgroundImage:
-                          (avatarUrl != null &&
-                              avatarUrl.isNotEmpty &&
-                              avatarUrl.startsWith('http'))
-                          ? NetworkImage(avatarUrl)
-                          : AssetImage('assets/image/Technician.png') as ImageProvider,
+                      backgroundImage: selectedImage != null
+                          ? FileImage(selectedImage!)
+                          : const AssetImage('assets/image/Technician.png')
+                      as ImageProvider,
                     ),
+
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -340,7 +324,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                   valueListenable: isFormValid,
                   builder: (context, valid, _) {
                     return PrimaryButton(
-                      text: "บันทึกการแก้ไข",
+                      text: "ต่อไป",
                       onPressed: valid && hasChanged ? _saveProfile : null,
                     );
                   },
@@ -351,14 +335,5 @@ class _EditProfileState extends ConsumerState<EditProfile> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    lastNameController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
-    super.dispose();
   }
 }
