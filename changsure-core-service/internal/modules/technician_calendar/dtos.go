@@ -40,7 +40,6 @@ func (q *CalendarQuery) ParseMonth() (time.Time, error) {
 	return booking.NormalizeDate(t), nil
 }
 
-// UpdateCalendarDateRequest — date อยู่ใน body เพราะ PATCH / ไม่มี path param
 type UpdateCalendarDateRequest struct {
 	Date   string `json:"date" validate:"required"`
 	IsOpen bool   `json:"is_open"`
@@ -63,40 +62,32 @@ func (r *UpdateCalendarDateRequest) ParseDate() (time.Time, error) {
 	return booking.ParseDate(r.Date)
 }
 
-// UpdateTimeSlotsRequest — date มาจาก path param, is_default set จาก endpoint
 type UpdateTimeSlotsRequest struct {
 	Date        string `json:"-"`
-	IsDefault   bool   `json:"-"`
+	IsDefault   bool   `json:"is_default"`
 	TimeSlotIDs []uint `json:"time_slot_ids" validate:"required"`
 }
 
 func (r *UpdateTimeSlotsRequest) Validate() error {
-	if len(r.TimeSlotIDs) == 0 {
-		return fmt.Errorf("time_slot_ids is required")
-	}
-	if !r.IsDefault {
-		if r.Date == "" {
-			return fmt.Errorf("date is required")
-		}
-		if !isValidDateFormat(r.Date) {
-			return fmt.Errorf("date must be in YYYY-MM-DD format")
-		}
-	}
-	return nil
+    if len(r.TimeSlotIDs) == 0 {
+        return fmt.Errorf("time_slot_ids is required")
+    }
+    if r.Date == "" {
+        return fmt.Errorf("date is required")
+    }
+    if !isValidDateFormat(r.Date) {
+        return fmt.Errorf("date must be in YYYY-MM-DD format")
+    }
+    return nil
 }
 
 func (r *UpdateTimeSlotsRequest) ParseDate() (time.Time, error) {
-	if r.IsDefault {
-		return time.Now(), nil
-	}
-	date, err := booking.ParseDate(r.Date)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid date format: %s", r.Date)
-	}
-	return booking.NormalizeDate(date), nil
+    date, err := booking.ParseDate(r.Date)
+    if err != nil {
+        return time.Time{}, fmt.Errorf("invalid date format: %s", r.Date)
+    }
+    return booking.NormalizeDate(date), nil
 }
-
-// --- Response types ---
 
 type CalendarResponse struct {
 	Month string              `json:"month"`

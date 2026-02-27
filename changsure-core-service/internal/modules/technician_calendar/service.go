@@ -475,6 +475,15 @@ func (s *service) convertBookingsToDetails(ctx context.Context, bookings []booki
 }
 
 func (s *service) updateTimeSlots(ctx context.Context, technicianID uint, date time.Time, req UpdateTimeSlotsRequest) error {
+	s.logger.Debug("setting date-specific time slots",
+		slog.Uint64("technician_id", uint64(technicianID)),
+		slog.String("date", booking.FormatDate(date)),
+		slog.Int("slot_count", len(req.TimeSlotIDs)),
+	)
+	if err := s.calendarRepo.SetDateTimeSlots(ctx, technicianID, date, req.TimeSlotIDs); err != nil {
+		return err
+	}
+
 	if req.IsDefault {
 		s.logger.Debug("setting default time slots",
 			slog.Uint64("technician_id", uint64(technicianID)),
@@ -483,12 +492,7 @@ func (s *service) updateTimeSlots(ctx context.Context, technicianID uint, date t
 		return s.calendarRepo.SetDefaultTimeSlots(ctx, technicianID, req.TimeSlotIDs)
 	}
 
-	s.logger.Debug("setting date-specific time slots",
-		slog.Uint64("technician_id", uint64(technicianID)),
-		slog.String("date", booking.FormatDate(date)),
-		slog.Int("slot_count", len(req.TimeSlotIDs)),
-	)
-	return s.calendarRepo.SetDateTimeSlots(ctx, technicianID, date, req.TimeSlotIDs)
+	return nil
 }
 
 func (s *service) validateTimeSlotIDs(ctx context.Context, slotIDs []uint) error {

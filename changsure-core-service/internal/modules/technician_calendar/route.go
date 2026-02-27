@@ -7,6 +7,5 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	cal.Get("/:period", h.GetCalendarAuto)                  
 	cal.Patch("/", h.UpdateCalendarDate)                     
-	cal.Put("/:date/time-slot", h.UpdateDateTimeSlots)       
-	cal.Put("/time-slot", h.UpdateDefaultTimeSlots)  
+	cal.Put("/:date/time-slot", h.UpdateTimeSlots)       
 }

@@ -24,9 +24,6 @@ func NewHandler(service Service, logger *slog.Logger) *Handler {
 	return &Handler{service: service, logger: logger}
 }
 
-// GET /:technicianID/calendar/:period
-// period = YYYY-MM    → monthly calendar
-// period = YYYY-MM-DD → day bookings (?timeslot=1 optional)
 func (h *Handler) GetCalendarAuto(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
@@ -111,8 +108,6 @@ func (h *Handler) getDayCalendar(c fiber.Ctx, techID uint, dateStr string) error
 	return c.JSON(fiber.Map{"success": true, "data": result})
 }
 
-// PATCH /:technicianID/calendar/
-// body: { date, is_open }
 func (h *Handler) UpdateCalendarDate(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
@@ -154,9 +149,7 @@ func (h *Handler) UpdateCalendarDate(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "calendar updated successfully", "data": result})
 }
 
-// PUT /:technicianID/calendar/:date/time-slot
-// body: { time_slot_ids }
-func (h *Handler) UpdateDateTimeSlots(c fiber.Ctx) error {
+func (h *Handler) UpdateTimeSlots(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
@@ -173,18 +166,12 @@ func (h *Handler) UpdateDateTimeSlots(c fiber.Ctx) error {
 
 	var req UpdateTimeSlotsRequest
 	req.Date = dateStr
-	req.IsDefault = false
 
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
 
 	if err := req.Validate(); err != nil {
-		h.logger.Warn("time slots request validation failed",
-			slog.Uint64("technician_id", uint64(techID)),
-			slog.String("date", dateStr),
-			slog.String("error", err.Error()),
-		)
 		return appErrors.BadRequest(c, err.Error())
 	}
 
@@ -201,17 +188,13 @@ func (h *Handler) UpdateDateTimeSlots(c fiber.Ctx) error {
 		return h.handleServiceError(c, err, "failed to update time slots")
 	}
 
-	h.logger.Info("date time slots updated",
-		slog.Uint64("technician_id", uint64(techID)),
-		slog.String("date", dateStr),
-		slog.Int("slot_count", len(result.TimeSlots)),
-	)
-
-	return c.JSON(fiber.Map{"success": true, "message": "time slots updated successfully", "data": result})
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "time slots updated successfully",
+		"data":    result,
+	})
 }
 
-// PUT /:technicianID/calendar/time-slot/default
-// body: { time_slot_ids }
 func (h *Handler) UpdateDefaultTimeSlots(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
