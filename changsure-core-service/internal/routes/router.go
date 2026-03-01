@@ -58,13 +58,13 @@ func (r *Router) setupHealthRoutes() {
 }
 
 func (r *Router) setupPublicRoutes() {
-	api := r.app.Group("/api/v2")
+	api := r.app.Group("/api")
 	r.container.AuthHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
 }
 
 func (r *Router) setupProtectedRoutes() {
-	v1 := r.app.Group("/api/v2", middleware.AuthMiddleware(r.cfg))
+	v1 := r.app.Group("/api", middleware.AuthMiddleware(r.cfg))
 
 	r.setupSharedRoutes(v1)
 	r.setupTechnicianRoutes(v1)
@@ -123,8 +123,8 @@ func (r *Router) setupWebSocketRoutes() {
 		return fiber.ErrUpgradeRequired
 	}
 
-	r.app.Get("/v2/ws/technicians", upgradeOnly, websocket.New(wsHandler.TechnicianWS))
-	r.app.Get("/v2/ws/customers", upgradeOnly, websocket.New(wsHandler.CustomerWS))
+	r.app.Get("/ws/technicians", upgradeOnly, websocket.New(wsHandler.TechnicianWS))
+	r.app.Get("/ws/customers", upgradeOnly, websocket.New(wsHandler.CustomerWS))
 }
 
 func (r *Router) buildWSTokenVerifier() func(token string) (uint, string, bool) {
