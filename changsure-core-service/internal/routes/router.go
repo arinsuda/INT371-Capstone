@@ -123,8 +123,8 @@ func (r *Router) setupWebSocketRoutes() {
 		return fiber.ErrUpgradeRequired
 	}
 
-	r.app.Get("/ws/technicians", upgradeOnly, websocket.New(wsHandler.TechnicianWS))
-	r.app.Get("/ws/customers", upgradeOnly, websocket.New(wsHandler.CustomerWS))
+	r.app.Get("/v2/ws/technicians", upgradeOnly, websocket.New(wsHandler.TechnicianWS))
+	r.app.Get("/v2/ws/customers", upgradeOnly, websocket.New(wsHandler.CustomerWS))
 }
 
 func (r *Router) buildWSTokenVerifier() func(token string) (uint, string, bool) {
