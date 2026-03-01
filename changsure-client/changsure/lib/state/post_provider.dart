@@ -9,7 +9,6 @@ final technicianPostsProvider = FutureProvider.autoDispose<List<PostModel>>((
   ref,
 ) async {
   final userState = ref.watch(userProvider);
-
   final categoryId = ref.watch(selectedCategoryFilterProvider);
 
   if (userState == null || userState.token == null) {
@@ -17,5 +16,9 @@ final technicianPostsProvider = FutureProvider.autoDispose<List<PostModel>>((
   }
 
   final service = TechnicianService();
-  return await service.getMyPosts(userState.token!, categoryId: categoryId);
+  return await service.getMyPosts(
+    token: userState.token!,
+    technicianId: userState.id,
+    categoryId: categoryId,
+  );
 });

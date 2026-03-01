@@ -26,12 +26,15 @@ class RealtimeService {
     disconnect();
 
     final rolePath = (role == RealtimeRole.technician)
-        ? '/ws/technicians'
-        : '/ws/customers';
+        ? '/v2/ws/technicians'
+        : '/v2/ws/customers';
 
-    Uri targetUri = Uri.parse(
-      ApiConstants.baseUrl,
-    );
+    print("🔌 RealtimeService.connect() called");
+    print("   role: $role");
+    print("   path: $rolePath");
+    print("   token: ${token.substring(0, 20)}...");
+
+    Uri targetUri = Uri.parse(ApiConstants.baseUrl);
 
     String newScheme = targetUri.scheme;
     if (targetUri.scheme == 'https') {
@@ -46,9 +49,7 @@ class RealtimeService {
       queryParameters: {'token': token},
     );
 
-
-      _channel = WebSocketChannel.connect(finalUri);
-
+    _channel = WebSocketChannel.connect(finalUri);
 
     _sub = _channel!.stream.listen(
       (event) {

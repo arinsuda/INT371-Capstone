@@ -122,14 +122,10 @@ class BookingAddress extends ConsumerWidget {
             id: currentAddress?.id,
             label: label,
             isPrimary: isPrimary,
-
             addressLine: addressLine,
-            zipCode: zipCode,
-
             provinceId: provinceId,
             districtId: districtId,
             subDistrictId: subDistrictId,
-
             lat: lat,
             lng: lng,
           );
@@ -138,10 +134,8 @@ class BookingAddress extends ConsumerWidget {
             id: currentAddress?.id,
             label: label,
             isPrimary: isPrimary,
-
             addressLine: addressLine,
             zipCode: zipCode,
-
             provinceId: provinceId,
             districtId: districtId,
             subDistrictId: subDistrictId,

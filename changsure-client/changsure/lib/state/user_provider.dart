@@ -11,7 +11,6 @@ import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/models/technician/technician_model.dart';
 
 import 'package:changsure/data/services/auth_service.dart';
-import 'package:changsure/data/services/address_service.dart';
 
 import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
@@ -135,12 +134,18 @@ class UserNotifier extends Notifier<UserModel?> {
       final authService = AuthService();
 
       if (state!.role == UserRole.technician) {
-        final profile = await authService.getTechnicianProfile(state!.token!);
+        final profile = await authService.getTechnicianProfile(
+          state!.token!,
+          state!.id,
+        );
         if (profile != null) {
           state = state!.copyWith(technicianProfile: profile);
         }
       } else if (state!.role == UserRole.customer) {
-        final profile = await authService.getCustomerProfile(state!.token!);
+        final profile = await authService.getCustomerProfile(
+          state!.token!,
+          state!.id,
+        );
         if (profile != null) {
           state = state!.copyWith(customerProfile: profile);
         }
@@ -170,6 +175,7 @@ class UserNotifier extends Notifier<UserModel?> {
 
       final success = await service.updateProfile(
         token: state!.token!,
+        technicianId: state!.id,
         firstName: firstName,
         lastName: lastName,
         phone: phone,
@@ -190,26 +196,27 @@ class UserNotifier extends Notifier<UserModel?> {
   }
 
   Future<void> loadAddresses() async {
-    if (state == null || state!.token == null) return;
+    final user = state;
+    if (user == null || user.token == null) return;
 
     try {
-      final addressService = AddressService();
-      final addresses = await addressService.getAddresses(
-        state!.token!,
-        state!.role,
-      );
-
-      if (state!.role == UserRole.technician &&
-          state!.technicianProfile != null) {
-        final newTechProfile = state!.technicianProfile!.copyWith(
-          addresses: addresses,
+      if (user.role == UserRole.technician) {
+        final addresses = await tech.TechnicianService().getAddresses(
+          token: user.token!,
+          technicianId: user.id,
         );
-        state = state!.copyWith(technicianProfile: newTechProfile);
-      } else if (state!.role == UserRole.customer) {
-        state = state!.copyWith(addresses: addresses);
+        state = user.copyWith(
+          technicianProfile: user.technicianProfile?.copyWith(
+            addresses: addresses,
+          ),
+        );
+      } else if (user.role == UserRole.customer) {
+        final addresses = await cust.CustomerService().getAddresses(
+          token: user.token!,
+          customerId: user.id,
+        );
+        state = user.copyWith(addresses: addresses);
       }
-
-      print("✅ Load Addresses Success: ${addresses.length} items");
     } catch (e) {
       print("❌ Load Addresses Error: $e");
     }
@@ -217,38 +224,42 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> saveTechnicianAddress({
     int? id,
-
     bool? isPrimary,
-
     String? label,
     String? phoneNumber,
-
-    required String addressLine,
-
-    required String zipCode,
-
+    String? addressLine,
+    String? houseNumber,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
     required int provinceId,
     required int districtId,
     required int subDistrictId,
-
     required double lat,
     required double lng,
   }) async {
     final token = state?.token;
     if (token == null || state?.role != UserRole.technician) return false;
 
+    final techId = state!.id;
     final service = tech.TechnicianService();
 
     try {
       final bool success = (id != null)
           ? await service.updateAddress(
               token: token,
+              technicianId: techId,
               addressId: id,
               label: label,
               phoneNumber: phoneNumber,
               isPrimary: isPrimary,
               addressLine: addressLine,
-              postCode: zipCode,
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
@@ -257,11 +268,16 @@ class UserNotifier extends Notifier<UserModel?> {
             )
           : await service.createAddress(
               token: token,
+              technicianId: techId,
               label: label,
               phoneNumber: phoneNumber,
               isPrimary: isPrimary,
               addressLine: addressLine,
-              postCode: zipCode,
+              houseNumber: houseNumber,
+              village: village,
+              moo: moo,
+              soi: soi,
+              road: road,
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
@@ -279,15 +295,12 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> deleteTechnicianAddress(int addressId) async {
     final token = state?.token;
-    if (token == null || state?.role != UserRole.technician) {
-      return false;
-    }
-
-    final service = tech.TechnicianService();
+    if (token == null || state?.role != UserRole.technician) return false;
 
     try {
-      final success = await service.deleteAddress(
+      final success = await tech.TechnicianService().deleteAddress(
         token: token,
+        technicianId: state!.id,
         addressId: addressId,
       );
 
@@ -308,59 +321,46 @@ class UserNotifier extends Notifier<UserModel?> {
     bool? isPrimary,
     String? label,
     String? phoneNumber,
-
     required String addressLine,
     required String zipCode,
-
     required int provinceId,
     required int districtId,
     required int subDistrictId,
-
     required double lat,
     required double lng,
   }) async {
     final token = state?.token;
     if (token == null || state?.role != UserRole.customer) return false;
 
+    final cusId = state!.id;
     final service = cust.CustomerService();
 
     try {
       final bool success = (id != null)
           ? await service.updateAddress(
               token: token,
+              customerId: cusId,
               addressId: id,
-
               label: label,
               phoneNumber: phoneNumber,
-
               isPrimary: isPrimary,
-
               addressLine: addressLine,
-
-              postCode: zipCode,
-
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
-
               lat: lat,
               lng: lng,
             )
           : await service.createAddress(
               token: token,
-              phoneNumber: phoneNumber,
-
+              customerId: cusId,
               addressLine: addressLine,
-
-              postCode: zipCode,
-
+              phoneNumber: phoneNumber,
               label: label,
               isPrimary: isPrimary,
-
               provinceId: provinceId,
               districtId: districtId,
               subDistrictId: subDistrictId,
-
               lat: lat,
               lng: lng,
             );
@@ -375,15 +375,12 @@ class UserNotifier extends Notifier<UserModel?> {
 
   Future<bool> deleteCustomerAddress(int addressId) async {
     final token = state?.token;
-    if (token == null || state?.role != UserRole.customer) {
-      return false;
-    }
-
-    final service = cust.CustomerService();
+    if (token == null || state?.role != UserRole.customer) return false;
 
     try {
-      final success = await service.deleteAddress(
+      final success = await cust.CustomerService().deleteAddress(
         token: token,
+        customerId: state!.id,
         addressId: addressId,
       );
 

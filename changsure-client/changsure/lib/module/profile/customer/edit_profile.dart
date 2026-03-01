@@ -156,6 +156,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     try {
       final success = await CustomerService().updateCustomer(
         user.token!,
+        user.id,
         user.role,
         updates,
       );

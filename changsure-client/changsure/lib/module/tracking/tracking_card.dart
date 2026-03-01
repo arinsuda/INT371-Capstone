@@ -1,5 +1,6 @@
 import 'package:changsure/data/models/booking/booking_model.dart';
 import 'package:changsure/data/models/users/users_model.dart';
+import 'package:changsure/data/services/booking_service.dart';
 import 'package:changsure/module/tracking/booking_detail_page.dart';
 import 'package:changsure/state/booking_provider.dart';
 import 'package:changsure/state/user_provider.dart';
@@ -24,26 +25,39 @@ class TrackingCard extends ConsumerWidget {
   });
 
   Future<void> _showCancelConfirmDialog(
-      BuildContext context,
-      WidgetRef ref,
-      Booking booking,
-      ) async {
+    BuildContext context,
+    WidgetRef ref,
+    Booking booking,
+  ) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _CancelWorkDialog(
+      builder: (dialogContext) => _CancelWorkDialog(
         onConfirm: () async {
-          Navigator.of(context).pop();
+          // ปิด dialog ก่อน
+          Navigator.of(dialogContext).pop();
 
-          final controller = ref.read(bookingControllerProvider.notifier);
-          await controller.rejectBooking(
-            booking.id,
-            "ไม่สะดวกรับงาน",
-          );
-
-          Navigator.pop(context); // กลับหน้าก่อนหน้า
+          try {
+            await ref
+                .read(bookingControllerProvider.notifier)
+                .updateBookingStatus(
+                  bookingId: booking.id,
+                  action: BookingAction.reject,
+                  reason: "ติดงานอื่น",
+                );
+            // FIX: ลบ Navigator.pop(context) ออก
+            // TrackingCard อยู่ใน ListView — ไม่ใช่หน้าที่ push มา
+            // การ pop จะทำให้จอดำเพราะไม่มีหน้าให้กลับไป
+            // provider (myBookingsProvider) จะ reload list ให้อัตโนมัติ
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+            }
+          }
         },
-        onCancel: () => Navigator.of(context).pop(),
+        onCancel: () => Navigator.of(dialogContext).pop(),
       ),
     );
   }
@@ -74,7 +88,6 @@ class TrackingCard extends ConsumerWidget {
           ServiceSection(
             booking: booking,
             onViewDetail: () {
-              // Navigate to booking detail page
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -87,7 +100,6 @@ class TrackingCard extends ConsumerWidget {
 
           if (isTechnician) ...[
             const SizedBox(height: 12),
-
             if (booking.status == 'WAITING_PAYMENT')
               _buildClientPaymentAction(context)
             else
@@ -101,14 +113,7 @@ class TrackingCard extends ConsumerWidget {
     );
   }
 
-
-
-  Widget _buildTechnicianActions(
-      BuildContext context,
-      WidgetRef ref,
-      ) {
-    final controller = ref.read(bookingControllerProvider.notifier);
-
+  Widget _buildTechnicianActions(BuildContext context, WidgetRef ref) {
     switch (booking.status) {
       case 'PENDING':
         return Row(
@@ -134,7 +139,23 @@ class TrackingCard extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => controller.acceptBooking(booking.id),
+                onPressed: () async {
+                  try {
+                    await ref
+                        .read(bookingControllerProvider.notifier)
+                        .updateBookingStatus(
+                          bookingId: booking.id,
+                          action: BookingAction.accept,
+                        );
+                    // FIX: ไม่ต้อง pop — list refresh อัตโนมัติจาก realtime
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                    }
+                  }
+                },
                 icon: const Icon(
                   Icons.check,
                   size: 16,
@@ -158,6 +179,7 @@ class TrackingCard extends ConsumerWidget {
             ),
           ],
         );
+
       case 'ACCEPTED':
         return SizedBox(
           width: double.infinity,
@@ -175,14 +197,28 @@ class TrackingCard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: ElevatedButton(
-              onPressed: () => controller.startJob(booking.id),
+              onPressed: () async {
+                try {
+                  await ref
+                      .read(bookingControllerProvider.notifier)
+                      .updateBookingStatus(
+                        bookingId: booking.id,
+                        action: BookingAction.start,
+                      );
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(e.toString())));
+                  }
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 minimumSize: const Size(0, 32),
-                // 👈 สำคัญมาก
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 👈 สำคัญมาก
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
                 "เริ่มปฏิบัติงาน",
@@ -194,6 +230,7 @@ class TrackingCard extends ConsumerWidget {
             ),
           ),
         );
+
       case 'IN_PROGRESS':
         return SizedBox(
           width: double.infinity,
@@ -212,15 +249,13 @@ class TrackingCard extends ConsumerWidget {
               border: Border.all(color: AppColors.primaryBorder, width: 1),
             ),
             child: ElevatedButton(
-              onPressed: () => _showCompleteConfirmDialog(context, controller),
+              onPressed: () => _showCompleteConfirmDialog(context, ref),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 minimumSize: const Size(0, 32),
-                // 👈 สำคัญมาก
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                // 👈 สำคัญมาก
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -265,16 +300,12 @@ class TrackingCard extends ConsumerWidget {
     );
   }
 
-  void _showCompleteConfirmDialog(
-    BuildContext context,
-    BookingController controller,
-  ) {
+  void _showCompleteConfirmDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        return
-          Dialog(
+      builder: (dialogContext) {
+        return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -285,27 +316,26 @@ class TrackingCard extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                const Text(
                   "ยืนยันการดำเนินงานเสร็จสิ้น",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 12),
-                Text(
+                const SizedBox(height: 12),
+                const Text(
                   "คุณดำเนินการเสร็จเรียบร้อยแล้วใช่หรือไม่?\n"
                   "หากยืนยัน ระบบจะพาคุณไปยังขั้นตอนการชำระเงินของลูกค้า และสถานะงานจะไม่สามารถแก้ไขได้อีก",
                   maxLines: 3,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16),
                 ),
-                SizedBox(height: 16),
-
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: TertiaryButton(
                         text: "ยกเลิก",
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                         padding: EdgeInsetsGeometry.symmetric(vertical: 6),
                       ),
                     ),
@@ -315,8 +345,28 @@ class TrackingCard extends ConsumerWidget {
                         text: "ยืนยัน",
                         padding: EdgeInsetsGeometry.symmetric(vertical: 6),
                         onPressed: () async {
-                          Navigator.pop(context); // ปิด dialog ก่อน
-                          await controller.completeJob(booking.id);
+                          Navigator.of(dialogContext).pop();
+                          try {
+                            await ref
+                                .read(bookingControllerProvider.notifier)
+                                .updateBookingStatus(
+                                  bookingId: booking.id,
+                                  action: BookingAction.complete,
+                                );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("งานเสร็จเรียบร้อย"),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                            }
+                          }
                         },
                       ),
                     ),
@@ -329,7 +379,6 @@ class TrackingCard extends ConsumerWidget {
       },
     );
   }
-
 }
 
 class _CancelWorkDialog extends StatelessWidget {
@@ -354,7 +403,7 @@ class _CancelWorkDialog extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            SizedBox(
+            const SizedBox(
               width: 280,
               child: Text(
                 "คุณแน่ใจหรือไม่ว่าต้องการปฏิเสธงานนี้ หากปฏิเสธแล้ว คุณจะไม่สามารถรับงานนี้ได้อีก",
@@ -362,7 +411,6 @@ class _CancelWorkDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ),
-
             const SizedBox(height: 20),
             Row(
               children: [
@@ -391,4 +439,3 @@ class _CancelWorkDialog extends StatelessWidget {
     );
   }
 }
-

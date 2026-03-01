@@ -24,17 +24,18 @@ class MasterDataService {
 
   Map<String, String> _getHeaders(String? token) {
     final headers = <String, String>{'Content-Type': 'application/json'};
-
     if (token?.isNotEmpty ?? false) {
       headers['Authorization'] = 'Bearer $token';
     }
-
     return headers;
   }
 
+  // ─── Generic GET ────────────────────────────────────────────────────────────
+  // BE บางตัวใช้ "success" (service module) บางตัวใช้ "status":"success" (province/district)
+  // ดังนั้น parser รับ body ทั้งก้อนเพื่อให้แต่ละ caller ดึง field เองได้
   Future<T> _get<T>({
     required String endpoint,
-    required T Function(dynamic data) parser,
+    required T Function(Map<String, dynamic> body) parser,
     String? token,
     Map<String, String>? queryParams,
   }) async {
@@ -46,8 +47,8 @@ class MasterDataService {
       final response = await _client.get(uri, headers: _getHeaders(token));
 
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        return parser(json['data']);
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return parser(body);
       }
 
       throw ApiException(
@@ -60,6 +61,7 @@ class MasterDataService {
     }
   }
 
+  // ─── Generic POST ────────────────────────────────────────────────────────────
   Future<T> _post<T>({
     required String endpoint,
     required T Function(dynamic data) parser,
@@ -90,73 +92,78 @@ class MasterDataService {
     }
   }
 
+  // ─── Provinces ───────────────────────────────────────────────────────────────
+  // BE: GET /provinces → { "status": "success", "total": N, "data": [...] }
   Future<List<ProvinceModel>> getProvinces(String? token) async {
     return _get(
       endpoint: '/provinces',
       token: token,
-      parser: (data) =>
-          (data as List).map((e) => ProvinceModel.fromJson(e)).toList(),
+      parser: (body) =>
+          (body['data'] as List).map((e) => ProvinceModel.fromJson(e)).toList(),
     );
   }
 
-  Future<Map<String, dynamic>?> register(RegisterModel model) async {
-    return _post<Map<String, dynamic>?>(
-      endpoint: '/auth/register',
-      body: model.toJson(),
-      parser: (data) => data, // คืน data ตรง ๆ
-    );
-  }
-
-
+  // ─── Districts ───────────────────────────────────────────────────────────────
+  // BE route: GET /provinces/:province_id/districts → { "success": true, "data": [...] }
+  // หมายเหตุ: GET /districts?province_id=X ใช้ utils.ParseUintParam ซึ่ง parse path param
+  // ไม่ใช่ query param ทำให้ได้ 400 เสมอ → ใช้ nested route แทน
   Future<List<DistrictModel>> getDistricts({
     required String? token,
     required int provinceId,
   }) async {
     return _get(
-      endpoint: '/districts',
+      endpoint: '/provinces/$provinceId/districts',
       token: token,
-      queryParams: {'province_id': provinceId.toString()},
-      parser: (data) =>
-          ((data ?? []) as List).map((e) => DistrictModel.fromJson(e)).toList(),
+      parser: (body) => ((body['data'] ?? []) as List)
+          .map((e) => DistrictModel.fromJson(e))
+          .toList(),
     );
   }
 
+  // ─── Sub-Districts ───────────────────────────────────────────────────────────
+  // BE route: GET /districts/:district_id/sub-districts → { "status": "success", "data": [...] }
+  // (ใช้ nested route เหมือน districts เพื่อความสม่ำเสมอ)
   Future<List<SubDistrictModel>> getSubDistricts({
     required String? token,
     required int districtId,
   }) async {
     return _get(
-      endpoint: '/sub-districts',
+      endpoint: '/districts/$districtId/sub-districts',
       token: token,
-      queryParams: {'district_id': districtId.toString()},
-      parser: (data) => ((data ?? []) as List)
+      parser: (body) => ((body['data'] ?? []) as List)
           .map((e) => SubDistrictModel.fromJson(e))
           .toList(),
     );
   }
 
+  // ─── Services ────────────────────────────────────────────────────────────────
+  // BE: GET /services/all → { "success": true, "total": N, "data": [...] }
   Future<List<ServiceModel>> getAllServices(String? token) async {
     if (token?.trim().isEmpty ?? true) {
       throw ApiException('Authentication token is required');
     }
-
     return _get(
       endpoint: '/services/all',
       token: token,
-      parser: (data) =>
-          (data as List).map((e) => ServiceModel.fromJson(e)).toList(),
+      parser: (body) =>
+          (body['data'] as List).map((e) => ServiceModel.fromJson(e)).toList(),
     );
   }
 
+  // BE: GET /services?category_id=X → { "success": true, "total": N, "data": [...] }
   Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
     return _get(
       endpoint: '/services',
       queryParams: {'category_id': categoryId.toString()},
-      parser: (data) =>
-          ((data ?? []) as List).map((e) => ServiceModel.fromJson(e)).toList(),
+      parser: (body) => ((body['data'] ?? []) as List)
+          .map((e) => ServiceModel.fromJson(e))
+          .toList(),
     );
   }
 
+  // ─── Service Categories (with services merged) ────────────────────────────────
+  // BE: GET /service-categories → { "success": true, "data": [...] }
+  // BE: GET /services/all       → { "success": true, "total": N, "data": [...] }
   Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices(
     String? token,
   ) async {
@@ -210,6 +217,9 @@ class MasterDataService {
     }
   }
 
+  // ─── Technicians ─────────────────────────────────────────────────────────────
+  // BE: GET /technicians?service_id=X&province_id=Y
+  //     → { "success": true, "data": { "items": [...], ... } }
   Future<List<Technician>> getAllTechnicians({
     required String? token,
     required int serviceId,
@@ -222,12 +232,13 @@ class MasterDataService {
         'service_id': serviceId.toString(),
         'province_id': provinceId.toString(),
       },
-      parser: (data) => ((data?['items'] ?? []) as List)
+      parser: (body) => ((body['data']?['items'] ?? []) as List)
           .map((e) => Technician.fromJson(e))
           .toList(),
     );
   }
 
+  // BE: POST /technicians/auto-select → { "success": true, "data": { ... } | null }
   Future<Technician?> getAutoSelectTechnician({
     required String? token,
     required int serviceId,
@@ -250,10 +261,21 @@ class MasterDataService {
     );
   }
 
+  // ─── Register ────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>?> register(RegisterModel model) async {
+    return _post<Map<String, dynamic>?>(
+      endpoint: '/auth/register',
+      body: model.toJson(),
+      parser: (data) => data,
+    );
+  }
+
   void dispose() {
     _client.close();
   }
 }
+
+// ─── Providers ────────────────────────────────────────────────────────────────
 
 final masterDataServiceProvider = Provider((ref) {
   final service = MasterDataService();
@@ -269,17 +291,13 @@ final provincesProvider = FutureProvider<List<ProvinceModel>>((ref) async {
   final token = ref.watch(tokenProvider);
   return ref.read(masterDataServiceProvider).getProvinces(token);
 });
-class RegisterNotifier
-    extends AsyncNotifier<Map<String, dynamic>?> {
 
+class RegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
   @override
-  Future<Map<String, dynamic>?> build() async {
-    return null;
-  }
+  Future<Map<String, dynamic>?> build() async => null;
 
   Future<void> register(RegisterModel model) async {
     state = const AsyncLoading();
-
     try {
       final service = ref.read(masterDataServiceProvider);
       final result = await service.register(model);
@@ -291,9 +309,9 @@ class RegisterNotifier
 }
 
 final registerProvider =
-AsyncNotifierProvider<RegisterNotifier, Map<String, dynamic>?>(
-  RegisterNotifier.new,
-);
+    AsyncNotifierProvider<RegisterNotifier, Map<String, dynamic>?>(
+      RegisterNotifier.new,
+    );
 
 final districtsProvider = FutureProvider.family<List<DistrictModel>, int>((
   ref,
@@ -316,11 +334,7 @@ final subDistrictsProvider = FutureProvider.family<List<SubDistrictModel>, int>(
 
 final allServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
   final token = ref.watch(tokenProvider);
-
-  if (token == null || token.isEmpty) {
-    return [];
-  }
-
+  if (token == null || token.isEmpty) return [];
   return ref.read(masterDataServiceProvider).getAllServices(token);
 });
 
@@ -328,11 +342,7 @@ final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
 ) async {
   final token = ref.watch(tokenProvider);
-
-  if (token == null || token.isEmpty) {
-    return [];
-  }
-
+  if (token == null || token.isEmpty) return [];
   return ref
       .read(masterDataServiceProvider)
       .getServiceCategoriesWithServices(token);

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:changsure/state/notifications/notification_provider.dart';
+import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -68,6 +70,20 @@ class AppRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userProvider);
+
+    if (userState != null) {
+      ref.listen(realtimeStreamProvider, (previous, next) {
+        next.whenData((event) {
+          final type = event['type']?.toString() ?? '';
+          print("🌐 Global Socket Event: $type");
+
+          if (type == 'NOTIFICATION_NEW' || type.startsWith('BOOKING_')) {
+            ref.read(notificationProvider.notifier).loadInitialData();
+          }
+        });
+      });
+    }
+
     return userState == null ? const StartPage() : const FooterBarTemplate();
   }
 }

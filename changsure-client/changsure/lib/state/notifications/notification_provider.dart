@@ -9,21 +9,31 @@ class NotificationState {
   final int unreadCount;
   final bool isLoading;
 
+  final int? nextCursor;
+  final bool hasMore;
+
   NotificationState({
     this.items = const [],
     this.unreadCount = 0,
     this.isLoading = false,
+    this.nextCursor,
+    this.hasMore = false,
   });
 
   NotificationState copyWith({
     List<NotificationModel>? items,
     int? unreadCount,
     bool? isLoading,
+    int? nextCursor,
+    bool? hasMore,
+    bool clearNextCursor = false,
   }) {
     return NotificationState(
       items: items ?? this.items,
       unreadCount: unreadCount ?? this.unreadCount,
       isLoading: isLoading ?? this.isLoading,
+      nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
+      hasMore: hasMore ?? this.hasMore,
     );
   }
 }
@@ -44,33 +54,18 @@ class NotificationNotifier extends Notifier<NotificationState> {
       return NotificationState(items: [], unreadCount: 0, isLoading: false);
     }
 
-    _setupRealtimeListener();
-
     Future.microtask(() => loadInitialData());
 
     return NotificationState(isLoading: true);
   }
 
-  void _setupRealtimeListener() {
-    ref.listen(realtimeStreamProvider, (previous, next) {
-      next.whenData((event) {
-        print("🔔 Socket Event: ${event['type']}");
-
-        if (event['type'] == 'NOTIFICATION_NEW') {
-          _handleNewNotification(event['data']);
-        } else if (event['type'].toString().startsWith('BOOKING_')) {
-          print("🔄 Booking Event detected! Reloading notifications...");
-          loadInitialData();
-        }
-      });
-    });
-  }
-
-  void _handleNewNotification(Map<String, dynamic> data) {
+  void _handleNewNotification(dynamic data) {
+    if (data == null || data is! Map<String, dynamic>) return;
     try {
       if (data['notification'] != null) {
-        final newNoti = NotificationModel.fromJson(data['notification']);
-
+        final newNoti = NotificationModel.fromJson(
+          data['notification'] as Map<String, dynamic>,
+        );
         state = state.copyWith(
           items: [newNoti, ...state.items],
           unreadCount: state.unreadCount + 1,
@@ -88,37 +83,49 @@ class NotificationNotifier extends Notifier<NotificationState> {
     try {
       state = state.copyWith(isLoading: true);
 
-      final results = await Future.wait([
-        _service.list(token: user!.token!, limit: 20),
-        _service.getUnreadCount(user.token!),
-      ]);
+      final result = await _service.list(token: user!.token!, limit: 20);
+
+      final unreadCount = result.items.where((n) => !n.isRead).length;
 
       state = state.copyWith(
-        items: results[0] as List<NotificationModel>,
-        unreadCount: results[1] as int,
+        items: result.items,
+
+        unreadCount: unreadCount,
         isLoading: false,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
       );
     } catch (e) {
       print("Load notification error: $e");
       state = state.copyWith(isLoading: false);
     }
-  }
+}
 
   Future<void> loadMore() async {
     final user = ref.read(userProvider);
-    if (user?.token == null || state.items.isEmpty) return;
 
-    final lastId = state.items.last.id;
+    if (user?.token == null || !state.hasMore || state.nextCursor == null) {
+      return;
+    }
 
     try {
-      final newItems = await _service.list(
+      final result = await _service.list(
         token: user!.token!,
-        cursor: lastId,
-        limit: 10,
+        cursor: state.nextCursor,
+        limit: 20,
       );
 
-      if (newItems.isNotEmpty) {
-        state = state.copyWith(items: [...state.items, ...newItems]);
+      if (result.items.isNotEmpty) {
+        final newUnread = result.items.where((n) => !n.isRead).length;
+        state = state.copyWith(
+          items: [...state.items, ...result.items],
+          unreadCount: state.unreadCount + newUnread,
+          nextCursor: result.nextCursor,
+          hasMore: result.hasMore,
+          clearNextCursor: result.nextCursor == null,
+        );
+      } else {
+        state = state.copyWith(hasMore: false, clearNextCursor: true);
       }
     } catch (e) {
       print("Load more error: $e");
@@ -132,33 +139,22 @@ class NotificationNotifier extends Notifier<NotificationState> {
     final isCurrentlyUnread = state.items.any((n) => n.id == id && !n.isRead);
 
     final updatedItems = state.items.map((n) {
-      if (n.id == id) {
-        return NotificationModel(
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          entityType: n.entityType,
-          entityId: n.entityId,
-          data: n.data,
-          createdAt: n.createdAt,
-          isRead: true,
-        );
-      }
-      return n;
+      return n.id == id ? n.copyWith(isRead: true) : n;
     }).toList();
 
-    int newCount = state.unreadCount;
-    if (isCurrentlyUnread) {
-      newCount = (newCount - 1).clamp(0, 9999);
-    }
-
-    state = state.copyWith(items: updatedItems, unreadCount: newCount);
+    state = state.copyWith(
+      items: updatedItems,
+      unreadCount: isCurrentlyUnread
+          ? (state.unreadCount - 1).clamp(0, 9999)
+          : state.unreadCount,
+    );
 
     try {
-      await _service.markRead(token: user!.token!, ids: [id]);
+      await _service.markOneRead(token: user!.token!, id: id);
     } catch (e) {
       print("Mark read failed: $e");
+
+      await loadInitialData();
     }
   }
 
@@ -166,22 +162,23 @@ class NotificationNotifier extends Notifier<NotificationState> {
     final user = ref.read(userProvider);
     if (user?.token == null) return;
 
-    final updatedItems = state.items.map((n) {
-      return NotificationModel(
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        entityType: n.entityType,
-        entityId: n.entityId,
-        data: n.data,
-        createdAt: n.createdAt,
-        isRead: true,
-      );
-    }).toList();
+    final unreadIds = state.items
+        .where((n) => !n.isRead)
+        .map((n) => n.id)
+        .toList();
 
+    if (unreadIds.isEmpty) return;
+
+    final updatedItems = state.items
+        .map((n) => n.copyWith(isRead: true))
+        .toList();
     state = state.copyWith(items: updatedItems, unreadCount: 0);
 
-    await _service.readAll(user!.token!);
+    try {
+      await _service.readAll(token: user!.token!, unreadIds: unreadIds);
+    } catch (e) {
+      print("Read all failed: $e");
+      await loadInitialData();
+    }
   }
 }

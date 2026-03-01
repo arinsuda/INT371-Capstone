@@ -149,6 +149,7 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
     try {
       final success = await CustomerService().updateCustomer(
         user.token!,
+        user.id,
         user.role,
         updates,
       );

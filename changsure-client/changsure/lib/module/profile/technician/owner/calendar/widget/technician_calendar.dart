@@ -38,27 +38,24 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
     List<PublicCalendarDay> days,
   ) {
     final map = <DateTime, PublicCalendarDay>{};
-
     for (final day in days) {
       final normalized = DateTime(day.date.year, day.date.month, day.date.day);
-
       map[normalized] = day;
     }
-
     return map;
   }
 
   @override
   void initState() {
     super.initState();
-
     final today = DateTime(now.year, now.month, now.day);
-
     bookingStart = today;
     bookingEnd = DateTime(today.year, today.month + 1, today.day);
-
     _selectedDay = widget.selectedDay;
   }
+
+  String get _currentMonthKey =>
+      "${focusedDay.year}-${focusedDay.month.toString().padLeft(2, '0')}";
 
   Widget _buildCalendarHeader() {
     return Padding(
@@ -112,7 +109,6 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          /// ฝั่งซ้าย
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
@@ -121,14 +117,12 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
               LegendItem(color: AppColors.colorError, text: 'คิวเต็ม'),
             ],
           ),
-          SizedBox(width: 70),
-
-          /// ฝั่งขวา
+          const SizedBox(width: 70),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               LegendItem(
-                color: AppColors.primary, // primary
+                color: AppColors.primary,
                 text: 'วันที่เลือกจองบริการ',
               ),
               SizedBox(height: 12),
@@ -149,7 +143,7 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
           _buildTableCalendar(calendarMap),
           const SizedBox(height: 24),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -163,9 +157,7 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                 ),
                 Builder(
                   builder: (context) {
-                    if (_selectedDay == null) {
-                      return const SizedBox();
-                    }
+                    if (_selectedDay == null) return const SizedBox();
 
                     final normalized = DateTime(
                       _selectedDay!.year,
@@ -174,21 +166,18 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                     );
 
                     final selectedData = calendarMap[normalized];
-
                     final currentStatus =
-                        selectedData?.status?.toUpperCase() ?? "AVAILABLED";
-
+                        selectedData?.status?.toUpperCase() ?? "AVAILABLE";
                     final bookedSlots = selectedData?.bookedSlots ?? 0;
-
                     final isOpenFromApi = currentStatus != "CLOSED";
 
-                    // 🔥 ถ้ามีงานจองแล้ว → ห้ามปิด
+                    // ถ้ามีงานจองแล้ว → ห้ามปิด
                     final bool cannotClose = bookedSlots > 0 && isOpenFromApi;
 
                     return Switch(
                       value: isOpenFromApi,
                       onChanged: cannotClose
-                          ? null // ❌ disabled
+                          ? null
                           : (value) async {
                               final dateString = DateFormat(
                                 'yyyy-MM-dd',
@@ -202,22 +191,19 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                                   )).future,
                                 );
 
+                                // ✅ invalidate ด้วย monthKey ที่ถูกต้อง
                                 ref.invalidate(
                                   technicianCalendarProvider((
-                                    month:
-                                        "${focusedDay.year}-${focusedDay.month.toString().padLeft(2, '0')}",
+                                    month: _currentMonthKey,
                                   )),
                                 );
                               } catch (e) {
-                                debugPrint("Update failed: $e");
+                                debugPrint("Update calendar failed: $e");
                               }
                             },
-                      thumbColor: MaterialStateProperty.resolveWith((states) {
-                        if (states.contains(MaterialState.disabled)) {
-                          return Colors.white;
-                        }
-                        return Colors.white;
-                      }),
+                      thumbColor: MaterialStateProperty.resolveWith(
+                        (_) => Colors.white,
+                      ),
                       trackColor: MaterialStateProperty.resolveWith((states) {
                         if (states.contains(MaterialState.disabled)) {
                           return AppColors.colorStroke.withOpacity(0.5);
@@ -227,14 +213,9 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                         }
                         return AppColors.colorStroke;
                       }),
-                      trackOutlineColor: MaterialStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(MaterialState.selected)) {
-                          return Colors.white;
-                        }
-                        return Colors.white;
-                      }),
+                      trackOutlineColor: MaterialStateProperty.resolveWith(
+                        (_) => Colors.white,
+                      ),
                     );
                   },
                 ),
@@ -260,7 +241,6 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
       firstDay: DateTime(now.year - 5, 1, 1),
       lastDay: DateTime(now.year + 5, 12, 31),
       focusedDay: focusedDay,
-
       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
       onDaySelected: (selected, focused) {
         final normalized = DateTime(
@@ -280,15 +260,12 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
         });
 
         final data = calendarMap[normalized];
-
-        final timeSlots = data?.timeSlots ?? []; // 🔥 ดึง timeSlots ของวันนั้น
+        final timeSlots = data?.timeSlots ?? [];
 
         widget.onDaySelected?.call(selected);
-        widget.onDayDataSelected?.call(selected, timeSlots); // 🔥 ส่งออก
+        widget.onDayDataSelected?.call(selected, timeSlots);
       },
-
       headerVisible: false,
-
       calendarStyle: const CalendarStyle(
         isTodayHighlighted: false,
         defaultTextStyle: TextStyle(color: AppColors.primaryText),
@@ -296,7 +273,6 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
         cellMargin: EdgeInsets.zero,
         cellPadding: EdgeInsets.zero,
       ),
-
       calendarBuilders: CalendarBuilders(
         defaultBuilder: (context, day, _) {
           final normalized = DateTime(day.year, day.month, day.day);
@@ -321,11 +297,11 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
             }
           }
 
-          final hasBooked = data?.bookings
-              ?.where((b) => b.status?.toUpperCase() != "REJECTED")
-              .isNotEmpty ??
+          final hasBooked =
+              data?.bookings
+                  ?.where((b) => b.status?.toUpperCase() != "REJECTED")
+                  .isNotEmpty ??
               false;
-
 
           return SizedBox(
             height: 50,
@@ -340,7 +316,6 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-
                 if (hasBooked)
                   Positioned(
                     bottom: 2,
@@ -357,27 +332,23 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
             ),
           );
         },
-
-
         selectedBuilder: (context, day, _) {
           final normalized = DateTime(day.year, day.month, day.day);
           final data = calendarMap[normalized];
 
-          final validBookings = data?.bookings
-              ?.where((b) => b.status?.toUpperCase() != "REJECTED")
-              .toList() ??
+          final validBookings =
+              data?.bookings
+                  ?.where((b) => b.status?.toUpperCase() != "REJECTED")
+                  .toList() ??
               [];
 
-          final bookedSlots = validBookings.length;
-          final hasBooked = bookedSlots > 0;
-          final isFulled = data?.status == "FULL";
-
+          final hasBooked = validBookings.isNotEmpty;
+          final isFulled = data?.status?.toUpperCase() == "FULL";
 
           Color backgroundColor;
-
           if (isFulled) {
             backgroundColor = AppColors.colorError;
-          } else if (bookedSlots == 0) {
+          } else if (!hasBooked) {
             backgroundColor = AppColors.primaryBorder;
           } else {
             backgroundColor = AppColors.secondary;
@@ -405,7 +376,6 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
                     ),
                   ),
                 ),
-
                 if (hasBooked)
                   Positioned(
                     bottom: 2,
@@ -422,23 +392,20 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
             ),
           );
         },
-
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final monthKey =
-        "${focusedDay.year}-${focusedDay.month.toString().padLeft(2, '0')}";
-
-    final asyncValue = ref.watch(technicianCalendarProvider((month: monthKey)));
+    final asyncValue = ref.watch(
+      technicianCalendarProvider((month: _currentMonthKey)),
+    );
 
     final response = asyncValue.value;
-    print(response?.days.map((e) => "${e.date} ${e.status}").toList());
 
-    // 🔴 โหลดครั้งแรกเท่านั้น
-    if (response == null) {
+    // โหลดครั้งแรก
+    if (response == null && asyncValue.isLoading) {
       return Container(
         height: 500,
         color: Colors.white.withOpacity(0.6),
@@ -451,17 +418,43 @@ class _TechnicianCalendarState extends ConsumerState<TechnicianCalendar> {
       );
     }
 
-    final calendarMap = _createCalendarMap(response.days);
+    // error state
+    if (response == null && asyncValue.hasError) {
+      return Container(
+        height: 500,
+        color: Colors.white,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 40),
+              const SizedBox(height: 8),
+              Text(
+                "โหลดปฏิทินไม่สำเร็จ",
+                style: TextStyle(color: AppColors.colorTertiaryText),
+              ),
+              TextButton(
+                onPressed: () => ref.invalidate(
+                  technicianCalendarProvider((month: _currentMonthKey)),
+                ),
+                child: const Text("ลองอีกครั้ง"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final calendarMap = _createCalendarMap(response?.days ?? []);
 
     return Stack(
       children: [
         _buildCalendarContent(calendarMap),
 
-        // 🟡 ถ้ากำลังโหลดเดือนใหม่ → show spinner เล็ก ๆ
+        // กำลังโหลดเดือนใหม่ → spinner overlay
         if (asyncValue.isLoading)
           Positioned.fill(
             child: Container(
-              height: 500,
               color: Colors.white.withOpacity(0.6),
               child: const Center(
                 child: Padding(

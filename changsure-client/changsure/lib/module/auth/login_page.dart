@@ -8,10 +8,7 @@ import 'package:changsure/data/services/auth_service.dart';
 
 import 'package:changsure/core/button/primary_button.dart';
 import 'package:changsure/core/theme.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-import '../home/home_page.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -35,10 +32,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         '173461597544-cqjirm6jamgp745ak1tpc1t1b27shet7.apps.googleusercontent.com',
   );
 
-  Future<void> signInWithGoogle() async {
+  bool get _isFormValid {
+    final email = _usernameController.text;
+    final password = _passwordController.text;
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    return email.isNotEmpty &&
+        password.isNotEmpty &&
+        emailRegex.hasMatch(email);
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final authService = AuthService();
+      final result = await authService.login(
+        _usernameController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (result != null) {
+        final roleStr = (result['role'] as String).toUpperCase();
+
+        final user = UserModel(
+          id: result['user_id'] as int,
+          token: result['access_token'] as String,
+          role: roleStr == 'TECHNICIAN'
+              ? UserRole.technician
+              : UserRole.customer,
+        );
+
+        final refreshToken = result['refresh_token'] as String;
+
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        await ref.read(userProvider.notifier).login(user, refreshToken);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('อีเมลหรือรหัสผ่านไม่ถูกต้อง'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
-
       if (account == null) {
         print("User cancelled login");
         return;
@@ -46,24 +102,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final GoogleSignInAuthentication auth = await account.authentication;
 
+      // TODO: ส่ง auth.idToken ไปยัง BE เพื่อแลก access_token
       print("ID Token: ${auth.idToken}");
       print("Access Token: ${auth.accessToken}");
       print("Email: ${account.email}");
-      print("Name: ${account.displayName}");
     } catch (error) {
       print("Error signing in: $error");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign-In ล้มเหลว: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-  }
-
-  bool get _isFormValid {
-    final email = _usernameController.text;
-    final password = _passwordController.text;
-
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-
-    return email.isNotEmpty &&
-        password.isNotEmpty &&
-        emailRegex.hasMatch(email);
   }
 
   @override
@@ -72,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 100),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 100),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: IntrinsicHeight(
@@ -90,7 +143,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           height: 40,
                         ),
                       ),
-                      SizedBox(height: 32),
+                      const SizedBox(height: 32),
                       const Text(
                         'ลงชื่อเข้าสู่ระบบ',
                         style: TextStyle(
@@ -99,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: Colors.black,
                         ),
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
                       const Text(
                         'กรุณากรอกอีเมลและรหัสผ่าน',
                         style: TextStyle(
@@ -107,16 +160,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: AppColors.colorTertiaryText,
                         ),
                       ),
-                      SizedBox(height: 32),
+                      const SizedBox(height: 32),
 
                       _buildTextField(
                         label: 'อีเมล',
                         controller: _usernameController,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       _buildPasswordField(),
-                      SizedBox(height: 16),
-
+                      const SizedBox(height: 16),
 
                       Align(
                         alignment: Alignment.centerRight,
@@ -132,7 +184,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
                       Align(
                         alignment: Alignment.centerRight,
@@ -140,80 +192,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           text: _isLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ',
                           onPressed: (!_isFormValid || _isLoading)
                               ? null
-                              : () async {
-                                  if (!_formKey.currentState!.validate()) {
-                                    return;
-                                  }
-                                  setState(() {
-                                    _isLoading = true;
-                                  });
-
-                                  final authService = AuthService();
-
-                                  final Map<String, dynamic>? response =
-                                      await authService.login(
-                                        _usernameController.text.trim(),
-                                        _passwordController.text.trim(),
-                                      );
-
-                                  if (mounted) {
-                                    setState(() {
-                                      _isLoading = false;
-                                    });
-                                  }
-
-                                  if (response != null &&
-                                      response['data'] != null) {
-                                    final Map<String, dynamic> data =
-                                        response['data'];
-
-                                    final accessToken = data['access_token'];
-                                    final refreshToken = data['refresh_token'];
-
-                                    Map<String, dynamic> decodedToken =
-                                        JwtDecoder.decode(accessToken);
-
-                                    UserRole role = UserRole.customer;
-                                    if (decodedToken['role'] == 'technician') {
-                                      role = UserRole.technician;
-                                    }
-
-                                    final userId =
-                                        decodedToken['user_id'] ??
-                                        decodedToken['sub'] ??
-                                        0;
-
-                                    final userModel = UserModel(
-                                      id: userId,
-                                      token: accessToken,
-                                      role: role,
-                                    );
-
-                                    Navigator.of(context).popUntil((route) => route.isFirst);
-
-                                    ref
-                                        .read(userProvider.notifier)
-                                        .login(userModel, refreshToken);
-
-                                  } else {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
+                              : _handleLogin,
                         ),
                       ),
 
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
                       Row(
                         children: const [
                           Expanded(
@@ -239,9 +222,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       OutlinedButton(
-                        onPressed: signInWithGoogle,
+                        onPressed: _signInWithGoogle,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 48),
                           shape: RoundedRectangleBorder(
@@ -273,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 32),
+                      const SizedBox(height: 32),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -338,30 +321,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           keyboardType: TextInputType.emailAddress,
           onChanged: (_) => setState(() {}),
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'กรุณากรอกอีเมล';
-            }
-
+            if (value == null || value.isEmpty) return 'กรุณากรอกอีเมล';
             final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-
-            if (!emailRegex.hasMatch(value)) {
-              return 'รูปแบบอีเมลไม่ถูกต้อง';
-            }
-
+            if (!emailRegex.hasMatch(value)) return 'รูปแบบอีเมลไม่ถูกต้อง';
             return null;
           },
           decoration: InputDecoration(
-            border: OutlineInputBorder(
+            border: const OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
-            // 🔴 สีข้อความ error
             errorStyle: const TextStyle(
               color: AppColors.colorError,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
-
-            // 🔴 สีกรอบตอน error
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(
@@ -369,8 +342,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 width: 1,
               ),
             ),
-
-            // 🔴 สีกรอบตอน focus + error
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(
@@ -402,9 +373,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           obscureText: _obscurePassword,
           onChanged: (_) => setState(() {}),
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'กรุณากรอกรหัสผ่าน';
-            }
+            if (value == null || value.isEmpty) return 'กรุณากรอกรหัสผ่าน';
             return null;
           },
           decoration: InputDecoration(
@@ -416,11 +385,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
                 color: Colors.grey,
               ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            errorStyle: const TextStyle(
+              color: AppColors.colorError,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -428,11 +399,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 color: AppColors.colorError,
                 width: 1,
               ),
-            ),
-            errorStyle: const TextStyle(
-              color: AppColors.colorError,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),

@@ -1,3 +1,4 @@
+import 'package:changsure/data/services/booking_service.dart';
 import 'package:changsure/module/home/booking/section/booking_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,18 +39,17 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
       barrierDismissible: false,
       builder: (context) => _DeleteConfirmationDialog(
         onConfirm: () async {
-          Navigator.of(context).pop(); // ปิด dialog ก่อน
+          Navigator.of(context).pop();
 
           final bookingId = widget.response.data?.id;
-
           if (bookingId == null) return;
 
           try {
             await ref
                 .read(bookingControllerProvider.notifier)
                 .cancelBooking(
-                  bookingId,
-                  "User cancelled immediately after booking",
+                  bookingId: bookingId,
+                  reason: "User cancelled immediately after booking",
                 );
 
             if (!mounted) return;
@@ -62,7 +62,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
               context,
               (route) => route.settings.name == '/serviceDetail',
             );
-            debugPrint("CANCEL BOOKING Success");
           } catch (e) {
             debugPrint("CANCEL BOOKING ERROR => $e");
             if (!mounted) return;
@@ -76,11 +75,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
       ),
     );
   }
-
-  final List<String> images = [
-    "assets/image/clean1.png",
-    "assets/image/clean2.png",
-  ];
 
   late String bookingDateStr;
 
@@ -105,9 +99,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
   Widget build(BuildContext context) {
     final data = widget.response.data;
     final note = data?.customerNote;
-
-    print(widget.address?.subDistrict);
-    print(widget.address?.district);
 
     return Scaffold(
       body: SafeArea(
@@ -165,7 +156,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                         color: AppColors.primary,
                       ),
                       const SizedBox(width: 8),
-
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,19 +208,19 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
             ),
             Container(height: 24, color: AppColors.primaryBGHover),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     "รายละเอียดคำสั่งซื้อ",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text("หมายเลขบริการ"),
+                      const Text("หมายเลขบริการ"),
                       const Spacer(),
                       Text(
                         data?.bookingNumber ?? "-",
@@ -241,17 +231,17 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text("วิธีการชำระเงิน"),
+                      const Text("วิธีการชำระเงิน"),
                       const Spacer(),
                       Image.asset(
                         'assets/icons/COD_logo.png',
                         width: 24,
                         height: 24,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         "เก็บเงินปลายทาง",
                         style: TextStyle(
@@ -261,10 +251,10 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text("วันที่จองบริการ"),
+                      const Text("วันที่จองบริการ"),
                       const Spacer(),
                       Text(
                         bookingDateStr,
@@ -293,10 +283,8 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   const Text("รูปภาพหน้างาน", style: TextStyle(fontSize: 14)),
                   const SizedBox(height: 8),
-
                   (data?.images == null || data!.images!.isEmpty)
                       ? const Text(
                           "ไม่มีรูปภาพเพิ่มเติม",
@@ -320,7 +308,6 @@ class _BookingSuccessState extends ConsumerState<BookingSuccess> {
                             );
                           }).toList(),
                         ),
-
                   const SizedBox(height: 16),
                   const Text(
                     "รายละเอียดเพิ่มเติม",
@@ -422,11 +409,10 @@ class _DeleteConfirmationDialog extends StatelessWidget {
               width: 280,
               child: Text(
                 "คุณต้องการยกเลิกการจองครั้งนี้ใช่หรือไม่ หากยกเลิก ข้อมูลการจองของคุณจะไม่ถูกบันทึก",
-                style: TextStyle(fontSize: 14, color: Colors.black87),
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
                 textAlign: TextAlign.center,
               ),
             ),
-
             const SizedBox(height: 20),
             Row(
               children: [

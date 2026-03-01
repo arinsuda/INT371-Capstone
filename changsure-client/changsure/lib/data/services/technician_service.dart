@@ -7,11 +7,13 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:changsure/core/constants/api_constants.dart';
 
-import '../models/booking/booking_model.dart';
-
 class TechnicianService {
+
+  // Technician
+  
   Future<bool> updateProfile({
     required String token,
+    required int technicianId,
     required String firstName,
     required String lastName,
     required String phone,
@@ -20,7 +22,7 @@ class TechnicianService {
     List<Map<String, dynamic>>? services,
     File? avatarFile,
   }) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/profile');
+    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/$technicianId');
 
     final request = http.MultipartRequest('PATCH', url);
 
@@ -73,15 +75,107 @@ class TechnicianService {
     }
   }
 
-  Future<List<PostModel>> getMyPosts(String token, {int? categoryId}) async {
+  Future<bool> updateProvinces({
+    required String token,
+    required int technicianId,
+    required List<int> provinceIds,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/provinces',
+    );
+
     try {
-      Map<String, String> queryParams = {};
-      if (categoryId != null) {
-        queryParams['category_id'] = categoryId.toString();
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'province_ids': provinceIds}),
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Update Provinces Success");
+        return true;
+      } else {
+        print("❌ Update Provinces Failed: ${response.statusCode}");
+        return false;
       }
+    } catch (e) {
+      print("❌ Error updating provinces: $e");
+      return false;
+    }
+  }
+
+  Future<bool> uploadAvatar({
+    required String token,
+    required int technicianId,
+    required File avatarFile,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/avatar',
+    );
+
+    final request = http.MultipartRequest('PATCH', url);
+    request.headers.addAll({'Authorization': 'Bearer $token'});
+
+    final mimeTypeData = lookupMimeType(avatarFile.path)?.split('/');
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        avatarFile.path,
+        contentType: mimeTypeData != null
+            ? MediaType(mimeTypeData[0], mimeTypeData[1])
+            : null,
+      ),
+    );
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        print("✅ Upload Avatar Success");
+        return true;
+      } else {
+        print("❌ Upload Avatar Failed: ${response.statusCode}");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Error uploading avatar: $e");
+      return false;
+    }
+  }
+
+  // Post
+
+  Future<List<PostModel>> getMyPosts({
+    required String token,
+    required int technicianId,
+    int? categoryId,
+    int? serviceId,
+    int? provinceId,
+    String? search,
+    bool? isPublished,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    try {
+      final Map<String, String> queryParams = {
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+      };
+      if (categoryId != null)
+        queryParams['category_id'] = categoryId.toString();
+      if (serviceId != null) queryParams['service_id'] = serviceId.toString();
+      if (provinceId != null)
+        queryParams['province_id'] = provinceId.toString();
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (isPublished != null)
+        queryParams['is_published'] = isPublished.toString();
 
       final url = Uri.parse(
-        '${ApiConstants.baseUrl}/technicians/me/posts',
+        '${ApiConstants.baseUrl}/technicians/$technicianId/posts',
       ).replace(queryParameters: queryParams);
 
       final response = await http.get(
@@ -94,10 +188,8 @@ class TechnicianService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-
         if (json['success'] == true && json['data'] != null) {
           final List<dynamic> items = json['data']['items'] ?? [];
-
           return items.map((e) => PostModel.fromJson(e)).toList();
         }
       } else {
@@ -106,31 +198,28 @@ class TechnicianService {
     } catch (e) {
       print("❌ Error fetching posts: $e");
     }
-
     return [];
   }
 
   Future<bool> createPost({
     required String token,
-    required String description,
-    required int categoryId,
-    String? title,
-    int? provinceId,
+    required int technicianId,
+    required String title,
+    String? description,
+    int? categoryId,
     List<File>? images,
   }) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts');
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/posts',
+    );
     final request = http.MultipartRequest('POST', url);
-
     request.headers.addAll({'Authorization': 'Bearer $token'});
 
-    request.fields['description'] = description;
-    request.fields['service_category_id'] = categoryId.toString();
-
-    request.fields['title'] =
-        title ??
-        (description.length > 20 ? description.substring(0, 20) : description);
-
-    request.fields['post_date'] = DateTime.now().toIso8601String();
+    request.fields['title'] = title;
+    if (description != null) request.fields['description'] = description;
+    if (categoryId != null) {
+      request.fields['service_category_id'] = categoryId.toString();
+    }
 
     if (images != null) {
       for (var file in images) {
@@ -150,20 +239,33 @@ class TechnicianService {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("✅ Create Post Success");
+        return true;
+      } else {
+        print(
+          "❌ Create Post Failed: ${response.statusCode} - ${response.body}",
+        );
+        return false;
+      }
     } catch (e) {
       print("❌ Create Post Error: $e");
       return false;
     }
   }
 
-  Future<PostModel?> getPostById(String token, int id) async {
+  Future<PostModel?> getPostById({
+    required String token,
+    required int technicianId,
+    required int postId,
+  }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts/$id'),
+        Uri.parse(
+          '${ApiConstants.baseUrl}/technicians/$technicianId/posts/$postId',
+        ),
         headers: {'Authorization': 'Bearer $token'},
       );
-
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json['success'] == true && json['data'] != null) {
@@ -178,26 +280,29 @@ class TechnicianService {
 
   Future<bool> updatePost({
     required String token,
+    required int technicianId,
     required int postId,
     String? title,
     String? description,
     int? categoryId,
-    int? provinceId,
+    bool? isPublished,
     List<File>? newImages,
     List<int>? imageIdsToDelete,
   }) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/me/posts/$postId',
+      '${ApiConstants.baseUrl}/technicians/$technicianId/posts/$postId',
     );
     final request = http.MultipartRequest('PUT', url);
-
     request.headers.addAll({'Authorization': 'Bearer $token'});
 
     if (title != null) request.fields['title'] = title;
     if (description != null) request.fields['description'] = description;
-    if (categoryId != null)
+    if (categoryId != null) {
       request.fields['service_category_id'] = categoryId.toString();
-
+    }
+    if (isPublished != null) {
+      request.fields['is_published'] = isPublished.toString();
+    }
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
       request.fields['image_ids_to_delete'] = imageIdsToDelete.join(',');
     }
@@ -220,17 +325,34 @@ class TechnicianService {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("✅ Update Post Success");
+        return true;
+      } else {
+        print(
+          "❌ Update Post Failed: ${response.statusCode} - ${response.body}",
+        );
+        return false;
+      }
     } catch (e) {
       print("❌ Update Post Error: $e");
       return false;
     }
   }
 
-  Future<bool> deletePost({required String token, required int postId}) async {
+  Future<bool> deletePost({
+    required String token,
+    required int technicianId,
+    required int postId,
+    bool hard = false,
+  }) async {
     try {
+      final url = Uri.parse(
+        '${ApiConstants.baseUrl}/technicians/$technicianId/posts/$postId',
+      ).replace(queryParameters: hard ? {'hard': 'true'} : null);
+
       final response = await http.delete(
-        Uri.parse('${ApiConstants.baseUrl}/technicians/me/posts/$postId'),
+        url,
         headers: {'Authorization': 'Bearer $token'},
       );
       return response.statusCode == 200 || response.statusCode == 204;
@@ -240,13 +362,19 @@ class TechnicianService {
     }
   }
 
-  Future<List<AddressModel>> getAddresses(String token) async {
+  // Address
+
+  Future<List<AddressModel>> getAddresses({
+    required String token,
+    required int technicianId,
+  }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses'),
+        Uri.parse(
+          '${ApiConstants.baseUrl}/technicians/$technicianId/addresses',
+        ),
         headers: {'Authorization': 'Bearer $token'},
       );
-
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json['success'] == true && json['data'] != null) {
@@ -262,39 +390,45 @@ class TechnicianService {
 
   Future<bool> createAddress({
     required String token,
+    required int technicianId,
     String? label,
     String? phoneNumber,
     bool? isPrimary,
-    required String addressLine,
-    String? postCode,
+    String? addressLine,
+    String? houseNumber,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
     required int provinceId,
     required int districtId,
     required int subDistrictId,
     required double lat,
     required double lng,
   }) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/technicians/me/addresses');
-
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/addresses',
+    );
     try {
       final Map<String, dynamic> body = {
-        'address_line': addressLine,
         'province_id': provinceId,
         'district_id': districtId,
         'sub_district_id': subDistrictId,
         'latitude': lat,
         'longitude': lng,
       };
-
       if (label != null) body['label'] = label;
-
       if (phoneNumber != null) {
         final p = phoneNumber.trim();
         if (p.isNotEmpty) body['phone_number'] = p;
       }
-
       if (isPrimary != null) body['is_primary'] = isPrimary;
-
-      if (postCode != null) body['postal_code'] = postCode;
+      if (addressLine != null) body['address_line'] = addressLine;
+      if (houseNumber != null) body['house_number'] = houseNumber;
+      if (village != null) body['village'] = village;
+      if (moo != null) body['moo'] = moo;
+      if (soi != null) body['soi'] = soi;
+      if (road != null) body['road'] = road;
 
       final response = await http.post(
         url,
@@ -304,11 +438,12 @@ class TechnicianService {
         },
         body: jsonEncode(body),
       );
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        print('❌ Create Error: ${response.statusCode} - ${response.body}');
+        print(
+          '❌ Create Address Error: ${response.statusCode} - ${response.body}',
+        );
         return false;
       }
     } catch (e) {
@@ -319,43 +454,45 @@ class TechnicianService {
 
   Future<bool> updateAddress({
     required String token,
+    required int technicianId,
     required int addressId,
-    String? phoneNumber,
     String? label,
+    String? phoneNumber,
     bool? isPrimary,
-    required String addressLine,
-    String? postCode,
-    required int provinceId,
-    required int districtId,
-    required int subDistrictId,
-    required double lat,
-    required double lng,
+    String? addressLine,
+    String? houseNumber,
+    String? village,
+    String? moo,
+    String? soi,
+    String? road,
+    int? provinceId,
+    int? districtId,
+    int? subDistrictId,
+    double? lat,
+    double? lng,
   }) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
+      '${ApiConstants.baseUrl}/technicians/$technicianId/addresses/$addressId',
     );
-
     try {
-      final Map<String, dynamic> body = {
-        'address_line': addressLine,
-
-        'province_id': provinceId,
-        'district_id': districtId,
-        'sub_district_id': subDistrictId,
-
-        'latitude': lat,
-        'longitude': lng,
-      };
-
+      final Map<String, dynamic> body = {};
       if (label != null) body['label'] = label;
       if (phoneNumber != null) {
         final p = phoneNumber.trim();
         body['phone_number'] = p.isEmpty ? null : p;
       }
-
       if (isPrimary != null) body['is_primary'] = isPrimary;
-
-      if (postCode != null) body['postal_code'] = postCode;
+      if (addressLine != null) body['address_line'] = addressLine;
+      if (houseNumber != null) body['house_number'] = houseNumber;
+      if (village != null) body['village'] = village;
+      if (moo != null) body['moo'] = moo;
+      if (soi != null) body['soi'] = soi;
+      if (road != null) body['road'] = road;
+      if (provinceId != null) body['province_id'] = provinceId;
+      if (districtId != null) body['district_id'] = districtId;
+      if (subDistrictId != null) body['sub_district_id'] = subDistrictId;
+      if (lat != null) body['latitude'] = lat;
+      if (lng != null) body['longitude'] = lng;
 
       final response = await http.put(
         url,
@@ -365,11 +502,12 @@ class TechnicianService {
         },
         body: jsonEncode(body),
       );
-
       if (response.statusCode == 200) {
         return true;
       } else {
-        print('❌ Update Error: ${response.statusCode} - ${response.body}');
+        print(
+          '❌ Update Address Error: ${response.statusCode} - ${response.body}',
+        );
         return false;
       }
     } catch (e) {
@@ -380,18 +518,22 @@ class TechnicianService {
 
   Future<bool> setPrimaryAddress({
     required String token,
+    required int technicianId,
     required int addressId,
+    bool isPrimary = true,
   }) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId/primary',
+      '${ApiConstants.baseUrl}/technicians/$technicianId/addresses/$addressId',
     );
-
     try {
       final response = await http.patch(
         url,
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'is_primary': isPrimary}),
       );
-
       return response.statusCode == 200;
     } catch (e) {
       print("❌ Error setting primary address: $e");
@@ -401,18 +543,17 @@ class TechnicianService {
 
   Future<bool> deleteAddress({
     required String token,
+    required int technicianId,
     required int addressId,
   }) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/me/addresses/$addressId',
+      '${ApiConstants.baseUrl}/technicians/$technicianId/addresses/$addressId',
     );
-
     try {
       final response = await http.delete(
         url,
         headers: {'Authorization': 'Bearer $token'},
       );
-
       return response.statusCode == 200;
     } catch (e) {
       print("❌ Error deleting address: $e");

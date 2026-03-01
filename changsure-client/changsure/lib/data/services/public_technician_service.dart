@@ -17,7 +17,7 @@ class PublicTechnicianService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/technicians/$technicianId/profile'),
+        Uri.parse('${ApiConstants.baseUrl}/technicians/$technicianId'),
         headers: _headers(token: token),
       );
 

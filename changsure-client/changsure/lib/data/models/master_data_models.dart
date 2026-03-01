@@ -36,12 +36,15 @@ class SubDistrictModel {
   final String nameTh;
   final String postalCode;
   final int districtId;
+  // BE ส่ง province_id ด้วย (จาก ToResponse ใน sub_district/dtos.go)
+  final int provinceId;
 
   SubDistrictModel({
     required this.id,
     required this.nameTh,
     required this.postalCode,
     required this.districtId,
+    required this.provinceId,
   });
 
   factory SubDistrictModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +53,7 @@ class SubDistrictModel {
       nameTh: json['name_th'] ?? '',
       postalCode: json['postal_code']?.toString() ?? '',
       districtId: json['district_id'] ?? 0,
+      provinceId: json['province_id'] ?? 0,
     );
   }
 }
@@ -57,11 +61,18 @@ class SubDistrictModel {
 class ServiceCategoryModel {
   final int id;
   final String catName;
+  // เพิ่ม field ที่ BE ส่งมาจาก CategoryResponse (mapper.go)
+  final String? catDesc;
+  final String? iconUrl;
+  final bool isActive;
   final List<ServiceModel> services;
 
   ServiceCategoryModel({
     required this.id,
     required this.catName,
+    this.catDesc,
+    this.iconUrl,
+    this.isActive = true,
     this.services = const [],
   });
 
@@ -69,14 +80,25 @@ class ServiceCategoryModel {
     return ServiceCategoryModel(
       id: json['id'],
       catName: json['cat_name'],
+      catDesc: json['cat_desc'],
+      iconUrl: json['icon_url'],
+      isActive: json['is_active'] ?? true,
       services: [],
     );
   }
 
-  ServiceCategoryModel copyWith({List<ServiceModel>? services}) {
+  ServiceCategoryModel copyWith({
+    List<ServiceModel>? services,
+    String? catDesc,
+    String? iconUrl,
+    bool? isActive,
+  }) {
     return ServiceCategoryModel(
       id: id,
       catName: catName,
+      catDesc: catDesc ?? this.catDesc,
+      iconUrl: iconUrl ?? this.iconUrl,
+      isActive: isActive ?? this.isActive,
       services: services ?? this.services,
     );
   }
@@ -92,6 +114,9 @@ class ServiceModel {
   final List<String> workingDuration;
   final List<String> additionalTerms;
   final ServicePrice defaultPrice;
+  // BE ส่ง is_active และ category_name ด้วย (ServiceResponse ใน dtos.go)
+  final bool isActive;
+  final String? categoryName;
 
   ServiceModel({
     required this.id,
@@ -103,6 +128,8 @@ class ServiceModel {
     this.workingDuration = const [],
     this.additionalTerms = const [],
     required this.defaultPrice,
+    this.isActive = true,
+    this.categoryName,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -116,6 +143,8 @@ class ServiceModel {
       workingDuration: List<String>.from(json['working_duration'] ?? []),
       additionalTerms: List<String>.from(json['additional_terms'] ?? []),
       defaultPrice: ServicePrice.fromJson(json['default_price'] ?? {}),
+      isActive: json['is_active'] ?? true,
+      categoryName: json['category_name'],
     );
   }
 }
@@ -138,11 +167,23 @@ class ServicePrice {
   }
 }
 
+// เพิ่ม == และ hashCode ให้ตรงกับ AutoSelectTechnicianQuery
+// เพื่อให้ FutureProvider.family cache ทำงานถูกต้อง
 class TechnicianQuery {
   final int serviceId;
   final int provinceId;
 
-  TechnicianQuery({required this.serviceId, required this.provinceId});
+  const TechnicianQuery({required this.serviceId, required this.provinceId});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TechnicianQuery &&
+          serviceId == other.serviceId &&
+          provinceId == other.provinceId;
+
+  @override
+  int get hashCode => serviceId.hashCode ^ provinceId.hashCode;
 }
 
 class BadgeModel {
@@ -220,7 +261,7 @@ class Technician {
               .toList() ??
           [],
       totalJobs: json['total_jobs'] ?? 0,
-      categoryName: json['category_name'],
+      categoryName: json['category_name'] ?? '',
     );
   }
 }

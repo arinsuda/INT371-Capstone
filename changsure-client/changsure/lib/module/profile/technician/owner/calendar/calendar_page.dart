@@ -54,8 +54,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     print("Selected: $_selectedDay");
     print("MonthKey: $monthKey");
-    print("Response month: ${response?.days.first.date}");
-
+    print(
+      "Response month: ${response?.days.isNotEmpty == true ? response!.days.first.date : null}",
+    );
     final now = DateTime.now();
 
     final isToday =

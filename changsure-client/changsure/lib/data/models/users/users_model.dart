@@ -68,6 +68,13 @@ class UserModel {
       addresses: addresses ?? this.addresses,
     );
   }
+
+  List<AddressModel> get allAddresses {
+    if (role == UserRole.technician) {
+      return technicianProfile?.addresses ?? [];
+    }
+    return addresses;
+  }
 }
 
 class RegisterModel {
