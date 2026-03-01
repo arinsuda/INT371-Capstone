@@ -1,6 +1,9 @@
 package realtime
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type Hub struct {
 	mu        sync.RWMutex
@@ -64,6 +67,13 @@ func (h *Hub) RemoveCustomerConn(customerID uint, c *wsClient) {
 }
 
 func (h *Hub) BroadcastToTechnician(technicianID uint, payload []byte) {
+	h.mu.RLock()
+	count := len(h.techConns[technicianID])
+	h.mu.RUnlock()
+
+	// ✅ เพิ่ม log
+	fmt.Printf("📡 BroadcastToTechnician: id=%d, connections=%d\n", technicianID, count)
+
 	h.broadcast(h.techConns, technicianID, payload)
 }
 

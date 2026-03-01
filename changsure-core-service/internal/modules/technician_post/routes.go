@@ -3,14 +3,11 @@ package technicianposts
 import "github.com/gofiber/fiber/v3"
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Post("/posts", h.CreatePost)
-	router.Get("/posts", h.ListPosts)
-	router.Get("/posts/:id", h.GetPost)
-	router.Put("/posts/:id", h.UpdatePost)
-	router.Delete("/posts/:id", h.DeletePost)
-}
+	posts := router.Group("/:technicianID/posts")
 
-func (h *Handler) RegisterPublicRoutes(router fiber.Router) {
-	router.Get("/:technician_id/posts", h.ListPublicPosts)
-	router.Get("/:technician_id/posts/:id", h.GetPublicPost)
+	posts.Post("/", h.CreatePost)
+	posts.Get("/", h.ListPosts)
+	posts.Get("/:id", h.GetPost)
+	posts.Put("/:id", h.UpdatePost)
+	posts.Delete("/:id", h.DeletePost)
 }

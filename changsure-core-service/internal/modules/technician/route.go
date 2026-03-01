@@ -1,19 +1,14 @@
 package technician
 
-import (
-	"github.com/gofiber/fiber/v3"
-)
+import "github.com/gofiber/fiber/v3"
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Get("/profile", h.GetProfile)
-	router.Patch("/profile", h.UpdateProfile)
-	router.Patch("/provinces", h.PatchProvinces)
-	router.Post("/services", h.AddService)
-	router.Delete("/services/:id", h.RemoveService)
-	router.Patch("/services/:id", h.UpdateService)
-	router.Patch("/profile/avatar", h.UploadAvatar)
-}
+	router.Get("/:technicianID", h.GetProfile)
+	router.Patch("/:technicianID", h.UpdateProfile)
+	router.Patch("/:technicianID/avatar", h.UploadAvatar)
+	router.Put("/:technicianID/provinces", h.PatchProvinces)
 
-func (h *Handler) RegisterPublicRoutes(router fiber.Router) {
-	router.Get("/:id/profile", h.GetPublicProfile)
+	router.Post("/:technicianID/services", h.AddService)
+	router.Patch("/:technicianID/services/:serviceID", h.UpdateService)
+	router.Delete("/:technicianID/services/:serviceID", h.RemoveService)
 }

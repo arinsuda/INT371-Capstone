@@ -4,6 +4,10 @@ import (
 	addressshared "changsure-core-service/internal/modules/address_shared"
 )
 
+type UpdatePrimaryRequest struct {
+	IsPrimary bool `json:"is_primary" validate:"required"`
+}
+
 type CreateTechnicianAddressRequest struct {
 	Label       *string `json:"label" validate:"omitempty,max=50"`
 	PhoneNumber *string `json:"phone_number" validate:"omitempty,len=10"`

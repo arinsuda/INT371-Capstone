@@ -20,6 +20,7 @@ const (
 )
 
 var ExcludedFromAvailability = []string{
+	BookingStatusPending,
 	BookingStatusCancelled,
 	BookingStatusRejected,
 }

@@ -1,4 +1,4 @@
-package customers
+package customer
 
 import (
 	customer_addresses "changsure-core-service/internal/modules/customer_address"

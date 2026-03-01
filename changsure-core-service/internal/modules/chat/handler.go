@@ -27,7 +27,7 @@ func (h *Handler) SendMessage(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User role not found")
 	}
 
-	bookingID, err := h.parseBookingID(c.Params("roomId"))
+	bookingID, err := h.parseBookingID(c.Params("roomID"))
 	if err != nil {
 		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
@@ -60,7 +60,7 @@ func (h *Handler) GetChatRoomMessages(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User not authenticated")
 	}
 
-	bookingID, err := h.parseBookingID(c.Params("roomId"))
+	bookingID, err := h.parseBookingID(c.Params("roomID"))
 	if err != nil {
 		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
@@ -110,7 +110,7 @@ func (h *Handler) GetChatRooms(c fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) MarkRoomAsRead(c fiber.Ctx) error {
+func (h *Handler) UpdateRoom(c fiber.Ctx) error {
 
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -122,7 +122,7 @@ func (h *Handler) MarkRoomAsRead(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User role not found")
 	}
 
-	bookingID, err := h.parseBookingID(c.Params("roomId"))
+	bookingID, err := h.parseBookingID(c.Params("roomID"))
 	if err != nil {
 		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
@@ -145,7 +145,7 @@ func (h *Handler) parseBookingID(idStr string) (uint, error) {
 	return uint(id), nil
 }
 
-func (h *Handler) MarkMessagesAsRead(c fiber.Ctx) error {
+func (h *Handler) UpdateMessages(c fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
 		return apperrors.Unauthorized(c, "User not authenticated")
@@ -156,12 +156,12 @@ func (h *Handler) MarkMessagesAsRead(c fiber.Ctx) error {
 		return apperrors.Unauthorized(c, "User role not found")
 	}
 
-	bookingID, err := h.parseBookingID(c.Params("roomId"))
+	bookingID, err := h.parseBookingID(c.Params("roomID"))
 	if err != nil {
 		return apperrors.BadRequest(c, "Invalid room ID format")
 	}
 
-	var req MarkAsReadReq
+	var req UpdateMessagesReq
 	if err := c.Bind().Body(&req); err != nil {
 		return apperrors.BadRequest(c, "Invalid request body")
 	}

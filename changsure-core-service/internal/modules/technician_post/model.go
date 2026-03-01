@@ -18,24 +18,21 @@ type TechnicianPost struct {
 	Description *string
 
 	ServiceCategoryID *uint
-
-	ServiceID  *uint
-	ProvinceID *uint
+	ServiceID         *uint
+	ProvinceID        *uint
 
 	IsPublished bool           `gorm:"default:true"`
 	CreatedAt   time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 
-	Category *sc.ServiceCategory `gorm:"foreignKey:ServiceCategoryID"`
+	Category *sc.ServiceCategory   `gorm:"foreignKey:ServiceCategoryID"`
 	Service  *sv.Service           `gorm:"foreignKey:ServiceID"`
 	Province *pv.Province          `gorm:"foreignKey:ProvinceID"`
 	Images   []TechnicianPostImage `gorm:"foreignKey:PostID"`
 }
 
-func (TechnicianPost) TableName() string {
-	return "technician_posts"
-}
+func (TechnicianPost) TableName() string { return "technician_posts" }
 
 type TechnicianPostImage struct {
 	ID        uint `gorm:"primaryKey"`
@@ -48,9 +45,7 @@ type TechnicianPostImage struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (TechnicianPostImage) TableName() string {
-	return "technician_post_images"
-}
+func (TechnicianPostImage) TableName() string { return "technician_post_images" }
 
 func Models() []interface{} {
 	return []interface{}{

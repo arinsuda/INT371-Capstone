@@ -19,12 +19,17 @@ func (s *service) ListByProvince(ctx context.Context, provinceID uint) ([]*Distr
 	return s.repo.GetByProvinceID(ctx, provinceID)
 }
 
-func (s *service) ListFiltered(ctx context.Context, provinceID, subDistrictID *uint, q string, limit int) ([]*District, error) {
+func (s *service) ListFiltered(
+	ctx context.Context,
+	provinceID,
+	subDistrictID *uint,
+	q string,
+	limit int,
+) ([]*District, error) {
+
 	if subDistrictID != nil {
 		return s.repo.GetBySubDistrictID(ctx, *subDistrictID)
 	}
-	if provinceID != nil && q == "" {
-		return s.repo.GetByProvinceID(ctx, *provinceID)
-	}
+
 	return s.repo.Search(ctx, provinceID, q, limit)
 }

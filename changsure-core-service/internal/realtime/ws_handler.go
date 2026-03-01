@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -32,11 +33,15 @@ func (h *WSHandler) CustomerWS(c *websocket.Conn) {
 func (h *WSHandler) serveWS(c *websocket.Conn, requiredRole string) {
 	token := extractToken(c)
 	userID, role, ok := h.verifyToken(token)
+	fmt.Printf("🔌 WS Connect: requiredRole=%s | verifiedRole=%s | userID=%d | ok=%v\n",
+		requiredRole, role, userID, ok)
 	if !ok || userID == 0 || role != requiredRole {
 		_ = c.WriteMessage(websocket.TextMessage, []byte(`{"type":"ERROR","message":"unauthorized"}`))
 		_ = c.Close()
 		return
 	}
+
+	fmt.Printf("✅ WS Registered: %s id=%d\n", requiredRole, userID)
 
 	client := newWSClient(c)
 

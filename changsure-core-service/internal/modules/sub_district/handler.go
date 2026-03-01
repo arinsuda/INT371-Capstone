@@ -14,6 +14,26 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
+func (h *Handler) GetSubDistrict(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return customErr.BadRequest(c, "Invalid sub-district ID")
+	}
+
+	item, err := h.service.GetByID(c.Context(), uint(id))
+	if err != nil {
+		return customErr.InternalError(c, "Failed to fetch sub-district", err)
+	}
+	if item == nil {
+		return customErr.NotFound(c, "Sub-district not found")
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   ToResponse(item),
+	})
+}
+
 func (h *Handler) ListSubDistrictByDistrict(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("district_id"), 10, 32)
 	if err != nil {

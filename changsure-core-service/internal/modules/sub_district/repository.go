@@ -2,6 +2,8 @@ package subdistrict
 
 import (
 	"context"
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -24,6 +26,7 @@ func NewRepository(db *gorm.DB) Repository {
 func (r *repo) GetByDistrictID(ctx context.Context, districtID uint) ([]*SubDistrict, error) {
 	var items []*SubDistrict
 	err := r.db.WithContext(ctx).
+		Preload("District").
 		Where("district_id = ?", districtID).
 		Order("name_th ASC").
 		Find(&items).Error
@@ -32,13 +35,22 @@ func (r *repo) GetByDistrictID(ctx context.Context, districtID uint) ([]*SubDist
 
 func (r *repo) GetByID(ctx context.Context, id uint) (*SubDistrict, error) {
 	var s SubDistrict
-	err := r.db.WithContext(ctx).First(&s, id).Error
-	return &s, err
+	err := r.db.WithContext(ctx).
+		Preload("District").
+		First(&s, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &s, nil
 }
 
 func (r *repo) GetByProvinceID(ctx context.Context, provinceID uint) ([]*SubDistrict, error) {
 	var items []*SubDistrict
 	err := r.db.WithContext(ctx).
+		Preload("District").
 		Table("sub_districts").
 		Joins("JOIN districts ON districts.id = sub_districts.district_id").
 		Where("districts.province_id = ?", provinceID).
@@ -51,7 +63,9 @@ func (r *repo) Search(ctx context.Context, districtID, provinceID *uint, q strin
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	db := r.db.WithContext(ctx).Table("sub_districts")
+	db := r.db.WithContext(ctx).
+		Preload("District").
+		Table("sub_districts")
 
 	if provinceID != nil {
 		db = db.Joins("JOIN districts ON districts.id = sub_districts.district_id").

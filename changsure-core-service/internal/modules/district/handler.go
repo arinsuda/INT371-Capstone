@@ -1,9 +1,11 @@
 package district
 
 import (
-	customErr "changsure-core-service/internal/errors"
-	"github.com/gofiber/fiber/v3"
+	appErrors "changsure-core-service/internal/errors"
 	"strconv"
+
+	"changsure-core-service/pkg/utils"
+	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
@@ -15,19 +17,19 @@ func NewHandler(s Service) *Handler {
 }
 
 func (h *Handler) ListDistrictByProvince(c fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("province_id"), 10, 32)
+	id, err := utils.ParseUintParam(c, "province_id")
 	if err != nil {
-		return customErr.BadRequest(c, "Invalid province ID")
+		return appErrors.BadRequest(c, "Invalid province ID")
 	}
 
-	list, err := h.service.ListByProvince(c.Context(), uint(id))
+	list, err := h.service.ListByProvince(c.Context(), id)
 	if err != nil {
-		return customErr.InternalError(c, "Failed to fetch districts", err)
+		return appErrors.InternalError(c, "Failed to fetch districts", err)
 	}
 
 	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponseList(list),
+		"success": true,
+		"data":    ToResponseList(list),
 	})
 }
 
@@ -40,38 +42,39 @@ func (h *Handler) ListDistricts(c fiber.Ctx) error {
 	)
 
 	if v := c.Query("province_id"); v != "" {
-		id64, err := strconv.ParseUint(v, 10, 32)
+		id, err := utils.ParseUintParam(c, "province_id")
 		if err != nil {
-			return customErr.BadRequest(c, "Invalid province_id")
+			return appErrors.BadRequest(c, "Invalid province_id")
 		}
-		tmp := uint(id64)
-		provinceID = &tmp
+		provinceID = &id
 	}
+
 	if v := c.Query("sub_district_id"); v != "" {
-		id64, err := strconv.ParseUint(v, 10, 32)
+		id, err := utils.ParseUintParam(c, "sub_district_id")
 		if err != nil {
-			return customErr.BadRequest(c, "Invalid sub_district_id")
+			return appErrors.BadRequest(c, "Invalid sub_district_id")
 		}
-		tmp := uint(id64)
-		subDistrictID = &tmp
+		subDistrictID = &id
 	}
 
 	limit := 200
 	if limitStr != "" {
 		n, err := strconv.Atoi(limitStr)
 		if err != nil {
-			return customErr.BadRequest(c, "Invalid limit")
+			return appErrors.BadRequest(c, "Invalid limit")
 		}
-		limit = n
+		if n >= 1 && n <= 200 {
+			limit = n
+		}
 	}
 
 	list, err := h.service.ListFiltered(c.Context(), provinceID, subDistrictID, q, limit)
 	if err != nil {
-		return customErr.InternalError(c, "Failed to fetch districts", err)
+		return appErrors.InternalError(c, "Failed to fetch districts", err)
 	}
 
 	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponseList(list),
+		"success": true,
+		"data":    ToResponseList(list),
 	})
 }

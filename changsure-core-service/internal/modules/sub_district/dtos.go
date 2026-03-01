@@ -5,6 +5,7 @@ type SubDistrictResponse struct {
 	NameTH     string `json:"name_th"`
 	PostalCode string `json:"postal_code"`
 	DistrictID uint   `json:"district_id"`
+	ProvinceID uint   `json:"province_id"`
 }
 
 func ToResponse(s *SubDistrict) SubDistrictResponse {
@@ -13,6 +14,7 @@ func ToResponse(s *SubDistrict) SubDistrictResponse {
 		NameTH:     s.NameTH,
 		PostalCode: s.PostalCode,
 		DistrictID: s.DistrictID,
+		ProvinceID: s.District.ProvinceID,
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 
+	"changsure-core-service/internal/middleware"
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/booking"
@@ -39,7 +40,6 @@ import (
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/pkg/storage"
-	"changsure-core-service/pkg/utils"
 )
 
 type ContainerOption func(*Container) error
@@ -236,8 +236,8 @@ func (c *Container) initNotificationModule(cfg *config.Config) {
 	c.NotificationService = notification.NewService(c.NotificationRepo, c.Hub)
 
 	getAuthUser := func(ctx fiber.Ctx) (notification.AuthUser, bool) {
-		uid := utils.GetUserID(ctx)
-		if uid == 0 {
+		uid, ok := middleware.GetUserID(ctx)
+		if !ok {
 			return notification.AuthUser{}, false
 		}
 
@@ -266,7 +266,7 @@ func (c *Container) initOCRModule(cfg *config.Config) {
 
 func (c *Container) initCustomerModule() {
 	c.CustomerRepo = customer.NewRepository(c.DB)
-	c.CustomerService = customer.NewService(c.CustomerRepo)
+	c.CustomerService = customer.NewService(c.CustomerRepo, c.Storage, c.Logger)
 	c.CustomerHandler = customer.NewHandler(c.CustomerService, c.Storage, c.Logger)
 }
 
@@ -317,6 +317,8 @@ func (c *Container) initTechnicianModule() {
 		c.TechnicianRepo,
 		c.TechnicianServiceAreaRepo,
 		c.TechnicianServiceRepo,
+		c.Storage,
+		c.Logger,
 	)
 	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)
 }
@@ -345,7 +347,7 @@ func (c *Container) initServiceModule() {
 
 func (c *Container) initBadgeModule() {
 	c.BadgeRepo = badge.NewRepository(c.DB)
-	c.BadgeService = badge.NewService(c.BadgeRepo)
+	c.BadgeService = badge.NewService(c.BadgeRepo, c.Storage)
 	c.BadgeHandler = badge.NewRouteBundle(c.DB, c.Storage)
 }
 
@@ -362,7 +364,7 @@ func (c *Container) initTechnicianBadgeModule() {
 
 func (c *Container) initTechnicianWorkModule() {
 	c.TechnicianPostRepo = techworks.NewRepository(c.DB)
-	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo)
+	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo, c.Storage)
 	c.TechnicianPostHandler = techworks.NewHandler(c.TechnicianPostService)
 }
 
@@ -410,6 +412,7 @@ func (c *Container) initCustomerBookingModule() {
 		c.CustomerBookingService,
 		c.Storage,
 		c.Hub,
+		c.Logger,
 	)
 }
 
@@ -445,6 +448,7 @@ func (c *Container) initTechnicianCalendarModule() {
 		c.TechnicianCalendarRepo,
 		c.BookingRepo,
 		c.TimeSlotRepo,
+		c.Storage,
 		c.Logger,
 	)
 

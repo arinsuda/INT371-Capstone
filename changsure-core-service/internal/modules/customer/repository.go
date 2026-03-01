@@ -1,4 +1,4 @@
-package customers
+package customer
 
 import (
 	"context"
@@ -8,17 +8,14 @@ import (
 )
 
 type Repository interface {
-	
 	Create(ctx context.Context, customer *Customer) error
 	Update(ctx context.Context, customer *Customer) error
 	Delete(ctx context.Context, id uint) error
 
-	
 	FindByID(ctx context.Context, id uint) (*Customer, error)
 	FindByEmail(ctx context.Context, email string) (*Customer, error)
 	FindByPhone(ctx context.Context, phone string) (*Customer, error)
 
-	
 	GetAll(ctx context.Context, limit, offset int) ([]*Customer, error)
 	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
 }
@@ -36,7 +33,10 @@ func (r *repository) Create(ctx context.Context, customer *Customer) error {
 }
 
 func (r *repository) Update(ctx context.Context, customer *Customer) error {
-	return r.db.WithContext(ctx).Model(customer).Updates(customer).Error
+	return r.db.WithContext(ctx).
+		Model(&Customer{}).
+		Where("id = ?", customer.ID).
+		Updates(customer).Error
 }
 
 func (r *repository) Delete(ctx context.Context, id uint) error {
@@ -47,7 +47,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Customer, error) {
 	var customer Customer
 	err := r.db.WithContext(ctx).
 		Preload("Addresses").
-		Preload("Addresses.Province"). 
+		Preload("Addresses.Province").
 		First(&customer, id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -94,7 +94,7 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]*Customer
 }
 
 func (r *repository) SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error) {
-	
+
 	rawSQL := `
 		SELECT customer_id FROM customer_addresses
 		WHERE latitude IS NOT NULL AND longitude IS NOT NULL

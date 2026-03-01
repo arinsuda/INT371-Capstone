@@ -16,15 +16,14 @@ var (
 	ErrBookingNotFound      = errors.New("booking not found")
 	ErrForbiddenBooking     = errors.New("forbidden booking")
 	ErrInvalidBookingStatus = errors.New("invalid booking status")
+	ErrTechnicianNotFound   = errors.New("technician not found")
 )
 
 type Service interface {
 	AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 	RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*booking.Booking, error)
-
 	StartJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 	CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
-
 	ListBookings(ctx context.Context, technicianID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error)
 	GetBookingByID(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error)
 }
@@ -43,7 +42,28 @@ func NewService(repo booking.Repository, db *gorm.DB, notif notification.Service
 	}
 }
 
+// verifyTechnicianExists ตรวจสอบว่า technician มีอยู่ใน DB จริง
+// ใช้ db ที่มีอยู่แล้ว query ตรงไปที่ technicians table โดยไม่ต้อง inject repo เพิ่ม
+func (s *service) verifyTechnicianExists(ctx context.Context, technicianID uint) error {
+	var count int64
+	err := s.db.WithContext(ctx).
+		Table("technicians").
+		Where("id = ?", technicianID).
+		Count(&count).Error
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrTechnicianNotFound
+	}
+	return nil
+}
+
 func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, err
+	}
+
 	var updated *booking.Booking
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -91,7 +111,7 @@ func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uin
 			RecipientID:   full.CustomerID,
 			Type:          "BOOKING_ACCEPTED",
 			Title:         "ช่างรับงานเรียบร้อยแล้ว 👷‍♂️✨",
-			Message:       "ช่างได้ยืนยันรับงานบริการของคุณแล้ว คุณสามารถติดตามการดำเนินงานของช่างผ่าน หน้า “ติดตามสถานะ” ได้แล้วในตอนนี้ กรุณาตรวจสอบรายละเอียดวัน–เวลา และรอการติดต่อจากช่างผ่านแชทในแอป",
+			Message:       `ช่างได้ยืนยันรับงานบริการของคุณแล้ว คุณสามารถติดตามการดำเนินงานของช่างผ่าน หน้า "ติดตามสถานะ" ได้แล้วในตอนนี้ กรุณาตรวจสอบรายละเอียดวัน–เวลา และรอการติดต่อจากช่างผ่านแชทในแอป`,
 			EntityType:    "booking",
 			EntityID:      full.ID,
 			Data: map[string]any{
@@ -108,6 +128,10 @@ func (s *service) AcceptBooking(ctx context.Context, technicianID, bookingID uin
 }
 
 func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uint, reason string) (*booking.Booking, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, err
+	}
+
 	reason = strings.TrimSpace(reason)
 	if len(reason) > 255 {
 		reason = reason[:255]
@@ -161,7 +185,6 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 	}
 
 	if s.notif != nil && full != nil && full.CustomerID != 0 {
-
 		title := "ช่างปฏิเสธงาน"
 		message := "ช่างปฏิเสธการจองของคุณ"
 		notifType := "BOOKING_REJECTED"
@@ -195,6 +218,10 @@ func (s *service) RejectBooking(ctx context.Context, technicianID, bookingID uin
 }
 
 func (s *service) StartJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, err
+	}
+
 	var updated *booking.Booking
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -237,6 +264,10 @@ func (s *service) StartJob(ctx context.Context, technicianID, bookingID uint) (*
 }
 
 func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, err
+	}
+
 	var updated *booking.Booking
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -259,7 +290,6 @@ func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint)
 		}
 
 		now := time.Now()
-
 		if err := txRepo.UpdateStatus(ctx, bookingID, booking.BookingStatusWaitingPayment, now); err != nil {
 			return err
 		}
@@ -277,6 +307,57 @@ func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint)
 	s.sendNotification(ctx, updated, "JOB_COMPLETED", "ดำเนินการเสร็จสิ้น", "กรุณาตรวจสอบและชำระค่าบริการ")
 
 	return s.repo.FindByID(ctx, bookingID)
+}
+
+func (s *service) ListBookings(ctx context.Context, technicianID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, 0, 0, 0, err
+	}
+
+	page := q.Page
+	limit := q.Limit
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	statuses, err := booking.ParseStatusFilter(q.Status)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
+
+	items, total, err := s.repo.ListByTechnician(ctx, technicianID, statuses, q.StartDate, q.EndDate, offset, limit)
+	if err != nil {
+		return nil, 0, page, limit, err
+	}
+
+	return items, total, page, limit, nil
+}
+
+func (s *service) GetBookingByID(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
+	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
+		return nil, err
+	}
+
+	b, err := s.repo.FindByID(ctx, bookingID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookingNotFound
+		}
+		return nil, err
+	}
+
+	if b.TechnicianID != technicianID {
+		return nil, ErrForbiddenBooking
+	}
+
+	return b, nil
 }
 
 func (s *service) sendNotification(ctx context.Context, b *booking.Booking, notifType, title, message string) {
@@ -298,60 +379,4 @@ func (s *service) sendNotification(ctx context.Context, b *booking.Booking, noti
 			},
 		})
 	}
-}
-
-func (s *service) ListBookings(
-	ctx context.Context,
-	technicianID uint,
-	q ListBookingsQuery,
-) ([]booking.Booking, int64, int, int, error) {
-
-	page := q.Page
-	limit := q.Limit
-	if page <= 0 {
-		page = 1
-	}
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	offset := (page - 1) * limit
-
-	statuses, err := booking.ParseStatusFilter(q.Status)
-	if err != nil {
-		return nil, 0, page, limit, err
-	}
-
-	items, total, err := s.repo.ListByTechnician(
-		ctx,
-		technicianID,
-		statuses,
-		q.StartDate,
-		q.EndDate,
-		offset,
-		limit,
-	)
-	if err != nil {
-		return nil, 0, page, limit, err
-	}
-
-	return items, total, page, limit, nil
-}
-
-func (s *service) GetBookingByID(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
-	b, err := s.repo.FindByID(ctx, bookingID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrBookingNotFound
-		}
-		return nil, err
-	}
-
-	if b.TechnicianID != technicianID {
-		return nil, ErrForbiddenBooking
-	}
-
-	return b, nil
 }

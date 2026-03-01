@@ -6,11 +6,10 @@ import (
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
 
-	chats := r.Group("/chats")
-	chats.Get("/rooms", h.GetChatRooms)
-	chats.Get("/rooms/:roomId", h.GetChatRoomMessages)
-	chats.Post("/rooms/:roomId/messages", h.SendMessage)
-	chats.Post("/rooms/:roomId/read", h.MarkRoomAsRead)
-	chats.Post("/rooms/:roomId/messages/read", h.MarkMessagesAsRead)
-
+	chats := r.Group("/chat-rooms")
+	chats.Get("/", h.GetChatRooms)
+	chats.Get("/:roomID", h.GetChatRoomMessages)
+	chats.Post("/:roomID/messages", h.SendMessage)
+	chats.Patch("/:roomID", h.UpdateRoom)
+	chats.Patch("/:roomID/messages", h.UpdateMessages)
 }

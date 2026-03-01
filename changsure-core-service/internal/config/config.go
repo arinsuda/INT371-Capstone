@@ -22,15 +22,16 @@ type Config struct {
 	JWT      JWTConfig
 	Redis    RedisConfig
 	Minio    MinioConfig
-	OCR      OCRConfig `mapstructure:"ocr"`
+	OCR      OCRConfig
 	Omise    OmiseConfig
 }
 
 type AppConfig struct {
-	Name        string
-	Port        string
-	Environment string
-	Debug       bool
+	Name           string
+	Port           string
+	Environment    string
+	Debug          bool
+	AllowedOrigins []string
 }
 
 type DatabaseConfig struct {
@@ -71,25 +72,22 @@ type MinioConfig struct {
 	MaxFileMB          int
 	AllowDocTypes      []string
 	AllowMIME          []string
-
-	AllowDocTypesSet map[string]struct{}
-	AllowMIMESet     map[string]struct{}
-
-	EnableVirusScan bool
-
-	PublicBaseURL string
+	AllowDocTypesSet   map[string]struct{}
+	AllowMIMESet       map[string]struct{}
+	EnableVirusScan    bool
+	PublicBaseURL      string
 }
 
 type OCRConfig struct {
-	BaseURL string `mapstructure:"base_url" json:"base_url"`
+	BaseURL string
 }
 
 type OmiseConfig struct {
-	PublicKey     string
-	SecretKey     string
-	Currency      string
-	Timeout       time.Duration
-	WebhookSecret string
+	PublicKey       string
+	SecretKey       string
+	Currency        string
+	Timeout         time.Duration
+	WebhookSecret   string
 	QRExpiryMinutes int
 }
 
@@ -107,10 +105,11 @@ func LoadConfig() *Config {
 
 	cfg := &Config{
 		App: AppConfig{
-			Name:        getEnv("APP_NAME"),
-			Port:        getEnv("PORT"),
-			Environment: getEnv("APP_ENV"),
-			Debug:       getEnvAsBool("APP_DEBUG"),
+			Name:           getEnv("APP_NAME"),
+			Port:           getEnv("PORT"),
+			Environment:    getEnv("APP_ENV"),
+			Debug:          getEnvAsBool("APP_DEBUG"),
+			AllowedOrigins: getEnvAsCSVOptional("ALLOWED_ORIGINS"),
 		},
 		Database: DatabaseConfig{
 			Driver:          getEnv("DB_DRIVER"),
@@ -188,7 +187,7 @@ func (c *Config) IsStaging() bool {
 func getEnv(key string) string {
 	v, ok := os.LookupEnv(key)
 	if !ok || strings.TrimSpace(v) == "" {
-		log.Fatalf("missing required env %s", key)
+		log.Fatalf("[ERROR] missing required env: %s", key)
 	}
 	return v
 }
@@ -197,7 +196,7 @@ func getEnvAsInt(key string) int {
 	raw := getEnv(key)
 	n, err := strconv.Atoi(raw)
 	if err != nil {
-		log.Fatalf("invalid int for %s=%q", key, raw)
+		log.Fatalf("[ERROR] invalid int for %s=%q", key, raw)
 	}
 	return n
 }
@@ -206,20 +205,17 @@ func getEnvAsBool(key string) bool {
 	raw := getEnv(key)
 	b, err := strconv.ParseBool(raw)
 	if err != nil {
-		log.Fatalf("invalid bool for %s=%q (expected true/false/1/0)", key, raw)
+		log.Fatalf("[ERROR] invalid bool for %s=%q (expected true/false/1/0)", key, raw)
 	}
 	return b
 }
 
 func getEnvAsCSVOptional(key string) []string {
-	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
-		return splitCSV(v)
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return nil
 	}
-	return nil
-}
-
-func getEnvAsCSVStrict(key string) []string {
-	return splitCSV(getEnv(key))
+	return splitCSV(v)
 }
 
 func splitCSV(raw string) []string {
@@ -234,9 +230,6 @@ func splitCSV(raw string) []string {
 }
 
 func sliceToSet(items []string) map[string]struct{} {
-	if len(items) == 0 {
-		return map[string]struct{}{}
-	}
 	m := make(map[string]struct{}, len(items))
 	for _, v := range items {
 		if s := strings.TrimSpace(v); s != "" {

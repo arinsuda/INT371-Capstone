@@ -1,8 +1,6 @@
 package technicianmatching
 
-import (
-	"math"
-)
+import "math"
 
 type Weights struct {
 	Price    float64
@@ -27,7 +25,7 @@ func getWeights(priority string) Weights {
 
 func findMinMax(list []TechnicianListItem) (minP, maxP, minD, maxD float64) {
 	if len(list) == 0 {
-		return 0, 0, 0, 0
+		return
 	}
 	minP, maxP = list[0].PriceMin, list[0].PriceMin
 	minD, maxD = list[0].DistanceKm, list[0].DistanceKm
@@ -59,37 +57,16 @@ func CalculateMatchScore(list []TechnicianListItem, priority string) []Technicia
 	for i := range list {
 		t := &list[i]
 
-		scorePrice := 0.0
-		if maxPrice == minPrice {
-			scorePrice = 1.0
-		} else {
-			scorePrice = (maxPrice - t.PriceMin) / (maxPrice - minPrice)
-		}
+		scorePrice := normaliseInverse(t.PriceMin, minPrice, maxPrice)
+		scoreDist := normaliseInverse(t.DistanceKm, minDist, maxDist)
+		scoreRating := clamp(t.RatingAvg/5.0, 0, 1)
 
-		scoreDist := 0.0
-		if maxDist == minDist {
-			scoreDist = 1.0
-		} else {
-			scoreDist = (maxDist - t.DistanceKm) / (maxDist - minDist)
-		}
-
-		scoreRating := t.RatingAvg / 5.0
-		if scoreRating > 1.0 {
-			scoreRating = 1.0
-		}
-
-		totalScore := (w.Price * scorePrice) + (w.Distance * scoreDist) + (w.Rating * scoreRating)
-
+		total := w.Price*scorePrice + w.Distance*scoreDist + w.Rating*scoreRating
 		if len(t.Badges) > 0 {
-			totalScore += 0.05
+			total += 0.05
 		}
 
-		if totalScore > 1.0 {
-			totalScore = 1.0
-		}
-
-		percentage := totalScore * 100
-		t.MatchPercentage = math.Round(percentage*100) / 100
+		t.MatchPercentage = math.Round(clamp(total, 0, 1)*100*100) / 100
 	}
 	return list
 }
@@ -99,10 +76,27 @@ func PickBestTechnician(list []TechnicianListItem) *TechnicianListItem {
 		return nil
 	}
 	best := &list[0]
-	for i := range list {
-		if list[i].MatchPercentage > best.MatchPercentage {
-			best = &list[i]
+	for i := range list[1:] {
+		if list[i+1].MatchPercentage > best.MatchPercentage {
+			best = &list[i+1]
 		}
 	}
 	return best
+}
+
+func normaliseInverse(value, min, max float64) float64 {
+	if max == min {
+		return 1.0
+	}
+	return (max - value) / (max - min)
+}
+
+func clamp(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
