@@ -17,6 +17,7 @@ import (
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	customerbooking "changsure-core-service/internal/modules/customer_booking"
 	"changsure-core-service/internal/modules/district"
+	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/notification"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
@@ -143,6 +144,10 @@ type Container struct {
 
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
+
+	DocumentRepo    document.Repository
+	DocumentService document.Service
+	DocumentHandler *document.Handler
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
@@ -196,6 +201,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 
 	c.initChatModule()
 	c.initPaymentModule(cfg)
+	c.initDocumentModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -526,6 +532,12 @@ func (c *Container) initPaymentModule(cfg *config.Config) {
 	)
 }
 
+func (c *Container) initDocumentModule() {
+	c.DocumentRepo = document.NewRepository(c.DB)
+	c.DocumentService = document.NewService(c.DocumentRepo, c.DB)
+	c.DocumentHandler = document.NewHandler(c.DocumentService)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -560,6 +572,8 @@ func AllModels() []interface{} {
 		&payment.PaymentTransaction{},
 		&payment.PaymentEvent{},
 	)
+
+	models = append(models, document.Models()...)
 
 	return models
 }

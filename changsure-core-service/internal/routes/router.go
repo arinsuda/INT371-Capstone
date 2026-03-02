@@ -83,6 +83,7 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 	r.container.ChatHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterRoutes(api)
+	r.container.DocumentHandler.RegisterRoutes(api)
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
