@@ -11,24 +11,19 @@ import 'package:changsure/state/user_provider.dart';
 
 import 'package:changsure/module/profile/address_page.dart' as shared_address;
 
-import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart'
-    as public_tech_profile;
-import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart'
-    as public_activity_detail;
-
-import 'package:changsure/module/profile/technician/owner/pages/technician_profile_page.dart'
+import 'package:changsure/module/profile/technician/pages/profile_page.dart'
+    as tech_me_profile;
+import 'package:changsure/module/profile/technician/pages/technician_view_page.dart'
     as tech_profile;
-import 'package:changsure/module/profile/technician/owner/pages/my_profile_page.dart'
-    as tech_view_profile;
-import 'package:changsure/module/profile/technician/owner/pages/edit_profile_page.dart'
+import 'package:changsure/module/profile/technician/pages/edit_profile_page.dart'
     as tech_edit;
-import 'package:changsure/module/profile/technician/owner/activities/pages/activities_list_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/activities_list_page.dart'
     as tech_view_list;
-import 'package:changsure/module/profile/technician/owner/activities/pages/post_activity_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/post_activity_page.dart'
     as tech_post;
-import 'package:changsure/module/profile/technician/owner/activities/pages/edit_activity_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/edit_activity_page.dart'
     as tech_edit_act;
-import 'package:changsure/module/profile/technician/owner/activities/pages/activity_detail_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/activity_detail_page.dart'
     as tech_view_act;
 
 import 'package:changsure/module/profile/customer/profile_page.dart'
@@ -114,24 +109,8 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.addressPage:
           subPage = const shared_address.AddressPage();
           break;
-        case BottomSubPage.publicTechnicianProfile:
-          if (subConfig.technicianId != null) {
-            subPage = public_tech_profile.PublicTechnicianProfilePage(
-              technicianId: subConfig.technicianId!,
-            );
-          }
-          break;
-        case BottomSubPage.publicActivityDetail:
-          if (subConfig.activityId != null && subConfig.technicianId != null) {
-            subPage = public_activity_detail.PublicActivityDetailPage(
-              postId: subConfig.activityId!,
-              technicianId: subConfig.technicianId!,
-            );
-          }
-          break;
-
         case BottomSubPage.technicianViewProfile:
-          subPage = const tech_view_profile.ViewProfilePage();
+          subPage = const tech_profile.TechnicianProfilePage(isOwner: true);
           break;
         case BottomSubPage.technicianEditProfile:
           subPage = const tech_edit.EditProfile();
@@ -145,7 +124,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.technicianViewActivityById:
           if (subConfig.activityId != null) {
             subPage = tech_view_act.ActivityDetailPage(
-              id: subConfig.activityId!,
+              postId: subConfig.activityId!,
             );
           }
           break;
@@ -177,7 +156,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
       Widget profilePage;
       if (userRole == UserRole.technician) {
-        profilePage = const tech_profile.TechnicianProfile();
+        profilePage = const tech_me_profile.TechnicianProfile();
       } else {
         profilePage = const user_profile.UserProfile();
       }

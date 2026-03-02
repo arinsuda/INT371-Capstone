@@ -1,5 +1,5 @@
-import 'package:changsure/module/profile/technician/owner/activities/shared/constants/activity_constants.dart';
-import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart';
+import 'package:changsure/module/profile/technician/activities/shared/constants/activity_constants.dart';
+import 'package:changsure/module/profile/technician/pages/technician_view_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/header.dart';
@@ -8,7 +8,6 @@ import '../../../core/button/secondary_button.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/master_data_models.dart';
 import '../../../state/master_data_provider.dart';
-import '../../profile/technician/owner/pages/my_profile_page.dart';
 import '../booking/booking_page.dart';
 
 class SystemChoose extends ConsumerStatefulWidget {
@@ -34,7 +33,6 @@ class SystemChoose extends ConsumerStatefulWidget {
 }
 
 class _SystemChooseState extends ConsumerState<SystemChoose> {
-
   Widget _buildTag(String iconUrl, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -212,7 +210,7 @@ class _TechnicianCard extends StatelessWidget {
     required this.tech,
     required this.buildTag,
     required this.serviceData,
-    required this.provinceId
+    required this.provinceId,
   });
 
   @override
@@ -340,8 +338,10 @@ class _TechnicianCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            PublicTechnicianProfilePage(technicianId: tech.id),
+                        builder: (_) => TechnicianProfilePage(
+                          isOwner: false,
+                          technicianId: tech.id,
+                        ),
                       ),
                     );
                   },
@@ -356,8 +356,11 @@ class _TechnicianCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            (BookingPage(data: serviceData, technician: tech, provinceId: provinceId,)),
+                        builder: (context) => (BookingPage(
+                          data: serviceData,
+                          technician: tech,
+                          provinceId: provinceId,
+                        )),
                       ),
                     );
                   },

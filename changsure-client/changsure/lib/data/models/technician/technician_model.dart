@@ -45,7 +45,6 @@ class TechnicianModel {
 
   String get fullName => '$firstName $lastName';
 
-  // [เพิ่มส่วนนี้] จำเป็นสำหรับ UserNotifier ในการอัปเดต State
   TechnicianModel copyWith({
     int? id,
     String? firstName,

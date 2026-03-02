@@ -2,15 +2,40 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:changsure/data/models/address_model.dart';
 import 'package:changsure/data/models/technician/post_model.dart';
+import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:changsure/core/constants/api_constants.dart';
 
 class TechnicianService {
+  Future<TechnicianModel?> getProfile({
+    required String token,
+    required int technicianId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/technicians/$technicianId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
-  // Technician
-  
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true && json['data'] != null) {
+          return TechnicianModel.fromJson(json['data']);
+        }
+      } else {
+        print('❌ Get Profile Failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Get Profile Error: $e');
+    }
+    return null;
+  }
+
   Future<bool> updateProfile({
     required String token,
     required int technicianId,
@@ -23,29 +48,21 @@ class TechnicianService {
     File? avatarFile,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/technicians/$technicianId');
-
     final request = http.MultipartRequest('PATCH', url);
-
     request.headers.addAll({'Authorization': 'Bearer $token'});
 
     request.fields['firstname'] = firstName;
     request.fields['lastname'] = lastName;
     request.fields['phone'] = phone;
-    if (bio != null) {
-      request.fields['bio'] = bio;
-    }
-
+    if (bio != null) request.fields['bio'] = bio;
     if (provinceIds != null) {
       request.fields['province_ids'] = jsonEncode(provinceIds);
     }
-
     if (services != null) {
       request.fields['services'] = jsonEncode(services);
     }
-
     if (avatarFile != null) {
       final mimeTypeData = lookupMimeType(avatarFile.path)?.split('/');
-
       request.files.add(
         await http.MultipartFile.fromPath(
           'avatar',
@@ -60,17 +77,15 @@ class TechnicianService {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
-        print("✅ Update Technician Profile Success");
+        print('✅ Update Technician Profile Success');
         return true;
       } else {
-        print("❌ Update Failed: ${response.statusCode}");
-        print("Response: ${response.body}");
+        print('❌ Update Failed: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      print("❌ Error calling update profile: $e");
+      print('❌ Error calling update profile: $e');
       return false;
     }
   }
@@ -83,7 +98,6 @@ class TechnicianService {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/$technicianId/provinces',
     );
-
     try {
       final response = await http.put(
         url,
@@ -93,16 +107,15 @@ class TechnicianService {
         },
         body: jsonEncode({'province_ids': provinceIds}),
       );
-
       if (response.statusCode == 200) {
-        print("✅ Update Provinces Success");
+        print('✅ Update Provinces Success');
         return true;
       } else {
-        print("❌ Update Provinces Failed: ${response.statusCode}");
+        print('❌ Update Provinces Failed: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      print("❌ Error updating provinces: $e");
+      print('❌ Error updating provinces: $e');
       return false;
     }
   }
@@ -115,7 +128,6 @@ class TechnicianService {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/$technicianId/avatar',
     );
-
     final request = http.MultipartRequest('PATCH', url);
     request.headers.addAll({'Authorization': 'Bearer $token'});
 
@@ -133,23 +145,20 @@ class TechnicianService {
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
-        print("✅ Upload Avatar Success");
+        print('✅ Upload Avatar Success');
         return true;
       } else {
-        print("❌ Upload Avatar Failed: ${response.statusCode}");
+        print('❌ Upload Avatar Failed: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      print("❌ Error uploading avatar: $e");
+      print('❌ Error uploading avatar: $e');
       return false;
     }
   }
 
-  // Post
-
-  Future<List<PostModel>> getMyPosts({
+  Future<Map<String, dynamic>?> getPosts({
     required String token,
     required int technicianId,
     int? categoryId,
@@ -171,8 +180,9 @@ class TechnicianService {
       if (provinceId != null)
         queryParams['province_id'] = provinceId.toString();
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
-      if (isPublished != null)
+      if (isPublished != null) {
         queryParams['is_published'] = isPublished.toString();
+      }
 
       final url = Uri.parse(
         '${ApiConstants.baseUrl}/technicians/$technicianId/posts',
@@ -189,16 +199,48 @@ class TechnicianService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json['success'] == true && json['data'] != null) {
-          final List<dynamic> items = json['data']['items'] ?? [];
-          return items.map((e) => PostModel.fromJson(e)).toList();
+          final data = json['data'] as Map<String, dynamic>;
+
+          final List<dynamic> items = data['items'] ?? [];
+          final int total = (data['total'] as num?)?.toInt() ?? items.length;
+          return {
+            'posts': items
+                .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
+                .toList(),
+            'total': total,
+          };
         }
       } else {
-        print("❌ Get Posts Failed: ${response.statusCode}");
+        print('❌ Get Posts Failed: ${response.statusCode}');
       }
     } catch (e) {
-      print("❌ Error fetching posts: $e");
+      print('❌ Error fetching posts: $e');
     }
-    return [];
+    return null;
+  }
+
+  Future<PostModel?> getPostById({
+    required String token,
+    required int technicianId,
+    required int postId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${ApiConstants.baseUrl}/technicians/$technicianId/posts/$postId',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true && json['data'] != null) {
+          return PostModel.fromJson(json['data'] as Map<String, dynamic>);
+        }
+      }
+    } catch (e) {
+      print('❌ Get Post Error: $e');
+    }
+    return null;
   }
 
   Future<bool> createPost({
@@ -220,7 +262,6 @@ class TechnicianService {
     if (categoryId != null) {
       request.fields['service_category_id'] = categoryId.toString();
     }
-
     if (images != null) {
       for (var file in images) {
         final mimeTypeData = lookupMimeType(file.path)?.split('/');
@@ -240,42 +281,18 @@ class TechnicianService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print("✅ Create Post Success");
+        print('✅ Create Post Success');
         return true;
       } else {
         print(
-          "❌ Create Post Failed: ${response.statusCode} - ${response.body}",
+          '❌ Create Post Failed: ${response.statusCode} - ${response.body}',
         );
         return false;
       }
     } catch (e) {
-      print("❌ Create Post Error: $e");
+      print('❌ Create Post Error: $e');
       return false;
     }
-  }
-
-  Future<PostModel?> getPostById({
-    required String token,
-    required int technicianId,
-    required int postId,
-  }) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '${ApiConstants.baseUrl}/technicians/$technicianId/posts/$postId',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['success'] == true && json['data'] != null) {
-          return PostModel.fromJson(json['data']);
-        }
-      }
-    } catch (e) {
-      print("❌ Get Post Error: $e");
-    }
-    return null;
   }
 
   Future<bool> updatePost({
@@ -306,7 +323,6 @@ class TechnicianService {
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
       request.fields['image_ids_to_delete'] = imageIdsToDelete.join(',');
     }
-
     if (newImages != null) {
       for (var file in newImages) {
         final mimeTypeData = lookupMimeType(file.path)?.split('/');
@@ -326,16 +342,16 @@ class TechnicianService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print("✅ Update Post Success");
+        print('✅ Update Post Success');
         return true;
       } else {
         print(
-          "❌ Update Post Failed: ${response.statusCode} - ${response.body}",
+          '❌ Update Post Failed: ${response.statusCode} - ${response.body}',
         );
         return false;
       }
     } catch (e) {
-      print("❌ Update Post Error: $e");
+      print('❌ Update Post Error: $e');
       return false;
     }
   }
@@ -357,12 +373,10 @@ class TechnicianService {
       );
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
-      print("❌ Delete Post Error: $e");
+      print('❌ Delete Post Error: $e');
       return false;
     }
   }
-
-  // Address
 
   Future<List<AddressModel>> getAddresses({
     required String token,
@@ -383,7 +397,7 @@ class TechnicianService {
         }
       }
     } catch (e) {
-      print("❌ Error fetching addresses: $e");
+      print('❌ Error fetching addresses: $e');
     }
     return [];
   }
@@ -447,7 +461,7 @@ class TechnicianService {
         return false;
       }
     } catch (e) {
-      print("❌ Exception creating address: $e");
+      print('❌ Exception creating address: $e');
       return false;
     }
   }
@@ -511,7 +525,7 @@ class TechnicianService {
         return false;
       }
     } catch (e) {
-      print("❌ Exception updating address: $e");
+      print('❌ Exception updating address: $e');
       return false;
     }
   }
@@ -536,7 +550,7 @@ class TechnicianService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("❌ Error setting primary address: $e");
+      print('❌ Error setting primary address: $e');
       return false;
     }
   }
@@ -556,7 +570,7 @@ class TechnicianService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("❌ Error deleting address: $e");
+      print('❌ Error deleting address: $e');
       return false;
     }
   }

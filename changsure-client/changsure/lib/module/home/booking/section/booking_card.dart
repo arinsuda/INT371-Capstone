@@ -1,5 +1,5 @@
 import 'package:changsure/module/home/booking/section/booking_calendar.dart';
-import 'package:changsure/module/profile/technician/owner/activities/shared/constants/activity_constants.dart';
+import 'package:changsure/module/profile/technician/activities/shared/constants/activity_constants.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';

@@ -26,8 +26,8 @@ class RealtimeService {
     disconnect();
 
     final rolePath = (role == RealtimeRole.technician)
-        ? '/v2/ws/technicians'
-        : '/v2/ws/customers';
+        ? '/ws/technicians'
+        : '/ws/customers';
 
     print("🔌 RealtimeService.connect() called");
     print("   role: $role");

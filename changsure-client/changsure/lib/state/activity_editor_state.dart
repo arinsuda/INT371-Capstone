@@ -131,27 +131,27 @@ class ActivityEditorNotifier
       postId: id,
     );
 
-    if (post != null) {
-      descriptionController.text = post.content;
-
-      state = state.copyWith(
-        isLoading: false,
-        categoryId: post.categoryId,
-        selectedCategory: post.categoryName,
-        assetImages: post.images,
-        assetImageIds: post.imageIds,
-        originalCategoryId: post.categoryId,
-        originalDescription: post.content,
-        currentDescription: post.content,
-      );
-    } else {
+    if (post == null) {
       state = state.copyWith(isLoading: false);
+      return;
     }
+
+    descriptionController.text = post.description ?? '';
+
+    state = state.copyWith(
+      isLoading: false,
+      categoryId: post.categoryId,
+      selectedCategory: post.categoryName,
+      assetImages: post.images.map((e) => e.imageUrl).toList(),
+      assetImageIds: post.images.map((e) => e.id).toList(),
+      originalCategoryId: post.categoryId,
+      originalDescription: post.description,
+      currentDescription: post.description ?? '',
+    );
   }
 
   void _onTextChanged() {
     state = state.copyWith(currentDescription: descriptionController.text);
-
     if (state.descriptionError != null) {
       state = ActivityEditorState(
         isLoading: state.isLoading,

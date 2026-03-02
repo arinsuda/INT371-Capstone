@@ -1,3 +1,4 @@
 {
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "thunder-client.saveToWorkspace": true
 }

@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 import 'chat_model.dart';
-import '../technician/public_technician_model.dart';
+import '../technician/technician_model.dart';
 
 class ChatParticipantInfo {
   final int userId;
@@ -24,7 +24,7 @@ class ChatParticipantInfo {
   }
 
   factory ChatParticipantInfo.fromTechnicianProfile(
-    PublicTechnicianProfile profile,
+    TechnicianModel profile,
   ) {
     return ChatParticipantInfo(
       userId: profile.id,
