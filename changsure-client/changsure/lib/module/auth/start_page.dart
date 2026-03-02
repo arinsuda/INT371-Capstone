@@ -1,41 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:changsure/core/button/primary_button.dart';
-import '../../core/theme.dart';
-import 'login_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class StartPage extends StatefulWidget {
+import '../../core/footer/footer_bar.dart';
+import '../../state/user_provider.dart';
+import '../home/home_page.dart'; // 👈 import หน้า Home ของคุณ
+import 'login_page.dart';
+import '../../core/button/primary_button.dart';
+
+class StartPage extends ConsumerWidget {
   const StartPage({super.key});
 
   @override
-  State<StartPage> createState() => _StartPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
 
-class _StartPageState extends State<StartPage> {
-  void _onStartPressed() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  }
+    // ✅ ถ้า login แล้ว → ไปหน้า Home ทันที
+    if (user != null && user.isAuthenticated) {
+      return const FooterBarTemplate();
+    }
 
-  @override
-  Widget build(BuildContext context) {
+    // ❌ ถ้ายังไม่ login → แสดงหน้าเริ่มต้น
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Align(
           alignment: Alignment.center,
           child: Padding(
-            padding: EdgeInsets.only(right: 24, left: 24 ,top: 0),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset("assets/image/Logo_ChangSure_Transparents.PNG", width: 300,),
-
+                Image.asset(
+                  "assets/image/Logo_ChangSure_Transparents.PNG",
+                  width: 300,
+                ),
+                const SizedBox(height: 40),
                 PrimaryButton(
                   text: 'เริ่มต้นใช้งาน',
-                  onPressed: _onStartPressed,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

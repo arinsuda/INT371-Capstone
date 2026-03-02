@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:changsure/module/profile/address_page.dart';
+import 'package:changsure/module/auth/customer/setup_address.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +9,7 @@ import '../../../core/button/primary_button.dart';
 import '../../../core/header.dart';
 import '../../../core/profile/editProfile/phone_formatter.dart';
 import '../../../data/services/customer_service.dart';
-import '../../../state/bottom_nav_provider.dart';
+import '../../../state/master_data_provider.dart';
 import '../../../state/user_provider.dart';
 
 class SetupProfilePage extends ConsumerStatefulWidget {
@@ -162,7 +162,14 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
         Navigator.push(
           context,
           MaterialPageRoute<void>(
-            builder: (context) => const AddressPage(),
+            builder: (context) => SetupAddress(
+              onSave: (data) async {
+                final result = await ref
+                    .read(addressProvider.notifier)
+                    .createAddress(data);
+                return result;
+              },
+            ),
           ),
         );
 

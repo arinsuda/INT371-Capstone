@@ -5,19 +5,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../core/button/primary_button.dart';
 import '../../data/models/users/users_model.dart';
+import '../../data/services/auth_service.dart';
 import '../../state/master_data_provider.dart';
+import '../../state/user_provider.dart';
 import 'customer/setup_profile_page.dart';
 
 class ChooseRolePage extends ConsumerStatefulWidget {
   final String email;
   final String password;
   final String confirmPassword;
+  final String? accessToken;
+  final String? refreshToken;
 
   const ChooseRolePage({
     super.key,
     required this.email,
     required this.password,
     required this.confirmPassword,
+    this.refreshToken,
+    this.accessToken,
   });
 
   @override
@@ -35,7 +41,6 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
     if (selectedIndex == 0) return "technician";
     return "customer";
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -196,41 +201,100 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
                 text: "ยืนยัน",
                 onPressed: canConfirm
                     ? () async {
-                  final model = RegisterModel(
-                    email: widget.email,
-                    password: widget.password,
-                    confirmPassword: widget.confirmPassword,
-                    role: selectedRole,
-                  );
+                  try {
+                    /// 1️⃣ REGISTER
+                    final registerModel = RegisterModel(
+                      email: widget.email,
+                      password: widget.password,
+                      confirmPassword: widget.confirmPassword,
+                      role: selectedRole,
+                    );
 
-                  await ref.read(registerProvider.notifier).register(model);
+                    await ref
+                        .read(registerProvider.notifier)
+                        .register(registerModel);
 
-                  final state = ref.read(registerProvider);
+                    final registerState = ref.read(registerProvider);
 
-                  if (state.hasValue && state.value != null) {
-                    if (selectedRole == "technician") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TechnicianRegisterPage(
-                            email: widget.email,
-                          ),
+                    if (!(registerState.hasValue && registerState.value != null)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('สมัครสมาชิกไม่สำเร็จ'),
+                          backgroundColor: Colors.red,
                         ),
                       );
+                      return;
+                    }
+
+                    /// 2️⃣ LOGIN อัตโนมัติ
+                    final authService = AuthService();
+                    final result = await authService.login(
+                      widget.email,
+                      widget.password,
+                    );
+
+                    if (result == null) {
+                      // error
+                      return;
+                    }
+
+
+                    final token = result['access_token'] as String;
+                    final userId = result['user_id'] as int;
+                    final roleStr = (result['role'] as String).toUpperCase();
+
+                    UserModel user;
+
+                    if (roleStr == 'TECHNICIAN') {
+                      final techProfile =
+                      await authService.getTechnicianProfile(token, userId);
+
+                      user = UserModel(
+                        id: userId,
+                        email: widget.email,
+                        token: token,
+                        role: UserRole.technician,
+                        technicianProfile: techProfile,
+                      );
                     } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SetupProfilePage(
-                            email: widget.email,
-                          ),
+                      final customerProfile =
+                      await authService.getCustomerProfile(token, userId);
+
+                      user = UserModel(
+                        id: userId,
+                        email: widget.email,
+                        token: token,
+                        role: UserRole.customer,
+                        customerProfile: customerProfile,
+                      );
+                    }
+
+                    await ref.read(userProvider.notifier).login(
+                      user,
+                      result['refresh_token'] as String,
+                    );
+
+                    /// 3️⃣ NAVIGATE ตาม role ที่เลือก
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => selectedRole == "technician"
+                            ? TechnicianRegisterPage(email: widget.email)
+                            : SetupProfilePage(email: widget.email),
+                      ),
+                          (route) => false,
+                    );
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('เกิดข้อผิดพลาด: $e'),
+                          backgroundColor: Colors.red,
                         ),
                       );
                     }
                   }
                 }
                     : null,
-
               ),
             ),
             Padding(

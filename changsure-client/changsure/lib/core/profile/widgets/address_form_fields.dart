@@ -25,7 +25,8 @@ class AddressFormFields extends ConsumerWidget {
   final FocusNode subDistrictFocusNode;
 
   final VoidCallback onFieldChanged;
-  final Function(LatLng) onCoordinatesUpdate;
+  final Function(LatLng)? onCoordinatesUpdate;
+  final bool showLabelField;
 
   const AddressFormFields({
     super.key,
@@ -40,7 +41,8 @@ class AddressFormFields extends ConsumerWidget {
     required this.districtFocusNode,
     required this.subDistrictFocusNode,
     required this.onFieldChanged,
-    required this.onCoordinatesUpdate,
+    this.onCoordinatesUpdate,
+    this.showLabelField = true,
   });
 
   @override
@@ -58,11 +60,13 @@ class AddressFormFields extends ConsumerWidget {
 
     return Column(
       children: [
-        LabeledTextField(
-          label: "ชื่อ (เช่น บ้าน, ที่ทำงาน)",
-          controller: labelCtrl,
-        ),
-        const SizedBox(height: 12),
+        if (showLabelField) ...[
+          LabeledTextField(
+            label: "ชื่อ (เช่น บ้าน, ที่ทำงาน)",
+            controller: labelCtrl,
+          ),
+          const SizedBox(height: 12),
+        ],
         LabeledTextArea(
           label: "บ้านเลขที่, หมู่, ชื่ออาคาร/หมู่บ้าน, ซอย, ถนน",
           controller: addressLineCtrl,
@@ -91,7 +95,7 @@ class AddressFormFields extends ConsumerWidget {
                 province: item.nameTh,
               );
               formNotifier.setCoordinates(point);
-              onCoordinatesUpdate(point);
+              onCoordinatesUpdate?.call(point);
             } catch (e) {
               debugPrint('Error geocoding province: $e');
             }
@@ -121,7 +125,7 @@ class AddressFormFields extends ConsumerWidget {
                 province: provinceCtrl.text,
               );
               formNotifier.setCoordinates(point);
-              onCoordinatesUpdate(point);
+              onCoordinatesUpdate?.call(point);
             } catch (e) {
               debugPrint('Error geocoding district: $e');
             }
@@ -150,7 +154,7 @@ class AddressFormFields extends ConsumerWidget {
                 province: provinceCtrl.text,
               );
               formNotifier.setCoordinates(point);
-              onCoordinatesUpdate(point);
+              onCoordinatesUpdate?.call(point);
             } catch (e) {
               debugPrint('Error geocoding sub-district: $e');
             }
