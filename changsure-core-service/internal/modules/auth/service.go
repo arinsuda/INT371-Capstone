@@ -148,11 +148,44 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 
 	now := time.Now().Unix()
 
-	return &RegisterResponse{
+	accessToken, err := middleware.GenerateAccessToken(
+		userID,
+		email,
+		role,
+		"",
+		s.cfg.JWT.Secret,
+		s.accessTokenTTLHours(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rawRefresh, err := generateRandomTokenString()
+	if err != nil {
+		return nil, err
+	}
+
+	hashRefresh := hashToken(rawRefresh)
+
+	rt := &RefreshToken{
 		UserID:    userID,
-		Email:     email,
-		Role:      role,
-		CreatedAt: now,
+		UserRole:  role,
+		TokenHash: hashRefresh,
+		ExpiresAt: time.Now().Add(s.refreshTokenTTL()),
+	}
+
+	if err := s.refreshRepo.Create(ctx, rt); err != nil {
+		return nil, err
+	}
+
+	return &RegisterResponse{
+		UserID:       userID,
+		Email:        email,
+		Role:         role,
+		AccessToken:  accessToken,
+		RefreshToken: rawRefresh,
+		ExpiresIn:    int64(s.accessTokenTTLHours() * 3600),
+		CreatedAt:    now,
 	}, nil
 }
 
@@ -314,13 +347,13 @@ func isDuplicateError(err error) bool {
 }
 
 func (s *service) ValidateTechnicianToken(tokenString string) (uint, error) {
-	
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		
+
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		
+
 		return []byte(s.cfg.JWT.Secret), nil
 	})
 
@@ -328,16 +361,13 @@ func (s *service) ValidateTechnicianToken(tokenString string) (uint, error) {
 		return 0, fmt.Errorf("parse token: %w", err)
 	}
 
-	
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		
+
 		role, ok := claims["role"].(string)
 		if !ok || role != "technician" {
 			return 0, fmt.Errorf("role is not technician")
 		}
 
-		
-		
 		var userID uint
 		if idFloat, ok := claims["user_id"].(float64); ok {
 			userID = uint(idFloat)
