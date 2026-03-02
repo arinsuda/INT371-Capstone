@@ -2,17 +2,22 @@ package database
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	badge "changsure-core-service/internal/modules/badge"
 	district "changsure-core-service/internal/modules/district"
+	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/province"
 	"changsure-core-service/internal/modules/service"
 	servicecategory "changsure-core-service/internal/modules/service_category"
@@ -68,6 +73,7 @@ func (d *Database) Seed() error {
 		{"Technician Services", s.seedTechnicianServices},
 		{"Technician Service Areas", s.seedTechnicianServiceAreas},
 		{"Technician Badges", s.seedTechnicianBadges},
+		{"Documents", s.seedDocuments},
 	}
 
 	for _, step := range steps {
@@ -496,6 +502,85 @@ func (s *Seeder) seedTechnicianBadges() error {
 	}
 
 	return s.db.CreateInBatches(&filtered, 100).Error
+}
+
+func (s *Seeder) seedDocuments() error {
+	type VersionSeed struct {
+		Version     int             `json:"version"`
+		Locale      string          `json:"locale"`
+		IsPublished bool            `json:"is_published"`
+		PublishedAt *time.Time      `json:"published_at"`
+		Content     json.RawMessage `json:"content"`
+	}
+
+	type DocumentSeed struct {
+		Type     string        `json:"type"`
+		Slug     string        `json:"slug"`
+		Versions []VersionSeed `json:"versions"`
+	}
+
+	type SeedFile struct {
+		Documents []DocumentSeed `json:"documents"`
+	}
+
+	fullPath := fmt.Sprintf("%s/documents/onboard.json", seedsDir)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Errorf("read file %s: %w", fullPath, err)
+	}
+
+	var seedFile SeedFile
+	if err := json.Unmarshal(content, &seedFile); err != nil {
+		return fmt.Errorf("parse json: %w", err)
+	}
+
+	for _, docSeed := range seedFile.Documents {
+		var doc document.Document
+		err := s.db.Where("slug = ?", docSeed.Slug).First(&doc).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			doc = document.Document{
+				ID:   uuid.New(),
+				Type: docSeed.Type,
+				Slug: docSeed.Slug,
+			}
+			if err := s.db.Create(&doc).Error; err != nil {
+				return fmt.Errorf("create document %s: %w", docSeed.Slug, err)
+			}
+			log.Printf("  ✅ Created document: %s", docSeed.Slug)
+		} else if err != nil {
+			return fmt.Errorf("query document %s: %w", docSeed.Slug, err)
+		} else {
+			log.Printf("  ⏭️  Document already exists: %s", docSeed.Slug)
+		}
+
+		for _, vs := range docSeed.Versions {
+			var existing document.DocumentVersion
+			err := s.db.
+				Where("document_id = ? AND version = ? AND locale = ?", doc.ID, vs.Version, vs.Locale).
+				First(&existing).Error
+
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				v := document.DocumentVersion{
+					DocumentID:  doc.ID,
+					Version:     vs.Version,
+					Locale:      vs.Locale,
+					Content:     datatypes.JSON(vs.Content),
+					IsPublished: vs.IsPublished,
+					PublishedAt: vs.PublishedAt,
+				}
+				if err := s.db.Create(&v).Error; err != nil {
+					return fmt.Errorf("create version %d for %s: %w", vs.Version, docSeed.Slug, err)
+				}
+				log.Printf("    ✅ Created version %d (%s)", vs.Version, vs.Locale)
+			} else if err != nil {
+				return fmt.Errorf("query version: %w", err)
+			} else {
+				log.Printf("    ⏭️  Version %d (%s) already exists", vs.Version, vs.Locale)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Seeder) isSeeded(model interface{}) bool {

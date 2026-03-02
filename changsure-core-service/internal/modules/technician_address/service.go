@@ -198,6 +198,12 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		addr.SubDistrictID = sdid
 	}
 
+	// FIX: ล้าง preloaded associations ออกก่อน Save
+	// เพื่อป้องกัน GORM upsert associations แล้ว override FK กลับเป็นค่าเดิม
+	addr.Province = nil
+	addr.District = nil
+	addr.SubDistrict = nil
+
 	if err := s.repo.Transaction(ctx, func(r Repository) error {
 		if err := r.Update(ctx, addr); err != nil {
 			return err
@@ -210,7 +216,11 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		return nil, err
 	}
 
-	updatedAddr, _ := s.repo.Get(ctx, id, techID)
+	updatedAddr, err := s.repo.Get(ctx, id, techID)
+	if err != nil {
+		return nil, err
+	}
+
 	defaultPhone, _ := s.repo.GetTechnicianPhone(ctx, techID)
 	resp := ToResponse(updatedAddr, defaultPhone)
 	return &resp, nil
@@ -277,10 +287,8 @@ func (s *service) SetPrimary(ctx context.Context, id uint, techID uint, isPrimar
 
 	return s.repo.Transaction(ctx, func(r Repository) error {
 		if isPrimary {
-
 			return r.SetPrimaryTx(ctx, techID, id)
 		}
-
 		return r.UnsetPrimaryTx(ctx, techID, id)
 	})
 }
