@@ -19,10 +19,13 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	UserID    uint   `json:"user_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	CreatedAt int64  `json:"created_at"`
+	UserID       uint   `json:"user_id"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	CreatedAt    int64  `json:"created_at"`
 }
 
 type RefreshRequest struct {
