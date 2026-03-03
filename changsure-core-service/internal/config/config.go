@@ -24,6 +24,7 @@ type Config struct {
 	Minio    MinioConfig
 	OCR      OCRConfig
 	Omise    OmiseConfig
+	Mailer   MailerConfig
 }
 
 type AppConfig struct {
@@ -89,6 +90,15 @@ type OmiseConfig struct {
 	Timeout         time.Duration
 	WebhookSecret   string
 	QRExpiryMinutes int
+}
+
+type MailerConfig struct {
+	Host     string `mapstructure:"MAILER_HOST"`
+	Port     int    `mapstructure:"MAILER_PORT"`
+	Username string `mapstructure:"MAILER_USERNAME"`
+	Password string `mapstructure:"MAILER_PASSWORD"`
+	From     string `mapstructure:"MAILER_FROM"`
+	FromName string `mapstructure:"MAILER_FROM_NAME"`
 }
 
 var GlobalConfig *Config
@@ -161,6 +171,14 @@ func LoadConfig() *Config {
 			Timeout:         time.Duration(getEnvAsInt("OMISE_TIMEOUT_SECONDS")) * time.Second,
 			WebhookSecret:   os.Getenv("OMISE_WEBHOOK_SECRET"),
 			QRExpiryMinutes: getEnvAsInt("OMISE_QR_EXPIRY_MINUTES"),
+		},
+		Mailer: MailerConfig{
+			Host:     os.Getenv("MAILER_HOST"),
+			Port:     getEnvAsInt("MAILER_PORT"),
+			Username: os.Getenv("MAILER_USERNAME"),
+			Password: os.Getenv("MAILER_PASSWORD"),
+			From:     os.Getenv("MAILER_FROM"),
+			FromName: os.Getenv("MAILER_FROM_NAME"),
 		},
 	}
 
