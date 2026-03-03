@@ -24,6 +24,7 @@ import (
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/payment"
 	"changsure-core-service/internal/modules/province"
+	resetpassword "changsure-core-service/internal/modules/reset_password"
 	"changsure-core-service/internal/modules/service"
 	servicecategory "changsure-core-service/internal/modules/service_category"
 	subdistrict "changsure-core-service/internal/modules/sub_district"
@@ -40,6 +41,7 @@ import (
 	"changsure-core-service/internal/realtime"
 
 	"changsure-core-service/internal/config"
+	"changsure-core-service/pkg/mailer"
 	"changsure-core-service/pkg/storage"
 )
 
@@ -148,6 +150,12 @@ type Container struct {
 	DocumentRepo    document.Repository
 	DocumentService document.Service
 	DocumentHandler *document.Handler
+
+	ResetPasswordRepo    resetpassword.Repository
+	ResetPasswordService resetpassword.Service
+	ResetPasswordHandler *resetpassword.Handler
+
+	Mailer mailer.Mailer
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
@@ -202,6 +210,9 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initChatModule()
 	c.initPaymentModule(cfg)
 	c.initDocumentModule()
+
+	c.initMailer(cfg)
+	c.initResetPasswordModule(cfg)
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -538,6 +549,29 @@ func (c *Container) initDocumentModule() {
 	c.DocumentHandler = document.NewHandler(c.DocumentService)
 }
 
+func (c *Container) initMailer(cfg *config.Config) {
+	c.Mailer = mailer.New(mailer.Config{
+		Host:     cfg.Mailer.Host,
+		Port:     cfg.Mailer.Port,
+		Username: cfg.Mailer.Username,
+		Password: cfg.Mailer.Password,
+		From:     cfg.Mailer.From,
+		FromName: cfg.Mailer.FromName,
+	})
+}
+
+func (c *Container) initResetPasswordModule(cfg *config.Config) {
+	c.ResetPasswordRepo = resetpassword.NewRepository(c.DB)
+	c.ResetPasswordService = resetpassword.NewService(
+		c.ResetPasswordRepo,
+		c.CustomerRepo,
+		c.TechnicianRepo,
+		c.Mailer,
+		cfg.JWT.Secret,
+	)
+	c.ResetPasswordHandler = resetpassword.NewHandler(c.ResetPasswordService)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -574,6 +608,7 @@ func AllModels() []interface{} {
 	)
 
 	models = append(models, document.Models()...)
+	models = append(models, resetpassword.Models()...)
 
 	return models
 }

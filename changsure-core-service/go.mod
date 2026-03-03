@@ -14,20 +14,18 @@ require (
 )
 
 require (
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/gofiber/contrib/v3/websocket v1.0.0-rc.1
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	golang.org/x/crypto v0.46.0
 )
 
 require (
-	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
-	github.com/valyala/fasttemplate v1.2.2 // indirect
 )
 
 require (
@@ -44,7 +42,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/labstack/echo/v4 v4.15.0
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

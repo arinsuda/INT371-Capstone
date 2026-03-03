@@ -61,6 +61,7 @@ func (r *Router) setupPublicRoutes() {
 	api := r.app.Group("/api")
 	r.container.AuthHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
+	r.container.ResetPasswordHandler.RegisterRoutes(api)
 }
 
 func (r *Router) setupProtectedRoutes() {
