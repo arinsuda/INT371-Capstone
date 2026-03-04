@@ -7,7 +7,9 @@ app = FastAPI()
 
 ocr = PaddleOCR(
     use_angle_cls=True,
-    lang="th"
+    lang="th",
+    use_gpu=False,
+    det_db_score_mode="slow",
 )
 
 @app.post("/ocr")
