@@ -15,7 +15,9 @@ import (
 	"gorm.io/gorm/clause"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
+	"changsure-core-service/internal/modules/admin"
 	badge "changsure-core-service/internal/modules/badge"
+	criminalcheck "changsure-core-service/internal/modules/criminal_check"
 	district "changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/province"
@@ -74,6 +76,8 @@ func (d *Database) Seed() error {
 		{"Technician Service Areas", s.seedTechnicianServiceAreas},
 		{"Technician Badges", s.seedTechnicianBadges},
 		{"Documents", s.seedDocuments},
+		{"Criminal Records", s.seedCriminalRecords},
+		{"Admins", s.seedAdmins},
 	}
 
 	for _, step := range steps {
@@ -581,6 +585,79 @@ func (s *Seeder) seedDocuments() error {
 	}
 
 	return nil
+}
+
+func (s *Seeder) seedCriminalRecords() error {
+	if s.isSeeded(&criminalcheck.MockCriminalRecord{}) {
+		return nil
+	}
+
+	type RecordInput struct {
+		NationalID string `json:"national_id"`
+		FullName   string `json:"full_name"`
+		Status     string `json:"status"`
+		Note       string `json:"note"`
+	}
+
+	type SeedFile struct {
+		Records []RecordInput `json:"criminal_records"`
+	}
+
+	fullPath := fmt.Sprintf("%s/criminal_records/criminal.json", seedsDir)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Errorf("read criminal records seed: %w", err)
+	}
+
+	var seedFile SeedFile
+	if err := json.Unmarshal(content, &seedFile); err != nil {
+		return fmt.Errorf("parse criminal records seed: %w", err)
+	}
+
+	data := make([]criminalcheck.MockCriminalRecord, 0, len(seedFile.Records))
+	for _, r := range seedFile.Records {
+		if r.NationalID == "" {
+			continue
+		}
+		data = append(data, criminalcheck.MockCriminalRecord{
+			NationalID: r.NationalID,
+			FullName:   r.FullName,
+			Status:     criminalcheck.CheckStatus(r.Status),
+			Note:       r.Note,
+		})
+	}
+
+	return s.db.CreateInBatches(data, 100).Error
+}
+
+func (s *Seeder) seedAdmins() error {
+	if s.isSeeded(&admin.Admin{}) {
+		return nil
+	}
+
+	type AdminSeed struct {
+		FirstName    string `json:"firstname"`
+		LastName     string `json:"lastname"`
+		Email        string `json:"email"`
+		PasswordHash string `json:"password_hash"`
+	}
+
+	items, err := loadSeedFile[AdminSeed]("admins/admin.json")
+	if err != nil {
+		return err
+	}
+
+	data := make([]admin.Admin, 0, len(items))
+	for _, item := range items {
+		data = append(data, admin.Admin{
+			FirstName:    item.FirstName,
+			LastName:     item.LastName,
+			Email:        item.Email,
+			PasswordHash: item.PasswordHash,
+		})
+	}
+
+	return s.db.CreateInBatches(data, 100).Error
 }
 
 func (s *Seeder) isSeeded(model interface{}) bool {
