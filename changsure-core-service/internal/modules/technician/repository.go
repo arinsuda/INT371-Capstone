@@ -25,6 +25,9 @@ func NewRepository(db *gorm.DB) Repository { return &repository{db: db} }
 func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error) {
 	var m Technician
 	if err := r.db.WithContext(ctx).First(&m, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil  
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -33,6 +36,9 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error)
 func (r *repository) FindByEmail(ctx context.Context, email string) (*Technician, error) {
 	var m Technician
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil  
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -41,6 +47,9 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*Technician
 func (r *repository) FindByPhone(ctx context.Context, phone string) (*Technician, error) {
 	var m Technician
 	if err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil  
+		}
 		return nil, err
 	}
 	return &m, nil
