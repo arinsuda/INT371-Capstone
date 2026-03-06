@@ -69,7 +69,7 @@ func (h *Handler) GetPublished(c fiber.Ctx) error {
 }
 
 func (h *Handler) Accept(c fiber.Ctx) error {
-	
+
 	tokenUserID, ok := middleware.GetUserID(c)
 	if !ok {
 		return appErrors.Unauthorized(c, "unauthorized")
@@ -80,18 +80,15 @@ func (h *Handler) Accept(c fiber.Ctx) error {
 		return appErrors.Unauthorized(c, "role not found in token")
 	}
 
-	
 	var dto AcceptDTO
 	if err := c.Bind().Body(&dto); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
 
-	
 	if dto.UserID != tokenUserID {
 		return appErrors.Forbidden(c, "you are not allowed to accept on behalf of another user")
 	}
 
-	
 	locale := c.Query("locale", "th")
 	a, err := h.service.Accept(c.Params("slug"), tokenUserID, tokenRole, locale)
 	if err != nil {
