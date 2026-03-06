@@ -1,14 +1,12 @@
 package resetpassword
 
 type ForgotPasswordRequest struct {
-	Email string   `json:"email" validate:"required,email"`
-	Role  UserRole `json:"role"  validate:"required,oneof=customer technician"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 type VerifyOTPRequest struct {
-	Email string   `json:"email" validate:"required,email"`
-	Role  UserRole `json:"role"  validate:"required,oneof=customer technician"`
-	OTP   string   `json:"otp"   validate:"required,len=6,numeric"`
+	Email string `json:"email" validate:"required,email"`
+	OTP   string `json:"otp"   validate:"required,len=6,numeric"`
 }
 
 type ResetPasswordRequest struct {

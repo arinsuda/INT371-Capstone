@@ -28,7 +28,7 @@ var (
 	ErrInvalidOTP        = errors.New("invalid or expired OTP")
 	ErrInvalidToken      = errors.New("invalid or expired reset token")
 	ErrPasswordMismatch  = errors.New("passwords do not match")
-	ErrGoogleAccountOnly = errors.New("this account uses Google login, please sign in with Google") // เพิ่ม
+	ErrGoogleAccountOnly = errors.New("this account uses Google login, please sign in with Google")
 )
 
 type resetClaims struct {
@@ -70,7 +70,7 @@ func NewService(
 }
 
 func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResponse, error) {
-	userID, name, passwordHash, err := s.findUserByEmail(req.Email, req.Role)
+	userID, name, passwordHash, role, err := s.findUserByEmail(req.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 		return nil, ErrGoogleAccountOnly
 	}
 
-	if err := s.repo.InvalidateAll(req.Email, req.Role); err != nil {
+	if err := s.repo.InvalidateAll(req.Email, role); err != nil {
 		return nil, fmt.Errorf("invalidate old otp: %w", err)
 	}
 
@@ -91,7 +91,7 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 	record := &PasswordResetOTP{
 		ID:        uuid.New(),
 		UserID:    userID,
-		UserRole:  req.Role,
+		UserRole:  role,
 		Email:     req.Email,
 		OTP:       otp,
 		ExpiresAt: time.Now().Add(otpTTL),
@@ -120,7 +120,7 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 }
 
 func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
-	record, err := s.repo.FindValidOTP(req.Email, req.Role, req.OTP)
+	record, err := s.repo.FindValidOTPByEmail(req.Email, req.OTP)
 	if err != nil {
 		return nil, fmt.Errorf("find otp: %w", err)
 	}
@@ -132,7 +132,7 @@ func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
 		return nil, fmt.Errorf("mark otp used: %w", err)
 	}
 
-	token, err := s.issueResetToken(record.UserID, req.Role, req.Email)
+	token, err := s.issueResetToken(record.UserID, record.UserRole, record.Email)
 	if err != nil {
 		return nil, fmt.Errorf("issue reset token: %w", err)
 	}
@@ -144,7 +144,6 @@ func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
 }
 
 func (s *service) ResetPassword(req ResetPasswordRequest) (*ResetPasswordResponse, error) {
-
 	claims, err := s.parseResetToken(req.ResetToken)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -164,49 +163,43 @@ func (s *service) ResetPassword(req ResetPasswordRequest) (*ResetPasswordRespons
 	}, nil
 }
 
-func (s *service) findUserByEmail(email string, role UserRole) (uint, string, string, error) {
-	switch role {
-	case RoleCustomer:
-		c, err := s.customerRepo.FindByEmail(context.Background(), email)
-		if err != nil {
-			return 0, "", "", fmt.Errorf("find customer: %w", err)
-		}
-		if c == nil {
-			return 0, "", "", ErrEmailNotFound
-		}
-		return c.ID, c.FirstName, c.PasswordHash, nil
-
-	case RoleTechnician:
-		t, err := s.techRepo.FindByEmail(context.Background(), email)
-		if err != nil {
-			return 0, "", "", fmt.Errorf("find technician: %w", err)
-		}
-		if t == nil {
-			return 0, "", "", ErrEmailNotFound
-		}
-		return t.ID, t.FirstName, t.PasswordHash, nil
+func (s *service) findUserByEmail(email string) (userID uint, name string, passwordHash string, role UserRole, err error) {
+	c, err := s.customerRepo.FindByEmail(context.Background(), email)
+	if err != nil {
+		return 0, "", "", "", fmt.Errorf("find customer: %w", err)
+	}
+	if c != nil {
+		return c.ID, c.FirstName, c.PasswordHash, RoleCustomer, nil
 	}
 
-	return 0, "", "", fmt.Errorf("unknown role: %s", role)
+	t, err := s.techRepo.FindByEmail(context.Background(), email)
+	if err != nil {
+		return 0, "", "", "", fmt.Errorf("find technician: %w", err)
+	}
+	if t != nil {
+		return t.ID, t.FirstName, t.PasswordHash, RoleTechnician, nil
+	}
+
+	return 0, "", "", "", ErrEmailNotFound
 }
 
 func (s *service) updatePassword(userID uint, role UserRole, hashedPassword string) error {
 	switch role {
 	case RoleCustomer:
-		c, err := s.customerRepo.FindByID(nil, userID)
+		c, err := s.customerRepo.FindByID(context.Background(), userID)
 		if err != nil || c == nil {
 			return ErrEmailNotFound
 		}
 		c.PasswordHash = hashedPassword
-		return s.customerRepo.Update(nil, c)
+		return s.customerRepo.Update(context.Background(), c)
 
 	case RoleTechnician:
-		t, err := s.techRepo.FindByID(nil, userID)
+		t, err := s.techRepo.FindByID(context.Background(), userID)
 		if err != nil || t == nil {
 			return ErrEmailNotFound
 		}
 		t.PasswordHash = hashedPassword
-		return s.techRepo.Update(nil, t)
+		return s.techRepo.Update(context.Background(), t)
 	}
 
 	return fmt.Errorf("unknown role: %s", role)
