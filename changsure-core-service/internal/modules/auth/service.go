@@ -16,6 +16,7 @@ import (
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/admin"
 	"changsure-core-service/internal/modules/customer"
 	"changsure-core-service/internal/modules/technician"
 )
@@ -39,9 +40,15 @@ type TechnicianReader interface {
 	Create(ctx context.Context, t *technician.Technician) error
 }
 
+type AdminReader interface {
+	FindByEmail(ctx context.Context, email string) (*admin.Admin, error)
+	FindByID(ctx context.Context, id uint) (*admin.Admin, error)
+}
+
 type service struct {
 	customers   CustomerReader
 	technicians TechnicianReader
+	admins      AdminReader
 	refreshRepo RefreshTokenRepository
 	cfg         *config.Config
 }
@@ -49,12 +56,14 @@ type service struct {
 func NewService(
 	cRepo CustomerReader,
 	tRepo TechnicianReader,
+	aRepo AdminReader,
 	rtRepo RefreshTokenRepository,
 	cfg *config.Config,
 ) Service {
 	return &service{
 		customers:   cRepo,
 		technicians: tRepo,
+		admins:      aRepo,
 		refreshRepo: rtRepo,
 		cfg:         cfg,
 	}
@@ -203,15 +212,20 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		role = "customer"
 		hash = c.PasswordHash
 		username = c.FirstName
-	} else {
-		t, err2 := s.technicians.FindByEmail(ctx, req.Email)
-		if err2 != nil || t == nil {
-			return nil, ErrInvalidCredentials
-		}
+	} else if t, err := s.technicians.FindByEmail(ctx, req.Email); err == nil && t != nil {
+
 		userID = t.ID
 		role = "technician"
 		hash = t.PasswordHash
 		username = t.FirstName
+	} else if a, err := s.admins.FindByEmail(ctx, req.Email); err == nil && a != nil {
+
+		userID = a.ID
+		role = "admin"
+		hash = a.PasswordHash
+		username = a.FirstName
+	} else {
+		return nil, ErrInvalidCredentials
 	}
 
 	if err := comparePassword(hash, req.Password); err != nil {
@@ -295,6 +309,13 @@ func (s *service) GenerateRefreshToken(ctx context.Context, refreshToken string)
 			email = *t.Email
 		}
 		username = t.FirstName
+	case "admin":
+		a, err := s.admins.FindByID(ctx, userID)
+		if err != nil || a == nil {
+			return nil, ErrInvalidRefreshToken
+		}
+		email = a.Email
+		username = a.FirstName
 
 	default:
 		return nil, ErrInvalidRefreshToken

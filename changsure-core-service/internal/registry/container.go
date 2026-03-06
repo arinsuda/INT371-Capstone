@@ -9,10 +9,12 @@ import (
 	"gorm.io/gorm"
 
 	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/admin"
 	"changsure-core-service/internal/modules/auth"
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/chat"
+	criminalcheck "changsure-core-service/internal/modules/criminal_check"
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	customerbooking "changsure-core-service/internal/modules/customer_booking"
@@ -155,7 +157,13 @@ type Container struct {
 	ResetPasswordService resetpassword.Service
 	ResetPasswordHandler *resetpassword.Handler
 
+	CriminalCheckRepo    criminalcheck.Repository
+	CriminalCheckService criminalcheck.Service
+	CriminalCheckHandler *criminalcheck.Handler
+
 	Mailer mailer.Mailer
+
+	AdminRepo admin.Repository
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
@@ -177,6 +185,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	if err := c.initStorage(cfg); err != nil {
 		return nil, err
 	}
+	c.initAdminModule()
 
 	c.initCustomerModule()
 	c.initProvinceModule()
@@ -213,6 +222,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 
 	c.initMailer(cfg)
 	c.initResetPasswordModule(cfg)
+	c.initCriminalCheckModule(cfg)
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -241,6 +251,7 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 	c.AuthService = auth.NewService(
 		c.CustomerRepo,
 		c.TechnicianRepo,
+		c.AdminRepo,
 		c.AuthRepo,
 		cfg,
 	)
@@ -572,6 +583,20 @@ func (c *Container) initResetPasswordModule(cfg *config.Config) {
 	c.ResetPasswordHandler = resetpassword.NewHandler(c.ResetPasswordService)
 }
 
+func (c *Container) initCriminalCheckModule(cfg *config.Config) {
+	repo := criminalcheck.NewRepository(c.DB)
+	c.CriminalCheckService = criminalcheck.NewService(
+		repo,
+		c.TechnicianRepo,
+		c.OCRService,
+	)
+	c.CriminalCheckHandler = criminalcheck.NewHandler(c.CriminalCheckService)
+}
+
+func (c *Container) initAdminModule() {
+	c.AdminRepo = admin.NewRepository(c.DB)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 
@@ -609,6 +634,8 @@ func AllModels() []interface{} {
 
 	models = append(models, document.Models()...)
 	models = append(models, resetpassword.Models()...)
+	models = append(models, criminalcheck.Models()...)
+	models = append(models, admin.Models()...)
 
 	return models
 }

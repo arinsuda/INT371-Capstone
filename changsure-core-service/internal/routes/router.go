@@ -88,6 +88,11 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
+func (r *Router) setupAdminRoutes(api fiber.Router) {
+	admin := api.Group("/admin")
+	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin)
+}
+
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
@@ -99,6 +104,7 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	r.container.TechnicianCalendarHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBookingHandler.RegisterRoutes(technicians)
 	r.container.TechnicianAddressHandler.RegisterRoutes(technicians)
+	r.container.CriminalCheckHandler.RegisterRoutes(technicians)
 }
 
 func (r *Router) setupCustomerRoutes(api fiber.Router) {
@@ -107,11 +113,6 @@ func (r *Router) setupCustomerRoutes(api fiber.Router) {
 	r.container.CustomerHandler.RegisterRoutes(customers)
 	r.container.CustomerBookingHandler.RegisterRoutes(customers)
 	r.container.CustomerAddressHandler.RegisterRoutes(customers, r.cfg)
-}
-
-func (r *Router) setupAdminRoutes(api fiber.Router) {
-	admin := api.Group("/admin", middleware.AdminOnly())
-	_ = admin
 }
 
 func (r *Router) setupWebSocketRoutes() {
