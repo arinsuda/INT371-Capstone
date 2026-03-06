@@ -3,6 +3,9 @@ package document
 import (
 	"strconv"
 
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -66,12 +69,28 @@ func (h *Handler) GetPublished(c fiber.Ctx) error {
 }
 
 func (h *Handler) Accept(c fiber.Ctx) error {
+
+	tokenUserID, ok := middleware.GetUserID(c)
+	if !ok {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	tokenRole, ok := middleware.GetRole(c)
+	if !ok {
+		return appErrors.Unauthorized(c, "role not found in token")
+	}
+
 	var dto AcceptDTO
 	if err := c.Bind().Body(&dto); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return appErrors.BadRequest(c, "invalid request body")
 	}
+
+	if dto.UserID != tokenUserID {
+		return appErrors.Forbidden(c, "you are not allowed to accept on behalf of another user")
+	}
+
 	locale := c.Query("locale", "th")
-	a, err := h.service.Accept(c.Params("slug"), dto.UserID, dto.Role, locale)
+	a, err := h.service.Accept(c.Params("slug"), tokenUserID, tokenRole, locale)
 	if err != nil {
 		return err
 	}
