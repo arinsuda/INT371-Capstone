@@ -14,7 +14,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Pre-download EasyOCR models into the image layer
-# so containers start instantly without network access
 RUN mkdir -p /app/.easyocr/model
 RUN PYTHONPATH=/install/lib/python3.10/site-packages \
     python - <<'EOF'
@@ -35,12 +34,11 @@ EOF
 # ─────────────────────────────────────────────────────────
 FROM python:3.10-slim AS runtime
 
-# Security: run as non-root — -m creates /home/appuser automatically
+# Create user with home directory
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
 WORKDIR /app
 
-# System libs only — no build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -52,22 +50,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
 
-# Copy pre-downloaded OCR models
-COPY --from=builder /app/.easyocr /app/.easyocr
+# Copy models — owned by appuser from the start, no chown needed after
+COPY --chown=appuser:appuser --from=builder /app/.easyocr /app/.easyocr
 
 # Copy application source
-COPY app/ ./app/
+COPY --chown=appuser:appuser app/ ./app/
 
-# EasyOCR always tries to mkdir ~/.EasyOCR/user_network on every init
-# even when models are already cached — pre-create it with correct ownership
+# Pre-create EasyOCR user_network dir with correct ownership
 RUN mkdir -p /home/appuser/.EasyOCR/user_network \
- && chown -R appuser:appuser /app /home/appuser/.EasyOCR
+ && chown -R appuser:appuser /home/appuser/.EasyOCR
 
 USER appuser
 
 EXPOSE 8000
 
-# Healthcheck — /readyz returns 200 once models are loaded
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/readyz || exit 1
 
