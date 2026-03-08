@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"changsure-core-service/internal/modules/ocr/infra"
 )
 
 func normalizeThaiName(name string) string {
@@ -13,7 +15,6 @@ func normalizeThaiName(name string) string {
 	for _, p := range prefixes {
 		name = strings.TrimPrefix(name, p)
 	}
-
 	name = strings.ReplaceAll(name, " ", "")
 	name = strings.TrimSpace(name)
 	return name
@@ -54,126 +55,48 @@ func resolveStatus(record *MockCriminalRecord) (CheckStatus, string, string, boo
 	}
 }
 
-func extractNationalID(text string) string {
-
-	cleaned := strings.ReplaceAll(text, "-", "")
-	cleaned = strings.ReplaceAll(cleaned, " ", "")
-	cleaned = strings.ReplaceAll(cleaned, "\n", "")
-	cleaned = strings.ReplaceAll(cleaned, "\t", "")
-
-	matches := nationalIDRegex.FindAllString(cleaned, -1)
-	if len(matches) > 0 {
-		return matches[0]
-	}
-
-	digitsOnly := regexp.MustCompile(`[0-9]`).FindAllString(text, -1)
-	allDigits := strings.Join(digitsOnly, "")
-
-	for i := 0; i <= len(allDigits)-13; i++ {
-		candidate := allDigits[i : i+13]
-		if candidate[0] >= '1' && candidate[0] <= '8' {
-			return candidate
-		}
-	}
-
-	return ""
-}
-
-func extractThaiName(items []struct {
-	Text       string      `json:"text"`
-	Confidence float64     `json:"confidence"`
-	BBox       [][]float64 `json:"bbox"`
-}, idCardY float64) string {
-
-	thaiRegex := regexp.MustCompile(`[\p{Thai}]+`)
-
-	type textItem struct {
-		text string
-		y    float64
-	}
-
-	var thaiItems []textItem
-	for _, item := range items {
-
-		if !thaiRegex.MatchString(item.Text) {
-			continue
-		}
-
-		if len([]rune(item.Text)) < 2 {
-			continue
-		}
-		topY := item.BBox[0][1]
-		thaiItems = append(thaiItems, textItem{text: item.Text, y: topY})
-	}
-
-	if len(thaiItems) == 0 {
-		return ""
-	}
-
-	sort.Slice(thaiItems, func(i, j int) bool {
-		return thaiItems[i].y < thaiItems[j].y
-	})
-
-	var nameParts []string
-	var baseY float64 = -1
-
-	for _, item := range thaiItems {
-		if item.y <= idCardY {
-			continue
-		}
-		if baseY < 0 {
-			baseY = item.y
-		}
-
-		if math.Abs(item.y-baseY) <= 30 {
-			nameParts = append(nameParts, strings.TrimSpace(item.text))
-		}
-	}
-
-	return strings.Join(nameParts, " ")
-}
-
-func extractNationalIDWithY(items []struct {
-	Text       string      `json:"text"`
-	Confidence float64     `json:"confidence"`
-	BBox       [][]float64 `json:"bbox"`
-}) (string, float64) {
-
+// extractNationalIDWithY tries to find a 13-digit national ID from OCR items.
+// Returns the ID and the top-left Y coordinate of the item it was found in.
+func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 	exactRegex := regexp.MustCompile(`^[0-9]{13}$`)
+
+	// Pass 1: look for an item whose cleaned text is exactly 13 digits
 	for _, item := range items {
 		cleaned := strings.ReplaceAll(item.Text, "-", "")
 		cleaned = strings.ReplaceAll(cleaned, " ", "")
 		if exactRegex.MatchString(cleaned) {
-			return cleaned, item.BBox[0][1]
+			return cleaned, item.BBox.TopLeft[1]
 		}
 	}
 
+	// Pass 2: collect digit-only items and try to assemble 13 digits
+	// by merging items on the same horizontal line (within 40px Y tolerance)
 	type numItem struct {
 		digits string
 		topY   float64
 		leftX  float64
 	}
 
-	var numItems []numItem
 	numOnlyRegex := regexp.MustCompile(`^[\d\s\-]+$`)
+	digitRegex := regexp.MustCompile(`[0-9]`)
 
+	var numItems []numItem
 	for _, item := range items {
 		if !numOnlyRegex.MatchString(item.Text) {
 			continue
 		}
-		digits := regexp.MustCompile(`[0-9]`).FindAllString(item.Text, -1)
+		digits := digitRegex.FindAllString(item.Text, -1)
 		if len(digits) == 0 {
 			continue
 		}
-		topY := item.BBox[0][1]
-		leftX := item.BBox[0][0]
 		numItems = append(numItems, numItem{
 			digits: strings.Join(digits, ""),
-			topY:   topY,
-			leftX:  leftX,
+			topY:   item.BBox.TopLeft[1],
+			leftX:  item.BBox.TopLeft[0],
 		})
 	}
 
+	// Sort by Y then X so left-to-right order is preserved on same line
 	sort.Slice(numItems, func(i, j int) bool {
 		if math.Abs(numItems[i].topY-numItems[j].topY) <= 40 {
 			return numItems[i].leftX < numItems[j].leftX
@@ -190,7 +113,6 @@ func extractNationalIDWithY(items []struct {
 				break
 			}
 			combined += numItems[j].digits
-
 			if len(combined) == 13 {
 				return combined, baseY
 			}
@@ -201,4 +123,57 @@ func extractNationalIDWithY(items []struct {
 	}
 
 	return "", 0
+}
+
+// extractThaiName finds the Thai name line that appears just below the ID card
+// number row (identified by idCardY). Items within 30px Y of each other on
+// that first Thai line are joined as name parts.
+func extractThaiName(items []infra.OCRItem, idCardY float64) string {
+	thaiRegex := regexp.MustCompile(`[\p{Thai}]+`)
+
+	type textItem struct {
+		text string
+		y    float64
+	}
+
+	var thaiItems []textItem
+	for _, item := range items {
+		if !thaiRegex.MatchString(item.Text) {
+			continue
+		}
+		if len([]rune(item.Text)) < 2 {
+			continue
+		}
+		thaiItems = append(thaiItems, textItem{
+			text: item.Text,
+			y:    item.BBox.TopLeft[1],
+		})
+	}
+
+	if len(thaiItems) == 0 {
+		return ""
+	}
+
+	sort.Slice(thaiItems, func(i, j int) bool {
+		return thaiItems[i].y < thaiItems[j].y
+	})
+
+	var nameParts []string
+	var baseY float64 = -1
+
+	for _, item := range thaiItems {
+		// Skip items above or at the ID number row
+		if item.y <= idCardY {
+			continue
+		}
+		if baseY < 0 {
+			baseY = item.y
+		}
+		// Only collect items on the same line as the first Thai text found
+		if math.Abs(item.y-baseY) <= 30 {
+			nameParts = append(nameParts, strings.TrimSpace(item.text))
+		}
+	}
+
+	return strings.Join(nameParts, " ")
 }
