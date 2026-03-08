@@ -35,8 +35,8 @@ EOF
 # ─────────────────────────────────────────────────────────
 FROM python:3.10-slim AS runtime
 
-# Security: run as non-root
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Security: run as non-root — -m creates /home/appuser automatically
+RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
 WORKDIR /app
 
@@ -58,8 +58,10 @@ COPY --from=builder /app/.easyocr /app/.easyocr
 # Copy application source
 COPY app/ ./app/
 
-# Ensure correct ownership
-RUN chown -R appuser:appuser /app
+# EasyOCR always tries to mkdir ~/.EasyOCR/user_network on every init
+# even when models are already cached — pre-create it with correct ownership
+RUN mkdir -p /home/appuser/.EasyOCR/user_network \
+ && chown -R appuser:appuser /app /home/appuser/.EasyOCR
 
 USER appuser
 
