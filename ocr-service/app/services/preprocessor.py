@@ -26,27 +26,26 @@ def validate_dimensions(img: np.ndarray) -> None:
         )
 
 
-def downscale_if_needed(img: np.ndarray) -> np.ndarray:
-    """ลดขนาดรูปที่ใหญ่เกินไปก่อน — ป้องกัน RAM spike ตอน preprocess"""
+def resize_for_ocr(img: np.ndarray) -> np.ndarray:
+    """
+    Resize รูปให้อยู่ในช่วง 1200-1400px width
+    - ใหญ่กว่า 1400 → downscale (ลด RAM ที่ EasyOCR ใช้)
+    - เล็กกว่า 1200 → upscale (ให้ OCR อ่านได้ชัดขึ้น)
+    - Thai ID card จริงๆ ไม่จำเป็นต้องใหญ่กว่า 1400px
+    """
     h, w = img.shape[:2]
-    max_w = 2000  # Thai ID card ไม่จำเป็นต้องใหญ่กว่านี้
-    if w > max_w:
-        scale = max_w / w
-        new_w, new_h = int(w * scale), int(h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-        logger.debug(f"Downscaled {w}x{h} → {new_w}x{new_h}")
-    return img
+    target_w = 1280
 
+    if w == target_w:
+        return img
 
-def upscale_if_needed(img: np.ndarray) -> np.ndarray:
-    """Upscale รูปที่เล็กเกินไป"""
-    h, w = img.shape[:2]
-    target_w = 1400
-    if w < target_w:
-        scale = target_w / w
-        new_w, new_h = int(w * scale), int(h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
-        logger.debug(f"Upscaled {w}x{h} → {new_w}x{new_h}")
+    scale = target_w / w
+    new_w = target_w
+    new_h = int(h * scale)
+
+    interp = cv2.INTER_AREA if w > target_w else cv2.INTER_CUBIC
+    img = cv2.resize(img, (new_w, new_h), interpolation=interp)
+    logger.debug(f"Resized {w}x{h} → {new_w}x{new_h} (scale={scale:.2f})")
     return img
 
 
@@ -74,8 +73,7 @@ def deskew(img: np.ndarray) -> np.ndarray:
 
         logger.debug(f"Deskewing by {median_angle:.2f}°")
         h, w = img.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, median_angle, 1.0)
+        M = cv2.getRotationMatrix2D((w // 2, h // 2), median_angle, 1.0)
         img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC,
                              borderMode=cv2.BORDER_REPLICATE)
     except Exception as e:
@@ -84,14 +82,12 @@ def deskew(img: np.ndarray) -> np.ndarray:
 
 
 def enhance_contrast(img: np.ndarray) -> np.ndarray:
-    """CLAHE contrast enhancement — เบาและเร็ว"""
     try:
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         l = clahe.apply(l)
-        lab = cv2.merge([l, a, b])
-        img = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        img = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
     except Exception as e:
         logger.warning(f"Contrast enhancement failed (non-fatal): {e}")
     return img
@@ -111,28 +107,20 @@ def preprocess(image_bytes: bytes) -> tuple[np.ndarray, dict]:
     if not settings.ENABLE_PREPROCESSING:
         return img, meta
 
-    # 1. Downscale ก่อนเสมอ — ป้องกัน RAM spike
-    img = downscale_if_needed(img)
-    if img.shape[1] != original_w:
-        meta["preprocessing_steps"].append("downscale")
+    # 1. Resize ให้อยู่ที่ 1280px เสมอ — ลด RAM ที่ EasyOCR ต้องใช้
+    img = resize_for_ocr(img)
+    meta["preprocessing_steps"].append(
+        "downscale" if original_w > 1280 else "upscale"
+    )
 
-    # 2. Upscale ถ้าเล็กเกินไป
-    img = upscale_if_needed(img)
-    if img.shape[1] != original_w and "downscale" not in meta["preprocessing_steps"]:
-        meta["preprocessing_steps"].append("upscale")
-
-    # 3. CLAHE contrast — เบา ไม่กิน RAM
+    # 2. CLAHE contrast
     img = enhance_contrast(img)
     meta["preprocessing_steps"].append("clahe")
 
-    # 4. Deskew — ถ้าเปิดใช้
+    # 3. Deskew
     if settings.ENABLE_DESKEW:
         img = deskew(img)
         meta["preprocessing_steps"].append("deskew")
-
-    # NOTE: denoise ถูกปิดโดยเจตนา
-    # fastNlMeansDenoisingColored กิน RAM มากบน CPU และทำให้ container crash
-    # ถ้าจะเปิดต้องมี RAM อย่างน้อย 8GB และใช้ GPU
 
     meta["processed_width"] = img.shape[1]
     meta["processed_height"] = img.shape[0]
@@ -141,5 +129,4 @@ def preprocess(image_bytes: bytes) -> tuple[np.ndarray, dict]:
         f"Preprocess done: {original_w}x{original_h} → "
         f"{img.shape[1]}x{img.shape[0]}, steps={meta['preprocessing_steps']}"
     )
-
     return img, meta

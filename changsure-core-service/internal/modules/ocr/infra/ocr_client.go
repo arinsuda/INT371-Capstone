@@ -11,6 +11,7 @@ import (
 
 type OCRClient interface {
 	Scan(imageBytes []byte, filename string) (*OCRResult, error)
+	Health() (*OCRHealth, error)
 }
 
 type ocrClient struct {
@@ -25,7 +26,8 @@ func NewOCRClient(baseURL string) OCRClient {
 	}
 }
 
-// BBox matches ocr-service response: {top_left, top_right, bottom_right, bottom_left}
+// ── Response types ────────────────────────────────────────────────────────────
+
 type BBox struct {
 	TopLeft     [2]float64 `json:"top_left"`
 	TopRight    [2]float64 `json:"top_right"`
@@ -44,6 +46,47 @@ type OCRResult struct {
 	Items     []OCRItem `json:"items"`
 	RequestID string    `json:"request_id,omitempty"`
 	ElapsedMs float64   `json:"elapsed_ms,omitempty"`
+}
+
+type OCRHealth struct {
+	Status    string   `json:"status"`
+	Version   string   `json:"version"`
+	Engine    string   `json:"engine"`
+	Languages []string `json:"languages"`
+	GPU       bool     `json:"gpu"`
+	Workers   int      `json:"workers"`
+}
+
+// ── Methods ───────────────────────────────────────────────────────────────────
+
+func (c *ocrClient) Health() (*OCRHealth, error) {
+	// ใช้ /readyz ก่อน — ถ้า model ยังโหลดไม่เสร็จจะได้ 503 ทันที
+	readyz, err := c.client.Get(c.baseURL + "/readyz")
+	if err != nil {
+		return nil, fmt.Errorf("cannot reach ocr service at %s: %w", c.baseURL, err)
+	}
+	defer readyz.Body.Close()
+
+	if readyz.StatusCode == http.StatusServiceUnavailable {
+		return nil, fmt.Errorf("ocr service is up but models are not ready yet (HTTP 503)")
+	}
+
+	// ดึง /health เพื่อได้ข้อมูล engine
+	resp, err := c.client.Get(c.baseURL + "/health")
+	if err != nil {
+		return nil, fmt.Errorf("health check failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ocr health returned HTTP %d", resp.StatusCode)
+	}
+
+	var health OCRHealth
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		return nil, fmt.Errorf("decode health response: %w", err)
+	}
+	return &health, nil
 }
 
 func (c *ocrClient) Scan(imageBytes []byte, filename string) (*OCRResult, error) {
@@ -72,7 +115,6 @@ func (c *ocrClient) Scan(imageBytes []byte, filename string) (*OCRResult, error)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// Try to parse error body from ocr-service
 		var errBody struct {
 			Error   string `json:"error"`
 			Message string `json:"message"`

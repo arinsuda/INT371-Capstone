@@ -60,3 +60,23 @@ func (h *OCRHandler) UploadAndScan(c fiber.Ctx) error {
 		"data":    res,
 	})
 }
+
+// Ping ตรวจสอบว่า BE เชื่อมต่อ OCR service ได้ไหม
+// GET /api/ocr/ping
+func (h *OCRHandler) Ping(c fiber.Ctx) error {
+	health, err := h.svc.Ping()
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"success":   false,
+			"error":     "OCR_UNREACHABLE",
+			"message":   "ไม่สามารถเชื่อมต่อ OCR service ได้",
+			"ocr_error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "เชื่อมต่อ OCR service สำเร็จ",
+		"ocr":     health,
+	})
+}
