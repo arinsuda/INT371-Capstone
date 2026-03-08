@@ -21,7 +21,7 @@ type ocrClient struct {
 func NewOCRClient(baseURL string) OCRClient {
 	return &ocrClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 60 * time.Second},
+		client:  &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -40,10 +40,10 @@ type OCRItem struct {
 }
 
 type OCRResult struct {
-	Count      int       `json:"count"`
-	Items      []OCRItem `json:"items"`
-	RequestID  string    `json:"request_id,omitempty"`
-	ElapsedMs  float64   `json:"elapsed_ms,omitempty"`
+	Count     int       `json:"count"`
+	Items     []OCRItem `json:"items"`
+	RequestID string    `json:"request_id,omitempty"`
+	ElapsedMs float64   `json:"elapsed_ms,omitempty"`
 }
 
 func (c *ocrClient) Scan(imageBytes []byte, filename string) (*OCRResult, error) {

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # ── Preprocessing ────────────────────────────────────
     ENABLE_PREPROCESSING: bool = True
     ENABLE_DESKEW: bool = True
-    ENABLE_DENOISE: bool = True
+    ENABLE_DENOISE: bool = False  # ปิด — กิน RAM มากบน CPU
     TARGET_DPI: int = 300
 
     # ── Confidence ───────────────────────────────────────
