@@ -14,10 +14,11 @@ type RecipientRole string
 const (
 	RoleCustomer   RecipientRole = "customer"
 	RoleTechnician RecipientRole = "technician"
+	RoleAdmin      RecipientRole = "admin"
 )
 
 func (r RecipientRole) Valid() bool {
-	return r == RoleCustomer || r == RoleTechnician
+	return r == RoleCustomer || r == RoleTechnician || r == RoleAdmin
 }
 
 type JSONMap map[string]any
@@ -52,7 +53,7 @@ func (m *JSONMap) Scan(value any) error {
 
 type Notification struct {
 	ID            uint           `gorm:"primaryKey"                                                      json:"id"`
-	RecipientRole RecipientRole  `gorm:"type:enum('customer','technician');not null;index:idx_recipient" json:"recipient_role"`
+	RecipientRole RecipientRole  `gorm:"type:enum('customer','technician','admin');not null;index:idx_recipient" json:"recipient_role"`
 	RecipientID   uint           `gorm:"not null;index:idx_recipient"                                    json:"recipient_id"`
 	Type          string         `gorm:"type:varchar(64);not null;index"                                 json:"type"`
 	Title         string         `gorm:"type:varchar(255);not null"                                      json:"title"`

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"changsure-core-service/internal/config"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,13 +26,24 @@ func Connect(cfg *config.Config) (*Database, error) {
 
 	dsn := cfg.GetDatabaseDSN()
 
-	logLevel := logger.Info
+	logLevel := logger.Warn
+	if cfg.App.Environment == "development" {
+		logLevel = logger.Error
+	}
 	if cfg.App.Environment == "production" {
 		logLevel = logger.Error
 	}
 
 	gormConfig := &gorm.Config{
-		Logger:                 logger.Default.LogMode(logLevel),
+		Logger: logger.New(
+			log.New(os.Stdout, "\r\n", log.LstdFlags),
+			logger.Config{
+				SlowThreshold:             200 * time.Millisecond,
+				LogLevel:                  logLevel,
+				IgnoreRecordNotFoundError: true,
+				Colorful:                  cfg.App.Environment == "development",
+			},
+		),
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
 	}

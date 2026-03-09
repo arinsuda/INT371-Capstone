@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -239,4 +240,19 @@ func (s *MinioStorage) Delete(ctx context.Context, key string) error {
 
 func (s *MinioStorage) Config() *config.MinioConfig {
 	return s.cfg
+}
+
+func (s *MinioStorage) Download(ctx context.Context, key string) ([]byte, error) {
+	obj, err := s.internal.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get object %s: %w", key, err)
+	}
+	defer obj.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, obj); err != nil {
+		return nil, fmt.Errorf("read object %s: %w", key, err)
+	}
+
+	return buf.Bytes(), nil
 }

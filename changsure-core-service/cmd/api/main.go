@@ -6,15 +6,29 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/database"
+	"changsure-core-service/internal/modules/admin"
+	backgroundjob "changsure-core-service/internal/modules/background_job"
+	criminalcheck "changsure-core-service/internal/modules/criminal_check"
+	"changsure-core-service/internal/modules/notification"
+	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
+	ocrservice "changsure-core-service/internal/modules/ocr/service"
+	"changsure-core-service/internal/modules/technician"
+	"changsure-core-service/internal/modules/worker"
+	"changsure-core-service/internal/realtime"
 	"changsure-core-service/internal/routes"
 	"changsure-core-service/internal/validation"
+	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
+
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 
 	"github.com/gofiber/fiber/v3"
 	recovermw "github.com/gofiber/fiber/v3/middleware/recover"
@@ -22,7 +36,6 @@ import (
 )
 
 func main() {
-
 	if err := utils.InitSnowflakeNode(1); err != nil {
 		log.Fatalf("Failed to init snowflake node: %v", err)
 	}
@@ -64,6 +77,22 @@ func main() {
 		log.Println("⊘ Skipping seeders")
 	}
 
+	// --- Redis ---
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
+	})
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("❌ Failed to connect Redis: %v", err)
+	}
+	log.Println("✅ Redis connected")
+
+	// --- Fiber App ---
 	app := fiber.New(fiber.Config{
 		AppName:      "Chang Sure API",
 		ServerHeader: "Chang Sure",
@@ -77,7 +106,12 @@ func main() {
 		EnableStackTrace: true,
 	}))
 
-	routes.Setup(app, cfg, db.DB)
+	router := routes.Setup(app, cfg, db.DB)
+
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+
+	startWorkerPool(workerCtx, db.DB, cfg, router.Hub())
 
 	printStartupInfo(cfg)
 
@@ -97,6 +131,8 @@ func main() {
 	case sig := <-shutdown:
 		log.Printf("🛑 Shutting down server... (signal: %v)", sig)
 
+		workerCancel()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -106,6 +142,89 @@ func main() {
 
 		log.Println("👋 Server stopped gracefully")
 	}
+}
+
+func startWorkerPool(
+	ctx context.Context,
+	db *gorm.DB,
+	cfg *config.Config,
+	hub *realtime.Hub,
+) {
+	// Redis — ประกอบจาก REDIS_HOST + REDIS_PORT ตาม .env จริง
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "127.0.0.1"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisPassword == "none" {
+		redisPassword = ""
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisHost + ":" + redisPort,
+		Password: redisPassword,
+		DB:       0,
+	})
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("❌ Worker: failed to connect Redis: %v", err)
+	}
+	log.Println("✅ Worker Redis connected")
+
+	jobRepo := backgroundjob.NewRepository(db)
+	crimRepo := criminalcheck.NewRepository(db)
+	techRepo := technician.NewRepository(db)
+	notiRepo := notification.NewRepository(db)
+	notiSvc := notification.NewService(notiRepo, hub)
+	adminRepo := admin.NewRepository(db)
+	ocrClient := ocrinfra.NewOCRClient(cfg.OCR.BaseURL)
+	ocrSvc := ocrservice.NewOCRService(ocrClient)
+
+	minioStore, err := storage.NewMinioFromConfig(cfg.Minio)
+	if err != nil {
+		log.Fatalf("❌ Worker: failed to init MinIO: %v", err)
+	}
+
+	ocrWorker := worker.NewOCRWorker(worker.OCRWorkerDeps{
+		JobRepo:      jobRepo,
+		OCRService:   ocrSvc,
+		CriminalRepo: crimRepo,
+		TechRepo:     techRepo,
+		NotiService:  notiSvc,
+		Storage:      minioStore,
+		Redis:        redisClient,
+		Config:       workerConfigFromEnv(),
+		AdminRepo:    adminRepo,
+	})
+
+	pool := worker.NewPool(ocrWorker)
+	go pool.Start(ctx)
+	log.Println("✅ Worker pool started")
+}
+
+func workerConfigFromEnv() worker.OCRWorkerConfig {
+	cfg := worker.DefaultOCRWorkerConfig()
+
+	if v := os.Getenv("OCR_MAX_CONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.MaxConcurrent = n
+		}
+	}
+	if v := os.Getenv("OCR_POLL_INTERVAL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.PollInterval = time.Duration(n) * time.Second
+		}
+	}
+	if v := os.Getenv("OCR_MANUAL_THRESHOLD_MINUTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.ManualThreshold = time.Duration(n) * time.Minute
+		}
+	}
+
+	return cfg
 }
 
 func shouldRunMigrations(cfg *config.Config) bool {

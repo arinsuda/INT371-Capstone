@@ -11,6 +11,7 @@ import (
 	"changsure-core-service/internal/middleware"
 	"changsure-core-service/internal/modules/admin"
 	"changsure-core-service/internal/modules/auth"
+	backgroundjob "changsure-core-service/internal/modules/background_job"
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/chat"
@@ -157,6 +158,8 @@ type Container struct {
 	ResetPasswordService resetpassword.Service
 	ResetPasswordHandler *resetpassword.Handler
 
+	BackgroundJobRepo backgroundjob.Repository
+
 	CriminalCheckRepo    criminalcheck.Repository
 	CriminalCheckService criminalcheck.Service
 	CriminalCheckHandler *criminalcheck.Handler
@@ -222,7 +225,8 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 
 	c.initMailer(cfg)
 	c.initResetPasswordModule(cfg)
-	c.initCriminalCheckModule(cfg)
+	c.initBackgroundJobModule()
+	c.initCriminalCheckModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -583,12 +587,19 @@ func (c *Container) initResetPasswordModule(cfg *config.Config) {
 	c.ResetPasswordHandler = resetpassword.NewHandler(c.ResetPasswordService)
 }
 
-func (c *Container) initCriminalCheckModule(cfg *config.Config) {
+func (c *Container) initBackgroundJobModule() {
+	c.BackgroundJobRepo = backgroundjob.NewRepository(c.DB)
+}
+
+func (c *Container) initCriminalCheckModule() {
 	repo := criminalcheck.NewRepository(c.DB)
 	c.CriminalCheckService = criminalcheck.NewService(
 		repo,
 		c.TechnicianRepo,
 		c.OCRService,
+		c.NotificationService,
+		c.BackgroundJobRepo,
+		c.Storage,
 	)
 	c.CriminalCheckHandler = criminalcheck.NewHandler(c.CriminalCheckService)
 }
@@ -636,6 +647,7 @@ func AllModels() []interface{} {
 	models = append(models, resetpassword.Models()...)
 	models = append(models, criminalcheck.Models()...)
 	models = append(models, admin.Models()...)
+	models = append(models, backgroundjob.Models()...)
 
 	return models
 }

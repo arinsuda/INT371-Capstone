@@ -62,6 +62,11 @@ func (r *Router) setupPublicRoutes() {
 	r.container.AuthHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
 	r.container.ResetPasswordHandler.RegisterRoutes(api)
+	r.container.ProvinceHandler.RegisterRoutes(api)
+	r.container.DistrictHandler.RegisterRoutes(api)
+	r.container.SubDistrictHandler.RegisterRoutes(api)
+	r.container.ServiceCategoryHandler.RegisterRoutes(api)
+	r.container.ServiceHandler.RegisterRoutes(api)
 }
 
 func (r *Router) setupProtectedRoutes() {
@@ -75,11 +80,6 @@ func (r *Router) setupProtectedRoutes() {
 
 func (r *Router) setupSharedRoutes(api fiber.Router) {
 	r.container.NotificationHandler.RegisterRoutes(api)
-	r.container.ProvinceHandler.RegisterRoutes(api)
-	r.container.DistrictHandler.RegisterRoutes(api)
-	r.container.SubDistrictHandler.RegisterRoutes(api)
-	r.container.ServiceCategoryHandler.RegisterRoutes(api)
-	r.container.ServiceHandler.RegisterRoutes(api)
 	r.container.BadgeHandler.RegisterRoutes(api)
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 	r.container.ChatHandler.RegisterRoutes(api)
@@ -247,10 +247,15 @@ func (r *Router) logRegisteredRoutes() {
 	}
 }
 
-func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) {
+func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) *Router {
 	router, err := NewRouter(app, cfg, db)
 	if err != nil {
 		panic(fmt.Errorf("failed to initialise router: %w", err))
 	}
 	router.Setup()
+	return router
+}
+
+func (r *Router) Hub() *realtime.Hub {
+	return r.hub
 }

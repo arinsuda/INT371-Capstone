@@ -93,3 +93,16 @@ type CriminalRecordResponse struct {
 	CreatedAt  time.Time   `json:"created_at"`
 	UpdatedAt  time.Time   `json:"updated_at"`
 }
+
+type JobStatusResponse struct {
+	JobID      uint       `json:"job_id"`
+	Status     string     `json:"status"`
+	RetryCount int        `json:"retry_count"`
+	ErrorMsg   string     `json:"error_msg,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	VerifyStatus string `json:"verify_status,omitempty"`
+	VerifyNote   string `json:"verify_note,omitempty"`
+	IsVerified   *bool  `json:"is_verified,omitempty"`
+}

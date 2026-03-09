@@ -1,15 +1,20 @@
 package criminalcheck
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
+	"gorm.io/gorm"
+
+	backgroundjob "changsure-core-service/internal/modules/background_job"
+	"changsure-core-service/internal/modules/notification"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/technician"
-	"gorm.io/gorm"
+	"changsure-core-service/pkg/storage"
 )
 
 var (
@@ -19,16 +24,21 @@ var (
 	ErrNationalIDDuplicate    = errors.New("national id already exists")
 )
 
-var nationalIDRegex = regexp.MustCompile(`\b[0-9]{13}\b`)
-
 type Service interface {
+	EnqueueVerification(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (jobID uint, err error)
+
 	VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error)
+	GetJobStatus(ctx context.Context, jobID uint) (*JobStatusResponse, error)
 
 	ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error)
 	GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error)
 	UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error)
 	OverrideIsVerified(ctx context.Context, adminID uint, technicianID uint, req OverrideIsVerifiedRequest) error
 	GetStats(ctx context.Context) (*VerificationStatResponse, error)
+
+	ListPendingManualJobs(ctx context.Context, page, pageSize int) ([]backgroundjob.BackgroundJob, int64, error)
+	ApproveJob(ctx context.Context, adminID uint, jobID uint, reason string) error
+	RejectJob(ctx context.Context, adminID uint, jobID uint, reason string) error
 
 	ListCriminalRecords(ctx context.Context, page, pageSize int, status string) ([]CriminalRecordResponse, int64, error)
 	GetCriminalRecord(ctx context.Context, id uint) (*CriminalRecordResponse, error)
@@ -38,13 +48,60 @@ type Service interface {
 }
 
 type service struct {
-	repo       Repository
-	techRepo   technician.Repository
-	ocrService ocrservice.OCRService
+	repo        Repository
+	techRepo    technician.Repository
+	ocrService  ocrservice.OCRService
+	notiService notification.Service
+	jobRepo     backgroundjob.Repository
+	storage     storage.Storage
 }
 
-func NewService(repo Repository, techRepo technician.Repository, ocrSvc ocrservice.OCRService) Service {
-	return &service{repo: repo, techRepo: techRepo, ocrService: ocrSvc}
+func NewService(
+	repo Repository,
+	techRepo technician.Repository,
+	ocrSvc ocrservice.OCRService,
+	notiSvc notification.Service,
+	jobRepo backgroundjob.Repository,
+	store storage.Storage,
+) Service {
+	return &service{
+		repo:        repo,
+		techRepo:    techRepo,
+		ocrService:  ocrSvc,
+		notiService: notiSvc,
+		jobRepo:     jobRepo,
+		storage:     store,
+	}
+}
+
+func (s *service) EnqueueVerification(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (uint, error) {
+	tech, err := s.techRepo.FindByID(ctx, technicianID)
+	if err != nil || tech == nil {
+		return 0, ErrTechNotFound
+	}
+
+	objectKey, err := s.storage.UploadFile(
+		ctx,
+		bytes.NewReader(imageBytes),
+		filename,
+		fmt.Sprintf("ocr-uploads/%d", technicianID),
+		int64(len(imageBytes)),
+		"image/jpeg",
+	)
+	if err != nil {
+		return 0, fmt.Errorf("upload image: %w", err)
+	}
+
+	job, err := s.jobRepo.Enqueue(ctx, backgroundjob.JobTypeOCRVerify, backgroundjob.OCRVerifyPayload{
+		TechnicianID: technicianID,
+		ImagePath:    objectKey,
+		Filename:     filename,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("enqueue job: %w", err)
+	}
+
+	return job.ID, nil
 }
 
 func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error) {
@@ -129,6 +186,7 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	if isVerified {
 		tech.IsVerified = true
 		_ = s.techRepo.Update(ctx, tech)
+		s.notifyVerificationResult(ctx, technicianID, status, note)
 	}
 
 	return &VerifyIdentityResponse{
@@ -143,44 +201,102 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	}, nil
 }
 
-func (s *service) ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error) {
-	logs, total, err := s.repo.ListLogs(filter)
+func (s *service) GetJobStatus(ctx context.Context, jobID uint) (*JobStatusResponse, error) {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
 	if err != nil {
-		return nil, fmt.Errorf("list logs: %w", err)
+		return nil, err
 	}
 
-	responses := make([]VerificationLogResponse, 0, len(logs))
-	for _, l := range logs {
-		resp, err := s.enrichLog(ctx, l)
-		if err != nil {
-			continue
+	resp := &JobStatusResponse{
+		JobID:      job.ID,
+		Status:     string(job.Status),
+		RetryCount: job.RetryCount,
+		ErrorMsg:   job.ErrorMsg,
+		CreatedAt:  job.CreatedAt,
+		StartedAt:  job.StartedAt,
+		FinishedAt: job.FinishedAt,
+	}
+
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err == nil {
+		logs, _ := s.repo.GetLogsByTechnicianID(payload.TechnicianID)
+		if len(logs) > 0 {
+			latest := logs[0] 
+			resp.VerifyStatus = string(latest.Status)
+			resp.VerifyNote = latest.Note
+
+			if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
+				resp.IsVerified = &tech.IsVerified
+			}
 		}
-		responses = append(responses, resp)
 	}
 
-	return &ListLogsResponse{
-		Logs:     responses,
-		Total:    total,
-		Page:     filter.Page,
-		PageSize: filter.PageSize,
-	}, nil
+	return resp, nil
 }
 
-func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error) {
-	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+func (s *service) ListPendingManualJobs(ctx context.Context, page, pageSize int) ([]backgroundjob.BackgroundJob, int64, error) {
+	return s.jobRepo.ListByStatus(ctx, backgroundjob.JobTypeOCRVerify, backgroundjob.JobStatusPendingManual, page, pageSize)
+}
+
+func (s *service) ApproveJob(ctx context.Context, adminID uint, jobID uint, reason string) error {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
 	if err != nil {
-		return nil, fmt.Errorf("get logs by technician: %w", err)
+		return fmt.Errorf("get job: %w", err)
 	}
 
-	responses := make([]VerificationLogResponse, 0, len(logs))
-	for _, l := range logs {
-		resp, err := s.enrichLog(ctx, l)
-		if err != nil {
-			continue
-		}
-		responses = append(responses, resp)
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return fmt.Errorf("parse payload: %w", err)
 	}
-	return responses, nil
+
+	if err := s.jobRepo.MarkDone(ctx, jobID); err != nil {
+		return fmt.Errorf("mark done: %w", err)
+	}
+
+	if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
+		tech.IsVerified = true
+		_ = s.techRepo.Update(ctx, tech)
+	}
+
+	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
+		AdminID:       adminID,
+		TechnicianID:  payload.TechnicianID,
+		TargetType:    "ocr_job",
+		TargetID:      jobID,
+		PreviousValue: string(backgroundjob.JobStatusPendingManual),
+		NewValue:      "APPROVED",
+		Reason:        reason,
+	})
+
+	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusPassed, reason)
+	return nil
+}
+
+func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reason string) error {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return fmt.Errorf("parse payload: %w", err)
+	}
+
+	_, _ = s.jobRepo.MarkFailed(ctx, jobID, fmt.Sprintf("rejected by admin: %s", reason))
+
+	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
+		AdminID:       adminID,
+		TechnicianID:  payload.TechnicianID,
+		TargetType:    "ocr_job",
+		TargetID:      jobID,
+		PreviousValue: string(backgroundjob.JobStatusPendingManual),
+		NewValue:      "REJECTED",
+		Reason:        reason,
+	})
+
+	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusFailed, reason)
+	return nil
 }
 
 func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error) {
@@ -213,6 +329,11 @@ func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint,
 			tech.IsVerified = true
 			_ = s.techRepo.Update(ctx, tech)
 		}
+		s.notifyVerificationResult(ctx, log.TechnicianID, StatusPassed, req.Reason)
+	}
+
+	if req.Status == StatusFailed {
+		s.notifyVerificationResult(ctx, log.TechnicianID, StatusFailed, req.Reason)
 	}
 
 	updated, _ := s.repo.GetLogByID(logID)
@@ -250,11 +371,89 @@ func (s *service) OverrideIsVerified(ctx context.Context, adminID uint, technici
 		Reason:        req.Reason,
 	})
 
+	status := StatusPassed
+	if !req.IsVerified {
+		status = StatusFailed
+	}
+	s.notifyVerificationResult(ctx, technicianID, status, req.Reason)
+
 	return nil
+}
+
+func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {
+	if s.notiService == nil {
+		return
+	}
+
+	var title, message, notiType string
+
+	switch status {
+	case StatusPassed:
+		notiType = "IDENTITY_VERIFIED"
+		title = "ยืนยันตัวตนสำเร็จ ✅"
+		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
+	case StatusFailed:
+		notiType = "IDENTITY_REJECTED"
+		title = "ไม่ผ่านการตรวจสอบ ❌"
+		message = "บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่"
+		if note != "" {
+			message = fmt.Sprintf("%s\nเหตุผล: %s", message, note)
+		}
+	default:
+		return
+	}
+
+	_, _ = s.notiService.Create(ctx, notification.CreateNotificationInput{
+		RecipientRole: notification.RoleTechnician,
+		RecipientID:   technicianID,
+		Type:          notiType,
+		Title:         title,
+		Message:       message,
+		EntityType:    "technician",
+		EntityID:      technicianID,
+		Data:          map[string]any{"status": string(status), "note": note},
+	})
 }
 
 func (s *service) GetStats(ctx context.Context) (*VerificationStatResponse, error) {
 	return s.repo.GetStats()
+}
+
+func (s *service) ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error) {
+	logs, total, err := s.repo.ListLogs(filter)
+	if err != nil {
+		return nil, fmt.Errorf("list logs: %w", err)
+	}
+	responses := make([]VerificationLogResponse, 0, len(logs))
+	for _, l := range logs {
+		resp, err := s.enrichLog(ctx, l)
+		if err != nil {
+			continue
+		}
+		responses = append(responses, resp)
+	}
+	return &ListLogsResponse{
+		Logs:     responses,
+		Total:    total,
+		Page:     filter.Page,
+		PageSize: filter.PageSize,
+	}, nil
+}
+
+func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error) {
+	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+	if err != nil {
+		return nil, fmt.Errorf("get logs by technician: %w", err)
+	}
+	responses := make([]VerificationLogResponse, 0, len(logs))
+	for _, l := range logs {
+		resp, err := s.enrichLog(ctx, l)
+		if err != nil {
+			continue
+		}
+		responses = append(responses, resp)
+	}
+	return responses, nil
 }
 
 func (s *service) enrichLog(ctx context.Context, l VerificationLog) (VerificationLogResponse, error) {
@@ -267,12 +466,10 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 		RawOCRText:   l.RawOCRText,
 		CreatedAt:    l.CreatedAt,
 	}
-
 	if tech, err := s.techRepo.FindByID(ctx, l.TechnicianID); err == nil && tech != nil {
 		resp.TechnicianName = tech.FirstName + " " + tech.LastName
 		resp.IsVerified = tech.IsVerified
 	}
-
 	if history, err := s.repo.GetOverrideHistory("verification_log", l.ID); err == nil {
 		for _, h := range history {
 			resp.OverrideHistory = append(resp.OverrideHistory, AdminOverrideLogResponse{
@@ -286,7 +483,6 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 			})
 		}
 	}
-
 	return resp, nil
 }
 
@@ -295,7 +491,6 @@ func (s *service) ListCriminalRecords(ctx context.Context, page, pageSize int, s
 	if err != nil {
 		return nil, 0, fmt.Errorf("list criminal records: %w", err)
 	}
-
 	resp := make([]CriminalRecordResponse, 0, len(records))
 	for _, r := range records {
 		resp = append(resp, toCriminalRecordResponse(r))
@@ -323,18 +518,15 @@ func (s *service) CreateCriminalRecord(ctx context.Context, req CreateCriminalRe
 	if existing != nil {
 		return nil, ErrNationalIDDuplicate
 	}
-
 	record := &MockCriminalRecord{
 		NationalID: req.NationalID,
 		FullName:   req.FullName,
 		Status:     req.Status,
 		Note:       req.Note,
 	}
-
 	if err := s.repo.CreateCriminalRecord(record); err != nil {
 		return nil, fmt.Errorf("create criminal record: %w", err)
 	}
-
 	resp := toCriminalRecordResponse(*record)
 	return &resp, nil
 }
@@ -346,7 +538,6 @@ func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateC
 		}
 		return nil, fmt.Errorf("get criminal record: %w", err)
 	}
-
 	updates := map[string]interface{}{}
 	if req.FullName != nil {
 		updates["full_name"] = *req.FullName
@@ -357,15 +548,12 @@ func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateC
 	if req.Note != nil {
 		updates["note"] = *req.Note
 	}
-
 	if len(updates) == 0 {
 		return s.GetCriminalRecord(ctx, id)
 	}
-
 	if err := s.repo.UpdateCriminalRecord(id, updates); err != nil {
 		return nil, fmt.Errorf("update criminal record: %w", err)
 	}
-
 	return s.GetCriminalRecord(ctx, id)
 }
 
