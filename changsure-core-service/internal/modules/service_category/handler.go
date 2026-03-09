@@ -113,8 +113,7 @@ func (h *Handler) UpdateServiceCategory(c fiber.Ctx) error {
 	if body.CatName != nil && *body.CatName != "" {
 		fields["cat_name"] = *body.CatName
 	}
-	// Only update cat_description if explicitly provided and non-empty
-	// If you want to allow clearing the description, remove the `*body.CatDesc != ""` check
+
 	if body.CatDesc != nil && *body.CatDesc != "" {
 		fields["cat_description"] = *body.CatDesc
 	}

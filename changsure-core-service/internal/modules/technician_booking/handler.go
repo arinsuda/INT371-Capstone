@@ -31,7 +31,6 @@ func NewHandler(service Service, s storage.Storage, hub *realtime.Hub) *Handler 
 	}
 }
 
-// parseTechID ดึง technicianID จาก path param และเช็ค ownership
 func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
@@ -43,7 +42,6 @@ func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
 	return techID, nil
 }
 
-// GET /:technicianID/bookings
 func (h *Handler) ListBookings(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -81,7 +79,6 @@ func (h *Handler) ListBookings(c fiber.Ctx) error {
 	})
 }
 
-// GET /:technicianID/bookings/:bookingID
 func (h *Handler) GetBooking(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -106,9 +103,6 @@ func (h *Handler) GetBooking(c fiber.Ctx) error {
 	})
 }
 
-// PATCH /:technicianID/bookings/:bookingID/status
-// body: { action, reason? }
-// action: ACCEPT | REJECT | START | COMPLETE
 func (h *Handler) UpdateBookingStatus(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {

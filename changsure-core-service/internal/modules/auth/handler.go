@@ -13,13 +13,9 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// ===============================
-// Register
-// ===============================
 func (h *Handler) Register(c fiber.Ctx) error {
 	var req RegisterRequest
 
-	// Parsing error
 	if err := c.Bind().Body(&req); err != nil {
 		return appErr.BadRequest(c, "Invalid request payload")
 	}
@@ -45,9 +41,6 @@ func (h *Handler) Register(c fiber.Ctx) error {
 	})
 }
 
-// ===============================
-// Login
-// ===============================
 func (h *Handler) Login(c fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -71,9 +64,6 @@ func (h *Handler) Login(c fiber.Ctx) error {
 	})
 }
 
-// ===============================
-// GenerateRefreshToken
-// ===============================
 func (h *Handler) GenerateRefreshToken(c fiber.Ctx) error {
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil {

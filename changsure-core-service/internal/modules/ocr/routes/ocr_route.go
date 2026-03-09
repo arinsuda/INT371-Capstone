@@ -7,5 +7,6 @@ import (
 )
 
 func RegisterOCRRoutes(r fiber.Router, h *handler.OCRHandler) {
+	r.Get("/ocr/ping", h.Ping)      
 	r.Post("/ocr/upload", h.UploadAndScan)
 }

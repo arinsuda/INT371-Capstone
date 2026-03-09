@@ -25,12 +25,6 @@ func (d *Document) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-func (v *DocumentVersion) BeforeCreate(tx *gorm.DB) error {
-	v.ID = uuid.New()
-	v.Checksum = hashJSON(v.Content)
-	return nil
-}
-
 type DocumentVersion struct {
 	ID          uuid.UUID      `gorm:"type:char(36);primaryKey"`
 	DocumentID  uuid.UUID      `gorm:"type:char(36);index"`
@@ -41,6 +35,12 @@ type DocumentVersion struct {
 	IsPublished bool
 	PublishedAt *time.Time
 	CreatedAt   time.Time
+}
+
+func (v *DocumentVersion) BeforeCreate(tx *gorm.DB) error {
+	v.ID = uuid.New()
+	v.Checksum = hashJSON(v.Content)
+	return nil
 }
 
 func hashJSON(j datatypes.JSON) string {
@@ -54,6 +54,7 @@ type DocumentAcceptance struct {
 	UserRole   string    `gorm:"size:20;index"`
 	DocumentID uuid.UUID `gorm:"type:char(36);index"`
 	Version    int
+	Consents   datatypes.JSON `gorm:"type:json"`
 	AcceptedAt time.Time
 }
 

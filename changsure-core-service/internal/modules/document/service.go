@@ -14,7 +14,7 @@ type Service interface {
 	CreateVersion(slug string, dto CreateVersionDTO) (*VersionResponse, error)
 	Publish(slug string, version int, locale string) error
 	GetPublished(slug, locale string) (*PublishedResponse, error)
-	Accept(slug string, userID uint, role string, locale string) (*AcceptanceResponse, error)
+	Accept(slug string, userID uint, role string, locale string, consents []string) (*AcceptanceResponse, error)
 }
 
 type service struct {
@@ -27,18 +27,11 @@ func NewService(r Repository, db *gorm.DB) Service {
 }
 
 func (s *service) CreateDocument(dto CreateDocumentDTO) (*DocumentResponse, error) {
-	doc := &Document{
-		Type: dto.Type,
-		Slug: dto.Slug,
-	}
+	doc := &Document{Type: dto.Type, Slug: dto.Slug}
 	if err := s.repo.CreateDocument(doc); err != nil {
 		return nil, err
 	}
-	return &DocumentResponse{
-		ID:   doc.ID.String(),
-		Type: doc.Type,
-		Slug: doc.Slug,
-	}, nil
+	return &DocumentResponse{ID: doc.ID.String(), Type: doc.Type, Slug: doc.Slug}, nil
 }
 
 func (s *service) CreateVersion(slug string, dto CreateVersionDTO) (*VersionResponse, error) {
@@ -46,12 +39,10 @@ func (s *service) CreateVersion(slug string, dto CreateVersionDTO) (*VersionResp
 	if err != nil {
 		return nil, err
 	}
-
 	latest, err := s.repo.LatestVersion(doc.ID, dto.Locale)
 	if err != nil {
 		return nil, err
 	}
-
 	v := &DocumentVersion{
 		ID:         uuid.New(),
 		DocumentID: doc.ID,
@@ -59,18 +50,13 @@ func (s *service) CreateVersion(slug string, dto CreateVersionDTO) (*VersionResp
 		Locale:     dto.Locale,
 		Content:    datatypes.JSON(dto.Content),
 	}
-
 	if err := s.repo.CreateVersion(v); err != nil {
 		return nil, err
 	}
-
 	return &VersionResponse{
-		ID:          v.ID.String(),
-		DocumentID:  doc.ID.String(),
-		Version:     v.Version,
-		Locale:      v.Locale,
-		Content:     dto.Content,
-		IsPublished: false,
+		ID: v.ID.String(), DocumentID: doc.ID.String(),
+		Version: v.Version, Locale: v.Locale,
+		Content: dto.Content, IsPublished: false,
 	}, nil
 }
 
@@ -79,7 +65,6 @@ func (s *service) Publish(slug string, version int, locale string) error {
 	if err != nil {
 		return err
 	}
-
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.UnpublishAll(tx, doc.ID, locale); err != nil {
 			return err
@@ -93,22 +78,26 @@ func (s *service) GetPublished(slug, locale string) (*PublishedResponse, error) 
 	if err != nil {
 		return nil, err
 	}
-
 	return &PublishedResponse{
-		Slug:    slug,
-		Version: v.Version,
-		Locale:  v.Locale,
-		Content: json.RawMessage(v.Content),
+		Slug:      slug,
+		Version:   v.Version,
+		Locale:    v.Locale,
+		UpdatedAt: v.CreatedAt,
+		Content:   json.RawMessage(v.Content),
 	}, nil
 }
 
-func (s *service) Accept(slug string, userID uint, role string, locale string) (*AcceptanceResponse, error) {
+func (s *service) Accept(slug string, userID uint, role string, locale string, consents []string) (*AcceptanceResponse, error) {
 	doc, err := s.repo.GetBySlug(slug)
 	if err != nil {
 		return nil, err
 	}
-
 	v, err := s.repo.GetPublished(slug, locale)
+	if err != nil {
+		return nil, err
+	}
+
+	consentsJSON, err := json.Marshal(consents)
 	if err != nil {
 		return nil, err
 	}
@@ -120,20 +109,15 @@ func (s *service) Accept(slug string, userID uint, role string, locale string) (
 		UserRole:   role,
 		DocumentID: doc.ID,
 		Version:    v.Version,
+		Consents:   datatypes.JSON(consentsJSON),
 		AcceptedAt: now,
 	}
-
 	if err := s.repo.Accept(a); err != nil {
 		return nil, err
 	}
-
 	return &AcceptanceResponse{
-		ID:         a.ID.String(),
-		UserID:     uint(a.UserID),
-		UserRole:   role,
-		DocumentID: doc.ID.String(),
-		Version:    v.Version,
-		AcceptedAt: now,
-		Locale:     locale,
+		ID: a.ID.String(), UserID: userID, UserRole: role,
+		DocumentID: doc.ID.String(), Version: v.Version,
+		AcceptedAt: now, Locale: locale, Consents: consents,
 	}, nil
 }

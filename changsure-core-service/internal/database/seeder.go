@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -513,7 +512,6 @@ func (s *Seeder) seedDocuments() error {
 		Version     int             `json:"version"`
 		Locale      string          `json:"locale"`
 		IsPublished bool            `json:"is_published"`
-		PublishedAt *time.Time      `json:"published_at"`
 		Content     json.RawMessage `json:"content"`
 	}
 
@@ -570,7 +568,6 @@ func (s *Seeder) seedDocuments() error {
 					Locale:      vs.Locale,
 					Content:     datatypes.JSON(vs.Content),
 					IsPublished: vs.IsPublished,
-					PublishedAt: vs.PublishedAt,
 				}
 				if err := s.db.Create(&v).Error; err != nil {
 					return fmt.Errorf("create version %d for %s: %w", vs.Version, docSeed.Slug, err)

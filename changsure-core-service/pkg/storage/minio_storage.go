@@ -217,7 +217,6 @@ func (s *MinioStorage) UploadFile(
 		key = folder + "/" + filename
 	}
 
-	// Put เรียก Internal Client อยู่แล้ว
 	_, err := s.Put(ctx, key, r, size, contentType)
 	if err != nil {
 		return "", err

@@ -74,7 +74,6 @@ func extractAfter(text, key string) *string {
 func extractHouseNumber(line string) *string {
 	line = strings.TrimSpace(line)
 
-	// ตัด prefix ที่พบบ่อย
 	prefixes := []string{
 		"บ้านเลขที่",
 		"เลขที่",

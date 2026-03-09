@@ -1,4 +1,3 @@
-
 services:
   db:
     container_name: changsure-mysql-local
@@ -14,6 +13,11 @@ services:
       - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     container_name: changsure-redis-local
@@ -21,6 +25,11 @@ services:
     restart: always
     ports:
       - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     container_name: changsure-minio-local
@@ -34,16 +43,41 @@ services:
       - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ocr:
-    container_name: paddle-ocr-service-local
+    container_name: changsure-ocr-local
     build:
       context: ../ocr-service
       dockerfile: Dockerfile
+      target: runtime
+    image: changsure-ocr:local
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      OCR_USE_GPU: "false"
+      OCR_WORKERS: "1"
+      ENABLE_DOCS: "true"           
+      MIN_CONFIDENCE_THRESHOLD: "0.3"
+      OCR_TIMEOUT_SECONDS: "120"
     ports:
       - "127.0.0.1:8000:8000"
-    restart: unless-stopped
+    volumes:
+      - ocr_models:/app/.easyocr 
+    mem_limit: 4g 
+    memswap_limit: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s           
+      retries: 3
 
 volumes:
   mysql_data:
   minio_data:
+  ocr_models:                     

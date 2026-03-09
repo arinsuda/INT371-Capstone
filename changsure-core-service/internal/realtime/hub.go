@@ -71,7 +71,6 @@ func (h *Hub) BroadcastToTechnician(technicianID uint, payload []byte) {
 	count := len(h.techConns[technicianID])
 	h.mu.RUnlock()
 
-	// ✅ เพิ่ม log
 	fmt.Printf("📡 BroadcastToTechnician: id=%d, connections=%d\n", technicianID, count)
 
 	h.broadcast(h.techConns, technicianID, payload)

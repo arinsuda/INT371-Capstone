@@ -107,10 +107,7 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	status, note, message, isVerified := resolveStatus(record)
 
 	if status == StatusPassed {
-		nameMatched := namesMatch(extractedName, tech.FirstName, tech.LastName)
-
-		if !nameMatched {
-
+		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
 			status = StatusPending
 			isVerified = false
 			note = fmt.Sprintf(
@@ -319,7 +316,6 @@ func (s *service) GetCriminalRecord(ctx context.Context, id uint) (*CriminalReco
 }
 
 func (s *service) CreateCriminalRecord(ctx context.Context, req CreateCriminalRecordRequest) (*CriminalRecordResponse, error) {
-
 	existing, err := s.repo.GetCriminalRecordByNationalID(req.NationalID)
 	if err != nil {
 		return nil, fmt.Errorf("check national id: %w", err)
@@ -344,7 +340,6 @@ func (s *service) CreateCriminalRecord(ctx context.Context, req CreateCriminalRe
 }
 
 func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateCriminalRecordRequest) (*CriminalRecordResponse, error) {
-
 	if _, err := s.repo.GetCriminalRecordByID(id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrCriminalRecordNotFound

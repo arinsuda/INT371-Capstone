@@ -42,8 +42,6 @@ func NewService(repo booking.Repository, db *gorm.DB, notif notification.Service
 	}
 }
 
-// verifyTechnicianExists ตรวจสอบว่า technician มีอยู่ใน DB จริง
-// ใช้ db ที่มีอยู่แล้ว query ตรงไปที่ technicians table โดยไม่ต้อง inject repo เพิ่ม
 func (s *service) verifyTechnicianExists(ctx context.Context, technicianID uint) error {
 	var count int64
 	err := s.db.WithContext(ctx).

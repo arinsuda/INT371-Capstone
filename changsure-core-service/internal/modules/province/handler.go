@@ -158,7 +158,6 @@ func internalErr(c fiber.Ctx, msg string, _ error) error {
 func (h *Handler) ListProvincesFiltered(c fiber.Ctx) error {
 	ctx := middleware.GetContext(c)
 
-	// query
 	var (
 		districtID    *uint
 		subDistrictID *uint

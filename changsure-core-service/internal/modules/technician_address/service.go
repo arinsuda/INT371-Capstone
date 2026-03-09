@@ -198,8 +198,6 @@ func (s *service) Update(ctx context.Context, id uint, techID uint, req *UpdateT
 		addr.SubDistrictID = sdid
 	}
 
-	// FIX: ล้าง preloaded associations ออกก่อน Save
-	// เพื่อป้องกัน GORM upsert associations แล้ว override FK กลับเป็นค่าเดิม
 	addr.Province = nil
 	addr.District = nil
 	addr.SubDistrict = nil

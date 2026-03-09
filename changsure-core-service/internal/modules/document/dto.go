@@ -16,8 +16,9 @@ type CreateVersionDTO struct {
 }
 
 type AcceptDTO struct {
-	UserID uint   `json:"user_id" validate:"required,gt=0"`
-	Role   string `json:"role"    validate:"required,oneof=customer technician"`
+	UserID   uint     `json:"user_id"  validate:"required,gt=0"`
+	Role     string   `json:"role"     validate:"required,oneof=customer technician"`
+	Consents []string `json:"consents" validate:"required,min=1"`
 }
 
 type DocumentResponse struct {
@@ -36,10 +37,11 @@ type VersionResponse struct {
 }
 
 type PublishedResponse struct {
-	Slug    string          `json:"slug"`
-	Version int             `json:"version"`
-	Locale  string          `json:"locale"`
-	Content json.RawMessage `json:"content"`
+	Slug      string          `json:"slug"`
+	Version   int             `json:"version"`
+	Locale    string          `json:"locale"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	Content   json.RawMessage `json:"content"`
 }
 
 type AcceptanceResponse struct {
@@ -50,4 +52,5 @@ type AcceptanceResponse struct {
 	Version    int       `json:"version"`
 	AcceptedAt time.Time `json:"accepted_at"`
 	Locale     string    `json:"locale"`
+	Consents   []string  `json:"consents"`
 }
