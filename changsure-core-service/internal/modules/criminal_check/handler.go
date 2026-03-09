@@ -49,24 +49,41 @@ func (h *Handler) VerifyIdentity(c fiber.Ctx) error {
 		return appErrors.InternalError(c, "ไม่สามารถอ่านไฟล์ได้", err)
 	}
 
-	resp, err := h.service.VerifyIdentity(c.Context(), technicianID, buf.Bytes(), fileHeader.Filename)
+	jobID, err := h.service.EnqueueVerification(c.Context(), technicianID, buf.Bytes(), fileHeader.Filename)
 	if err != nil {
-		return appErrors.InternalError(c, "failed to verify identity", err)
+		if errors.Is(err, ErrTechNotFound) {
+			return appErrors.NotFound(c, "technician not found")
+		}
+		return appErrors.InternalError(c, "failed to enqueue verification", err)
 	}
 
-	return c.JSON(fiber.Map{"success": true, "data": resp})
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"success": true,
+		"message": "รับคำขอแล้ว กรุณารอการแจ้งเตือนผ่านแอป",
+		"data":    fiber.Map{"job_id": jobID},
+	})
+}
+
+func (h *Handler) GetJobStatus(c fiber.Ctx) error {
+	jobID, err := utils.ParseUintParam(c, "jobID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid job id")
+	}
+	job, err := h.service.GetJobStatus(c.Context(), jobID)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to get job status", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": job})
 }
 
 func (h *Handler) GetStats(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	stats, err := h.service.GetStats(c.Context())
 	if err != nil {
 		return appErrors.InternalError(c, "failed to get stats", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": stats})
 }
 
@@ -74,7 +91,6 @@ func (h *Handler) ListLogs(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	filter := ListLogsFilter{
 		Status:     c.Query("status"),
 		NationalID: c.Query("national_id"),
@@ -82,19 +98,16 @@ func (h *Handler) ListLogs(c fiber.Ctx) error {
 		DateFrom:   c.Query("date_from"),
 		DateTo:     c.Query("date_to"),
 	}
-
 	if p, err := strconv.Atoi(c.Query("page", "1")); err == nil {
 		filter.Page = p
 	}
 	if ps, err := strconv.Atoi(c.Query("page_size", "20")); err == nil {
 		filter.PageSize = ps
 	}
-
 	resp, err := h.service.ListLogs(c.Context(), filter)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to list logs", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
@@ -102,17 +115,14 @@ func (h *Handler) GetLogsByTechnician(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	technicianID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	logs, err := h.service.GetLogsByTechnician(c.Context(), technicianID)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to get logs", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": logs})
 }
 
@@ -120,12 +130,10 @@ func (h *Handler) UpdateLogStatus(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	logID, err := utils.ParseUintParam(c, "logID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid log id")
 	}
-
 	var req UpdateLogStatusRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
@@ -133,9 +141,7 @@ func (h *Handler) UpdateLogStatus(c fiber.Ctx) error {
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
-
 	adminID, _ := middleware.GetUserID(c)
-
 	resp, err := h.service.UpdateLogStatus(c.Context(), adminID, logID, req)
 	if err != nil {
 		if errors.Is(err, ErrLogNotFound) {
@@ -143,7 +149,6 @@ func (h *Handler) UpdateLogStatus(c fiber.Ctx) error {
 		}
 		return appErrors.InternalError(c, "failed to update log status", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
@@ -151,12 +156,10 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	technicianID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	var req OverrideIsVerifiedRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
@@ -164,44 +167,97 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
-
 	adminID, _ := middleware.GetUserID(c)
-
 	if err := h.service.OverrideIsVerified(c.Context(), adminID, technicianID, req); err != nil {
 		if errors.Is(err, ErrTechNotFound) {
 			return appErrors.NotFound(c, "technician not found")
 		}
 		return appErrors.InternalError(c, "failed to override is_verified", err)
 	}
-
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": fmt.Sprintf("อัปเดต is_verified เป็น %v สำเร็จ", req.IsVerified),
 	})
 }
 
+func (h *Handler) ListPendingManualJobs(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	jobs, total, err := h.service.ListPendingManualJobs(c.Context(), page, pageSize)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to list pending jobs", err)
+	}
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    fiber.Map{"jobs": jobs, "total": total, "page": page, "page_size": pageSize},
+	})
+}
+
+type jobActionRequest struct {
+	Reason string `json:"reason" validate:"required,min=5,max=500"`
+}
+
+func (h *Handler) ApproveJob(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+	jobID, err := utils.ParseUintParam(c, "jobID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid job id")
+	}
+	var req jobActionRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+	adminID, _ := middleware.GetUserID(c)
+	if err := h.service.ApproveJob(c.Context(), adminID, jobID, req.Reason); err != nil {
+		return appErrors.InternalError(c, "failed to approve job", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "message": "อนุมัติการยืนยันตัวตนสำเร็จ"})
+}
+
+func (h *Handler) RejectJob(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+	jobID, err := utils.ParseUintParam(c, "jobID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid job id")
+	}
+	var req jobActionRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+	adminID, _ := middleware.GetUserID(c)
+	if err := h.service.RejectJob(c.Context(), adminID, jobID, req.Reason); err != nil {
+		return appErrors.InternalError(c, "failed to reject job", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "message": "ปฏิเสธการยืนยันตัวตนสำเร็จ"})
+}
+
 func (h *Handler) ListCriminalRecords(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
 	status := c.Query("status")
-
 	records, total, err := h.service.ListCriminalRecords(c.Context(), page, pageSize, status)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to list criminal records", err)
 	}
-
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data": fiber.Map{
-			"records":   records,
-			"total":     total,
-			"page":      page,
-			"page_size": pageSize,
-		},
+		"data":    fiber.Map{"records": records, "total": total, "page": page, "page_size": pageSize},
 	})
 }
 
@@ -209,12 +265,10 @@ func (h *Handler) GetCriminalRecord(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	id, err := utils.ParseUintParam(c, "recordID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid record id")
 	}
-
 	record, err := h.service.GetCriminalRecord(c.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrCriminalRecordNotFound) {
@@ -222,7 +276,6 @@ func (h *Handler) GetCriminalRecord(c fiber.Ctx) error {
 		}
 		return appErrors.InternalError(c, "failed to get criminal record", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": record})
 }
 
@@ -230,7 +283,6 @@ func (h *Handler) CreateCriminalRecord(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	var req CreateCriminalRecordRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
@@ -238,7 +290,6 @@ func (h *Handler) CreateCriminalRecord(c fiber.Ctx) error {
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
-
 	record, err := h.service.CreateCriminalRecord(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrNationalIDDuplicate) {
@@ -246,7 +297,6 @@ func (h *Handler) CreateCriminalRecord(c fiber.Ctx) error {
 		}
 		return appErrors.InternalError(c, "failed to create criminal record", err)
 	}
-
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": record})
 }
 
@@ -254,12 +304,10 @@ func (h *Handler) UpdateCriminalRecord(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	id, err := utils.ParseUintParam(c, "recordID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid record id")
 	}
-
 	var req UpdateCriminalRecordRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
@@ -267,7 +315,6 @@ func (h *Handler) UpdateCriminalRecord(c fiber.Ctx) error {
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
-
 	record, err := h.service.UpdateCriminalRecord(c.Context(), id, req)
 	if err != nil {
 		if errors.Is(err, ErrCriminalRecordNotFound) {
@@ -275,7 +322,6 @@ func (h *Handler) UpdateCriminalRecord(c fiber.Ctx) error {
 		}
 		return appErrors.InternalError(c, "failed to update criminal record", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": record})
 }
 
@@ -283,18 +329,15 @@ func (h *Handler) DeleteCriminalRecord(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
-
 	id, err := utils.ParseUintParam(c, "recordID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid record id")
 	}
-
 	if err := h.service.DeleteCriminalRecord(c.Context(), id); err != nil {
 		if errors.Is(err, ErrCriminalRecordNotFound) {
 			return appErrors.NotFound(c, "criminal record not found")
 		}
 		return appErrors.InternalError(c, "failed to delete criminal record", err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "message": "ลบข้อมูลสำเร็จ"})
 }

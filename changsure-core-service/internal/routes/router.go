@@ -247,10 +247,15 @@ func (r *Router) logRegisteredRoutes() {
 	}
 }
 
-func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) {
+func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) *Router {
 	router, err := NewRouter(app, cfg, db)
 	if err != nil {
 		panic(fmt.Errorf("failed to initialise router: %w", err))
 	}
 	router.Setup()
+	return router
+}
+
+func (r *Router) Hub() *realtime.Hub {
+	return r.hub
 }

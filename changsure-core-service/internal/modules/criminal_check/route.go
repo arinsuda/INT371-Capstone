@@ -7,8 +7,8 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
-
 	r.Post("/:technicianID/verify-identity", h.VerifyIdentity)
+	r.Get("/:technicianID/verify-identity/jobs/:jobID", h.GetJobStatus)
 }
 
 func (h *Handler) RegisterAdminRoutes(r fiber.Router) {
@@ -19,6 +19,10 @@ func (h *Handler) RegisterAdminRoutes(r fiber.Router) {
 	admin.Get("/logs/technician/:technicianID", h.GetLogsByTechnician)
 	admin.Patch("/logs/:logID", h.UpdateLogStatus)
 	admin.Patch("/technicians/:technicianID/is-verified", h.OverrideIsVerified)
+
+	admin.Get("/jobs", h.ListPendingManualJobs)
+	admin.Post("/jobs/:jobID/approve", h.ApproveJob)
+	admin.Post("/jobs/:jobID/reject", h.RejectJob)
 
 	admin.Get("/criminal-records", h.ListCriminalRecords)
 	admin.Get("/criminal-records/:recordID", h.GetCriminalRecord)

@@ -1,16 +1,20 @@
 package criminalcheck
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
+	"gorm.io/gorm"
+
+	backgroundjob "changsure-core-service/internal/modules/background_job"
 	"changsure-core-service/internal/modules/notification"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/technician"
-	"gorm.io/gorm"
+	"changsure-core-service/pkg/storage"
 )
 
 var (
@@ -20,16 +24,21 @@ var (
 	ErrNationalIDDuplicate    = errors.New("national id already exists")
 )
 
-var nationalIDRegex = regexp.MustCompile(`\b[0-9]{13}\b`)
-
 type Service interface {
+	EnqueueVerification(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (jobID uint, err error)
+
 	VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error)
+	GetJobStatus(ctx context.Context, jobID uint) (*JobStatusResponse, error)
 
 	ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error)
 	GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error)
 	UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error)
 	OverrideIsVerified(ctx context.Context, adminID uint, technicianID uint, req OverrideIsVerifiedRequest) error
 	GetStats(ctx context.Context) (*VerificationStatResponse, error)
+
+	ListPendingManualJobs(ctx context.Context, page, pageSize int) ([]backgroundjob.BackgroundJob, int64, error)
+	ApproveJob(ctx context.Context, adminID uint, jobID uint, reason string) error
+	RejectJob(ctx context.Context, adminID uint, jobID uint, reason string) error
 
 	ListCriminalRecords(ctx context.Context, page, pageSize int, status string) ([]CriminalRecordResponse, int64, error)
 	GetCriminalRecord(ctx context.Context, id uint) (*CriminalRecordResponse, error)
@@ -43,6 +52,8 @@ type service struct {
 	techRepo    technician.Repository
 	ocrService  ocrservice.OCRService
 	notiService notification.Service
+	jobRepo     backgroundjob.Repository
+	storage     storage.Storage
 }
 
 func NewService(
@@ -50,13 +61,47 @@ func NewService(
 	techRepo technician.Repository,
 	ocrSvc ocrservice.OCRService,
 	notiSvc notification.Service,
+	jobRepo backgroundjob.Repository,
+	store storage.Storage,
 ) Service {
 	return &service{
 		repo:        repo,
 		techRepo:    techRepo,
 		ocrService:  ocrSvc,
 		notiService: notiSvc,
+		jobRepo:     jobRepo,
+		storage:     store,
 	}
+}
+
+func (s *service) EnqueueVerification(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (uint, error) {
+	tech, err := s.techRepo.FindByID(ctx, technicianID)
+	if err != nil || tech == nil {
+		return 0, ErrTechNotFound
+	}
+
+	objectKey, err := s.storage.UploadFile(
+		ctx,
+		bytes.NewReader(imageBytes),
+		filename,
+		fmt.Sprintf("ocr-uploads/%d", technicianID),
+		int64(len(imageBytes)),
+		"image/jpeg",
+	)
+	if err != nil {
+		return 0, fmt.Errorf("upload image: %w", err)
+	}
+
+	job, err := s.jobRepo.Enqueue(ctx, backgroundjob.JobTypeOCRVerify, backgroundjob.OCRVerifyPayload{
+		TechnicianID: technicianID,
+		ImagePath:    objectKey,
+		Filename:     filename,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("enqueue job: %w", err)
+	}
+
+	return job.ID, nil
 }
 
 func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error) {
@@ -79,7 +124,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 			Note:         "ไม่สามารถ extract เลขบัตรประชาชนจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
-
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
@@ -97,7 +141,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
-
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
@@ -143,7 +186,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	if isVerified {
 		tech.IsVerified = true
 		_ = s.techRepo.Update(ctx, tech)
-
 		s.notifyVerificationResult(ctx, technicianID, status, note)
 	}
 
@@ -157,6 +199,104 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		IsVerified:    isVerified,
 		Message:       message,
 	}, nil
+}
+
+func (s *service) GetJobStatus(ctx context.Context, jobID uint) (*JobStatusResponse, error) {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &JobStatusResponse{
+		JobID:      job.ID,
+		Status:     string(job.Status),
+		RetryCount: job.RetryCount,
+		ErrorMsg:   job.ErrorMsg,
+		CreatedAt:  job.CreatedAt,
+		StartedAt:  job.StartedAt,
+		FinishedAt: job.FinishedAt,
+	}
+
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err == nil {
+		logs, _ := s.repo.GetLogsByTechnicianID(payload.TechnicianID)
+		if len(logs) > 0 {
+			latest := logs[0] 
+			resp.VerifyStatus = string(latest.Status)
+			resp.VerifyNote = latest.Note
+
+			if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
+				resp.IsVerified = &tech.IsVerified
+			}
+		}
+	}
+
+	return resp, nil
+}
+
+func (s *service) ListPendingManualJobs(ctx context.Context, page, pageSize int) ([]backgroundjob.BackgroundJob, int64, error) {
+	return s.jobRepo.ListByStatus(ctx, backgroundjob.JobTypeOCRVerify, backgroundjob.JobStatusPendingManual, page, pageSize)
+}
+
+func (s *service) ApproveJob(ctx context.Context, adminID uint, jobID uint, reason string) error {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return fmt.Errorf("parse payload: %w", err)
+	}
+
+	if err := s.jobRepo.MarkDone(ctx, jobID); err != nil {
+		return fmt.Errorf("mark done: %w", err)
+	}
+
+	if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
+		tech.IsVerified = true
+		_ = s.techRepo.Update(ctx, tech)
+	}
+
+	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
+		AdminID:       adminID,
+		TechnicianID:  payload.TechnicianID,
+		TargetType:    "ocr_job",
+		TargetID:      jobID,
+		PreviousValue: string(backgroundjob.JobStatusPendingManual),
+		NewValue:      "APPROVED",
+		Reason:        reason,
+	})
+
+	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusPassed, reason)
+	return nil
+}
+
+func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reason string) error {
+	job, err := s.jobRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+
+	var payload backgroundjob.OCRVerifyPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return fmt.Errorf("parse payload: %w", err)
+	}
+
+	_, _ = s.jobRepo.MarkFailed(ctx, jobID, fmt.Sprintf("rejected by admin: %s", reason))
+
+	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
+		AdminID:       adminID,
+		TechnicianID:  payload.TechnicianID,
+		TargetType:    "ocr_job",
+		TargetID:      jobID,
+		PreviousValue: string(backgroundjob.JobStatusPendingManual),
+		NewValue:      "REJECTED",
+		Reason:        reason,
+	})
+
+	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusFailed, reason)
+	return nil
 }
 
 func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error) {
@@ -271,12 +411,8 @@ func (s *service) notifyVerificationResult(ctx context.Context, technicianID uin
 		Message:       message,
 		EntityType:    "technician",
 		EntityID:      technicianID,
-		Data: map[string]any{
-			"status": string(status),
-			"note":   note,
-		},
+		Data:          map[string]any{"status": string(status), "note": note},
 	})
-
 }
 
 func (s *service) GetStats(ctx context.Context) (*VerificationStatResponse, error) {
