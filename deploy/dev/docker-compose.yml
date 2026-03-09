@@ -1,9 +1,6 @@
 version: "3.9"
 
 services:
-  # ================================
-  # MySQL DATABASE
-  # ================================
   database:
     image: mysql:${MYSQL_VERSION:-8.0}
     container_name: changsure-database-dev
@@ -27,11 +24,7 @@ services:
     networks:
       - changsure-network
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent",
-        ]
+      test: ["CMD-SHELL", "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -41,9 +34,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ================================
-  # MINIO STORAGE
-  # ================================
   minio:
     image: minio/minio:${MINIO_VERSION:-latest}
     container_name: changsure-minio-dev
@@ -74,9 +64,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ================================
-  # MINIO INITIALIZER
-  # ================================
   minio-init:
     image: minio/mc
     container_name: changsure-minio-init
@@ -88,22 +75,16 @@ services:
       /bin/sh -c "
       echo 'Waiting for MinIO...';
       mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
-
       echo 'Creating bucket...';
       mc mb -p local/${MINIO_BUCKET} || true;
-
       echo 'Setting bucket private...';
       mc anonymous set none local/${MINIO_BUCKET};
-
       echo 'MinIO Init Completed!';
       exit 0;
       "
     networks:
       - changsure-network
 
-  # ================================
-  # REDIS
-  # ================================
   redis:
     image: redis:${REDIS_VERSION:-7-alpine}
     container_name: changsure-redis-dev
@@ -128,28 +109,35 @@ services:
         max-file: "3"
 
   # ================================
-  # OCR SERVICE
+  # OCR SERVICE (EasyOCR)
   # ================================
   ocr:
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
+      target: runtime           
+    image: changsure-ocr:dev
     container_name: changsure-ocr-dev
     restart: unless-stopped
     env_file: ./.env
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"  
     networks:
       - changsure-network
+    mem_limit: 6g               
+    memswap_limit: 6g
+    healthcheck:                
+      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # ================================
-  # CORE SERVICE
-  # ================================
   core-service:
     build:
       context: ../../changsure-core-service
@@ -167,7 +155,7 @@ services:
       minio-init:
         condition: service_completed_successfully
       ocr:
-        condition: service_started
+        condition: service_healthy
     networks:
       - changsure-network
     logging:
@@ -176,9 +164,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-# ================================
-# NETWORKS & VOLUMES
-# ================================
 networks:
   changsure-network:
     driver: bridge
