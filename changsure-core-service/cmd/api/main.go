@@ -77,21 +77,6 @@ func main() {
 		log.Println("⊘ Skipping seeders")
 	}
 
-	// --- Redis ---
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
-	})
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		log.Fatalf("❌ Failed to connect Redis: %v", err)
-	}
-	log.Println("✅ Redis connected")
-
 	// --- Fiber App ---
 	app := fiber.New(fiber.Config{
 		AppName:      "Chang Sure API",
