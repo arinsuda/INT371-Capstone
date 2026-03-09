@@ -31,7 +31,7 @@ func (r *repository) Get(ctx context.Context, id uint) (*ServiceCategory, error)
 }
 
 func (r *repository) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
-	// Check if record exists first
+
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&ServiceCategory{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return err

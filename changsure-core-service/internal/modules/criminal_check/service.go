@@ -53,14 +53,12 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		return nil, fmt.Errorf("ocr failed: %w", err)
 	}
 
-	// Collect raw text for audit log
 	var rawTexts []string
 	for _, item := range ocrResult.Items {
 		rawTexts = append(rawTexts, item.Text)
 	}
 	rawOCRText := strings.Join(rawTexts, " ")
 
-	// Pass typed []infra.OCRItem directly — no more anonymous struct conversion
 	nationalID, idCardY := extractNationalIDWithY(ocrResult.Items)
 	if nationalID == "" {
 		_ = s.repo.SaveLog(&VerificationLog{

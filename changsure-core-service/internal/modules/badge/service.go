@@ -117,7 +117,6 @@ func (s *service) UpdateBadgeWithFile(
 		return nil, err
 	}
 
-	// ---------- handle file upload ----------
 	if fileHeader != nil {
 
 		if fileHeader.Size > 2_000_000 {
@@ -166,7 +165,6 @@ func (s *service) UpdateBadgeWithFile(
 			return nil, err
 		}
 
-		// delete old file
 		if b.IconURL != "" {
 			_ = s.store.Delete(ctx, b.IconURL)
 		}
@@ -174,7 +172,6 @@ func (s *service) UpdateBadgeWithFile(
 		dto.IconURL = &key
 	}
 
-	// ---------- update fields ----------
 	if dto.Name != nil {
 		b.Name = *dto.Name
 	}

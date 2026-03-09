@@ -61,8 +61,6 @@ func (h *OCRHandler) UploadAndScan(c fiber.Ctx) error {
 	})
 }
 
-// Ping ตรวจสอบว่า BE เชื่อมต่อ OCR service ได้ไหม
-// GET /api/ocr/ping
 func (h *OCRHandler) Ping(c fiber.Ctx) error {
 	health, err := h.svc.Ping()
 	if err != nil {

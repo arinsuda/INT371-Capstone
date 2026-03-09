@@ -26,8 +26,6 @@ func NewOCRClient(baseURL string) OCRClient {
 	}
 }
 
-// ── Response types ────────────────────────────────────────────────────────────
-
 type BBox struct {
 	TopLeft     [2]float64 `json:"top_left"`
 	TopRight    [2]float64 `json:"top_right"`
@@ -57,10 +55,8 @@ type OCRHealth struct {
 	Workers   int      `json:"workers"`
 }
 
-// ── Methods ───────────────────────────────────────────────────────────────────
-
 func (c *ocrClient) Health() (*OCRHealth, error) {
-	// ใช้ /readyz ก่อน — ถ้า model ยังโหลดไม่เสร็จจะได้ 503 ทันที
+
 	readyz, err := c.client.Get(c.baseURL + "/readyz")
 	if err != nil {
 		return nil, fmt.Errorf("cannot reach ocr service at %s: %w", c.baseURL, err)
@@ -71,7 +67,6 @@ func (c *ocrClient) Health() (*OCRHealth, error) {
 		return nil, fmt.Errorf("ocr service is up but models are not ready yet (HTTP 503)")
 	}
 
-	// ดึง /health เพื่อได้ข้อมูล engine
 	resp, err := c.client.Get(c.baseURL + "/health")
 	if err != nil {
 		return nil, fmt.Errorf("health check failed: %w", err)

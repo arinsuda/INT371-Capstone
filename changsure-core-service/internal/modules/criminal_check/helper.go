@@ -55,12 +55,9 @@ func resolveStatus(record *MockCriminalRecord) (CheckStatus, string, string, boo
 	}
 }
 
-// extractNationalIDWithY tries to find a 13-digit national ID from OCR items.
-// Returns the ID and the top-left Y coordinate of the item it was found in.
 func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 	exactRegex := regexp.MustCompile(`^[0-9]{13}$`)
 
-	// Pass 1: look for an item whose cleaned text is exactly 13 digits
 	for _, item := range items {
 		cleaned := strings.ReplaceAll(item.Text, "-", "")
 		cleaned = strings.ReplaceAll(cleaned, " ", "")
@@ -69,8 +66,6 @@ func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 		}
 	}
 
-	// Pass 2: collect digit-only items and try to assemble 13 digits
-	// by merging items on the same horizontal line (within 40px Y tolerance)
 	type numItem struct {
 		digits string
 		topY   float64
@@ -96,7 +91,6 @@ func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 		})
 	}
 
-	// Sort by Y then X so left-to-right order is preserved on same line
 	sort.Slice(numItems, func(i, j int) bool {
 		if math.Abs(numItems[i].topY-numItems[j].topY) <= 40 {
 			return numItems[i].leftX < numItems[j].leftX
@@ -125,9 +119,6 @@ func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 	return "", 0
 }
 
-// extractThaiName finds the Thai name line that appears just below the ID card
-// number row (identified by idCardY). Items within 30px Y of each other on
-// that first Thai line are joined as name parts.
 func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 	thaiRegex := regexp.MustCompile(`[\p{Thai}]+`)
 
@@ -162,14 +153,14 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 	var baseY float64 = -1
 
 	for _, item := range thaiItems {
-		// Skip items above or at the ID number row
+
 		if item.y <= idCardY {
 			continue
 		}
 		if baseY < 0 {
 			baseY = item.y
 		}
-		// Only collect items on the same line as the first Thai text found
+
 		if math.Abs(item.y-baseY) <= 30 {
 			nameParts = append(nameParts, strings.TrimSpace(item.text))
 		}

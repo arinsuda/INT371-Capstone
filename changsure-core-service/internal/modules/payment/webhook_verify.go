@@ -18,12 +18,10 @@ func VerifyOmiseSignature(
 		return false
 	}
 
-	// 🔴 ใช้ secret ตรง ๆ ห้าม decode
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
 	expectedMAC := mac.Sum(nil)
 
-	// Omise ส่ง signature เป็น hex
 	expectedSignature := hex.EncodeToString(expectedMAC)
 
 	match := hmac.Equal(
