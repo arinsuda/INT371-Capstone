@@ -62,6 +62,11 @@ func (r *Router) setupPublicRoutes() {
 	r.container.AuthHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
 	r.container.ResetPasswordHandler.RegisterRoutes(api)
+	r.container.ProvinceHandler.RegisterRoutes(api)
+	r.container.DistrictHandler.RegisterRoutes(api)
+	r.container.SubDistrictHandler.RegisterRoutes(api)
+	r.container.ServiceCategoryHandler.RegisterRoutes(api)
+	r.container.ServiceHandler.RegisterRoutes(api)
 }
 
 func (r *Router) setupProtectedRoutes() {
@@ -75,11 +80,6 @@ func (r *Router) setupProtectedRoutes() {
 
 func (r *Router) setupSharedRoutes(api fiber.Router) {
 	r.container.NotificationHandler.RegisterRoutes(api)
-	r.container.ProvinceHandler.RegisterRoutes(api)
-	r.container.DistrictHandler.RegisterRoutes(api)
-	r.container.SubDistrictHandler.RegisterRoutes(api)
-	r.container.ServiceCategoryHandler.RegisterRoutes(api)
-	r.container.ServiceHandler.RegisterRoutes(api)
 	r.container.BadgeHandler.RegisterRoutes(api)
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 	r.container.ChatHandler.RegisterRoutes(api)

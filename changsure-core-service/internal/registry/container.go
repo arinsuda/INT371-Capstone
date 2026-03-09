@@ -589,6 +589,7 @@ func (c *Container) initCriminalCheckModule(cfg *config.Config) {
 		repo,
 		c.TechnicianRepo,
 		c.OCRService,
+		c.NotificationService,
 	)
 	c.CriminalCheckHandler = criminalcheck.NewHandler(c.CriminalCheckService)
 }

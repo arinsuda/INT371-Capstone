@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"changsure-core-service/internal/modules/notification"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
 	"changsure-core-service/internal/modules/technician"
 	"gorm.io/gorm"
@@ -38,13 +39,24 @@ type Service interface {
 }
 
 type service struct {
-	repo       Repository
-	techRepo   technician.Repository
-	ocrService ocrservice.OCRService
+	repo        Repository
+	techRepo    technician.Repository
+	ocrService  ocrservice.OCRService
+	notiService notification.Service
 }
 
-func NewService(repo Repository, techRepo technician.Repository, ocrSvc ocrservice.OCRService) Service {
-	return &service{repo: repo, techRepo: techRepo, ocrService: ocrSvc}
+func NewService(
+	repo Repository,
+	techRepo technician.Repository,
+	ocrSvc ocrservice.OCRService,
+	notiSvc notification.Service,
+) Service {
+	return &service{
+		repo:        repo,
+		techRepo:    techRepo,
+		ocrService:  ocrSvc,
+		notiService: notiSvc,
+	}
 }
 
 func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error) {
@@ -67,6 +79,7 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 			Note:         "ไม่สามารถ extract เลขบัตรประชาชนจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
+
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
@@ -84,6 +97,7 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
+
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
@@ -129,6 +143,8 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	if isVerified {
 		tech.IsVerified = true
 		_ = s.techRepo.Update(ctx, tech)
+
+		s.notifyVerificationResult(ctx, technicianID, status, note)
 	}
 
 	return &VerifyIdentityResponse{
@@ -141,46 +157,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		IsVerified:    isVerified,
 		Message:       message,
 	}, nil
-}
-
-func (s *service) ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error) {
-	logs, total, err := s.repo.ListLogs(filter)
-	if err != nil {
-		return nil, fmt.Errorf("list logs: %w", err)
-	}
-
-	responses := make([]VerificationLogResponse, 0, len(logs))
-	for _, l := range logs {
-		resp, err := s.enrichLog(ctx, l)
-		if err != nil {
-			continue
-		}
-		responses = append(responses, resp)
-	}
-
-	return &ListLogsResponse{
-		Logs:     responses,
-		Total:    total,
-		Page:     filter.Page,
-		PageSize: filter.PageSize,
-	}, nil
-}
-
-func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error) {
-	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
-	if err != nil {
-		return nil, fmt.Errorf("get logs by technician: %w", err)
-	}
-
-	responses := make([]VerificationLogResponse, 0, len(logs))
-	for _, l := range logs {
-		resp, err := s.enrichLog(ctx, l)
-		if err != nil {
-			continue
-		}
-		responses = append(responses, resp)
-	}
-	return responses, nil
 }
 
 func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error) {
@@ -213,6 +189,11 @@ func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint,
 			tech.IsVerified = true
 			_ = s.techRepo.Update(ctx, tech)
 		}
+		s.notifyVerificationResult(ctx, log.TechnicianID, StatusPassed, req.Reason)
+	}
+
+	if req.Status == StatusFailed {
+		s.notifyVerificationResult(ctx, log.TechnicianID, StatusFailed, req.Reason)
 	}
 
 	updated, _ := s.repo.GetLogByID(logID)
@@ -250,11 +231,93 @@ func (s *service) OverrideIsVerified(ctx context.Context, adminID uint, technici
 		Reason:        req.Reason,
 	})
 
+	status := StatusPassed
+	if !req.IsVerified {
+		status = StatusFailed
+	}
+	s.notifyVerificationResult(ctx, technicianID, status, req.Reason)
+
 	return nil
+}
+
+func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {
+	if s.notiService == nil {
+		return
+	}
+
+	var title, message, notiType string
+
+	switch status {
+	case StatusPassed:
+		notiType = "IDENTITY_VERIFIED"
+		title = "ยืนยันตัวตนสำเร็จ ✅"
+		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
+	case StatusFailed:
+		notiType = "IDENTITY_REJECTED"
+		title = "ไม่ผ่านการตรวจสอบ ❌"
+		message = "บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่"
+		if note != "" {
+			message = fmt.Sprintf("%s\nเหตุผล: %s", message, note)
+		}
+	default:
+		return
+	}
+
+	_, _ = s.notiService.Create(ctx, notification.CreateNotificationInput{
+		RecipientRole: notification.RoleTechnician,
+		RecipientID:   technicianID,
+		Type:          notiType,
+		Title:         title,
+		Message:       message,
+		EntityType:    "technician",
+		EntityID:      technicianID,
+		Data: map[string]any{
+			"status": string(status),
+			"note":   note,
+		},
+	})
+
 }
 
 func (s *service) GetStats(ctx context.Context) (*VerificationStatResponse, error) {
 	return s.repo.GetStats()
+}
+
+func (s *service) ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error) {
+	logs, total, err := s.repo.ListLogs(filter)
+	if err != nil {
+		return nil, fmt.Errorf("list logs: %w", err)
+	}
+	responses := make([]VerificationLogResponse, 0, len(logs))
+	for _, l := range logs {
+		resp, err := s.enrichLog(ctx, l)
+		if err != nil {
+			continue
+		}
+		responses = append(responses, resp)
+	}
+	return &ListLogsResponse{
+		Logs:     responses,
+		Total:    total,
+		Page:     filter.Page,
+		PageSize: filter.PageSize,
+	}, nil
+}
+
+func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error) {
+	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+	if err != nil {
+		return nil, fmt.Errorf("get logs by technician: %w", err)
+	}
+	responses := make([]VerificationLogResponse, 0, len(logs))
+	for _, l := range logs {
+		resp, err := s.enrichLog(ctx, l)
+		if err != nil {
+			continue
+		}
+		responses = append(responses, resp)
+	}
+	return responses, nil
 }
 
 func (s *service) enrichLog(ctx context.Context, l VerificationLog) (VerificationLogResponse, error) {
@@ -267,12 +330,10 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 		RawOCRText:   l.RawOCRText,
 		CreatedAt:    l.CreatedAt,
 	}
-
 	if tech, err := s.techRepo.FindByID(ctx, l.TechnicianID); err == nil && tech != nil {
 		resp.TechnicianName = tech.FirstName + " " + tech.LastName
 		resp.IsVerified = tech.IsVerified
 	}
-
 	if history, err := s.repo.GetOverrideHistory("verification_log", l.ID); err == nil {
 		for _, h := range history {
 			resp.OverrideHistory = append(resp.OverrideHistory, AdminOverrideLogResponse{
@@ -286,7 +347,6 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 			})
 		}
 	}
-
 	return resp, nil
 }
 
@@ -295,7 +355,6 @@ func (s *service) ListCriminalRecords(ctx context.Context, page, pageSize int, s
 	if err != nil {
 		return nil, 0, fmt.Errorf("list criminal records: %w", err)
 	}
-
 	resp := make([]CriminalRecordResponse, 0, len(records))
 	for _, r := range records {
 		resp = append(resp, toCriminalRecordResponse(r))
@@ -323,18 +382,15 @@ func (s *service) CreateCriminalRecord(ctx context.Context, req CreateCriminalRe
 	if existing != nil {
 		return nil, ErrNationalIDDuplicate
 	}
-
 	record := &MockCriminalRecord{
 		NationalID: req.NationalID,
 		FullName:   req.FullName,
 		Status:     req.Status,
 		Note:       req.Note,
 	}
-
 	if err := s.repo.CreateCriminalRecord(record); err != nil {
 		return nil, fmt.Errorf("create criminal record: %w", err)
 	}
-
 	resp := toCriminalRecordResponse(*record)
 	return &resp, nil
 }
@@ -346,7 +402,6 @@ func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateC
 		}
 		return nil, fmt.Errorf("get criminal record: %w", err)
 	}
-
 	updates := map[string]interface{}{}
 	if req.FullName != nil {
 		updates["full_name"] = *req.FullName
@@ -357,15 +412,12 @@ func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateC
 	if req.Note != nil {
 		updates["note"] = *req.Note
 	}
-
 	if len(updates) == 0 {
 		return s.GetCriminalRecord(ctx, id)
 	}
-
 	if err := s.repo.UpdateCriminalRecord(id, updates); err != nil {
 		return nil, fmt.Errorf("update criminal record: %w", err)
 	}
-
 	return s.GetCriminalRecord(ctx, id)
 }
 
