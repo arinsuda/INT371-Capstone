@@ -21,6 +21,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
 
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -111,12 +112,24 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       _buildPasswordField(
                         label: 'รหัสผ่าน',
                         controller: _passwordController,
+                        obscure: _obscurePassword,
+                        onToggle: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
                       ),
                       SizedBox(height: 16),
                       _buildPasswordField(
                         label: 'ยืนยันรหัสผ่าน',
                         controller: _checkPasswordController,
+                        obscure: _obscureConfirmPassword,
                         isConfirm: true,
+                        onToggle: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
                       ),
 
                       SizedBox(height: 24),
@@ -320,6 +333,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget _buildPasswordField({
     required String label,
     required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggle,
     bool isConfirm = false,
   }) {
     return Column(
@@ -336,7 +351,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         const SizedBox(height: 3.5),
         TextFormField(
           controller: controller,
-          obscureText: _obscurePassword,
+          obscureText: obscure,
           onChanged: (_) {
             if (isConfirm) {
               _formKey.currentState?.validate();
@@ -360,14 +375,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                obscure ? Icons.visibility_off : Icons.visibility,
                 color: Colors.grey,
               ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
+              onPressed: onToggle,
             ),
             // 🔴 สีข้อความ error
             errorStyle: const TextStyle(

@@ -1,4 +1,5 @@
 import 'package:changsure/data/models/users/users_model.dart';
+import 'package:changsure/module/auth/password/forgot_password_page.dart';
 import 'package:changsure/module/auth/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,7 +174,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ForgotPasswordPage(),
+                              ),
+                            );
+                          },
                           child: const Text(
                             'Forgot Password ?',
                             style: TextStyle(
@@ -404,6 +412,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(
                 color: AppColors.colorError,
+                width: 1.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppColors.primaryBorderHover,
                 width: 1.5,
               ),
             ),

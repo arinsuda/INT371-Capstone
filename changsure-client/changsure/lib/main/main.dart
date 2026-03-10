@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:camera/camera.dart';
 import 'package:changsure/state/notifications/notification_provider.dart';
 import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,8 @@ import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/footer/footer_bar.dart';
 
 import '../module/auth/start_page.dart';
+
+late List<CameraDescription> cameras;
 
 class DevHttpOverrides extends HttpOverrides {
   @override
@@ -32,7 +35,7 @@ void main() async {
   if (kDebugMode) {
     HttpOverrides.global = DevHttpOverrides();
   }
-
+  cameras = await availableCameras();
   runApp(const ProviderScope(child: MyApp()));
 }
 

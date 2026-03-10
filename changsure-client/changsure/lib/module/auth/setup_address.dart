@@ -1,12 +1,14 @@
 import 'package:changsure/module/auth/start_page.dart';
+import 'package:changsure/module/auth/technician/technician_register_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/button/primary_button.dart';
-import '../../../core/header.dart';
-import '../../../core/profile/controllers/address_form_controller.dart';
-import '../../../core/profile/widgets/address_form_fields.dart';
-import '../../../state/bottom_nav_provider.dart';
+import '../../core/button/primary_button.dart';
+import '../../core/header.dart';
+import '../../core/profile/controllers/address_form_controller.dart';
+import '../../core/profile/widgets/address_form_fields.dart';
+import '../../data/models/users/users_model.dart';
+import '../../state/user_provider.dart';
 
 class SetupAddress extends ConsumerStatefulWidget {
   final String? label;
@@ -63,6 +65,16 @@ class _SetupAddressState extends ConsumerState<SetupAddress> {
   final FocusNode _subDistrictFocusNode = FocusNode();
   bool _isDirty = false;
   bool _phoneTouched = false;
+
+  bool get _canSubmit {
+    final formState = ref.read(addressFormProvider);
+
+    return addressLineCtrl.text.trim().isNotEmpty &&
+        formState.selectedProvinceId != null &&
+        formState.selectedDistrictId != null &&
+        formState.selectedSubDistrictId != null &&
+        formState.selectedCoordinates != null;
+  }
 
   @override
   void initState() {
@@ -195,10 +207,20 @@ class _SetupAddressState extends ConsumerState<SetupAddress> {
       print("SAVE RESULT = $ok");
 
       if (ok == true) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const StartPage()),
+        if (ok == true) {
+          final user = ref.read(userProvider);
+
+          if (user?.role == UserRole.customer) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const StartPage()),
               (route) => false,
-        );
+            );
+          } else if (user?.role == UserRole.technician) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TechnicianRegisterPage()),
+            );
+          }
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่')),
@@ -260,8 +282,8 @@ class _SetupAddressState extends ConsumerState<SetupAddress> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: PrimaryButton(
-                        text: "บันทึก",
-                        onPressed: (!_isDirty || isLoading) ? null : _onSave,
+                        text: "ยืนยัน",
+                        onPressed: (!_canSubmit || isLoading) ? null : _onSave,
                         padding: EdgeInsetsGeometry.symmetric(vertical: 6),
                       ),
                     ),

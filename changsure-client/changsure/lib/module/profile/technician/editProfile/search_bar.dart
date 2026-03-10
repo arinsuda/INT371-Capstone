@@ -5,7 +5,7 @@ Widget buildProvinceSearchBar(TextEditingController controller) {
     padding: const EdgeInsets.symmetric(horizontal: 14),
     decoration: BoxDecoration(
       border: Border.all(color: const Color(0xFFD9D9D9)),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
     ),
     child: Row(
       children: [

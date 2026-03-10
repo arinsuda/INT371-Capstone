@@ -153,6 +153,23 @@ class MasterDataService {
     );
   }
 
+  Future<Map<String, dynamic>?> createTechnicianAddress({
+    required String? token,
+    required int technicianId,
+    required Map<String, dynamic> body,
+  }) async {
+    if (token?.isEmpty ?? true) {
+      throw ApiException('Authentication token is required');
+    }
+
+    return _post<Map<String, dynamic>?>(
+      endpoint: '/technicians/$technicianId/addresses', // 👈 เปลี่ยนตาม backend จริง
+      token: token,
+      body: body,
+      parser: (data) => data,
+    );
+  }
+
   // ─── Services ────────────────────────────────────────────────────────────────
   // BE: GET /services/all → { "success": true, "total": N, "data": [...] }
   Future<List<ServiceModel>> getAllServices(String? token) async {
@@ -408,7 +425,7 @@ class AddressNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<bool> createAddress(Map<String, dynamic> body) async {
+  Future<bool> createCustomerAddress(Map<String, dynamic> body) async {
     try {
       final user = ref.read(userProvider);
 
@@ -421,6 +438,28 @@ class AddressNotifier extends AsyncNotifier<void> {
       await service.createCustomerAddress(
         token: user.token,
         customerId: user.id, // 👈 ใช้ id จาก UserModel
+        body: body,
+      );
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> createTechnicianAddress(Map<String, dynamic> body) async {
+    try {
+      final user = ref.read(userProvider);
+
+      if (user == null || !user.isAuthenticated) {
+        throw Exception("User not authenticated");
+      }
+
+      final service = ref.read(masterDataServiceProvider);
+
+      await service.createTechnicianAddress(
+        token: user.token,
+        technicianId: user.id, // 👈 ใช้ id จาก UserModel
         body: body,
       );
 

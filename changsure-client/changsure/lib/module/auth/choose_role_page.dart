@@ -1,5 +1,5 @@
 import 'package:changsure/core/theme.dart';
-import 'package:changsure/module/auth/technician/technician_register_page.dart';
+import 'package:changsure/module/auth/technician/technician_start_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
@@ -275,13 +275,13 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
                     );
 
                     /// 3️⃣ NAVIGATE ตาม role ที่เลือก
-                    Navigator.of(context).pushAndRemoveUntil(
+                    Navigator.push(
+                      context,
                       MaterialPageRoute(
                         builder: (_) => selectedRole == "technician"
-                            ? TechnicianRegisterPage(email: widget.email)
+                            ? TechnicianStartPage(email: widget.email)
                             : SetupProfilePage(email: widget.email),
                       ),
-                          (route) => false,
                     );
                   } catch (e) {
                     if (mounted) {

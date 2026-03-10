@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:changsure/module/auth/customer/setup_address.dart';
+import 'package:changsure/module/auth/setup_address.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,7 +166,7 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
               onSave: (data) async {
                 final result = await ref
                     .read(addressProvider.notifier)
-                    .createAddress(data);
+                    .createCustomerAddress(data);
                 return result;
               },
             ),
