@@ -334,6 +334,7 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
                     return PrimaryButton(
                       text: "ต่อไป",
                       onPressed: valid && hasChanged ? _saveProfile : null,
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 8),
                     );
                   },
                 ),

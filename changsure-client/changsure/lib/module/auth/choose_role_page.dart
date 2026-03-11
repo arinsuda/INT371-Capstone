@@ -216,7 +216,12 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
 
                     final registerState = ref.read(registerProvider);
 
+                    if (registerState.hasError) {
+                      debugPrint("REGISTER API ERROR: ${registerState.error}");
+                    }
+
                     if (!(registerState.hasValue && registerState.value != null)) {
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('สมัครสมาชิกไม่สำเร็จ'),
@@ -283,7 +288,9 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
                             : SetupProfilePage(email: widget.email),
                       ),
                     );
-                  } catch (e) {
+                  } catch (e, stack) {
+                    debugPrint("REGISTER ERROR: $e");
+                    debugPrintStack(stackTrace: stack);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -297,23 +304,23 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
                     : null,
               ),
             ),
-            Padding(
-              padding: EdgeInsetsGeometry.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              child: Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "ข้ามขั้นตอน",
-                  style: TextStyle(
-                    color: Color(0xFF3071C7),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+            // Padding(
+            //   padding: EdgeInsetsGeometry.symmetric(
+            //     horizontal: 24,
+            //     vertical: 16,
+            //   ),
+            //   child: Align(
+            //     alignment: Alignment.center,
+            //     child: Text(
+            //       "ข้ามขั้นตอน",
+            //       style: TextStyle(
+            //         color: Color(0xFF3071C7),
+            //         fontSize: 16,
+            //         fontWeight: FontWeight.bold,
+            //       ),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),

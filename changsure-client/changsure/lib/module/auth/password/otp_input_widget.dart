@@ -73,7 +73,7 @@ class _OtpInputWidgetState extends State<OtpInputWidget> {
               alignment: Alignment.center,
               children: [
                 Focus(
-                  focusNode: _focusNodes[index],
+                  // focusNode: _focusNodes[index],
                   onKeyEvent: (node, event) {
                     if (event is KeyDownEvent &&
                         event.logicalKey == LogicalKeyboardKey.backspace) {

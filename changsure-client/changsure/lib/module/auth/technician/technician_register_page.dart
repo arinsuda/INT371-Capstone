@@ -18,12 +18,21 @@ class TechnicianRegisterPage extends ConsumerStatefulWidget {
 
 class _TechnicianRegisterPageState
     extends ConsumerState<TechnicianRegisterPage> {
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() {
+      ref.read(technicianRegisterStepProvider.notifier).state = 1;
+    });
+  }
+
   Widget _buildCustomStepper(int step) {
     final List<String> labels = ["ข้อมูลส่วนตัว", "ประเภทงาน", "ยืนยันตัวตน"];
 
     return Row(
       children: List.generate(labels.length, (index) {
-        bool isCompleted = index < step;
+        bool isCompleted = index < step - 1;
         bool isCurrent = index == step - 1;
         bool isLast = index == labels.length - 1;
 
@@ -46,7 +55,7 @@ class _TechnicianRegisterPageState
                   Icon(
                     Icons.circle,
                     size: isCurrent ? 20 : 18,
-                    color: (index <= step - 1)
+                    color: (isCompleted || isCurrent)
                         ? Color(0xFF1677FF)
                         : Colors.grey.shade400,
                   ),
@@ -105,7 +114,7 @@ class _TechnicianRegisterPageState
   @override
   Widget build(BuildContext context) {
     final currentStep = ref.watch(technicianRegisterStepProvider);
-
+    print("CURRENT STEP = $currentStep");
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(

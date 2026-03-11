@@ -200,7 +200,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-
               decoration: BoxDecoration(
                 color: AppColors.colorWarning,
                 borderRadius: BorderRadius.circular(8),
