@@ -11,7 +11,7 @@ type Repository interface {
 	Create(ctx context.Context, a *Admin) error
 	FindByEmail(ctx context.Context, email string) (*Admin, error)
 	FindByID(ctx context.Context, id uint) (*Admin, error)
-	FindAll(ctx context.Context) ([]Admin, error) // ← เพิ่ม
+	FindAll(ctx context.Context) ([]Admin, error)
 }
 
 type repository struct {
@@ -44,7 +44,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Admin, error) {
 	return &a, err
 }
 
-func (r *repository) FindAll(ctx context.Context) ([]Admin, error) { // ← เพิ่ม
+func (r *repository) FindAll(ctx context.Context) ([]Admin, error) {
 	var admins []Admin
 	err := r.db.WithContext(ctx).Where("deleted_at IS NULL").Find(&admins).Error
 	return admins, err

@@ -1,12 +1,14 @@
 package routes
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"changsure-core-service/internal/config"
 	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/jobs"
 	ocrroutes "changsure-core-service/internal/modules/ocr/routes"
 	"changsure-core-service/internal/realtime"
 	"changsure-core-service/internal/registry"
@@ -47,6 +49,7 @@ func (r *Router) Setup() {
 	}
 
 	r.setup404Handler()
+	r.startBackgroundJobs()
 }
 
 func (r *Router) setupHealthRoutes() {
@@ -93,6 +96,12 @@ func (r *Router) setupAdminRoutes(api fiber.Router) {
 	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin)
 }
 
+func (r *Router) startBackgroundJobs() {
+	cleaner := jobs.NewCleanupJob(r.db, nil)
+	go cleaner.Start(context.Background())
+	slog.Info("background jobs started", "job", "cleanup_expired_qr")
+}
+
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
@@ -105,6 +114,7 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	r.container.TechnicianBookingHandler.RegisterRoutes(technicians)
 	r.container.TechnicianAddressHandler.RegisterRoutes(technicians)
 	r.container.CriminalCheckHandler.RegisterRoutes(technicians)
+	r.container.WalletHandler.RegisterRoutes(technicians)
 }
 
 func (r *Router) setupCustomerRoutes(api fiber.Router) {

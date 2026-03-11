@@ -15,6 +15,7 @@ const (
 	BookingStatusCompleted      = "COMPLETED"
 	BookingStatusCancelled      = "CANCELLED"
 	BookingStatusRejected       = "REJECTED"
+	BookingStatusPaid           = "PAID"
 
 	PaymentMethodCOD = "COD"
 )

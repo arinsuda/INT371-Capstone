@@ -1,16 +1,5 @@
 package payment
 
-// type OmiseWebhookEvent struct {
-// 	Key  string `json:"key"`
-// 	Data struct {
-// 		ID       string `json:"id"`
-// 		Status   string `json:"status"`
-// 		Metadata struct {
-// 			BookingID string `json:"booking_id"`
-// 		} `json:"metadata"`
-// 	} `json:"data"`
-// }
-
 type OmiseWebhookEvent struct {
 	Key  string `json:"key"`
 	Data struct {
