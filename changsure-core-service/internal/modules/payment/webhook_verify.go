@@ -3,39 +3,40 @@ package payment
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"log"
+	"strings"
 )
 
-func VerifyOmiseSignature(
-	payload []byte,
-	signature string,
-	secret string,
-) bool {
+func VerifyOmiseSignature(payload []byte, signature string, secret string) bool {
+    if signature == "" || secret == "" {
+        return false
+    }
 
-	if signature == "" || secret == "" {
-		log.Printf("❌ Empty signature or secret")
-		return false
-	}
+    // ตัด prefix "test " ออก (กรณียิงจาก Postman)
+    actualSignature := signature
+    parts := strings.SplitN(signature, " ", 2)
+    if len(parts) == 2 {
+        actualSignature = parts[1]
+    }
 
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(payload)
-	expectedMAC := mac.Sum(nil)
+    // Decode Base64 secret ก่อน (Omise Dashboard ใช้แบบนี้)
+    secretBytes, err := base64.StdEncoding.DecodeString(secret)
+    if err != nil {
+        log.Printf("❌ Failed to decode secret: %v", err)
+        return false
+    }
 
-	expectedSignature := hex.EncodeToString(expectedMAC)
+    mac := hmac.New(sha256.New, secretBytes)
+    mac.Write(payload)
+    expected := hex.EncodeToString(mac.Sum(nil))
 
-	match := hmac.Equal(
-		[]byte(expectedSignature),
-		[]byte(signature),
-	)
+    if hmac.Equal([]byte(expected), []byte(actualSignature)) {
+        log.Printf("✅ Signature verified")
+        return true
+    }
 
-	if !match {
-		log.Printf("❌ Signature mismatch")
-		log.Printf("   Expected: %s...", expectedSignature[:20])
-		log.Printf("   Got:      %s...", signature[:20])
-	} else {
-		log.Printf("✅ Signature verified")
-	}
-
-	return match
+    log.Printf("❌ Signature mismatch\n   Expected: %s\n   Got:      %s", expected[:20], actualSignature[:20])
+    return false
 }

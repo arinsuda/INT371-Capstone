@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"os"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -117,24 +118,27 @@ func (h *Handler) CheckPaymentStatus(c fiber.Ctx) error {
 func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 	rawBody := c.Request().Body()
 
-	signature := c.Get("Omise-Signature")
-	if signature == "" {
-		signature = c.Get("X-Omise-Signature")
-	}
+	    os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
 
-	if h.webhookSecret != "" {
-		if signature == "" {
-			return c.Status(fiber.StatusUnauthorized).
-				JSON(fiber.Map{"error": "missing signature"})
-		}
-		if !VerifyOmiseSignature(rawBody, signature, h.webhookSecret) {
-			return c.Status(fiber.StatusUnauthorized).
-				JSON(fiber.Map{"error": "invalid signature"})
-		}
-		log.Printf("✅ Webhook signature verified")
-	} else {
-		log.Printf("⚠️  No webhook secret configured, skipping verification")
-	}
+
+    rawSig := string(c.Request().Header.Peek("Omise-Signature"))
+    log.Printf("🔍 Raw Omise-Signature: '%s'", rawSig)
+    log.Printf("🔍 Body length: %d", len(rawBody))
+    log.Printf("🔍 Body: %s", string(rawBody))
+
+    if h.webhookSecret != "" {
+        if rawSig == "" {
+            return c.Status(fiber.StatusUnauthorized).
+                JSON(fiber.Map{"error": "missing signature"})
+        }
+        if !VerifyOmiseSignature(rawBody, rawSig, h.webhookSecret) {
+            return c.Status(fiber.StatusUnauthorized).
+                JSON(fiber.Map{"error": "invalid signature"})
+        }
+        log.Printf("✅ Webhook signature verified")
+    } else {
+        log.Printf("⚠️  No webhook secret configured, skipping verification")
+    }
 
 	var event OmiseWebhookEvent
 	if err := json.Unmarshal(rawBody, &event); err != nil {
