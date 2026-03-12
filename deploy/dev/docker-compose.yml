@@ -20,11 +20,15 @@ services:
     volumes:
       - mysql_dev:/var/lib/mysql
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     networks:
       - changsure-network
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -44,8 +48,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Bangkok
-      MINIO_SERVER_URL: https://cp25ssa1.sit.kmutt.ac.th/minio
-      MINIO_BROWSER_REDIRECT_URL: https://cp25ssa1.sit.kmutt.ac.th/minio-console
+      MINIO_SERVER_URL: http://minio:9000
+      MINIO_BROWSER_REDIRECT_URL: https://cp25ssa1.sit.kmutt.ac.th/minio-console/
     volumes:
       - minio_dev:/data
     ports:
@@ -94,7 +98,7 @@ services:
     volumes:
       - redis_dev:/data
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     networks:
       - changsure-network
     healthcheck:
@@ -115,18 +119,18 @@ services:
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
-      target: runtime           
+      target: runtime
     image: changsure-ocr:dev
     container_name: changsure-ocr-dev
     restart: unless-stopped
     env_file: ./.env
     ports:
-      - "127.0.0.1:8001:8000"  
+      - "127.0.0.1:8001:8000"
     networks:
       - changsure-network
-    mem_limit: 6g               
+    mem_limit: 6g
     memswap_limit: 6g
-    healthcheck:                
+    healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
       interval: 30s
       timeout: 10s
@@ -146,7 +150,7 @@ services:
     restart: unless-stopped
     env_file: ./.env
     ports:
-      - "3001:8080"
+      - "127.0.0.1:3001:8080"
     depends_on:
       database:
         condition: service_healthy
