@@ -118,10 +118,11 @@ func (h *Handler) CheckPaymentStatus(c fiber.Ctx) error {
 func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 	rawBody := c.Request().Body()
 
-	    os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
-
+	os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
 
     rawSig := string(c.Request().Header.Peek("Omise-Signature"))
+	log.Printf("🔍 Body bytes (first 100): %v", rawBody[:min(100, len(rawBody))])
+    log.Printf("🔍 Body as string: [%s]", string(rawBody[:min(200, len(rawBody))]))
     log.Printf("🔍 Raw Omise-Signature: '%s'", rawSig)
     log.Printf("🔍 Body length: %d", len(rawBody))
     log.Printf("🔍 Body: %s", string(rawBody))

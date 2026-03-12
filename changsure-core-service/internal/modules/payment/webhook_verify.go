@@ -6,37 +6,26 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"log"
-	"strings"
 )
 
 func VerifyOmiseSignature(payload []byte, signature string, secret string) bool {
-    if signature == "" || secret == "" {
-        return false
-    }
-
-    // ตัด prefix "test " ออก (กรณียิงจาก Postman)
-    actualSignature := signature
-    parts := strings.SplitN(signature, " ", 2)
-    if len(parts) == 2 {
-        actualSignature = parts[1]
-    }
-
-    // Decode Base64 secret ก่อน (Omise Dashboard ใช้แบบนี้)
+    mac1 := hmac.New(sha256.New, []byte(secret))
+    mac1.Write(payload)
+    sig1 := hex.EncodeToString(mac1.Sum(nil))
+    
     secretBytes, err := base64.StdEncoding.DecodeString(secret)
-    if err != nil {
-        log.Printf("❌ Failed to decode secret: %v", err)
-        return false
+    sig2 := "n/a"
+    if err == nil {
+        mac2 := hmac.New(sha256.New, secretBytes)
+        mac2.Write(payload)
+        sig2 = hex.EncodeToString(mac2.Sum(nil))
     }
-
-    mac := hmac.New(sha256.New, secretBytes)
-    mac.Write(payload)
-    expected := hex.EncodeToString(mac.Sum(nil))
-
-    if hmac.Equal([]byte(expected), []byte(actualSignature)) {
-        log.Printf("✅ Signature verified")
-        return true
-    }
-
-    log.Printf("❌ Signature mismatch\n   Expected: %s\n   Got:      %s", expected[:20], actualSignature[:20])
+    
+    log.Printf("🔑 sig_raw:     %s", sig1)
+    log.Printf("🔑 sig_decoded: %s", sig2)
+    log.Printf("🔑 omise_sent:  %s", signature)
+    
+    if hmac.Equal([]byte(sig1), []byte(signature)) { return true }
+    if err == nil && hmac.Equal([]byte(sig2), []byte(signature)) { return true }
     return false
 }
