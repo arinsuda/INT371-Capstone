@@ -25,6 +25,7 @@ type Config struct {
 	OCR      OCRConfig
 	Omise    OmiseConfig
 	Mailer   MailerConfig
+	Wallet   WalletConfig
 }
 
 type AppConfig struct {
@@ -99,6 +100,10 @@ type MailerConfig struct {
 	Password string `mapstructure:"MAILER_PASSWORD"`
 	From     string `mapstructure:"MAILER_FROM"`
 	FromName string `mapstructure:"MAILER_FROM_NAME"`
+}
+
+type WalletConfig struct {
+	PlatformFeeRate float64
 }
 
 var GlobalConfig *Config
@@ -180,6 +185,10 @@ func LoadConfig() *Config {
 			From:     os.Getenv("MAILER_FROM"),
 			FromName: os.Getenv("MAILER_FROM_NAME"),
 		},
+
+		Wallet: WalletConfig{
+			PlatformFeeRate: getEnvAsFloat("PLATFORM_FEE_RATE", 0.05),
+		},
 	}
 
 	if strings.TrimSpace(cfg.JWT.Secret) == "" {
@@ -226,6 +235,19 @@ func getEnvAsBool(key string) bool {
 		log.Fatalf("[ERROR] invalid bool for %s=%q (expected true/false/1/0)", key, raw)
 	}
 	return b
+}
+
+func getEnvAsFloat(key string, defaultVal float64) float64 {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return defaultVal
+	}
+	f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	if err != nil {
+		log.Printf("[WARN] invalid float for %s=%q, using default %.4f", key, v, defaultVal)
+		return defaultVal
+	}
+	return f
 }
 
 func getEnvAsCSVOptional(key string) []string {

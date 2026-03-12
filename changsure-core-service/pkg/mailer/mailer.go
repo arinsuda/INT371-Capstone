@@ -95,72 +95,108 @@ func buildOTPEmail(name, otp string) string {
 	digits := strings.Split(otp, "")
 	digitBoxes := ""
 	for _, d := range digits {
-		digitBoxes += fmt.Sprintf(`
-			<td style="width:48px;height:56px;text-align:center;vertical-align:middle;
-				background:#f0f4ff;border:2px solid #1a2744;border-radius:8px;
-				font-size:28px;font-weight:700;color:#1a2744;font-family:monospace;">
-				%s
-			</td>
-			<td style="width:8px;"></td>`, d)
+		digitBoxes += fmt.Sprintf(`<td style="
+			width:48px;
+			height:58px;
+			text-align:center;
+			vertical-align:middle;
+			background:#f8faff;
+			border:1.5px solid #c8d8f0;
+			border-radius:10px;
+			font-size:26px;
+			font-weight:500;
+			color:#1a4fa0;
+			font-family:'SF Mono','Fira Code',monospace;
+		">%s</td><td style="width:8px;"></td>`, d)
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="th">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f7f5f0;font-family:'Sarabun',sans-serif;">
-<table width="100%%" cellpadding="0" cellspacing="0" style="background:#f7f5f0;padding:40px 20px;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:'Sarabun',sans-serif;">
+
+<table width="100%%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:56px 24px 64px;">
   <tr><td align="center">
-    <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-      
-      <!-- Header -->
+
+    <!-- Card -->
+    <table width="480" cellpadding="0" cellspacing="0" style="
+      background:#ffffff;
+      border-radius:16px;
+      border:1px solid #e8e4de;
+      box-shadow:0 2px 12px rgba(0,0,0,0.05);
+    ">
+
+      <tr><td style="height:44px;"></td></tr>
+
+      <!-- Logo -->
       <tr>
-        <td style="background:#1a2744;padding:28px 40px;text-align:center;">
-          <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">
-            Chang<span style="color:#e85d2f;">Sure</span>
+        <td style="text-align:center;padding:0 48px;">
+          <span style="font-size:27px;font-weight:700;letter-spacing:-0.3px;font-family:'Poppins','Segoe UI',sans-serif;">
+            <span style="color:#4fb3e8;">Chang</span><span style="color:#1a4fa0;">Sure</span>
           </span>
-          <p style="margin:6px 0 0;color:rgba(255,255,255,0.6);font-size:13px;">ช่างชัวร์ — แพลตฟอร์มบริการออนไลน์</p>
+        </td>
+      </tr>
+
+      <!-- Divider -->
+      <tr>
+        <td style="padding:24px 48px 0;">
+          <div style="height:1px;background:#f0ede8;"></div>
         </td>
       </tr>
 
       <!-- Body -->
       <tr>
-        <td style="padding:40px 40px 32px;">
-          <p style="font-size:16px;color:#1a1a1a;margin:0 0 8px;">สวัสดีคุณ <strong>%s</strong>,</p>
-          <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.7;">
-            เราได้รับคำขอรีเซ็ตรหัสผ่านของคุณ กรุณาใช้รหัส OTP ด้านล่างนี้ภายใน <strong style="color:#e85d2f;">5 นาที</strong>
+        <td style="padding:32px 48px 0;">
+
+          <p style="margin:0 0 6px;font-size:15px;font-weight:500;color:#111111;">
+            สวัสดี คุณ %s
+          </p>
+          <p style="margin:0 0 32px;font-size:14px;color:#777777;line-height:1.85;font-weight:300;">
+            เราได้รับคำขอรีเซ็ตรหัสผ่านของคุณ<br>
+            กรุณาใช้รหัส OTP ด้านล่างเพื่อดำเนินการต่อ
           </p>
 
           <!-- OTP Boxes -->
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
             <tr>%s</tr>
           </table>
 
-          <!-- Warning -->
-          <div style="background:#fff8f6;border:1px solid #f5c4b8;border-left:4px solid #e85d2f;border-radius:6px;padding:14px 18px;margin-bottom:24px;">
-            <p style="margin:0;font-size:13.5px;color:#8b2500;line-height:1.6;">
-              ⚠️ <strong>หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน</strong> กรุณาละเว้นอีเมลนี้ และรหัสจะหมดอายุโดยอัตโนมัติ
-            </p>
-          </div>
-
-          <p style="font-size:13px;color:#999;margin:0;line-height:1.6;">
-            รหัสนี้ใช้ได้เพียงครั้งเดียวและจะหมดอายุใน 5 นาที<br>
-            หากมีปัญหาติดต่อ <a href="mailto:support@changsure.com" style="color:#1a2744;">support@changsure.com</a>
+          <!-- Expiry -->
+          <p style="margin:0 0 8px;font-size:13px;font-weight:500;color:#1a4fa0;">
+            รหัสนี้มีอายุการใช้งาน 5 นาที
           </p>
+
+          <!-- Note -->
+          <p style="margin:0;font-size:13px;color:#aaaaaa;line-height:1.85;font-weight:300;">
+            หากคุณไม่ได้ร้องขอรหัสนี้ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+          </p>
+
         </td>
       </tr>
 
-      <!-- Footer -->
+      <!-- Sign-off -->
       <tr>
-        <td style="background:#f7f5f0;padding:20px 40px;text-align:center;border-top:1px solid #e8e4dc;">
-          <p style="margin:0;font-size:12px;color:#aaa;">
-            © 2025 ChangSure Co., Ltd. · <a href="#" style="color:#aaa;text-decoration:none;">นโยบายความเป็นส่วนตัว</a>
+        <td style="padding:36px 48px 40px;">
+          <p style="margin:0;font-size:13px;color:#cccccc;font-weight:300;">
+            ChangSure Team
           </p>
         </td>
       </tr>
 
     </table>
+
+    <!-- Footer -->
+    <p style="margin:20px 0 0;font-size:11px;color:#b8b0a4;text-align:center;">
+      © 2025 ChangSure Co., Ltd.
+    </p>
+
   </td></tr>
 </table>
+
 </body>
 </html>`, name, digitBoxes)
 }

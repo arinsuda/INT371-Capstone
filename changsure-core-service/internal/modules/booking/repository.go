@@ -2,6 +2,7 @@ package booking
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	address "changsure-core-service/internal/modules/customer_address"
@@ -105,11 +106,15 @@ func (r *repository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, 
 	var b Booking
 	err := r.db.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		First(&b, id).Error
-	if err != nil {
-		return nil, err
+		Preload("Technician").
+		Preload("TechnicianService.Service").
+		Where("id = ?", id).
+		First(&b).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
-	return &b, nil
+	return &b, err
 }
 
 func (r *repository) UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error {

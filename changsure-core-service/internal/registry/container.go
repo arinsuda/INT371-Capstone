@@ -41,6 +41,7 @@ import (
 	technicianservice "changsure-core-service/internal/modules/technician_service"
 	technicianservicearea "changsure-core-service/internal/modules/technician_service_area"
 	timeslot "changsure-core-service/internal/modules/time_slot"
+	"changsure-core-service/internal/modules/wallet"
 	"changsure-core-service/internal/realtime"
 
 	"changsure-core-service/internal/config"
@@ -147,6 +148,10 @@ type Container struct {
 	PaymentService payment.Service
 	PaymentHandler *payment.Handler
 
+	WalletRepo    wallet.Repository
+	WalletService wallet.Service
+	WalletHandler *wallet.Handler
+
 	OCRService ocrservice.OCRService
 	OCRHandler *ocrhandler.OCRHandler
 
@@ -199,7 +204,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianModule()
 
 	c.initAuthModule(cfg)
-	c.initNotificationModule(cfg)
+	c.initNotificationModule()
 	c.initOCRModule(cfg)
 
 	c.initServiceCategoryModule(cfg)
@@ -220,7 +225,10 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initTechnicianBookingModule()
 
 	c.initChatModule()
+
+	c.initWalletModule()
 	c.initPaymentModule(cfg)
+
 	c.initDocumentModule()
 
 	c.initMailer(cfg)
@@ -243,15 +251,12 @@ func (c *Container) initStorage(cfg *config.Config) error {
 		return fmt.Errorf("init minio storage: %w", err)
 	}
 	c.Storage = store
-
 	storage.GlobalMinio = store
-
 	return nil
 }
 
 func (c *Container) initAuthModule(cfg *config.Config) {
 	c.AuthRepo = auth.NewRefreshTokenRepository(c.DB)
-
 	c.AuthService = auth.NewService(
 		c.CustomerRepo,
 		c.TechnicianRepo,
@@ -259,11 +264,10 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		c.AuthRepo,
 		cfg,
 	)
-
 	c.AuthHandler = auth.NewHandler(c.AuthService)
 }
 
-func (c *Container) initNotificationModule(cfg *config.Config) {
+func (c *Container) initNotificationModule() {
 	c.NotificationRepo = notification.NewRepository(c.DB)
 	c.NotificationService = notification.NewService(c.NotificationRepo, c.Hub)
 
@@ -272,13 +276,11 @@ func (c *Container) initNotificationModule(cfg *config.Config) {
 		if !ok {
 			return notification.AuthUser{}, false
 		}
-
 		roleAny := ctx.Locals("role")
 		roleStr, ok := roleAny.(string)
 		if !ok {
 			return notification.AuthUser{}, false
 		}
-
 		return notification.AuthUser{
 			ID:   uid,
 			Role: notification.RecipientRole(roleStr),
@@ -289,9 +291,7 @@ func (c *Container) initNotificationModule(cfg *config.Config) {
 }
 
 func (c *Container) initOCRModule(cfg *config.Config) {
-	ocrCfg := cfg.OCR
-
-	client := ocrinfra.NewOCRClient(ocrCfg.BaseURL)
+	client := ocrinfra.NewOCRClient(cfg.OCR.BaseURL)
 	c.OCRService = ocrservice.NewOCRService(client)
 	c.OCRHandler = ocrhandler.NewOCRHandler(c.OCRService)
 }
@@ -336,9 +336,7 @@ func (c *Container) initTechnicianMatchingModule() {
 		c.TechnicianMatchingRepo,
 		c.Storage,
 	)
-	c.TechnicianMatchingHandler = technicianmatching.NewHandler(
-		c.TechnicianMatchingService,
-	)
+	c.TechnicianMatchingHandler = technicianmatching.NewHandler(c.TechnicianMatchingService)
 }
 
 func (c *Container) initTechnicianModule() {
@@ -385,12 +383,10 @@ func (c *Container) initBadgeModule() {
 
 func (c *Container) initTechnicianBadgeModule() {
 	c.TechnicianBadgeRepo = technicianbadge.NewRepository(c.DB)
-
 	c.TechnicianBadgeService = technicianbadge.NewService(
 		c.TechnicianBadgeRepo,
 		c.TechnicianRepo,
 	)
-
 	c.TechnicianBadgeHandler = technicianbadge.NewHandler(c.TechnicianBadgeService)
 }
 
@@ -439,7 +435,6 @@ func (c *Container) initCustomerBookingModule() {
 		c.NotificationService,
 		c.Logger,
 	)
-
 	c.CustomerBookingHandler = customerbooking.NewHandler(
 		c.CustomerBookingService,
 		c.Storage,
@@ -458,7 +453,6 @@ func (c *Container) initTechnicianBookingModule() {
 		c.DB,
 		c.NotificationService,
 	)
-
 	c.TechnicianBookingHandler = technicianbooking.NewHandler(
 		c.TechnicianBookingService,
 		c.Storage,
@@ -475,7 +469,6 @@ func (c *Container) initTechnicianCalendarModule() {
 	}
 
 	c.TechnicianCalendarRepo = techniciancalendar.NewRepository(c.DB)
-
 	c.TechnicianCalendarService = techniciancalendar.NewService(
 		c.TechnicianCalendarRepo,
 		c.BookingRepo,
@@ -483,7 +476,6 @@ func (c *Container) initTechnicianCalendarModule() {
 		c.Storage,
 		c.Logger,
 	)
-
 	c.TechnicianCalendarHandler = techniciancalendar.NewHandler(
 		c.TechnicianCalendarService,
 		c.Logger,
@@ -502,18 +494,28 @@ func (c *Container) initChatModule() {
 	}
 
 	c.ChatRepo = chat.NewRepository(c.DB, c.Storage)
-
 	c.ChatService = chat.NewService(
 		c.ChatRepo,
 		c.BookingRepo,
 		c.Hub,
 		c.Storage,
 	)
-
 	c.ChatHandler = chat.NewHandler(c.ChatService)
 }
 
+func (c *Container) initWalletModule() {
+	c.WalletRepo = wallet.NewRepository(c.DB)
+	c.WalletService = wallet.NewService(c.WalletRepo, c.DB)
+	c.WalletHandler = wallet.NewHandler(c.WalletRepo, c.WalletService)
+}
+
 func (c *Container) initPaymentModule(cfg *config.Config) {
+	if c.WalletRepo == nil {
+		panic("payment: WalletRepo must be initialized first (call initWalletModule before initPaymentModule)")
+	}
+	if c.BookingRepo == nil {
+		panic("payment: BookingRepo must be initialized first")
+	}
 
 	omiseCfg := config.OmiseConfig{
 		PublicKey:       cfg.Omise.PublicKey,
@@ -529,18 +531,16 @@ func (c *Container) initPaymentModule(cfg *config.Config) {
 		panic(fmt.Sprintf("payment: failed to init omise repo: %v", err))
 	}
 	c.PaymentRepo = repo
-
 	c.PaymentTxnRepo = payment.NewPaymentTransactionRepository(c.DB)
-
-	if c.BookingRepo == nil {
-		panic("payment: booking repository is nil")
-	}
 
 	svc, err := payment.NewService(
 		c.PaymentRepo,
 		c.BookingRepo,
 		c.PaymentTxnRepo,
 		c.TechnicianServiceService,
+		c.WalletRepo,
+		c.DB,
+		cfg.Wallet.PlatformFeeRate, // ← เพิ่ม feeRate จาก .env
 		payment.Config{Omise: omiseCfg},
 		nil,
 	)
@@ -643,11 +643,14 @@ func AllModels() []interface{} {
 		&payment.PaymentEvent{},
 	)
 
+	models = append(models, wallet.Models()...)
+
 	models = append(models, document.Models()...)
 	models = append(models, resetpassword.Models()...)
 	models = append(models, criminalcheck.Models()...)
 	models = append(models, admin.Models()...)
 	models = append(models, backgroundjob.Models()...)
+	models = append(models, wallet.Models()...)
 
 	return models
 }
