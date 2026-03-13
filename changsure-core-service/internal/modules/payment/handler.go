@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"os"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -120,26 +120,26 @@ func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 
 	os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
 
-    rawSig := string(c.Request().Header.Peek("Omise-Signature"))
+	rawSig := string(c.Request().Header.Peek("Omise-Signature"))
 	log.Printf("🔍 Body bytes (first 100): %v", rawBody[:min(100, len(rawBody))])
-    log.Printf("🔍 Body as string: [%s]", string(rawBody[:min(200, len(rawBody))]))
-    log.Printf("🔍 Raw Omise-Signature: '%s'", rawSig)
-    log.Printf("🔍 Body length: %d", len(rawBody))
-    log.Printf("🔍 Body: %s", string(rawBody))
+	log.Printf("🔍 Body as string: [%s]", string(rawBody[:min(200, len(rawBody))]))
+	log.Printf("🔍 Raw Omise-Signature: '%s'", rawSig)
+	log.Printf("🔍 Body length: %d", len(rawBody))
+	log.Printf("🔍 Body: %s", string(rawBody))
 
-    if h.webhookSecret != "" {
-        if rawSig == "" {
-            return c.Status(fiber.StatusUnauthorized).
-                JSON(fiber.Map{"error": "missing signature"})
-        }
-        if !VerifyOmiseSignature(rawBody, rawSig, h.webhookSecret) {
-            return c.Status(fiber.StatusUnauthorized).
-                JSON(fiber.Map{"error": "invalid signature"})
-        }
-        log.Printf("✅ Webhook signature verified")
-    } else {
-        log.Printf("⚠️  No webhook secret configured, skipping verification")
-    }
+	if h.webhookSecret != "" {
+		if rawSig == "" {
+			return c.Status(fiber.StatusUnauthorized).
+				JSON(fiber.Map{"error": "missing signature"})
+		}
+		if !VerifyOmiseSignature(rawBody, rawSig, h.webhookSecret) {
+			return c.Status(fiber.StatusUnauthorized).
+				JSON(fiber.Map{"error": "invalid signature"})
+		}
+		log.Printf("✅ Webhook signature verified")
+	} else {
+		log.Printf("⚠️  No webhook secret configured, skipping verification")
+	}
 
 	var event OmiseWebhookEvent
 	if err := json.Unmarshal(rawBody, &event); err != nil {
@@ -260,5 +260,22 @@ func (h *Handler) respondError(c fiber.Ctx, statusCode int, code, message string
 	return c.Status(statusCode).JSON(ErrorResponse{
 		Code:    code,
 		Message: message,
+	})
+}
+
+func (h *Handler) CancelPaymentQR(c fiber.Ctx) error {
+	bookingID, err := strconv.ParseUint(c.Params("booking_id"), 10, 64)
+	if err != nil {
+		return h.respondError(c, http.StatusBadRequest, "INVALID_BOOKING_ID", "booking ID must be a number", err)
+	}
+
+	if err := h.service.CancelPaymentQR(c.Context(), uint(bookingID)); err != nil {
+		return h.handleServiceError(c, err)
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "payment cancelled",
+		"data":    fiber.Map{"booking_id": bookingID, "status": PaymentStatusCancelled},
 	})
 }
