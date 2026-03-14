@@ -347,6 +347,7 @@ func (c *Container) initTechnicianModule() {
 		c.TechnicianRepo,
 		c.TechnicianServiceAreaRepo,
 		c.TechnicianServiceRepo,
+		c.DocumentRepo,
 		c.Storage,
 		c.Logger,
 	)
@@ -540,7 +541,7 @@ func (c *Container) initPaymentModule(cfg *config.Config) {
 		c.TechnicianServiceService,
 		c.WalletRepo,
 		c.DB,
-		cfg.Wallet.PlatformFeeRate, // ← เพิ่ม feeRate จาก .env
+		cfg.Wallet.PlatformFeeRate,
 		payment.Config{Omise: omiseCfg},
 		nil,
 	)

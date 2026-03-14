@@ -88,11 +88,13 @@ type TechnicianProfileRes struct {
 	Email     *string `json:"email,omitempty"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
 
-	RatingAvg   *float64 `json:"rating_avg,omitempty"`
-	RatingCount uint     `json:"rating_count"`
-	TotalJobs   uint     `json:"total_jobs"`
-	IsAvailable bool     `json:"is_available"`
-	IsVerified  bool     `json:"is_verified"`
+	RatingAvg       *float64 `json:"rating_avg,omitempty"`
+	RatingCount     uint     `json:"rating_count"`
+	TotalJobs       uint     `json:"total_jobs"`
+	IsAvailable     bool     `json:"is_available"`
+	IsVerified      bool     `json:"is_verified"`
+	TermsAccepted   bool     `json:"terms_accepted"`
+	PrivacyAccepted bool     `json:"privacy_accepted"`
 
 	Provinces      []provinces.ProvinceResponse `json:"provinces"`
 	Services       []TechServiceRes             `json:"services"`
