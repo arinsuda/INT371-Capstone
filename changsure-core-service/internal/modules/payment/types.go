@@ -47,6 +47,7 @@ type Service interface {
 	GetPaymentHistory(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error)
 	HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error)
 	CancelPaymentQR(ctx context.Context, bookingID uint) error
+	HandleFailedPayment(ctx context.Context, chargeID string, metadata map[string]interface{}) error
 }
 
 type CreateSourceRequest struct {

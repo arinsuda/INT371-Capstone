@@ -146,21 +146,34 @@ func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
 	}
 
-	if event.Key != "charge.complete" {
+	switch event.Key {
+	case "charge.complete":
+		if err := h.service.ConfirmPaymentFromWebhook(
+			c.Context(),
+			event.Data.ID,
+			event.Data.Metadata,
+			event.Data.Amount,
+		); err != nil {
+			log.Printf("[ERROR] ConfirmPaymentFromWebhook: %v", err)
+			return h.handleServiceError(c, err)
+		}
+		h.broadcastPaymentSuccess(event.Data.ID, event.Data.Amount)
+
+	case "charge.fail":
+		if err := h.service.HandleFailedPayment(
+			c.Context(),
+			event.Data.ID,
+			event.Data.Metadata,
+		); err != nil {
+			log.Printf("[ERROR] HandleFailedPayment: %v", err)
+			// ไม่ return error เพราะ Omise ต้องได้ 200 กลับไปเสมอ
+		}
+		h.broadcastPaymentFailed(event.Data.ID, event.Data.Metadata)
+
+	default:
 		return c.JSON(fiber.Map{"status": "ignored", "key": event.Key})
 	}
 
-	if err := h.service.ConfirmPaymentFromWebhook(
-		c.Context(),
-		event.Data.ID,
-		event.Data.Metadata,
-		event.Data.Amount,
-	); err != nil {
-		log.Printf("[ERROR] ConfirmPaymentFromWebhook: %v", err)
-		return h.handleServiceError(c, err)
-	}
-
-	h.broadcastPaymentSuccess(event.Data.ID, event.Data.Amount)
 	return c.JSON(fiber.Map{"status": "ok"})
 }
 
@@ -211,10 +224,30 @@ func (h *Handler) broadcastPaymentSuccess(sourceID string, amountSatang int64) {
 	if h.hub == nil {
 		return
 	}
-	payload := realtime.MarshalEvent("PAYMENT_SUCCESS", map[string]any{
+	payload := realtime.MarshalEvent(realtime.EventPaymentSuccess, map[string]any{
 		"source_id": sourceID,
 		"amount":    float64(amountSatang) / 100,
 		"status":    "COMPLETED",
+	})
+	go h.hub.BroadcastToAll(payload)
+}
+
+func (h *Handler) broadcastPaymentFailed(chargeID string, metadata map[string]interface{}) {
+	if h.hub == nil {
+		return
+	}
+
+	bookingID := ""
+	if v, ok := metadata["booking_id"]; ok {
+		if s, ok := v.(string); ok {
+			bookingID = s
+		}
+	}
+
+	payload := realtime.MarshalEvent(realtime.EventPaymentFailed, map[string]any{
+		"charge_id":  chargeID,
+		"booking_id": bookingID,
+		"status":     "failed",
 	})
 	go h.hub.BroadcastToAll(payload)
 }
