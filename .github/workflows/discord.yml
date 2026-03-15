@@ -1,46 +1,33 @@
-name: Discord Notifications
-
-on:
-  push:
-  pull_request:
-  issues:
-
-jobs:
-  notify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Send Discord Notification
+- name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          # สร้างตัวแปรเวลาเพื่อให้แสดง Timestamp ใน Discord ได้ถูกต้อง (ISO 8601)
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "❌ Error: ไม่พบค่า DISCORD_WEBHOOK ใน GitHub Secrets"
+            exit 1
+          fi
+
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
+          # 🎨 ระบบสี Dynamic ตามประเภท Event (UX Visual Cue)
+          COLOR=3055683 # สีเขียว GitHub (ค่าเริ่มต้น/Push)
+          if [ "${{ github.event_name }}" == "pull_request" ]; then COLOR=8932594; fi # สีม่วง PR
+          if [ "${{ github.event_name }}" == "issues" ]; then COLOR=16743712; fi # สีส้ม Issues
+
           curl -H "Content-Type: application/json" \
           -d "{
-            \"username\": \"GitHub Actions\",
+            \"username\": \"GitHub Notifications\",
             \"avatar_url\": \"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\",
             \"embeds\": [{
+              \"color\": $COLOR,
               \"author\": {
-                \"name\": \"${{ github.actor }}\",
+                \"name\": \"อัปเดตโดย ${{ github.actor }}\",
                 \"icon_url\": \"https://github.com/${{ github.actor }}.png\",
                 \"url\": \"https://github.com/${{ github.actor }}\"
               },
-              \"title\": \"🔔 GitHub Event: ${{ github.event_name }}\",
-              \"url\": \"${{ github.server_url }}/${{ github.repository }}\",
-              \"description\": \"มีความเคลื่อนไหวใหม่ในพื้นที่ทำงานของคุณ\",
-              \"color\": 3447003,
-              \"fields\": [
-                {
-                  \"name\": \"📦 Repository\",
-                  \"value\": \"[${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})\",
-                  \"inline\": true
-                },
-                {
-                  \"name\": \"🌿 Branch / Ref\",
-                  \"value\": \"\`${{ github.ref_name }}\`\",
-                  \"inline\": true
-                }
-              ],
+              \"title\": \"📁 ${{ github.repository }}\",
+              \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+              \"description\": \"**Event:** \`${{ github.event_name }}\`  |  **Branch:** \`${{ github.ref_name }}\`\n\n> 🚀 **มีการเคลื่อนไหวใหม่ในโปรเจกต์**\n> 🔍 [**คลิกเพื่อดูรายละเอียด / Log การทำงาน**](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\",
               \"footer\": {
                 \"text\": \"Automated Notification\",
                 \"icon_url\": \"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\"
@@ -48,4 +35,4 @@ jobs:
               \"timestamp\": \"$TIMESTAMP\"
             }]
           }" \
-          ${{ secrets.DISCORD_WEBHOOK }}
+          $DISCORD_WEBHOOK
