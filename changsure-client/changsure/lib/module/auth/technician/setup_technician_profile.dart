@@ -14,6 +14,27 @@ import '../../../state/user_provider.dart';
 import '../../profile/technician/editProfile/province_checkbox_list.dart';
 import '../../profile/technician/editProfile/search_bar.dart';
 
+class TechnicianRegisterData {
+  String? firstName;
+  String? lastName;
+  String? phone;
+  List<int>? provinceIds;
+  List<Map<String, dynamic>>? servicesData;
+
+  TechnicianRegisterData({
+    this.firstName,
+    this.lastName,
+    this.phone,
+    this.provinceIds,
+    this.servicesData
+  });
+}
+
+final technicianRegisterDataProvider =
+StateProvider<TechnicianRegisterData>((ref) {
+  return TechnicianRegisterData();
+});
+
 class SetupTechnicianProfile extends ConsumerStatefulWidget {
   const SetupTechnicianProfile({super.key});
 
@@ -128,6 +149,12 @@ class _SetupTechnicianProfileState
           provinceIds: provinceIds,
           services: servicesData,
         );
+
+    ref.read(technicianRegisterDataProvider).firstName = nameController.text;
+    ref.read(technicianRegisterDataProvider).lastName = lastNameController.text;
+    ref.read(technicianRegisterDataProvider).phone =
+        phoneController.text.replaceAll('-', '');
+    ref.read(technicianRegisterDataProvider).provinceIds = provinceIds;
 
     if (success) {
       ref.read(technicianRegisterStepProvider.notifier).state = 2;

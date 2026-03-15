@@ -574,4 +574,87 @@ class TechnicianService {
       return false;
     }
   }
+
+  Future<int?> verifyTechnician(
+      int technicianId,
+      String token,
+      File file,
+      ) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+          '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity',
+        ),
+      );
+
+      request.headers['Authorization'] = 'Bearer $token';
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+        ),
+      );
+
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
+
+      print("📥 STATUS: ${response.statusCode}");
+      print("📥 RESPONSE: $body");
+
+      if (response.statusCode == 200 || response.statusCode == 201||
+          response.statusCode == 202) {
+        final json = jsonDecode(body);
+
+        final jobId = json['data']?['job_id'];
+
+        return jobId;
+      }
+
+      // throw Exception('Verify failed (${response.statusCode})');
+    } catch (e) {
+      print('❌ Verify Error: $e');
+
+    }
+    return null;
+  }
+
+  Future<VerifyTechnician?> getVerifyDetail(
+      int technicianId,
+      int jobId,
+      String token,
+      ) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity/jobs/$jobId',
+    );
+
+    try {
+      print("📤 GET VERIFY DETAIL");
+      print("URL: $url");
+      final response = await http.get( //
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print("📥 STATUS CODE: ${response.statusCode}");
+      print("📥 RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+
+        print("📦 PARSED JSON: $json");
+        return VerifyTechnician.fromJson(json['data']);
+      }
+      print("⚠️ API returned non-200 status");
+
+      return null;
+    } catch (e) {
+      print('❌ Error getting verify detail: $e');
+      return null;
+    }
+  }
 }

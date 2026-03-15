@@ -250,7 +250,7 @@ class _SetupAddressState extends ConsumerState<SetupAddress> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               child: Header(
-                header: "ตั้งค่าโปรไฟล์",
+                header: "ที่อยู่ของฉัน",
                 onPressed: () {
                   Navigator.pop(context);
                 },

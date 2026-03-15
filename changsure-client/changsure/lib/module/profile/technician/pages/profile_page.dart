@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +10,6 @@ import 'package:changsure/core/profile/services_section.dart';
 import 'package:changsure/state/bottom_nav_provider.dart';
 import '../widgets/action_button_section.dart';
 
-double toLogicalPx(BuildContext context, double px) =>
-    px / MediaQuery.of(context).devicePixelRatio;
 
 class TechnicianProfile extends ConsumerStatefulWidget {
   const TechnicianProfile({super.key});
@@ -21,10 +21,21 @@ class TechnicianProfile extends ConsumerStatefulWidget {
 class _ProfileState extends ConsumerState<TechnicianProfile> {
   final ScrollController _scrollController = ScrollController();
 
+  late final Timer _timer;
   @override
   void dispose() {
+    _timer.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      ref.read(userProvider.notifier).refreshUser();
+    });
   }
 
   @override
@@ -32,6 +43,8 @@ class _ProfileState extends ConsumerState<TechnicianProfile> {
     final user = ref.watch(userProvider);
 
     final tech = user?.technicianProfile;
+    print(tech?.id);
+    print(tech?.isVerified);
 
     return Scaffold(
       backgroundColor: Colors.white,

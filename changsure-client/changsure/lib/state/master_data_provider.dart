@@ -79,7 +79,9 @@ class MasterDataService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body);
-        return parser(json['data']);
+        final data = json is Map<String, dynamic> ? json['data'] : json;
+
+        return parser(data);
       }
 
       throw ApiException(
@@ -146,7 +148,8 @@ class MasterDataService {
     }
 
     return _post<Map<String, dynamic>?>(
-      endpoint: '/customers/$customerId/addresses', // 👈 เปลี่ยนตาม backend จริง
+      endpoint: '/customers/$customerId/addresses',
+      // 👈 เปลี่ยนตาม backend จริง
       token: token,
       body: body,
       parser: (data) => data,
@@ -163,7 +166,8 @@ class MasterDataService {
     }
 
     return _post<Map<String, dynamic>?>(
-      endpoint: '/technicians/$technicianId/addresses', // 👈 เปลี่ยนตาม backend จริง
+      endpoint: '/technicians/$technicianId/addresses',
+      // 👈 เปลี่ยนตาม backend จริง
       token: token,
       body: body,
       parser: (data) => data,
@@ -306,6 +310,41 @@ class MasterDataService {
 
   void dispose() {
     _client.close();
+  }
+
+  Future<DocumentTermResponse> getDocumentService(String token) {
+    return _get(
+      endpoint: '/documents/changsure-terms',
+      token: token,
+      queryParams: {'locale': 'th'},
+      parser: (body) => DocumentTermResponse.fromJson(body),
+    );
+  }
+
+  Future<DocumentAcceptanceResponse> acceptDocument({
+    required String slug,
+    required String token,
+    required DocumentAcceptanceRequest request,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/documents/$slug/acceptances?locale=th',
+    );
+
+    final response = await _client.post(
+      uri,
+      headers: _getHeaders(token),
+      body: jsonEncode(request.toJson()),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final json = jsonDecode(response.body);
+      return DocumentAcceptanceResponse.fromJson(json);
+    }
+
+    throw ApiException(
+      'Failed to accept document',
+      response.statusCode,
+    );
   }
 }
 
@@ -470,7 +509,38 @@ class AddressNotifier extends AsyncNotifier<void> {
   }
 }
 
-final addressProvider =
-AsyncNotifierProvider<AddressNotifier, void>(
+final addressProvider = AsyncNotifierProvider<AddressNotifier, void>(
   AddressNotifier.new,
 );
+
+final documentProvider = FutureProvider<DocumentTermResponse>((ref) async {
+  print("📄 CALL DOCUMENT PROVIDER");
+
+  final user = ref.read(userProvider);
+  final service = ref.read(masterDataServiceProvider);
+
+  if (user == null || user.token == null) {
+    throw ApiException("Token not found");
+  }
+
+  return service.getDocumentService(user.token!);
+});
+
+final documentAcceptanceProvider =
+    FutureProvider.family<
+      DocumentAcceptanceResponse,
+      DocumentAcceptanceRequest
+    >((ref, request) async {
+      final user = ref.read(userProvider);
+      final service = ref.read(masterDataServiceProvider);
+
+      if (user == null || user.token == null) {
+        throw ApiException("Token not found");
+      }
+
+      return service.acceptDocument(
+        slug: "changsure-terms",
+        token: user.token!,
+        request: request,
+      );
+    });

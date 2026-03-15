@@ -1,3 +1,5 @@
+import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:changsure/module/auth/technician/setup_technician_profile.dart';
 import 'package:changsure/module/auth/technician/technician_register_step_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,15 +64,15 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
 
         _minPriceControllers[sId] = TextEditingController(
           text: service.defaultPrice.min?.toString() ?? '',
-        );
+        )..addListener(() => setState(() {}));
 
         _maxPriceControllers[sId] = TextEditingController(
           text: service.defaultPrice.max?.toString() ?? '',
-        );
+        )..addListener(() => setState(() {}));
 
         _fixPriceControllers[sId] = TextEditingController(
           text: service.defaultPrice.value?.toString() ?? '',
-        );
+        )..addListener(() => setState(() {}));
       }
     }
 
@@ -86,7 +88,7 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
     return 0;
   }
 
-  void _saveServices() {
+  void _saveServices() async {
     List<Map<String, dynamic>> servicesData = [];
 
     for (var sId in _selectedServices.keys) {
@@ -118,7 +120,24 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
       }
     }
 
-    ref.read(technicianRegisterStepProvider.notifier).state = 3;
+    final registerData = ref.read(technicianRegisterDataProvider);
+
+    final success = await ref
+        .read(userProvider.notifier)
+        .saveTechnicianProfile(
+          firstName: registerData.firstName ?? '',
+          lastName: registerData.lastName ?? '',
+          phone: registerData.phone ?? '',
+          provinceIds: registerData.provinceIds,
+          services: servicesData,
+        );
+
+    ref.read(technicianRegisterDataProvider).servicesData = servicesData;
+
+
+    if (success) {
+      ref.read(technicianRegisterStepProvider.notifier).state = 3;
+    }
   }
 
   Widget _buildCategory(ServiceCategoryModel category) {
@@ -171,6 +190,7 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => const Text("โหลดข้อมูลไม่สำเร็จ"),
       data: (categories) {
+        allCategories = categories;
         if (!_isInitialized) {
           _initializeServices(categories);
         }
@@ -235,10 +255,26 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: PrimaryButton(
-                text: "ยืนยัน",
-                onPressed: canSubmit ? _saveServices : null,
-                padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TertiaryButton(
+                      text: "ย้อนกลับ",
+                      onPressed: () {
+                        ref.read(technicianRegisterStepProvider.notifier).state--;
+                      },
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: "ยืนยัน",
+                      onPressed: canSubmit ? _saveServices : null,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

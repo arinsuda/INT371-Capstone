@@ -1,23 +1,28 @@
 import 'dart:io';
 
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/module/auth/technician/technician_register_step_provider.dart';
+import 'package:changsure/module/auth/technician/unverify_page.dart';
 import 'package:changsure/module/auth/technician/widget/id_card_camera_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/button/tertiary_button.dart';
 import '../../../core/theme.dart';
+import '../../../state/user_provider.dart';
 import '../start_page.dart';
 
-class VerifyPage extends StatefulWidget {
+class VerifyPage extends ConsumerStatefulWidget {
   const VerifyPage({super.key});
 
   @override
-  State<VerifyPage> createState() => _VerifyPageState();
+  ConsumerState<VerifyPage> createState() => _VerifyPageState();
 }
 
-class _VerifyPageState extends State<VerifyPage> {
+class _VerifyPageState extends ConsumerState<VerifyPage> {
   static const Color _hintColor = Color(0xFF737373);
   bool isSubmitted = false;
+  bool isChecking = false;
 
   final List<String> _tips = [
     "โปรดอยู่ในที่แสงสว่างเพียงพอ",
@@ -91,6 +96,7 @@ class _VerifyPageState extends State<VerifyPage> {
 
   @override
   Widget build(BuildContext context) {
+    final verifyState = ref.watch(verifyProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,7 +105,10 @@ class _VerifyPageState extends State<VerifyPage> {
           const SizedBox(height: 32),
 
           Center(
-            child: Image.asset("assets/image/waiting_for_verify.png", width: 300),
+            child: Image.asset(
+              "assets/image/waiting_for_verify.png",
+              width: 300,
+            ),
           ),
 
           const SizedBox(height: 16),
@@ -126,9 +135,10 @@ class _VerifyPageState extends State<VerifyPage> {
           PrimaryButton(
             text: "กลับหน้าหลัก",
             onPressed: () {
+              ref.read(userProvider.notifier).refreshUser();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const StartPage()),
-                    (route) => false,
+                (route) => false,
               );
             },
             padding: EdgeInsetsGeometry.symmetric(vertical: 8),
@@ -167,10 +177,31 @@ class _VerifyPageState extends State<VerifyPage> {
 
             const SizedBox(height: 24),
 
-            PrimaryButton(
-              text: "เริ่มสแกน",
-              onPressed: _showSelectImageSource,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TertiaryButton(
+                      text: "ย้อนกลับ",
+                      onPressed: () {
+                        ref
+                            .read(technicianRegisterStepProvider.notifier)
+                            .state--;
+                      },
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: "เริ่มสแกน",
+                      onPressed: _showSelectImageSource,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -191,16 +222,100 @@ class _VerifyPageState extends State<VerifyPage> {
               ),
             ),
 
+            const SizedBox(height: 12),
+
+            Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _showSelectImageSource,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 24,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDF9FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.camera_alt, size: 18),
+                      SizedBox(width: 12),
+                      Text("ถ่ายอีกครั้ง", style: TextStyle(fontSize: 18)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
 
-            PrimaryButton(
-              text: "ยืนยัน",
-              onPressed: () {
-                setState(() {
-                  isSubmitted = true;
-                  idCardImage = null;
-                });
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TertiaryButton(
+                      text: "ย้อนกลับ",
+                      onPressed: () {
+                        ref
+                            .read(technicianRegisterStepProvider.notifier)
+                            .state--;
+                      },
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: isChecking ? "กำลังตรวจสอบ..." : "ยืนยัน",
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+                      onPressed: (verifyState.isLoading || isChecking)
+                          ? null
+                          : () async {
+                              if (idCardImage == null) return;
+
+                              setState(() {
+                                isChecking = true;
+                              });
+                              final jobId = await ref
+                                  .read(verifyProvider.notifier)
+                                  .verify(idCardImage!);
+
+                              if (jobId == null) {
+                                setState(() => isChecking = false);
+                                return;
+                              }
+
+                              print("JobId $jobId");
+
+                              await Future.delayed(const Duration(seconds: 10));
+                              final result = await ref.read(
+                                verifyDetailProvider(jobId).future,
+                              );
+
+                              print("Verify $result");
+
+                              if (result?.verifyStatus == "FAILED") {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const UnverifyPage(),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setState(() {
+                                isChecking = false;
+                                isSubmitted = true;
+                                idCardImage = null;
+                              });
+                            },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],

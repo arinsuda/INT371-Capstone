@@ -296,3 +296,126 @@ class AutoSelectTechnicianQuery {
       minPrice.hashCode ^
       maxPrice.hashCode;
 }
+
+class DocumentTermResponse {
+  final String slug;
+  final int version;
+  final String locale;
+  final DateTime updatedAt;
+  final DocumentContent content;
+
+  DocumentTermResponse({
+    required this.slug,
+    required this.version,
+    required this.locale,
+    required this.updatedAt,
+    required this.content,
+  });
+
+  factory DocumentTermResponse.fromJson(Map<String, dynamic> json) {
+    return DocumentTermResponse(
+      slug: json['slug'],
+      version: json['version'],
+      locale: json['locale'],
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      content: DocumentContent.fromJson(json['content']),
+    );
+  }
+}
+
+class DocumentContent {
+  final String body;
+  final List<DocumentConsent> consents;
+
+  DocumentContent({
+    required this.body,
+    required this.consents,
+  });
+
+  factory DocumentContent.fromJson(Map<String, dynamic> json) {
+    return DocumentContent(
+      body: json['body'] ?? '',
+      consents: (json['consents'] as List<dynamic>? ?? [])
+          .map((e) => DocumentConsent.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class DocumentConsent {
+  final String key;
+  final String label;
+  final bool required;
+  final String description;
+
+  DocumentConsent({
+    required this.key,
+    required this.label,
+    required this.required,
+    required this.description,
+  });
+
+  factory DocumentConsent.fromJson(Map<String, dynamic> json) {
+    return DocumentConsent(
+      key: json['key'] ?? '',
+      label: json['label'] ?? '',
+      required: json['required'] ?? false,
+      description: json['description'] ?? '',
+    );
+  }
+}
+
+class DocumentAcceptanceRequest {
+  final int userId;
+  final String role;
+  final List<String> consents;
+
+  DocumentAcceptanceRequest({
+    required this.userId,
+    required this.role,
+    required this.consents,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "user_id": userId,
+      "role": role,
+      "consents": consents,
+    };
+  }
+}
+
+class DocumentAcceptanceResponse {
+  final String id;
+  final int userId;
+  final String userRole;
+  final String documentId;
+  final int version;
+  final DateTime acceptedAt;
+  final String locale;
+  final List<String> consents;
+
+  DocumentAcceptanceResponse({
+    required this.id,
+    required this.userId,
+    required this.userRole,
+    required this.documentId,
+    required this.version,
+    required this.acceptedAt,
+    required this.locale,
+    required this.consents,
+  });
+
+  factory DocumentAcceptanceResponse.fromJson(Map<String, dynamic> json) {
+    return DocumentAcceptanceResponse(
+      id: json["id"],
+      userId: json["user_id"],
+      userRole: json["user_role"],
+      documentId: json["document_id"],
+      version: json["version"],
+      acceptedAt: DateTime.parse(json["accepted_at"]),
+      locale: json["locale"],
+      consents: List<String>.from(json["consents"]),
+    );
+  }
+}

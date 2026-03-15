@@ -14,7 +14,6 @@ import 'package:changsure/data/services/auth_service.dart';
 
 import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
-
 import '../data/models/customer/customer_model.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
@@ -138,6 +137,7 @@ class UserNotifier extends Notifier<UserModel?> {
           state!.token!,
           state!.id,
         );
+        print("REFRESH PROFILE: ${profile?.isVerified}");
         if (profile != null) {
           state = state!.copyWith(technicianProfile: profile);
         }
@@ -396,3 +396,57 @@ class UserNotifier extends Notifier<UserModel?> {
     }
   }
 }
+
+final verifyProvider = StateNotifierProvider<VerifyNotifier, AsyncValue<void>>(
+  (ref) => VerifyNotifier(ref),
+);
+
+class VerifyNotifier extends StateNotifier<AsyncValue<void>> {
+  final Ref ref;
+
+  VerifyNotifier(this.ref) : super(const AsyncValue.data(null));
+
+  Future<int?> verify(File file) async {
+    state = const AsyncValue.loading();
+
+    try {
+      final user = ref.read(userProvider);
+
+      if (user == null || user.token == null) {
+        throw Exception("User not logged in");
+      }
+
+      if (user.role != UserRole.technician) {
+        throw Exception("User is not technician");
+      }
+
+      final service = tech.TechnicianService();
+
+      final jobId = await service.verifyTechnician(user.id, user.token!, file);
+
+      state = const AsyncValue.data(null);
+
+      return jobId;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+}
+
+final verifyDetailProvider = FutureProvider.family<VerifyTechnician?, int>((
+    ref,
+    jobId,
+    ) async {
+  final user = ref.read(userProvider);
+
+  if (user == null || user.token == null) return null;
+
+  final service = tech.TechnicianService();
+
+  return await service.getVerifyDetail(
+    user.id,
+    jobId,
+    user.token!,
+  );
+});

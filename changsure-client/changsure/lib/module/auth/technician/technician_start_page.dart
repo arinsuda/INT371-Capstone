@@ -3,7 +3,10 @@ import 'package:changsure/module/auth/setup_address.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
+import '../../../data/models/master_data_models.dart';
+import '../../../data/models/users/users_model.dart';
 import '../../../state/master_data_provider.dart';
+import '../../../state/user_provider.dart';
 
 class TechnicianStartPage extends ConsumerStatefulWidget {
   final String email;
@@ -16,13 +19,20 @@ class TechnicianStartPage extends ConsumerStatefulWidget {
 }
 
 class _TechnicianRegisterPageState extends ConsumerState<TechnicianStartPage> {
-  void _showTermsDialog() {
+  void _showTermsDialog(DocumentTermResponse doc, UserModel user) {
     bool acceptTerms = false;
     bool acceptPrivacy = false;
     bool showScrollButton = true;
 
     final ScrollController scrollController = ScrollController();
 
+    final termsConsent = doc.content.consents.firstWhere(
+      (e) => e.key == "accept_terms",
+    );
+
+    final privacyConsent = doc.content.consents.firstWhere(
+      (e) => e.key == "accept_privacy",
+    );
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -98,7 +108,7 @@ class _TechnicianRegisterPageState extends ConsumerState<TechnicianStartPage> {
                                 style: TextStyle(fontSize: 14),
                               ),
                               Text(
-                                "อัปเดตล่าสุด 21 ธ.ค. 25",
+                                "อัปเดตล่าสุด ${doc.updatedAt.day}/${doc.updatedAt.month}/${doc.updatedAt.year}",
                                 style: TextStyle(
                                   color: AppColors.colorTertiaryText,
                                   fontSize: 14,
@@ -116,36 +126,13 @@ class _TechnicianRegisterPageState extends ConsumerState<TechnicianStartPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text("""
-1. ผู้สมัครต้องมีอายุไม่ต่ำกว่า 18 ปี
-ผู้สมัครจะต้องมีอายุครบตามเกณฑ์ที่กำหนดและสามารถปฏิบัติงานได้ตามมาตรฐานของระบบ
-
-2. การให้ข้อมูลที่ถูกต้อง
-ผู้สมัครต้องให้ข้อมูลที่ถูกต้องครบถ้วน เช่น ชื่อ ที่อยู่ เบอร์โทรศัพท์ และข้อมูลการติดต่ออื่น ๆ
-
-3. การรักษามาตรฐานการให้บริการ
-ช่างที่เข้าร่วมระบบต้องปฏิบัติงานอย่างมืออาชีพ มีความสุภาพ และให้บริการอย่างมีคุณภาพแก่ลูกค้า
-
-4. ความรับผิดชอบต่ออุปกรณ์และทรัพย์สิน
-ผู้ให้บริการต้องดูแลอุปกรณ์ของลูกค้าอย่างเหมาะสม
-
-5. การปฏิบัติตามกฎหมาย
-ผู้ให้บริการต้องปฏิบัติตามกฎหมายที่เกี่ยวข้อง
-
-6. การระงับบัญชี
-ระบบมีสิทธิ์ระงับบัญชีผู้ใช้งานหากพบว่ามีการละเมิดข้อกำหนด
-
-----------------------------------------------------
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-""", style: TextStyle(fontSize: 14, height: 1.6)),
+                                  Text(
+                                    doc.content.body,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.6,
+                                    ),
+                                  ),
                                   const SizedBox(height: 24),
 
                                   /// checkbox terms
@@ -181,23 +168,18 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                                               });
                                             },
                                           ),
-                                          const Expanded(
-                                            child: Text(
-                                              "ยอมรับเงื่อนไขการใช้บริการ",
-                                            ),
+                                          Expanded(
+                                            child: Text(termsConsent.label),
                                           ),
                                         ],
                                       ),
-                                      const Padding(
+                                      Padding(
                                         padding: EdgeInsets.only(
                                           left: 50,
                                           right: 8,
                                         ),
                                         child: Text(
-                                          "ฉันได้อ่านและยอมรับข้อกำหนดและเงื่อนไขการใช้บริการของแอปช่างชัวร์แล้ว "
-                                          "รวมถึงกฎการใช้งานแพลตฟอร์มการจองบริการ การชำระเงิน "
-                                          "นโยบายการยกเลิกและมาตรการกรณีฝ่าฝืนข้อกำหนด "
-                                          "เช่นการนัดหมายหรือชำระเงินนอกระบบ",
+                                          termsConsent.description,
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: AppColors.colorTertiaryText,
@@ -242,20 +224,18 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                                               });
                                             },
                                           ),
-                                          const Expanded(
-                                            child: Text(
-                                              "อนุญาตให้ใช้ข้อมูลส่วนบุคคล",
-                                            ),
+                                          Expanded(
+                                            child: Text(privacyConsent.label),
                                           ),
                                         ],
                                       ),
-                                      const Padding(
+                                      Padding(
                                         padding: EdgeInsets.only(
                                           left: 50,
                                           right: 8,
                                         ),
                                         child: Text(
-                                          "ฉันยินยอมให้แอปช่างชัวร์เก็บรวบรวม ใช้และประมวลผลข้อมูลส่วนบุคคลของฉัน",
+                                          privacyConsent.description,
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: AppColors.colorTertiaryText,
@@ -271,26 +251,66 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                                   PrimaryButton(
                                     text: "ยืนยัน",
                                     onPressed: (acceptTerms && acceptPrivacy)
-                                        ? () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    SetupAddress(
-                                                      onSave: (data) async {
-                                                        final result = await ref
-                                                            .read(
-                                                              addressProvider
-                                                                  .notifier,
-                                                            )
-                                                            .createTechnicianAddress(
-                                                              data,
-                                                            );
-                                                        return result;
-                                                      },
-                                                    ),
-                                              ),
-                                            );
+                                        ? () async {
+                                            final consents = <String>[];
+
+                                            if (acceptTerms) {
+                                              consents.add(termsConsent.key);
+                                            }
+
+                                            if (acceptPrivacy) {
+                                              consents.add(privacyConsent.key);
+                                            }
+                                            try {
+                                              final request =
+                                                  DocumentAcceptanceRequest(
+                                                    userId: user.id,
+                                                    role: "technician",
+                                                    consents: consents,
+                                                  );
+
+                                              final result = await ref.read(
+                                                documentAcceptanceProvider(
+                                                  request,
+                                                ).future,
+                                              );
+
+                                              print(result);
+
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => SetupAddress(
+                                                    onSave: (data) async {
+                                                      final result = await ref
+                                                          .read(
+                                                            addressProvider
+                                                                .notifier,
+                                                          )
+                                                          .createTechnicianAddress(
+                                                            data,
+                                                          );
+                                                      return result;
+                                                    },
+                                                  ),
+                                                ),
+                                              );
+                                            } catch (e, st) {
+                                              debugPrint(
+                                                "❌ ACCEPT DOCUMENT ERROR: $e",
+                                              );
+                                              debugPrint("❌ STACKTRACE: $st");
+
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    "ยอมรับเงื่อนไขไม่สำเร็จ: $e",
+                                                  ),
+                                                ),
+                                              );
+                                            }
                                           }
                                         : null,
                                   ),
@@ -349,6 +369,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.read(userProvider);
     return Scaffold(
       backgroundColor: const Color(0xFF003EB3),
       body: SafeArea(
@@ -413,11 +434,26 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                   ),
                   const SizedBox(height: 32),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: EdgeInsets.symmetric(horizontal: 24),
                     child: PrimaryButton(
                       text: "เริ่มลงทะเบียน",
-                      onPressed: () {
-                        _showTermsDialog();
+                      onPressed: () async {
+                        print("🔥 CLICK REGISTER");
+                        try {
+                          final doc = await ref.read(documentProvider.future);
+
+                          if (user == null) return;
+                          _showTermsDialog(doc, user);
+                        } catch (e, st) {
+                          print("❌ Document Error: $e");
+                          print("❌ StackTrace: $st");
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("โหลดข้อกำหนดไม่สำเร็จ"),
+                            ),
+                          );
+                        }
                       },
                     ),
                   ),
