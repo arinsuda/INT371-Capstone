@@ -148,27 +148,27 @@ func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 
 	switch event.Key {
 	case "charge.complete":
-		if err := h.service.ConfirmPaymentFromWebhook(
-			c.Context(),
-			event.Data.ID,
-			event.Data.Metadata,
-			event.Data.Amount,
-		); err != nil {
-			log.Printf("[ERROR] ConfirmPaymentFromWebhook: %v", err)
-			return h.handleServiceError(c, err)
+		if event.Data.Status == "failed" {
+			if err := h.service.HandleFailedPayment(
+				c.Context(),
+				event.Data.ID,
+				event.Data.Metadata,
+			); err != nil {
+				log.Printf("[ERROR] HandleFailedPayment: %v", err)
+			}
+			h.broadcastPaymentFailed(event.Data.ID, event.Data.Metadata)
+		} else {
+			if err := h.service.ConfirmPaymentFromWebhook(
+				c.Context(),
+				event.Data.ID,
+				event.Data.Metadata,
+				event.Data.Amount,
+			); err != nil {
+				log.Printf("[ERROR] ConfirmPaymentFromWebhook: %v", err)
+				return h.handleServiceError(c, err)
+			}
+			h.broadcastPaymentSuccess(event.Data.ID, event.Data.Amount)
 		}
-		h.broadcastPaymentSuccess(event.Data.ID, event.Data.Amount)
-
-	case "charge.fail":
-		if err := h.service.HandleFailedPayment(
-			c.Context(),
-			event.Data.ID,
-			event.Data.Metadata,
-		); err != nil {
-			log.Printf("[ERROR] HandleFailedPayment: %v", err)
-			// ไม่ return error เพราะ Omise ต้องได้ 200 กลับไปเสมอ
-		}
-		h.broadcastPaymentFailed(event.Data.ID, event.Data.Metadata)
 
 	default:
 		return c.JSON(fiber.Map{"status": "ignored", "key": event.Key})
