@@ -14,14 +14,14 @@ const (
 )
 
 type PasswordResetOTP struct {
-	ID        uuid.UUID `gorm:"type:char(36);primaryKey"`
-	UserID    uint      `gorm:"index;not null"`
-	UserRole  UserRole  `gorm:"size:20;not null"`
-	Email     string    `gorm:"size:100;index;not null"`
-	OTP       string    `gorm:"size:6;not null"`
-	IsUsed    bool      `gorm:"default:false"`
-	ExpiresAt time.Time `gorm:"not null"`
-	CreatedAt time.Time
+	ID         uuid.UUID `gorm:"type:char(36);primaryKey"`
+	UserID     uint      `gorm:"index;not null"`
+	UserRole   UserRole  `gorm:"size:20;not null"`
+	Email      string    `gorm:"size:100;index;not null"`
+	TOTPSecret string    `gorm:"size:64;not null"`
+	IsUsed     bool      `gorm:"default:false"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	CreatedAt  time.Time
 }
 
 func (p *PasswordResetOTP) IsExpired() bool {

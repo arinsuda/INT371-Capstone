@@ -2,14 +2,15 @@ package resetpassword
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 
 	"changsure-core-service/internal/modules/customer"
@@ -20,7 +21,8 @@ import (
 const (
 	otpTTL        = 5 * time.Minute
 	resetTokenTTL = 15 * time.Minute
-	otpLength     = 6
+	otpDigits     = 6
+	otpPeriod     = uint(300)
 )
 
 var (
@@ -59,6 +61,7 @@ func NewService(
 	techRepo technician.Repository,
 	m mailer.Mailer,
 	jwtSecret string,
+	isDev bool,
 ) Service {
 	return &service{
 		repo:         repo,
@@ -66,6 +69,7 @@ func NewService(
 		techRepo:     techRepo,
 		mailer:       m,
 		jwtSecret:    jwtSecret,
+		isDev:        isDev,
 	}
 }
 
@@ -83,18 +87,29 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 		return nil, fmt.Errorf("invalidate old otp: %w", err)
 	}
 
-	otp, err := generateOTP(otpLength)
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "ChangSure",
+		AccountName: req.Email,
+		Period:      otpPeriod,
+		Digits:      otp.DigitsSix,
+		Algorithm:   otp.AlgorithmSHA1,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("generate otp: %w", err)
+		return nil, fmt.Errorf("generate totp key: %w", err)
+	}
+
+	otpCode, err := totp.GenerateCode(key.Secret(), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("generate otp code: %w", err)
 	}
 
 	record := &PasswordResetOTP{
-		ID:        uuid.New(),
-		UserID:    userID,
-		UserRole:  role,
-		Email:     req.Email,
-		OTP:       otp,
-		ExpiresAt: time.Now().Add(otpTTL),
+		ID:         uuid.New(),
+		UserID:     userID,
+		UserRole:   role,
+		Email:      req.Email,
+		TOTPSecret: key.Secret(),
+		ExpiresAt:  time.Now().Add(otpTTL),
 	}
 
 	if err := s.repo.Create(record); err != nil {
@@ -102,14 +117,24 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 	}
 
 	if s.isDev {
+		slog.Info("[DEV] TOTP generated", "email", req.Email, "otp", otpCode)
+
+		if mailErr := s.mailer.SendOTP(req.Email, name, otpCode); mailErr != nil {
+			slog.Warn("[DEV] Could not send email, OTP available in response only",
+				"email", req.Email, "err", mailErr,
+			)
+		} else {
+			slog.Info("[DEV] Email sent successfully", "email", req.Email)
+		}
+
 		return &ForgotPasswordResponse{
-			Message:   "[DEV] OTP สำหรับ " + req.Email,
+			Message:   "ส่งรหัส OTP ไปยัง " + req.Email + " แล้ว",
 			ExpiresIn: int(otpTTL.Seconds()),
-			OTP:       &otp,
+			OTP:       &otpCode,
 		}, nil
 	}
 
-	if err := s.mailer.SendOTP(req.Email, name, otp); err != nil {
+	if err := s.mailer.SendOTP(req.Email, name, otpCode); err != nil {
 		return nil, fmt.Errorf("send otp email: %w", err)
 	}
 
@@ -120,11 +145,22 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 }
 
 func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
-	record, err := s.repo.FindValidOTPByEmail(req.Email, req.OTP)
+
+	record, err := s.repo.FindLatestValidByEmail(req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("find otp: %w", err)
+		return nil, fmt.Errorf("find otp record: %w", err)
 	}
 	if record == nil {
+		return nil, ErrInvalidOTP
+	}
+
+	valid, err := totp.ValidateCustom(req.OTP, record.TOTPSecret, time.Now(), totp.ValidateOpts{
+		Period:    otpPeriod,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
+	if err != nil || !valid {
 		return nil, ErrInvalidOTP
 	}
 
@@ -236,17 +272,4 @@ func (s *service) parseResetToken(tokenStr string) (*resetClaims, error) {
 		return nil, ErrInvalidToken
 	}
 	return claims, nil
-}
-
-func generateOTP(length int) (string, error) {
-	const digits = "0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(digits))))
-		if err != nil {
-			return "", err
-		}
-		result[i] = digits[n.Int64()]
-	}
-	return string(result), nil
 }

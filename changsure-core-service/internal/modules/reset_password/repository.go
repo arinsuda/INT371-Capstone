@@ -10,8 +10,8 @@ import (
 
 type Repository interface {
 	Create(otp *PasswordResetOTP) error
-	FindValidOTP(email string, role UserRole, otp string) (*PasswordResetOTP, error)
-	FindValidOTPByEmail(email string, otp string) (*PasswordResetOTP, error)
+
+	FindLatestValidByEmail(email string) (*PasswordResetOTP, error)
 	MarkUsed(id uuid.UUID) error
 	DeleteExpired() error
 	InvalidateAll(email string, role UserRole) error
@@ -29,25 +29,10 @@ func (r *repository) Create(otp *PasswordResetOTP) error {
 	return r.db.Create(otp).Error
 }
 
-func (r *repository) FindValidOTP(email string, role UserRole, otp string) (*PasswordResetOTP, error) {
+func (r *repository) FindLatestValidByEmail(email string) (*PasswordResetOTP, error) {
 	var record PasswordResetOTP
 	err := r.db.
-		Where("email = ? AND user_role = ? AND otp = ? AND is_used = false AND expires_at > ?",
-			email, role, otp, time.Now()).
-		Order("created_at DESC").
-		First(&record).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &record, err
-}
-
-func (r *repository) FindValidOTPByEmail(email string, otp string) (*PasswordResetOTP, error) {
-	var record PasswordResetOTP
-	err := r.db.
-		Where("email = ? AND otp = ? AND is_used = false AND expires_at > ?",
-			email, otp, time.Now()).
+		Where("email = ? AND is_used = false AND expires_at > ?", email, time.Now()).
 		Order("created_at DESC").
 		First(&record).Error
 
