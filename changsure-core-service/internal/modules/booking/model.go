@@ -51,6 +51,10 @@ type Booking struct {
 	TechnicianService techService.TechnicianService `gorm:"foreignKey:TechnicianServiceID" json:"technician_service"`
 
 	Images []BookingImage `gorm:"foreignKey:BookingID" json:"images"`
+
+	FeeRate   *float64 `gorm:"-" json:"fee_rate,omitempty"`
+	FeeAmount *float64 `gorm:"-" json:"fee_amount,omitempty"`
+	NetAmount *float64 `gorm:"-" json:"net_amount,omitempty"`
 }
 
 type BookingImage struct {
