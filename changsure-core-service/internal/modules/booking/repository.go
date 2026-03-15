@@ -26,7 +26,6 @@ type Repository interface {
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
 	MarkAsPaid(ctx context.Context, bookingID uint) error
-	// ✅ เพิ่ม method ใหม่สำหรับบันทึกราคาที่จ่ายจริง
 	UpdateFinalPrice(ctx context.Context, bookingID uint, finalPrice float64) error
 	ListByCustomer(ctx context.Context, customerID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
 	ListByTechnician(ctx context.Context, technicianID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
@@ -53,7 +52,7 @@ func (r *repository) CreateImages(ctx context.Context, images []BookingImage) er
 }
 
 func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
-	var booking Booking
+	var b Booking
 	err := r.db.WithContext(ctx).
 		Preload("Customer", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "first_name", "last_name", "phone", "avatar_url")
@@ -64,11 +63,34 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Preload("TechnicianService.Service.Category").
-		First(&booking, id).Error
+		First(&b, id).Error
 	if err != nil {
 		return nil, err
 	}
-	return &booking, nil
+
+	if b.Status == BookingStatusCompleted {
+		type feeRow struct {
+			FeeRate   float64
+			FeeAmount float64
+			NetAmount float64
+		}
+		var row feeRow
+		err := r.db.WithContext(ctx).
+			Table("wallet_transactions").
+			Select("fee_rate, fee_amount, net_amount").
+			Where("booking_id = ? AND category = ?", b.ID, "JOB_PAYMENT").
+			Order("created_at DESC").
+			Limit(1).
+			Scan(&row).Error
+
+		if err == nil && row.NetAmount != 0 {
+			b.FeeRate = &row.FeeRate
+			b.FeeAmount = &row.FeeAmount
+			b.NetAmount = &row.NetAmount
+		}
+	}
+
+	return &b, nil
 }
 
 func (r *repository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error) {
