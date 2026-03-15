@@ -19,42 +19,17 @@ type Repository interface {
 	FindByID(ctx context.Context, id uint) (*Booking, error)
 	FindByIDForUpdate(ctx context.Context, id uint) (*Booking, error)
 	UpdateStatus(ctx context.Context, id uint, status string, updatedAt time.Time) error
-	UpdateLastRead(
-		ctx context.Context,
-		bookingID uint,
-		role string,
-		readAt time.Time,
-	) error
+	UpdateLastRead(ctx context.Context, bookingID uint, role string, readAt time.Time) error
 	GetBookedSlotIDs(ctx context.Context, technicianID uint, date string) ([]uint, error)
 	IsSlotBooked(ctx context.Context, technicianID uint, date string, slotID uint) (bool, error)
-
-	GetTechnicianServiceByTechnicianAndService(
-		ctx context.Context,
-		technicianID uint,
-		serviceID uint,
-	) (*techService.TechnicianService, error)
-
+	GetTechnicianServiceByTechnicianAndService(ctx context.Context, technicianID uint, serviceID uint) (*techService.TechnicianService, error)
 	GetCustomerAddress(ctx context.Context, addressID uint, customerID uint) (*address.CustomerAddress, error)
 	IsTechnicianServingProvince(ctx context.Context, technicianID uint, provinceID uint) (bool, error)
 	MarkAsPaid(ctx context.Context, bookingID uint) error
-	ListByCustomer(
-		ctx context.Context,
-		customerID uint,
-		statuses []string,
-		startDate string,
-		endDate string,
-		offset int,
-		limit int,
-	) ([]Booking, int64, error)
-	ListByTechnician(
-		ctx context.Context,
-		technicianID uint,
-		statuses []string,
-		startDate string,
-		endDate string,
-		offset int,
-		limit int,
-	) ([]Booking, int64, error)
+	// ✅ เพิ่ม method ใหม่สำหรับบันทึกราคาที่จ่ายจริง
+	UpdateFinalPrice(ctx context.Context, bookingID uint, finalPrice float64) error
+	ListByCustomer(ctx context.Context, customerID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
+	ListByTechnician(ctx context.Context, technicianID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
 }
 
 type repository struct {
@@ -81,13 +56,7 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 	var booking Booking
 	err := r.db.WithContext(ctx).
 		Preload("Customer", func(db *gorm.DB) *gorm.DB {
-			return db.Select(
-				"id",
-				"first_name",
-				"last_name",
-				"phone",
-				"avatar_url",
-			)
+			return db.Select("id", "first_name", "last_name", "phone", "avatar_url")
 		}).
 		Preload("Images").
 		Preload("TimeSlot").
@@ -161,11 +130,9 @@ func (r *repository) GetTechnicianServiceByTechnicianAndService(
 		Where("technician_id = ? AND service_id = ? AND is_active = ?",
 			technicianID, serviceID, true).
 		First(&techSvc).Error
-
 	if err != nil {
 		return nil, err
 	}
-
 	return &techSvc, nil
 }
 
@@ -192,6 +159,54 @@ func (r *repository) IsTechnicianServingProvince(ctx context.Context, technician
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *repository) MarkAsPaid(ctx context.Context, bookingID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ? AND status = ?", bookingID, BookingStatusWaitingPayment).
+		Updates(map[string]any{
+			"status":     BookingStatusCompleted,
+			"updated_at": time.Now(),
+		}).Error
+}
+
+// ✅ UpdateFinalPrice — บันทึกราคาที่จ่ายจริงจาก Omise webhook
+// เรียกใน transaction เดียวกับ MarkAsPaid เพื่อให้ atomic
+func (r *repository) UpdateFinalPrice(ctx context.Context, bookingID uint, finalPrice float64) error {
+	return r.db.WithContext(ctx).
+		Model(&Booking{}).
+		Where("id = ?", bookingID).
+		Updates(map[string]any{
+			"final_price": finalPrice,
+			"updated_at":  time.Now(),
+		}).Error
+}
+
+func (r *repository) UpdateLastRead(ctx context.Context, bookingID uint, role string, readAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		column := "last_read_by_customer"
+		otherRole := "technician"
+		if role == "technician" {
+			column = "last_read_by_technician"
+			otherRole = "customer"
+		}
+
+		if err := tx.Table("bookings").
+			Where("id = ?", bookingID).
+			Update(column, readAt).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Table("chat_messages").
+			Where("booking_id = ? AND sender_role = ? AND is_read = ?",
+				bookingID, otherRole, false).
+			Update("is_read", true).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *repository) ListByCustomer(
@@ -271,13 +286,7 @@ func (r *repository) ListByTechnician(
 	var bookings []Booking
 	err := q.
 		Preload("Customer", func(db *gorm.DB) *gorm.DB {
-			return db.Select(
-				"id",
-				"first_name",
-				"last_name",
-				"phone",
-				"avatar_url",
-			)
+			return db.Select("id", "first_name", "last_name", "phone", "avatar_url")
 		}).
 		Preload("Images").
 		Preload("TimeSlot").
@@ -293,49 +302,4 @@ func (r *repository) ListByTechnician(
 	}
 
 	return bookings, total, nil
-}
-
-func (r *repository) MarkAsPaid(ctx context.Context, bookingID uint) error {
-	return r.db.WithContext(ctx).
-		Model(&Booking{}).
-		Where("id = ? AND status = ?", bookingID, BookingStatusWaitingPayment).
-		Updates(map[string]any{
-			"status":     BookingStatusCompleted,
-			"updated_at": time.Now(),
-		}).Error
-}
-
-func (r *repository) UpdateLastRead(
-	ctx context.Context,
-	bookingID uint,
-	role string,
-	readAt time.Time,
-) error {
-
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
-		column := "last_read_by_customer"
-		otherRole := "technician"
-		if role == "technician" {
-			column = "last_read_by_technician"
-			otherRole = "customer"
-		}
-
-		if err := tx.Table("bookings").
-			Where("id = ?", bookingID).
-			Update(column, readAt).
-			Error; err != nil {
-			return err
-		}
-
-		if err := tx.Table("chat_messages").
-			Where("booking_id = ? AND sender_role = ? AND is_read = ?",
-				bookingID, otherRole, false).
-			Update("is_read", true).
-			Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
 }

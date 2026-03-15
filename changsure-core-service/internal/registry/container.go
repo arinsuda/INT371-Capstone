@@ -584,6 +584,7 @@ func (c *Container) initResetPasswordModule(cfg *config.Config) {
 		c.TechnicianRepo,
 		c.Mailer,
 		cfg.JWT.Secret,
+		cfg.App.Environment == "development",
 	)
 	c.ResetPasswordHandler = resetpassword.NewHandler(c.ResetPasswordService)
 }

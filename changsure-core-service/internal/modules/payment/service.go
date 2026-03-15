@@ -61,7 +61,6 @@ func NewService(
 	if feeRate <= 0 || feeRate >= 1 {
 		feeRate = 0.05
 	}
-
 	if repo == nil {
 		return nil, fmt.Errorf("repository cannot be nil")
 	}
@@ -126,10 +125,8 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 		return nil, err
 	}
 
-	satang := int64(math.Round(resolved * 100))
-
 	source, err := s.omise.CreateSource(ctx, &CreateSourceRequest{
-		Amount:      satang,
+		Amount:      int64(math.Round(resolved * 100)),
 		Currency:    "THB",
 		Type:        "promptpay",
 		BookingID:   strconv.FormatUint(uint64(bkg.ID), 10),
@@ -150,18 +147,7 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 		return nil, err
 	}
 
-	techName := ""
-	if bkg.Technician.FirstName != "" {
-		techName = bkg.Technician.FirstName + " " + bkg.Technician.LastName
-	}
-	svcName := ""
-	if bkg.TechnicianService.Service.SerName != "" {
-		svcName = bkg.TechnicianService.Service.SerName
-	}
-	apptDate := ""
-	if !bkg.AppointmentDate.IsZero() {
-		apptDate = bkg.AppointmentDate.Format("2006-01-02")
-	}
+	techName, svcName, apptDate := s.extractBookingInfo(bkg)
 
 	return &CreateQRResponse{
 		SourceID:    source.ID,
@@ -185,6 +171,24 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 	}, nil
 }
 
+func (s *service) CancelPaymentQR(ctx context.Context, bookingID uint) error {
+	if bookingID == 0 {
+		return NewPaymentError("INVALID_BOOKING_ID", "booking ID is required", nil)
+	}
+
+	bkg, err := s.bookingRepo.FindByID(ctx, bookingID)
+	if err != nil || bkg == nil {
+		return NewPaymentError("BOOKING_NOT_FOUND", "booking not found", nil)
+	}
+
+	if err := s.paymentTxnRepo.CancelPendingByBookingID(ctx, bookingID); err != nil {
+		return NewPaymentError("CANCEL_FAILED", "failed to cancel pending transactions", err)
+	}
+
+	s.logger.Info("payment QR cancelled", "booking_id", bookingID)
+	return nil
+}
+
 func (s *service) ConfirmPaymentFromWebhook(
 	ctx context.Context,
 	chargeID string,
@@ -194,9 +198,7 @@ func (s *service) ConfirmPaymentFromWebhook(
 
 	existingTxn, _ := s.paymentTxnRepo.FindByChargeID(ctx, chargeID)
 	if existingTxn != nil && existingTxn.Status == PaymentStatusSuccessful {
-		s.logger.Warn("charge already processed, skipping",
-			"charge_id", chargeID,
-		)
+		s.logger.Warn("charge already processed, skipping", "charge_id", chargeID)
 		return nil
 	}
 
@@ -213,21 +215,25 @@ func (s *service) ConfirmPaymentFromWebhook(
 		return NewPaymentError("INVALID_BOOKING_ID", "booking_id is invalid", err)
 	}
 	bookingID := uint(bookingID64)
+
 	amountTHB := float64(amount) / 100.0
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
 		bkg, err := s.bookingRepo.FindByIDForUpdate(ctx, bookingID)
 		if err != nil || bkg == nil {
 			return fmt.Errorf("booking not found: %w", err)
 		}
 
 		if bkg.Status == booking.BookingStatusPaid {
-			s.logger.Warn("booking already paid, skipping wallet credit",
+			s.logger.Warn("booking already paid, skipping",
 				"booking_id", bookingID,
 				"charge_id", chargeID,
 			)
 			return nil
+		}
+
+		if err := s.bookingRepo.UpdateFinalPrice(ctx, bookingID, amountTHB); err != nil {
+			return fmt.Errorf("update final price: %w", err)
 		}
 
 		if err := s.bookingRepo.MarkAsPaid(ctx, bookingID); err != nil {
@@ -256,7 +262,7 @@ func (s *service) ConfirmPaymentFromWebhook(
 				"amount":    amount,
 			})
 		} else {
-			newTxn := &PaymentTransaction{
+			_ = s.paymentTxnRepo.Create(ctx, &PaymentTransaction{
 				BookingID:         bookingID,
 				ChargeID:          &chargeID,
 				Amount:            amountTHB,
@@ -266,8 +272,7 @@ func (s *service) ConfirmPaymentFromWebhook(
 				WebhookReceivedAt: &now,
 				CompletedAt:       &now,
 				RawWebhookPayload: &webhookJSONStr,
-			}
-			_ = s.paymentTxnRepo.Create(ctx, newTxn)
+			})
 		}
 
 		s.logger.Info("payment confirmed from webhook",
@@ -294,13 +299,6 @@ func (s *service) ConfirmPayment(ctx context.Context, bookingID uint) error {
 	return s.bookingRepo.MarkAsPaid(ctx, bookingID)
 }
 
-func (s *service) handleRepositoryError(err error) error {
-	if _, ok := err.(*PaymentError); ok {
-		return err
-	}
-	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
-}
-
 func (s *service) GetPaymentHistory(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error) {
 	return s.paymentTxnRepo.FindByBookingID(ctx, bookingID)
 }
@@ -321,20 +319,22 @@ func (s *service) HasSuccessfulPayment(ctx context.Context, bookingID uint) (boo
 	return false, nil
 }
 
-func (s *service) CancelPaymentQR(ctx context.Context, bookingID uint) error {
-	if bookingID == 0 {
-		return NewPaymentError("INVALID_BOOKING_ID", "booking ID is required", nil)
+func (s *service) extractBookingInfo(bkg *booking.Booking) (techName, svcName, apptDate string) {
+	if bkg.Technician.FirstName != "" {
+		techName = bkg.Technician.FirstName + " " + bkg.Technician.LastName
 	}
-
-	bkg, err := s.bookingRepo.FindByID(ctx, bookingID)
-	if err != nil || bkg == nil {
-		return NewPaymentError("BOOKING_NOT_FOUND", "booking not found", nil)
+	if bkg.TechnicianService.Service.SerName != "" {
+		svcName = bkg.TechnicianService.Service.SerName
 	}
-
-	if err := s.paymentTxnRepo.CancelPendingByBookingID(ctx, bookingID); err != nil {
-		return NewPaymentError("CANCEL_FAILED", "failed to cancel pending transactions", err)
+	if !bkg.AppointmentDate.IsZero() {
+		apptDate = bkg.AppointmentDate.Format("2006-01-02")
 	}
+	return
+}
 
-	s.logger.Info("payment QR cancelled", "booking_id", bookingID)
-	return nil
+func (s *service) handleRepositoryError(err error) error {
+	if _, ok := err.(*PaymentError); ok {
+		return err
+	}
+	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
 }
