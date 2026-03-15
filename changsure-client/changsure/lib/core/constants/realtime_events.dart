@@ -20,6 +20,9 @@ abstract class RealtimeEvents {
   static const connected = 'CONNECTED';
   static const error = 'ERROR';
 
+  static const paymentSuccess = 'PAYMENT_SUCCESS';
+  static const paymentFailed = 'PAYMENT_FAILED';
+  
   @Deprecated('ใช้ chatMessageNew แทน')
   static const newMessage = chatMessageNew;
 

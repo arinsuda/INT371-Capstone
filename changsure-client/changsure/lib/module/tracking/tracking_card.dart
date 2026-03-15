@@ -1,6 +1,7 @@
 import 'package:changsure/data/models/booking/booking_model.dart';
 import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/data/services/booking_service.dart';
+import 'package:changsure/module/payment/qr_payment_page.dart';
 import 'package:changsure/module/tracking/booking_detail_page.dart';
 import 'package:changsure/state/booking_provider.dart';
 import 'package:changsure/state/user_provider.dart';
@@ -34,9 +35,7 @@ class TrackingCard extends ConsumerWidget {
       barrierDismissible: false,
       builder: (dialogContext) => _CancelWorkDialog(
         onConfirm: () async {
-          // ปิด dialog ก่อน
           Navigator.of(dialogContext).pop();
-
           try {
             await ref
                 .read(bookingControllerProvider.notifier)
@@ -45,10 +44,6 @@ class TrackingCard extends ConsumerWidget {
                   action: BookingAction.reject,
                   reason: "ติดงานอื่น",
                 );
-            // FIX: ลบ Navigator.pop(context) ออก
-            // TrackingCard อยู่ใน ListView — ไม่ใช่หน้าที่ push มา
-            // การ pop จะทำให้จอดำเพราะไม่มีหน้าให้กลับไป
-            // provider (myBookingsProvider) จะ reload list ให้อัตโนมัติ
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(
@@ -66,6 +61,7 @@ class TrackingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
+    final isCompleted = booking.status == 'COMPLETED';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
@@ -83,32 +79,69 @@ class TrackingCard extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          TrackingSection(booking: booking),
+          if (isCompleted)
+            _buildCompletedHeader()
+          else
+            TrackingSection(booking: booking),
+
           const SizedBox(height: 20),
+
           ServiceSection(
             booking: booking,
             onViewDetail: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      BookingDetailPage(bookingId: booking.id),
-                ),
-              );
+              if (isCompleted) {
+                _showPaymentSummarySheet(
+                  context,
+                  booking.id,
+                  booking.bookingNumber,
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        BookingDetailPage(bookingId: booking.id),
+                  ),
+                );
+              }
             },
           ),
 
-          if (isTechnician) ...[
-            const SizedBox(height: 12),
-            if (booking.status == 'WAITING_PAYMENT')
-              _buildClientPaymentAction(context)
-            else
-              _buildTechnicianActions(context, ref),
-          ] else ...[
-            if (booking.status == 'WAITING_PAYMENT')
-              const Center(child: Text("กรุณาชำระเงินผ่าน QR Code ของช่าง")),
+          if (!isCompleted) ...[
+            if (isTechnician) ...[
+              const SizedBox(height: 12),
+              if (booking.status == 'WAITING_PAYMENT')
+                _buildClientPaymentAction(context)
+              else
+                _buildTechnicianActions(context, ref),
+            ] else ...[
+              if (booking.status == 'WAITING_PAYMENT')
+                const Center(child: Text("กรุณาชำระเงินผ่าน QR Code ของช่าง")),
+            ],
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedHeader() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6FFED),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF52C41A), width: 1),
+        ),
+        child: const Text(
+          'ดำเนินการเสร็จสิ้น',
+          style: TextStyle(
+            color: Color(0xFF52C41A),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -147,7 +180,6 @@ class TrackingCard extends ConsumerWidget {
                           bookingId: booking.id,
                           action: BookingAction.accept,
                         );
-                    // FIX: ไม่ต้อง pop — list refresh อัตโนมัติจาก realtime
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(
@@ -280,7 +312,12 @@ class TrackingCard extends ConsumerWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: onTap,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => QRPaymentPage(booking: booking)),
+          );
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(
@@ -289,7 +326,7 @@ class TrackingCard extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
         ),
         child: const Text(
-          "ชำระเงิน",
+          'ชำระเงิน',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -297,6 +334,27 @@ class TrackingCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showPaymentSummarySheet(
+    BuildContext context,
+    int bookingId,
+    String fallbackBookingNumber,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _PaymentSummarySheet(
+          bookingId: bookingId,
+          fallbackBookingNumber: fallbackBookingNumber,
+        );
+      },
     );
   }
 
@@ -436,6 +494,268 @@ class _CancelWorkDialog extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PaymentSummarySheet extends ConsumerWidget {
+  final int bookingId;
+  final String fallbackBookingNumber;
+
+  const _PaymentSummarySheet({
+    required this.bookingId,
+    required this.fallbackBookingNumber,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: bookingAsync.when(
+          loading: () => const SizedBox(
+            height: 300,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          ),
+          error: (error, stack) => SizedBox(
+            height: 300,
+            child: Center(
+              child: Text(
+                'ไม่สามารถโหลดข้อมูลการชำระเงินได้\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ),
+          data: (latestBooking) {
+            final double? finalPrice = latestBooking.finalPrice;
+            final double? feeAmount = latestBooking.feeAmount;
+            final double? feeRate = latestBooking.feeRate;
+            final double? netAmount = latestBooking.netAmount;
+            final service = latestBooking.technicianService?.service;
+
+            final feeRatePercent = feeRate != null
+                ? '${(feeRate * 100).toStringAsFixed(0)}%'
+                : '-';
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.receipt_long_rounded,
+                            color: AppColors.primary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'สรุปการชำระเงิน',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.black54,
+                      ),
+                      splashRadius: 24,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Text(
+                      'หมายเลขการจอง: ${latestBooking.bookingNumber}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _summaryRow('ชื่อบริการ', service?.serName ?? '-'),
+                      const SizedBox(height: 12),
+                      _summaryRow(
+                        'ราคาบริการ',
+                        finalPrice != null
+                            ? '฿${finalPrice.toStringAsFixed(0)}'
+                            : '-',
+                        valueColor: Colors.black87,
+                        isBold: true,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(height: 1, color: Colors.grey.shade200),
+                      ),
+                      _summaryRow(
+                        'ค่าธรรมเนียมแพลตฟอร์ม\n($feeRatePercent)',
+                        feeAmount != null
+                            ? '- ฿${feeAmount.toStringAsFixed(0)}'
+                            : '-',
+                        valueColor: Colors.red.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'ช่างได้รับสุทธิ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        netAmount != null
+                            ? '฿${netAmount.toStringAsFixed(0)}'
+                            : '-',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: PrimaryButton(
+                    text: 'ดูรายละเอียดการจองทั้งหมด',
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BookingDetailPage(bookingId: bookingId),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryRow(
+    String label,
+    String value, {
+    Color valueColor = Colors.black87,
+    bool isBold = false,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black54,
+              height: 1.4,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            color: valueColor,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

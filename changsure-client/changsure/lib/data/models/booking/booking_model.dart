@@ -1,7 +1,3 @@
-// ==========================================
-// 1. Core Booking Models
-// ==========================================
-
 import 'package:changsure/core/profile/utils/time_parser.dart';
 
 class Booking {
@@ -29,6 +25,9 @@ class Booking {
   final Technician? technician;
   final TechnicianService? technicianService;
   final List<BookingImage>? images;
+  final double? feeRate;
+  final double? feeAmount;
+  final double? netAmount;
 
   Booking({
     required this.id,
@@ -55,6 +54,9 @@ class Booking {
     this.technician,
     this.technicianService,
     this.images,
+    this.feeRate,
+    this.feeAmount,
+    this.netAmount,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -97,6 +99,9 @@ class Booking {
       customer: json['customer'] != null
           ? Customer.fromJson(json['customer'])
           : null,
+      feeRate: (json['fee_rate'] as num?)?.toDouble(),
+      feeAmount: (json['fee_amount'] as num?)?.toDouble(),
+      netAmount: (json['net_amount'] as num?)?.toDouble(),
     );
   }
 
@@ -220,10 +225,6 @@ class BookingImage {
   }
 }
 
-// ==========================================
-// 2. Supporting Models (Technician, Service, Slot)
-// ==========================================
-
 class TimeSlotForBooking {
   final int id;
   final String startTime;
@@ -342,10 +343,6 @@ class Service {
       (imageUrls != null && imageUrls!.isNotEmpty) ? imageUrls!.first : '';
 }
 
-// ==========================================
-// 3. Request & Response Wrappers
-// ==========================================
-
 class BookingCreateRequest {
   final int technicianId;
   final int technicianServiceId;
@@ -444,18 +441,12 @@ class PaginationMeta {
   int get totalPages => (total / limit).ceil();
 }
 
-// ==========================================
-// 4. Calendar & Availability Models
-// ==========================================
-
 class PublicCalendarResponse {
   final String month;
   final List<PublicCalendarDay> days;
 
   PublicCalendarResponse({required this.month, required this.days});
 
-  // ✅ รับ json ที่เป็น { "month": "...", "days": [...] } โดยตรง
-  // (service จะ unwrap json['data'] ก่อนส่งมาแล้ว)
   factory PublicCalendarResponse.fromJson(Map<String, dynamic> json) {
     return PublicCalendarResponse(
       month: json['month'] as String? ?? '',
@@ -651,17 +642,12 @@ class TechnicianBooking {
   }
 }
 
-// ==========================================
-// 5. Calendar Update Responses
-// ==========================================
-
 class UpdateTechnicianCalendarResponse {
   final String date;
   final bool isOpen;
 
   UpdateTechnicianCalendarResponse({required this.date, required this.isOpen});
 
-  // ✅ service ส่ง json['data'] มาแล้ว → รับ { "date": "...", "is_open": bool }
   factory UpdateTechnicianCalendarResponse.fromJson(Map<String, dynamic> json) {
     return UpdateTechnicianCalendarResponse(
       date: json['date'] as String? ?? '',
@@ -681,7 +667,6 @@ class UpdateTimeSlotsResponse {
     required this.timeSlots,
   });
 
-  // ✅ service ส่ง json['data'] มาแล้ว → รับ { "date": "...", "is_default": bool, "time_slots": [...] }
   factory UpdateTimeSlotsResponse.fromJson(Map<String, dynamic> json) {
     return UpdateTimeSlotsResponse(
       date: json['date'] as String? ?? '',

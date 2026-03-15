@@ -1,0 +1,350 @@
+import 'dart:async';
+import 'package:changsure/core/constants/realtime_events.dart';
+import 'package:changsure/module/payment/widgets/failed_view.dart';
+import 'package:changsure/state/notifications/realtime_provider.dart';
+import 'package:changsure/state/user_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
+
+import '../../data/models/booking/booking_model.dart';
+import '../../state/payment_provider.dart';
+import './widgets/input_price_view.dart';
+import './widgets/qr_display_view.dart';
+import './widgets/success_view.dart';
+
+class QRPaymentPage extends ConsumerStatefulWidget {
+  final Booking booking;
+
+  const QRPaymentPage({super.key, required this.booking});
+
+  @override
+  ConsumerState<QRPaymentPage> createState() => _QRPaymentPageState();
+}
+
+class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
+  Timer? _expiryTimer;
+  Duration _remaining = Duration.zero;
+  WebViewController? _webViewController;
+
+  @override
+  void dispose() {
+    _cancelCountdown();
+    super.dispose();
+  }
+
+  void _cancelCountdown() {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
+  }
+
+  void _startCountdown(DateTime expiresAt) {
+    _cancelCountdown();
+
+    _expiryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final left = expiresAt.difference(DateTime.now());
+      if (left.isNegative) {
+        _cancelCountdown();
+        ref.read(qrPaymentProvider.notifier).markExpired();
+      } else {
+        setState(() => _remaining = left);
+      }
+    });
+  }
+
+  void _generateQR(double amount) {
+    ref
+        .read(qrPaymentProvider.notifier)
+        .createQR(bookingId: widget.booking.id, amount: amount);
+  }
+
+  Future<void> _fetchQRImage(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200 || !mounted) return;
+
+      final html = _buildQRHtml(response.body);
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(Colors.white)
+        ..loadHtmlString(html);
+
+      setState(() => _webViewController = controller);
+    } catch (_) {}
+  }
+
+  String _buildQRHtml(String svgBody) =>
+      '''
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: white;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      svg {
+        width: 100% !important;
+        height: auto !important;
+        max-height: 100%;
+      }
+    </style>
+  </head>
+  <body>$svgBody</body>
+</html>
+''';
+
+  bool _shouldConfirmExit(QRPaymentStatus status) =>
+      status == QRPaymentStatus.ready || status == QRPaymentStatus.polling;
+
+  Future<bool> _confirmExit(QRPaymentStatus status) async {
+    if (!_shouldConfirmExit(status)) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ExitConfirmDialog(),
+    );
+    if (confirmed != true) return false;
+
+    _cancelCountdown();
+
+    ref
+        .read(qrPaymentProvider.notifier)
+        .cancelQR(bookingId: widget.booking.id)
+        .ignore();
+
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(qrPaymentProvider);
+
+    ref.listen<QRPaymentState>(qrPaymentProvider, (_, next) {
+      if (next.status == QRPaymentStatus.ready && next.qrData != null) {
+        _startCountdown(next.qrData!.expiresAt);
+        if (next.qrData?.qrCodeUri != null) {
+          _fetchQRImage(next.qrData!.qrCodeUri!);
+        }
+      }
+    });
+
+    ref.listen<AsyncValue<Map<String, dynamic>>>(realtimeStreamProvider, (
+      _,
+      next,
+    ) {
+      next.whenData((event) {
+        final type = event['type'] as String?;
+        final currentStatus = ref.read(qrPaymentProvider).status;
+
+        if (currentStatus != QRPaymentStatus.ready &&
+            currentStatus != QRPaymentStatus.polling)
+          return;
+
+        switch (type) {
+          case RealtimeEvents.paymentSuccess:
+            _cancelCountdown();
+            ref.read(qrPaymentProvider.notifier).markSuccess();
+            break;
+          case RealtimeEvents.paymentFailed:
+            _cancelCountdown();
+            ref.read(qrPaymentProvider.notifier).markFailed();
+            break;
+        }
+      });
+    });
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmExit(state.status) && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: _buildAppBar(state.status),
+        body: _buildBody(state),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(QRPaymentStatus status) {
+    final title = status == QRPaymentStatus.success
+        ? 'ระบบเลือกช่างอัตโนมัติ'
+        : 'ระบบชำระเงิน';
+
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () async {
+          if (await _confirmExit(status) && context.mounted) {
+            Navigator.pop(context);
+          }
+        },
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xFF003DAB),
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
+
+  Widget _buildBody(QRPaymentState state) {
+    final isInputPhase =
+        state.status == QRPaymentStatus.idle ||
+        (state.status == QRPaymentStatus.loading && state.qrData == null);
+
+    if (isInputPhase) {
+      return InputPriceView(
+        booking: widget.booking,
+        isLoading: state.status == QRPaymentStatus.loading,
+        onConfirm: _generateQR,
+      );
+    }
+
+    return switch (state.status) {
+      QRPaymentStatus.ready || QRPaymentStatus.polling => QRDisplayView(
+        qrData: state.qrData!,
+        remaining: _remaining,
+        bookingNumber: widget.booking.bookingNumber,
+        webViewController: _webViewController,
+        technicianName: ref.watch(userProvider)?.technicianProfile != null
+            ? '${ref.watch(userProvider)!.technicianProfile!.firstName} ${ref.watch(userProvider)!.technicianProfile!.lastName}'
+            : null,
+        technicianAvatar: ref.watch(userProvider)?.technicianProfile?.avatarUrl,
+      ),
+      QRPaymentStatus.success => SuccessView(amount: state.qrData?.amount ?? 0),
+      QRPaymentStatus.expired => _StatusMessage(
+        icon: Icons.timer_off_outlined,
+        message: 'QR หมดอายุ กรุณาลองใหม่',
+        actionLabel: 'ลองใหม่',
+        onAction: () => ref.read(qrPaymentProvider.notifier).reset(),
+      ),
+      QRPaymentStatus.failed => FailedView(
+        onRetry: () => ref.read(qrPaymentProvider.notifier).reset(),
+      ),
+
+      QRPaymentStatus.error => FailedView(
+        errorMessage: state.errorMessage,
+        onRetry: () => ref.read(qrPaymentProvider.notifier).reset(),
+      ),
+      QRPaymentStatus.error => _StatusMessage(
+        icon: Icons.error_outline,
+        message: state.errorMessage ?? 'เกิดข้อผิดพลาด',
+        color: Colors.red,
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _ExitConfirmDialog extends StatelessWidget {
+  const _ExitConfirmDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'ยกเลิกการชำระเงิน?',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      content: const Text(
+        'QR Code จะถูกยกเลิก และคุณจะต้องสร้างใหม่อีกครั้ง',
+        style: TextStyle(fontSize: 14, color: Colors.grey),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('อยู่ต่อ', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text(
+            'ออกจากหน้านี้',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusMessage extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Color color;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _StatusMessage({
+    required this.icon,
+    required this.message,
+    this.color = Colors.grey,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: color),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(fontSize: 16, color: color),
+            textAlign: TextAlign.center,
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: onAction,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF003DAB),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              child: Text(
+                actionLabel!,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
