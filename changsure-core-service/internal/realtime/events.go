@@ -19,6 +19,9 @@ const (
 
 	EventNotificationNew = "NOTIFICATION_NEW"
 
+	EventPaymentSuccess = "PAYMENT_SUCCESS" 
+	EventPaymentFailed  = "PAYMENT_FAILED"
+
 	EventConnected = "CONNECTED"
 	EventError     = "ERROR"
 )

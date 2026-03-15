@@ -341,3 +341,28 @@ func (s *service) handleRepositoryError(err error) error {
 	}
 	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
 }
+
+func (s *service) HandleFailedPayment(
+	ctx context.Context,
+	chargeID string,
+	metadata map[string]interface{},
+) error {
+	// อัพเดท payment_transaction ให้เป็น failed
+	now := time.Now()
+	webhookJSON, _ := json.Marshal(metadata)
+	webhookJSONStr := string(webhookJSON)
+	eventType := "charge.fail"
+
+	existingTxn, err := s.paymentTxnRepo.FindByChargeID(ctx, chargeID)
+	if err != nil || existingTxn == nil {
+		s.logger.Warn("no transaction found for failed charge", "charge_id", chargeID)
+		return nil
+	}
+
+	return s.paymentTxnRepo.MarkAsFailed(ctx, chargeID, map[string]interface{}{
+		"charge_id":           chargeID,
+		"webhook_received_at": now,
+		"raw_webhook_payload": webhookJSONStr,
+		"webhook_event_type":  eventType,
+	})
+}

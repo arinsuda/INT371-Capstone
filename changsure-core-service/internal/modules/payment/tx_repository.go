@@ -25,6 +25,8 @@ type PaymentTransactionRepository interface {
 	GetLatestByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error)
 
 	CancelPendingByBookingID(ctx context.Context, bookingID uint) error
+
+	MarkAsFailed(ctx context.Context, chargeID string, webhookData map[string]interface{}) error
 }
 
 type paymentTransactionRepo struct {
@@ -144,4 +146,28 @@ func (r *paymentTransactionRepo) CancelPendingByBookingID(
 		Model(&PaymentTransaction{}).
 		Where("booking_id = ? AND status = ?", bookingID, PaymentStatusPending).
 		Update("status", PaymentStatusCancelled).Error
+}
+
+func (r *paymentTransactionRepo) MarkAsFailed(
+	ctx context.Context,
+	chargeID string,
+	webhookData map[string]interface{},
+) error {
+	webhookJSON, err := json.Marshal(webhookData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal webhook data: %w", err)
+	}
+	webhookJSONStr := string(webhookJSON)
+	now := time.Now()
+	eventType := "charge.fail"
+
+	return r.db.WithContext(ctx).
+		Model(&PaymentTransaction{}).
+		Where("charge_id = ?", chargeID).
+		Updates(map[string]interface{}{
+			"status":              PaymentStatusFailed,
+			"webhook_received_at": now,
+			"webhook_event_type":  &eventType,
+			"raw_webhook_payload": webhookJSONStr,
+		}).Error
 }
