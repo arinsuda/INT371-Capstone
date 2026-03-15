@@ -7,6 +7,12 @@ import (
 	"github.com/omise/omise-go"
 )
 
+type BookingSummary struct {
+	ID           uint
+	CustomerID   uint
+	TechnicianID uint
+}
+
 type PaymentSource struct {
 	ID       string
 	Type     string
@@ -17,6 +23,7 @@ type PaymentSource struct {
 	QRCodeURI string
 	QRReady   bool
 
+	ChargeID    string
 	PaymentID   string
 	Description string
 
@@ -48,6 +55,8 @@ type Service interface {
 	HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error)
 	CancelPaymentQR(ctx context.Context, bookingID uint) error
 	HandleFailedPayment(ctx context.Context, chargeID string, metadata map[string]interface{}) error
+
+	GetBookingSummary(ctx context.Context, bookingID uint) (*BookingSummary, error)
 }
 
 type CreateSourceRequest struct {
@@ -66,11 +75,9 @@ type OmiseClient interface {
 	) (*PaymentSource, error)
 }
 
-/*
-FINAL mapper
-*/
 func FromOmiseSource(
 	source *omise.Source,
+	chargeID string,
 	paymentID string,
 	description string,
 	expiryMinutes int,
@@ -82,6 +89,7 @@ func FromOmiseSource(
 		Amount:      source.Amount,
 		Currency:    source.Currency,
 		Status:      string(source.Flow),
+		ChargeID:    chargeID,
 		PaymentID:   paymentID,
 		Description: description,
 		CreatedAt:   source.CreatedAt,

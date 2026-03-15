@@ -217,6 +217,13 @@ func (s *service) ConfirmPaymentFromWebhook(
 	bookingID := uint(bookingID64)
 	amountTHB := float64(amount) / 100.0
 
+	if existingTxn == nil {
+		pendingTxn, _ := s.paymentTxnRepo.GetLatestPendingByBookingID(ctx, bookingID)
+		if pendingTxn != nil {
+			existingTxn = pendingTxn
+		}
+	}
+
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		bkg, err := s.bookingRepo.FindByIDForUpdate(ctx, bookingID)
 		if err != nil || bkg == nil {
@@ -262,15 +269,22 @@ func (s *service) ConfirmPaymentFromWebhook(
 		webhookJSON, _ := json.Marshal(metadata)
 		webhookJSONStr := string(webhookJSON)
 		now := time.Now()
+		eventType := "charge.complete"
 
 		if existingTxn != nil {
-			_ = s.paymentTxnRepo.MarkAsSuccessful(ctx, chargeID, map[string]interface{}{
-				"charge_id": chargeID,
-				"metadata":  metadata,
-				"amount":    amount,
-			})
+
+			if err := s.paymentTxnRepo.MarkAsSuccessfulTx(ctx, tx, existingTxn.ID, chargeID, map[string]interface{}{
+				"charge_id":           chargeID,
+				"status":              PaymentStatusSuccessful,
+				"webhook_received_at": now,
+				"completed_at":        now,
+				"raw_webhook_payload": webhookJSONStr,
+				"webhook_event_type":  eventType,
+			}); err != nil {
+				return fmt.Errorf("mark payment as successful: %w", err)
+			}
 		} else {
-			_ = s.paymentTxnRepo.Create(ctx, &PaymentTransaction{
+			newTxn := &PaymentTransaction{
 				BookingID:         bookingID,
 				ChargeID:          &chargeID,
 				Amount:            amountTHB,
@@ -280,7 +294,11 @@ func (s *service) ConfirmPaymentFromWebhook(
 				WebhookReceivedAt: &now,
 				CompletedAt:       &now,
 				RawWebhookPayload: &webhookJSONStr,
-			})
+				WebhookEventType:  &eventType,
+			}
+			if err := tx.WithContext(ctx).Create(newTxn).Error; err != nil {
+				return fmt.Errorf("create payment transaction: %w", err)
+			}
 		}
 
 		s.logger.Info("payment confirmed from webhook",
@@ -342,12 +360,36 @@ func (s *service) handleRepositoryError(err error) error {
 	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
 }
 
+func (s *service) GetBookingSummary(ctx context.Context, bookingID uint) (*BookingSummary, error) {
+	if bookingID == 0 {
+		return nil, fmt.Errorf("bookingID is required")
+	}
+
+	var result struct {
+		ID           uint
+		CustomerID   uint
+		TechnicianID uint
+	}
+	if err := s.db.WithContext(ctx).
+		Table("bookings").
+		Select("id, customer_id, technician_id").
+		Where("id = ?", bookingID).
+		First(&result).Error; err != nil {
+		return nil, fmt.Errorf("GetBookingSummary: %w", err)
+	}
+
+	return &BookingSummary{
+		ID:           result.ID,
+		CustomerID:   result.CustomerID,
+		TechnicianID: result.TechnicianID,
+	}, nil
+}
+
 func (s *service) HandleFailedPayment(
 	ctx context.Context,
 	chargeID string,
 	metadata map[string]interface{},
 ) error {
-	// อัพเดท payment_transaction ให้เป็น failed
 	now := time.Now()
 	webhookJSON, _ := json.Marshal(metadata)
 	webhookJSONStr := string(webhookJSON)
