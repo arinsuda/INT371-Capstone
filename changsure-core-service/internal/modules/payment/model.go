@@ -53,6 +53,7 @@ const (
 	PaymentStatusFailed     = "failed"
 	PaymentStatusRefunded   = "refunded"
 	PaymentStatusExpired    = "expired"
+	PaymentStatusCancelled  = "cancelled"
 )
 
 const (

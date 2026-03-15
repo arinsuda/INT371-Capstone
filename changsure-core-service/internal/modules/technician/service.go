@@ -10,6 +10,8 @@ import (
 	"gorm.io/gorm"
 
 	appErrors "changsure-core-service/internal/errors"
+	docrepo "changsure-core-service/internal/modules/document"
+
 	"changsure-core-service/internal/modules/badge"
 	"changsure-core-service/internal/modules/province"
 
@@ -42,6 +44,7 @@ type service struct {
 	repo        Repository
 	areaRepo    tsvca.Repository
 	serviceRepo tsvc.Repository
+	docRepo     docrepo.Repository
 	storage     storage.Storage
 	logger      *slog.Logger
 }
@@ -51,6 +54,7 @@ func NewService(
 	repo Repository,
 	areaRepo tsvca.Repository,
 	svcRepo tsvc.Repository,
+	docRepo docrepo.Repository,
 	store storage.Storage,
 	logger *slog.Logger,
 ) Service {
@@ -62,6 +66,7 @@ func NewService(
 		repo:        repo,
 		areaRepo:    areaRepo,
 		serviceRepo: svcRepo,
+		docRepo:     docRepo,
 		storage:     store,
 		logger:      logger.With("module", "technician"),
 	}
@@ -322,23 +327,32 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 }
 
 func (s *service) toProfileRes(ctx context.Context, tech *Technician) *TechnicianProfileRes {
+	var termsAccepted, privacyAccepted bool
+
+	if s.docRepo != nil {
+		termsAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "terms-of-service")
+		privacyAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
+	}
+
 	return &TechnicianProfileRes{
-		ID:             tech.ID,
-		FirstName:      tech.FirstName,
-		LastName:       tech.LastName,
-		Bio:            tech.Bio,
-		Phone:          tech.Phone,
-		Email:          tech.Email,
-		AvatarURL:      s.presignURL(ctx, tech.AvatarURL),
-		RatingAvg:      tech.RatingAvg,
-		RatingCount:    tech.RatingCount,
-		TotalJobs:      tech.TotalJobs,
-		IsAvailable:    tech.IsAvailable,
-		IsVerified:     tech.IsVerified,
-		Provinces:      s.toProvincesRes(tech.ServiceAreas),
-		Services:       s.toServicesRes(tech.Services),
-		ServiceSummary: s.toServiceSummary(tech.Services),
-		Badges:         s.toBadgesRes(ctx, tech.Badges),
+		ID:              tech.ID,
+		FirstName:       tech.FirstName,
+		LastName:        tech.LastName,
+		Bio:             tech.Bio,
+		Phone:           tech.Phone,
+		Email:           tech.Email,
+		AvatarURL:       s.presignURL(ctx, tech.AvatarURL),
+		RatingAvg:       tech.RatingAvg,
+		RatingCount:     tech.RatingCount,
+		TotalJobs:       tech.TotalJobs,
+		IsAvailable:     tech.IsAvailable,
+		IsVerified:      tech.IsVerified,
+		TermsAccepted:   termsAccepted,
+		PrivacyAccepted: privacyAccepted,
+		Provinces:       s.toProvincesRes(tech.ServiceAreas),
+		Services:        s.toServicesRes(tech.Services),
+		ServiceSummary:  s.toServiceSummary(tech.Services),
+		Badges:          s.toBadgesRes(ctx, tech.Badges),
 	}
 }
 

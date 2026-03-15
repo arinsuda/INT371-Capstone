@@ -320,3 +320,21 @@ func (s *service) HasSuccessfulPayment(ctx context.Context, bookingID uint) (boo
 	}
 	return false, nil
 }
+
+func (s *service) CancelPaymentQR(ctx context.Context, bookingID uint) error {
+	if bookingID == 0 {
+		return NewPaymentError("INVALID_BOOKING_ID", "booking ID is required", nil)
+	}
+
+	bkg, err := s.bookingRepo.FindByID(ctx, bookingID)
+	if err != nil || bkg == nil {
+		return NewPaymentError("BOOKING_NOT_FOUND", "booking not found", nil)
+	}
+
+	if err := s.paymentTxnRepo.CancelPendingByBookingID(ctx, bookingID); err != nil {
+		return NewPaymentError("CANCEL_FAILED", "failed to cancel pending transactions", err)
+	}
+
+	s.logger.Info("payment QR cancelled", "booking_id", bookingID)
+	return nil
+}

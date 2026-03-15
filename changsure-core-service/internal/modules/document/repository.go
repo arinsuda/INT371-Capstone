@@ -1,6 +1,7 @@
 package document
 
 import (
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ type Repository interface {
 	UnpublishAll(tx *gorm.DB, docID uuid.UUID, locale string) error
 	Publish(tx *gorm.DB, docID uuid.UUID, locale string, version int) error
 	Accept(a *DocumentAcceptance) error
+	HasAccepted(ctx context.Context, userID uint, role string, slug string) (bool, error)
 }
 
 type repository struct {
@@ -86,4 +88,14 @@ func (r *repository) Publish(tx *gorm.DB, docID uuid.UUID, locale string, versio
 
 func (r *repository) Accept(a *DocumentAcceptance) error {
 	return r.DB.Create(a).Error
+}
+
+func (r *repository) HasAccepted(ctx context.Context, userID uint, role string, slug string) (bool, error) {
+	var count int64
+	err := r.DB.WithContext(ctx).
+		Model(&DocumentAcceptance{}).
+		Joins("JOIN documents d ON d.id = document_acceptances.document_id").
+		Where("document_acceptances.user_id = ? AND document_acceptances.user_role = ? AND d.slug = ?", userID, role, slug).
+		Count(&count).Error
+	return count > 0, err
 }

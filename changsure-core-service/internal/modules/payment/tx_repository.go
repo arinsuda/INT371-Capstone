@@ -23,6 +23,8 @@ type PaymentTransactionRepository interface {
 	RecordWebhookEvent(ctx context.Context, chargeID string, eventType string, eventData interface{}) error
 
 	GetLatestByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error)
+
+	CancelPendingByBookingID(ctx context.Context, bookingID uint) error
 }
 
 type paymentTransactionRepo struct {
@@ -132,4 +134,14 @@ func (r *paymentTransactionRepo) GetLatestByBookingID(
 		return nil, err
 	}
 	return &tx, nil
+}
+
+func (r *paymentTransactionRepo) CancelPendingByBookingID(
+	ctx context.Context,
+	bookingID uint,
+) error {
+	return r.db.WithContext(ctx).
+		Model(&PaymentTransaction{}).
+		Where("booking_id = ? AND status = ?", bookingID, PaymentStatusPending).
+		Update("status", PaymentStatusCancelled).Error
 }

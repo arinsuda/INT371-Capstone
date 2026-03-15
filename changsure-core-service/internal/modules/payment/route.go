@@ -11,6 +11,7 @@ func (h *Handler) RegisterRoutes(api fiber.Router) {
 
 	paymentGroup.Post("/qr", h.GenerateQR)
 	paymentGroup.Get("/sources/:source_id", h.GetPaymentSource)
+	paymentGroup.Delete("/bookings/:booking_id/qr", h.CancelPaymentQR)
 	paymentGroup.Get("/bookings/:booking_id/history", h.GetPaymentHistory)
 	paymentGroup.Get("/bookings/:booking_id/status", h.CheckPaymentStatus)
 
