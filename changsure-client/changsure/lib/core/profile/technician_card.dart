@@ -246,9 +246,9 @@ class TechnicianCard extends ConsumerWidget {
             const SizedBox(height: 8),
 
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: SizedBox(
-                height: 35,
+                height: 50,
                 child: Text(
                   description,
                   maxLines: 2,
@@ -264,7 +264,7 @@ class TechnicianCard extends ConsumerWidget {
             const SizedBox(height: 8),
 
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: Text(
                 "ดูรายละเอียดเพิ่มเติม",
                 style: TextStyle(
