@@ -215,7 +215,6 @@ func (s *service) ConfirmPaymentFromWebhook(
 		return NewPaymentError("INVALID_BOOKING_ID", "booking_id is invalid", err)
 	}
 	bookingID := uint(bookingID64)
-
 	amountTHB := float64(amount) / 100.0
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -224,9 +223,18 @@ func (s *service) ConfirmPaymentFromWebhook(
 			return fmt.Errorf("booking not found: %w", err)
 		}
 
-		if bkg.Status == booking.BookingStatusPaid {
-			s.logger.Warn("booking already paid, skipping",
+		if bkg.Status == booking.BookingStatusCompleted {
+			s.logger.Warn("booking already completed, skipping",
 				"booking_id", bookingID,
+				"charge_id", chargeID,
+			)
+			return nil
+		}
+
+		if bkg.Status != booking.BookingStatusWaitingPayment {
+			s.logger.Warn("booking is not in WAITING_PAYMENT status, skipping",
+				"booking_id", bookingID,
+				"status", bkg.Status,
 				"charge_id", chargeID,
 			)
 			return nil
@@ -284,6 +292,17 @@ func (s *service) ConfirmPaymentFromWebhook(
 	})
 }
 
+func (s *service) HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error) {
+	bkg, err := s.bookingRepo.FindByID(ctx, bookingID)
+	if err != nil {
+		return false, fmt.Errorf("find booking: %w", err)
+	}
+	if bkg == nil {
+		return false, nil
+	}
+	return bkg.Status == booking.BookingStatusCompleted, nil
+}
+
 func (s *service) GetPaymentSource(ctx context.Context, sourceID string) (*PaymentSource, error) {
 	if sourceID == "" {
 		return nil, NewPaymentError("INVALID_SOURCE_ID", "source ID is required", nil)
@@ -301,22 +320,6 @@ func (s *service) ConfirmPayment(ctx context.Context, bookingID uint) error {
 
 func (s *service) GetPaymentHistory(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error) {
 	return s.paymentTxnRepo.FindByBookingID(ctx, bookingID)
-}
-
-func (s *service) HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error) {
-	transactions, err := s.paymentTxnRepo.FindByBookingID(ctx, bookingID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return false, nil
-		}
-		return false, err
-	}
-	for _, txn := range transactions {
-		if txn.Status == PaymentStatusSuccessful {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func (s *service) extractBookingInfo(bkg *booking.Booking) (techName, svcName, apptDate string) {
