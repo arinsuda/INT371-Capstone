@@ -30,6 +30,7 @@ require (
 	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/pquerna/otp v1.5.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 )
 

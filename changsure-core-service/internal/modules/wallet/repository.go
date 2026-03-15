@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -69,39 +69,47 @@ func (r *repository) CreditFromBooking(
 		return nil, fmt.Errorf("CreditFromBooking must run inside a DB transaction")
 	}
 
-	feeAmount := math.Round(grossAmount*feeRate*100) / 100
-	netAmount := math.Round((grossAmount-feeAmount)*100) / 100
+	gross := decimal.NewFromFloat(grossAmount)
+	rate := decimal.NewFromFloat(feeRate)
+
+	fee := gross.Mul(rate).RoundBank(2)
+	net := gross.Sub(fee).RoundBank(2)
 
 	w, err := r.GetOrCreate(ctx, tx, technicianID)
 	if err != nil {
 		return nil, err
 	}
 
+	balance := decimal.NewFromFloat(w.Balance)
 	balanceBefore := w.Balance
-	balanceAfter := math.Round((w.Balance+netAmount)*100) / 100
+	balanceAfter := balance.Add(net).RoundBank(2)
 
 	if err := tx.WithContext(ctx).
 		Model(&TechnicianWallet{}).
 		Where("id = ?", w.ID).
 		Updates(map[string]any{
-			"balance":      balanceAfter,
-			"total_earned": gorm.Expr("total_earned + ?", netAmount),
+			"balance":      balanceAfter.InexactFloat64(),
+			"total_earned": gorm.Expr("total_earned + ?", net.InexactFloat64()),
 		}).Error; err != nil {
 		return nil, fmt.Errorf("update wallet balance: %w", err)
 	}
 
-	note := fmt.Sprintf("หักค่าคอม %.0f%% (%.2f THB)", feeRate*100, feeAmount)
+	feeF64 := fee.InexactFloat64()
+	netF64 := net.InexactFloat64()
+	balanceAfterF64 := balanceAfter.InexactFloat64()
+
+	note := fmt.Sprintf("หักค่าคอม %.0f%% (%.2f THB)", feeRate*100, feeF64)
 	wtx := &WalletTransaction{
 		WalletID:      w.ID,
 		BookingID:     &bookingID,
 		Type:          TxTypeCredit,
 		Category:      TxCategoryJobPayment,
 		GrossAmount:   grossAmount,
-		FeeAmount:     feeAmount,
+		FeeAmount:     feeF64,
 		FeeRate:       feeRate,
-		NetAmount:     netAmount,
+		NetAmount:     netF64,
 		BalanceBefore: balanceBefore,
-		BalanceAfter:  balanceAfter,
+		BalanceAfter:  balanceAfterF64,
 		Note:          &note,
 	}
 	if err := tx.WithContext(ctx).Create(wtx).Error; err != nil {
@@ -130,17 +138,21 @@ func (r *repository) DebitForWithdrawal(
 		return nil, err
 	}
 
-	if w.Balance < amount {
+	balance := decimal.NewFromFloat(w.Balance)
+	withdrawal := decimal.NewFromFloat(amount)
+
+	if balance.LessThan(withdrawal) {
 		return nil, fmt.Errorf("insufficient balance: have %.2f, need %.2f", w.Balance, amount)
 	}
 
 	balanceBefore := w.Balance
-	balanceAfter := math.Round((w.Balance-amount)*100) / 100
+	balanceAfter := balance.Sub(withdrawal).RoundBank(2)
+	balanceAfterF64 := balanceAfter.InexactFloat64()
 
 	if err := tx.WithContext(ctx).
 		Model(&TechnicianWallet{}).
 		Where("id = ?", w.ID).
-		Update("balance", balanceAfter).Error; err != nil {
+		Update("balance", balanceAfterF64).Error; err != nil {
 		return nil, fmt.Errorf("update wallet balance: %w", err)
 	}
 
@@ -162,7 +174,7 @@ func (r *repository) DebitForWithdrawal(
 		FeeRate:       0,
 		NetAmount:     amount,
 		BalanceBefore: balanceBefore,
-		BalanceAfter:  balanceAfter,
+		BalanceAfter:  balanceAfterF64,
 		Note:          &note,
 	}
 	if err := tx.WithContext(ctx).Create(wtx).Error; err != nil {

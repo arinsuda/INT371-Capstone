@@ -99,6 +99,7 @@ func (r *omiseRepository) CreatePromptPaySource(
 
 	return FromOmiseSource(
 		source,
+		charge.ID,
 		req.PaymentID,
 		req.Description,
 		r.config.QRExpiryMinutes,
@@ -149,6 +150,7 @@ func (r *omiseRepository) GetSource(
 
 	return FromOmiseSource(
 		source,
+		"",
 		"",
 		"",
 		r.config.QRExpiryMinutes,
