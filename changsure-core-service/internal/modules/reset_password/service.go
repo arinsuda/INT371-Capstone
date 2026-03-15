@@ -21,8 +21,7 @@ import (
 const (
 	otpTTL        = 5 * time.Minute
 	resetTokenTTL = 15 * time.Minute
-	otpDigits     = 6
-	otpPeriod     = uint(300)
+	otpPeriod     = uint(30)
 )
 
 var (
@@ -145,7 +144,6 @@ func (s *service) ForgotPassword(req ForgotPasswordRequest) (*ForgotPasswordResp
 }
 
 func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
-
 	record, err := s.repo.FindLatestValidByEmail(req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("find otp record: %w", err)
@@ -154,13 +152,11 @@ func (s *service) VerifyOTP(req VerifyOTPRequest) (*VerifyOTPResponse, error) {
 		return nil, ErrInvalidOTP
 	}
 
-	valid, err := totp.ValidateCustom(req.OTP, record.TOTPSecret, time.Now(), totp.ValidateOpts{
-		Period:    otpPeriod,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-	if err != nil || !valid {
+	if record.IsExpired() {
+		return nil, ErrInvalidOTP
+	}
+
+	if !totp.Validate(req.OTP, record.TOTPSecret) {
 		return nil, ErrInvalidOTP
 	}
 
