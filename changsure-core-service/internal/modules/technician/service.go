@@ -327,8 +327,12 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 }
 
 func (s *service) toProfileRes(ctx context.Context, tech *Technician) *TechnicianProfileRes {
-	termsAccepted, _ := s.docRepo.HasAccepted(ctx, tech.ID, "technician", "terms-of-service")
-	privacyAccepted, _ := s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
+	var termsAccepted, privacyAccepted bool
+
+	if s.docRepo != nil {
+		termsAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "terms-of-service")
+		privacyAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
+	}
 
 	return &TechnicianProfileRes{
 		ID:              tech.ID,
