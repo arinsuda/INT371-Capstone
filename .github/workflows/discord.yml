@@ -1,4 +1,16 @@
-- name: Send Discord Notification
+name: Discord Notifications
+
+on:
+  push:
+  pull_request:
+  issues:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord Notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
@@ -9,7 +21,7 @@
 
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
-          # 🎨 ระบบสี Dynamic ตามประเภท Event (UX Visual Cue)
+          # 🎨 ระบบสี Dynamic ตามประเภท Event
           COLOR=3055683 # สีเขียว GitHub (ค่าเริ่มต้น/Push)
           if [ "${{ github.event_name }}" == "pull_request" ]; then COLOR=8932594; fi # สีม่วง PR
           if [ "${{ github.event_name }}" == "issues" ]; then COLOR=16743712; fi # สีส้ม Issues
