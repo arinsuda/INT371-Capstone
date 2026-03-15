@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:changsure/data/models/customer/customer_model.dart';
 
+import '../models/users/users_model.dart';
+
 class AuthService {
   Map<String, dynamic>? _decodeJwtPayload(String token) {
     try {
@@ -128,5 +130,84 @@ class AuthService {
       print('Get Customer Profile Error: $e');
     }
     return null;
+  }
+
+  Future<OTPResponse> requestOTP(String email) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/password-resets');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'email': email,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return OTPResponse.fromJson(data);
+    } else {
+      throw Exception('Failed to request OTP (${response.statusCode})');
+    }
+  }
+
+  Future<VerifyOTPResponse> verifyOTP(VerifyOTPRequest request) async {
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/password-resets/verify',
+    );
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(request.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+
+      final data = jsonDecode(response.body);
+      return VerifyOTPResponse.fromJson(data);
+
+    } else {
+
+      throw Exception(
+        "Verify OTP failed (${response.statusCode})",
+      );
+
+    }
+  }
+
+  Future<ResetPasswordResponse> resetPassword(
+      ResetPasswordRequest request,
+      ) async {
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/password-resets',
+    );
+
+    final response = await http.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode(request.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+
+      final data = jsonDecode(response.body);
+      return ResetPasswordResponse.fromJson(data);
+
+    } else {
+
+      throw Exception(
+        "Reset password failed (${response.statusCode})",
+      );
+
+    }
   }
 }

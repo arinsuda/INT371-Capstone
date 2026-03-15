@@ -24,6 +24,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
+  bool _isPasswordFormatValid(String password) {
+    final regex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$');
+    return regex.hasMatch(password);
+  }
+
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email'],
     serverClientId:
@@ -55,6 +60,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         _passwordController.text.isNotEmpty &&
         _checkPasswordController.text.isNotEmpty &&
         _passwordController.text == _checkPasswordController.text &&
+        _isPasswordFormatValid(_passwordController.text) &&
         RegExp(
           r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
         ).hasMatch(_usernameController.text);
@@ -75,7 +81,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Align(
                         alignment: Alignment.centerLeft,
@@ -119,6 +125,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           });
                         },
                       ),
+                      if (_passwordController.text.isNotEmpty &&
+                          !_isPasswordFormatValid(_passwordController.text))
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษ (A–Z) และตัวเลข (0–9) อย่างน้อย 8 ตัว",
+                            style: TextStyle(
+                              color: AppColors.colorError,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       SizedBox(height: 16),
                       _buildPasswordField(
                         label: 'ยืนยันรหัสผ่าน',
@@ -363,8 +381,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               return 'กรุณากรอกรหัสผ่าน';
             }
 
+            if (!_isPasswordFormatValid(value)) {
+              return 'รหัสผ่านต้องมีตัวอักษรและตัวเลข อย่างน้อย 8 ตัว';
+            }
+
             if (isConfirm && value != _passwordController.text) {
-              return 'กรุณากรอกรหัสผ่านให้ถูกต้อง';
+              return 'กรุณากรอกรหัสผ่านให้ตรงกัน';
             }
 
             return null;

@@ -450,3 +450,32 @@ final verifyDetailProvider = FutureProvider.family<VerifyTechnician?, int>((
     user.token!,
   );
 });
+
+final passwordResetServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
+
+final requestOTPProvider =
+FutureProvider.family<OTPResponse, String>((ref, email) async {
+  final service = ref.read(passwordResetServiceProvider);
+  return service.requestOTP(email);
+});
+
+final verifyOTPProvider =
+FutureProvider.family<VerifyOTPResponse, VerifyOTPRequest>((ref, request) async {
+
+  final service = ref.read(passwordResetServiceProvider);
+
+  return service.verifyOTP(request);
+
+});
+
+final resetPasswordProvider =
+FutureProvider.family<ResetPasswordResponse, ResetPasswordRequest>(
+      (ref, request) async {
+
+    final service = ref.read(passwordResetServiceProvider);
+
+    return service.resetPassword(request);
+  },
+);
