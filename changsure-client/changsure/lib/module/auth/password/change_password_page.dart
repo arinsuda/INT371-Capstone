@@ -255,12 +255,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
                           print(result.message);
 
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
-                            (route) => false,
-                          );
+                          ref.invalidate(userProvider);
+
+                          Navigator.of(context).popUntil((route) => route.settings.name == "/login");
                         }
                       : null,
                 ),
