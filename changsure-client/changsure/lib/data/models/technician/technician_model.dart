@@ -241,11 +241,11 @@ class ServiceItem {
 }
 
 class VerifyTechnician {
-  final String verifyStatus;
+  final String? verifyStatus;
 
   VerifyTechnician({required this.verifyStatus});
 
   factory VerifyTechnician.fromJson(Map<String, dynamic> json) {
-    return VerifyTechnician(verifyStatus: json['verify_status']);
+    return VerifyTechnician(verifyStatus: json['verify_status'] as String?);
   }
 }

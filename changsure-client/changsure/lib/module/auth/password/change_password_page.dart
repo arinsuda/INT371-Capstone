@@ -80,9 +80,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
             final regex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$');
 
-            if (!regex.hasMatch(value)) {
-              return "รหัสผ่านต้องมีตัวอักษรและตัวเลข อย่างน้อย 8 ตัว";
-            }
+            // if (!regex.hasMatch(value)) {
+            //   return "รหัสผ่านต้องมีตัวอักษรและตัวเลข อย่างน้อย 8 ตัว";
+            // }
 
             return null;
           },

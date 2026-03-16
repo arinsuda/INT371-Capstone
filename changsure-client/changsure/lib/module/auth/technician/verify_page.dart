@@ -296,6 +296,8 @@ class _VerifyPageState extends ConsumerState<VerifyPage> {
 
                               print("Verify $result");
 
+                              print("Verify status = ${result?.verifyStatus}");
+
                               if (result?.verifyStatus == "FAILED") {
                                 Navigator.push(
                                   context,

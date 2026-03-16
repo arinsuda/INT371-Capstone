@@ -361,10 +361,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               return 'กรุณากรอกรหัสผ่าน';
             }
 
-            if (!_isPasswordFormatValid(value)) {
-              return 'รหัสผ่านต้องมีตัวอักษรและตัวเลข อย่างน้อย 8 ตัว';
-            }
-
             if (isConfirm && value != _passwordController.text) {
               return 'กรุณากรอกรหัสผ่านให้ตรงกัน';
             }
