@@ -90,11 +90,21 @@ class TrackingCard extends ConsumerWidget {
             booking: booking,
             onViewDetail: () {
               if (isCompleted) {
-                _showPaymentSummarySheet(
-                  context,
-                  booking.id,
-                  booking.bookingNumber,
-                );
+                if (isTechnician) {
+                  _showPaymentSummarySheet(
+                    context,
+                    booking.id,
+                    booking.bookingNumber,
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          BookingDetailPage(bookingId: booking.id),
+                    ),
+                  );
+                }
               } else {
                 Navigator.push(
                   context,
@@ -511,211 +521,282 @@ class _PaymentSummarySheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingAsync = ref.watch(bookingDetailProvider(bookingId));
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
         child: bookingAsync.when(
           loading: () => const SizedBox(
-            height: 300,
+            height: 320,
             child: Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             ),
           ),
-          error: (error, stack) => SizedBox(
-            height: 300,
+          error: (error, _) => SizedBox(
+            height: 320,
             child: Center(
-              child: Text(
-                'ไม่สามารถโหลดข้อมูลการชำระเงินได้\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red.shade300,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'โหลดข้อมูลไม่สำเร็จ',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                  ),
+                ],
               ),
             ),
           ),
-          data: (latestBooking) {
-            final double? finalPrice = latestBooking.finalPrice;
-            final double? feeAmount = latestBooking.feeAmount;
-            final double? feeRate = latestBooking.feeRate;
-            final double? netAmount = latestBooking.netAmount;
-            final service = latestBooking.technicianService?.service;
-
-            final feeRatePercent = feeRate != null
+          data: (b) {
+            final service = b.technicianService?.service;
+            final finalPrice = b.finalPrice;
+            final feeAmount = b.feeAmount;
+            final feeRate = b.feeRate;
+            final netAmount = b.netAmount;
+            final feeRatePct = feeRate != null
                 ? '${(feeRate * 100).toStringAsFixed(0)}%'
                 : '-';
 
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // ── drag handle ─────────────────────────────────────
+                const SizedBox(height: 12),
                 Center(
                   child: Container(
-                    width: 48,
-                    height: 5,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_rounded,
-                            color: AppColors.primary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'สรุปการชำระเงิน',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.black54,
-                      ),
-                      splashRadius: 24,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(
-                      'หมายเลขการจอง: ${latestBooking.bookingNumber}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
+                // ── hero header with gradient ────────────────────────
                 Container(
+                  margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF003DAB), Color(0xFF1a5fd4)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _summaryRow('ชื่อบริการ', service?.serName ?? '-'),
-                      const SizedBox(height: 12),
-                      _summaryRow(
-                        'ราคาบริการ',
-                        finalPrice != null
-                            ? '฿${finalPrice.toStringAsFixed(0)}'
-                            : '-',
-                        valueColor: Colors.black87,
-                        isBold: true,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'สรุปการชำระเงิน',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(height: 1, color: Colors.grey.shade200),
-                      ),
-                      _summaryRow(
-                        'ค่าธรรมเนียมแพลตฟอร์ม\n($feeRatePercent)',
-                        feeAmount != null
-                            ? '- ฿${feeAmount.toStringAsFixed(0)}'
-                            : '-',
-                        valueColor: Colors.red.shade400,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'ช่างได้รับสุทธิ',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
+                      const SizedBox(height: 20),
                       Text(
                         netAmount != null
                             ? '฿${netAmount.toStringAsFixed(0)}'
                             : '-',
                         style: const TextStyle(
-                          fontSize: 24,
+                          color: Colors.white,
+                          fontSize: 40,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'ยอดที่คุณได้รับ',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.75),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'เลขที่ ${b.bookingNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton(
-                    text: 'ดูรายละเอียดการจองทั้งหมด',
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              BookingDetailPage(bookingId: bookingId),
+                // ── breakdown rows ───────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Column(
+                    children: [
+                      // service name
+                      _infoTile(
+                        icon: Icons.home_repair_service_rounded,
+                        iconColor: Colors.blue.shade600,
+                        iconBg: Colors.blue.shade50,
+                        label: 'บริการ',
+                        value: service?.serName ?? '-',
+                      ),
+                      const SizedBox(height: 10),
+
+                      // price paid
+                      _infoTile(
+                        icon: Icons.payments_rounded,
+                        iconColor: Colors.green.shade600,
+                        iconBg: Colors.green.shade50,
+                        label: 'ราคาบริการที่ลูกค้าจ่าย',
+                        value: finalPrice != null
+                            ? '฿${finalPrice.toStringAsFixed(0)}'
+                            : '-',
+                        valueColor: Colors.green.shade700,
+                        valueBold: true,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // platform fee
+                      _infoTile(
+                        icon: Icons.percent_rounded,
+                        iconColor: Colors.orange.shade600,
+                        iconBg: Colors.orange.shade50,
+                        label: 'ค่าธรรมเนียมแพลตฟอร์ม ($feeRatePct)',
+                        value: feeAmount != null
+                            ? '- ฿${feeAmount.toStringAsFixed(0)}'
+                            : '-',
+                        valueColor: Colors.orange.shade700,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // divider + net
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F5FF),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF003DAB).withOpacity(0.15),
+                          ),
                         ),
-                      );
-                    },
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: AppColors.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'ช่างได้รับสุทธิ',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              netAmount != null
+                                  ? '฿${netAmount.toStringAsFixed(0)}'
+                                  : '-',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── action button ────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                BookingDetailPage(bookingId: bookingId),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: const Text('ดูรายละเอียดการจองทั้งหมด'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -726,36 +807,54 @@ class _PaymentSummarySheet extends ConsumerWidget {
     );
   }
 
-  Widget _summaryRow(
-    String label,
-    String value, {
+  Widget _infoTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String label,
+    required String value,
     Color valueColor = Colors.black87,
-    bool isBold = false,
+    bool valueBold = false,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black54,
-              height: 1.4,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.3,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            color: valueColor,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: valueColor,
+              fontWeight: valueBold ? FontWeight.bold : FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
