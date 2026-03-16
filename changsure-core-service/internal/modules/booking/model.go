@@ -107,7 +107,7 @@ type ReviewSummary struct {
 
 type ReviewFilter struct {
 	Rating      *int8
-	HasImages   bool
+	HasImages   *bool
 	ServiceType *uint
 }
 

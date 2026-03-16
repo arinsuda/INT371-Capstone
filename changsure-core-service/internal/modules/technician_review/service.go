@@ -36,9 +36,18 @@ func (s *service) ListReviews(ctx context.Context, technicianID uint, q ListRevi
 		q.Limit = 10
 	}
 
+	var hasImages *bool
+	if q.HasImages == "true" || q.HasImages == "1" {
+		v := true
+		hasImages = &v
+	} else if q.HasImages == "false" || q.HasImages == "0" {
+		v := false
+		hasImages = &v
+	}
+
 	filter := booking.ReviewFilter{
 		Rating:      q.Rating,
-		HasImages:   q.HasImages != nil && *q.HasImages,
+		HasImages:   hasImages,
 		ServiceType: q.ServiceType,
 	}
 

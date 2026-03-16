@@ -459,7 +459,7 @@ func (r *repository) ListReviewsByTechnician(
 	if filter.Rating != nil {
 		countQ = countQ.Where("reviews.rating = ?", *filter.Rating)
 	}
-	if filter.HasImages {
+	if filter.HasImages != nil && *filter.HasImages {
 		countQ = countQ.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
 	}
 	if filter.ServiceType != nil {
@@ -492,7 +492,7 @@ func (r *repository) ListReviewsByTechnician(
 	if filter.Rating != nil {
 		q = q.Where("reviews.rating = ?", *filter.Rating)
 	}
-	if filter.HasImages {
+	if filter.HasImages != nil && *filter.HasImages {
 		q = q.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
 	}
 	if filter.ServiceType != nil {
