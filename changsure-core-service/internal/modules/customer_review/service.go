@@ -58,5 +58,7 @@ func (s *service) CreateReview(ctx context.Context, customerID uint, bookingID u
 		return nil, appErrors.NewInternal(err)
 	}
 
+	review.Images = images
+
 	return review, nil
 }
