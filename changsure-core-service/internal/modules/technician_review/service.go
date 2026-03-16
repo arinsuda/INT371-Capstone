@@ -38,7 +38,7 @@ func (s *service) ListReviews(ctx context.Context, technicianID uint, q ListRevi
 
 	filter := booking.ReviewFilter{
 		Rating:      q.Rating,
-		HasImages:   q.HasImages,
+		HasImages:   q.HasImages != nil && *q.HasImages,
 		ServiceType: q.ServiceType,
 	}
 
