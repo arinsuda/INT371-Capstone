@@ -19,6 +19,7 @@ import (
 	customer "changsure-core-service/internal/modules/customer"
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	customerbooking "changsure-core-service/internal/modules/customer_booking"
+	customerreview "changsure-core-service/internal/modules/customer_review"
 	"changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/notification"
@@ -169,7 +170,8 @@ type Container struct {
 	CriminalCheckService criminalcheck.Service
 	CriminalCheckHandler *criminalcheck.Handler
 
-	Mailer mailer.Mailer
+	Mailer                mailer.Mailer
+	CustomerReviewHandler *customerreview.Handler
 
 	AdminRepo admin.Repository
 }
@@ -223,6 +225,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 
 	c.initCustomerBookingModule()
 	c.initTechnicianBookingModule()
+	c.initCustomerReviewModule()
 
 	c.initChatModule()
 
@@ -608,6 +611,14 @@ func (c *Container) initCriminalCheckModule() {
 
 func (c *Container) initAdminModule() {
 	c.AdminRepo = admin.NewRepository(c.DB)
+}
+
+func (c *Container) initCustomerReviewModule() {
+	if c.BookingRepo == nil {
+		panic("customer_review: BookingRepo must be initialized first")
+	}
+	reviewService := customerreview.NewService(c.BookingRepo)
+	c.CustomerReviewHandler = customerreview.NewHandler(reviewService, c.Storage)
 }
 
 func AllModels() []interface{} {

@@ -123,6 +123,7 @@ func (r *Router) setupCustomerRoutes(api fiber.Router) {
 	r.container.CustomerHandler.RegisterRoutes(customers)
 	r.container.CustomerBookingHandler.RegisterRoutes(customers)
 	r.container.CustomerAddressHandler.RegisterRoutes(customers, r.cfg)
+	r.container.CustomerReviewHandler.RegisterRoutes(customers)
 }
 
 func (r *Router) setupWebSocketRoutes() {
