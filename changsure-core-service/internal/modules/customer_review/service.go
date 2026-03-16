@@ -29,7 +29,7 @@ func (s *service) CreateReview(ctx context.Context, customerID uint, bookingID u
 	if b == nil {
 		return nil, appErrors.NewNotFound("booking not found")
 	}
-	if b.Status != booking.BookingStatusCompleted {
+	if b.Status != booking.BookingStatusCompleted && b.Status != booking.BookingStatusWaitingPayment {
 		return nil, appErrors.NewConflict("booking is not completed yet")
 	}
 	if b.ReviewedAt != nil {
@@ -58,7 +58,11 @@ func (s *service) CreateReview(ctx context.Context, customerID uint, bookingID u
 		return nil, appErrors.NewInternal(err)
 	}
 
-	review.Images = images
+	created, err := s.repo.FindReviewByBookingID(ctx, bookingID)
+	if err == nil && created != nil {
+		return created, nil
+	}
 
+	review.Images = images
 	return review, nil
 }

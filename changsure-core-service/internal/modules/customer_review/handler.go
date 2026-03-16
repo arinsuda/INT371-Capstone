@@ -58,13 +58,12 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 			if err != nil {
 				return appErrors.InternalError(c, "failed to open image file", err)
 			}
-			defer fileData.Close()
 
 			ext := filepath.Ext(file.Filename)
 			filename := fmt.Sprintf("review_%d_%d%s", bookingID, time.Now().UnixNano(), ext)
 			folder := fmt.Sprintf("reviews/%d", bookingID)
 
-			key, err := h.storage.UploadFile(
+			key, uploadErr := h.storage.UploadFile(
 				c.Context(),
 				fileData,
 				filename,
@@ -72,8 +71,10 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 				file.Size,
 				file.Header.Get("Content-Type"),
 			)
-			if err != nil {
-				return appErrors.InternalError(c, "failed to upload image to storage", err)
+			fileData.Close()
+
+			if uploadErr != nil {
+				return appErrors.InternalError(c, "failed to upload image to storage", uploadErr)
 			}
 
 			req.ImageURLs = append(req.ImageURLs, key)
@@ -95,9 +96,7 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 	if h.storage != nil && review.Images != nil {
 		for i := range review.Images {
 			key := review.Images[i].ImageURL
-
 			if signedURL, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
-
 				review.Images[i].ImageURL = signedURL
 			}
 		}
