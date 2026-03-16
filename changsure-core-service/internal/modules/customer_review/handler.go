@@ -48,14 +48,12 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 
 	form, err := c.MultipartForm()
 	if err == nil && form != nil {
-
 		files := form.File["images"]
 		if len(files) > 5 {
 			return appErrors.BadRequest(c, "maximum 5 images allowed")
 		}
 
 		for _, file := range files {
-
 			fileData, err := file.Open()
 			if err != nil {
 				return appErrors.InternalError(c, "failed to open image file", err)
@@ -92,6 +90,17 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 	review, err := h.service.CreateReview(c.Context(), customerID, bookingID, req)
 	if err != nil {
 		return appErrors.HandleError(c, err)
+	}
+
+	if h.storage != nil && review.Images != nil {
+		for i := range review.Images {
+			key := review.Images[i].ImageURL
+
+			if signedURL, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
+
+				review.Images[i].ImageURL = signedURL
+			}
+		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
