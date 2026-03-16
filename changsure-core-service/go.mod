@@ -20,6 +20,9 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/gofiber/contrib/v3/websocket v1.0.0-rc.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/jackc/pgx/v5 v5.5.5
+	github.com/pquerna/otp v1.5.0
+	github.com/shopspring/decimal v1.4.0
 	golang.org/x/crypto v0.46.0
 )
 
@@ -28,9 +31,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
-	github.com/pquerna/otp v1.5.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 )
 

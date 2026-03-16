@@ -29,6 +29,11 @@ type Repository interface {
 	UpdateFinalPrice(ctx context.Context, bookingID uint, finalPrice float64) error
 	ListByCustomer(ctx context.Context, customerID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
 	ListByTechnician(ctx context.Context, technicianID uint, statuses []string, startDate string, endDate string, offset int, limit int) ([]Booking, int64, error)
+
+	CreateReview(ctx context.Context, review *Review, images []ReviewImage) error
+	FindReviewByBookingID(ctx context.Context, bookingID uint) (*Review, error)
+	FindBookingForReview(ctx context.Context, bookingID uint, customerID uint) (*Booking, error)
+	UpsertServiceRating(ctx context.Context, serviceID uint) error
 }
 
 type repository struct {
@@ -193,8 +198,6 @@ func (r *repository) MarkAsPaid(ctx context.Context, bookingID uint) error {
 		}).Error
 }
 
-// ✅ UpdateFinalPrice — บันทึกราคาที่จ่ายจริงจาก Omise webhook
-// เรียกใน transaction เดียวกับ MarkAsPaid เพื่อให้ atomic
 func (r *repository) UpdateFinalPrice(ctx context.Context, bookingID uint, finalPrice float64) error {
 	return r.db.WithContext(ctx).
 		Model(&Booking{}).
@@ -324,4 +327,78 @@ func (r *repository) ListByTechnician(
 	}
 
 	return bookings, total, nil
+}
+
+func (r *repository) CreateReview(ctx context.Context, review *Review, images []ReviewImage) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(review).Error; err != nil {
+			return err
+		}
+		if len(images) > 0 {
+			for i := range images {
+				images[i].ReviewID = review.ID
+			}
+			if err := tx.Create(&images).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&Booking{}).
+			Where("id = ?", review.BookingID).
+			Update("reviewed_at", review.CreatedAt).Error; err != nil {
+			return err
+		}
+		return upsertServiceRatingTx(tx, ctx, review.ServiceID)
+	})
+}
+
+func (r *repository) FindReviewByBookingID(ctx context.Context, bookingID uint) (*Review, error) {
+	var rev Review
+	err := r.db.WithContext(ctx).
+		Preload("Images").
+		Where("booking_id = ?", bookingID).
+		First(&rev).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rev, nil
+}
+
+func (r *repository) FindBookingForReview(ctx context.Context, bookingID uint, customerID uint) (*Booking, error) {
+	var b Booking
+	err := r.db.WithContext(ctx).
+		Preload("TechnicianService").
+		Where("id = ? AND customer_id = ?", bookingID, customerID).
+		First(&b).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (r *repository) UpsertServiceRating(ctx context.Context, serviceID uint) error {
+	return upsertServiceRatingTx(r.db.WithContext(ctx), ctx, serviceID)
+}
+
+func upsertServiceRatingTx(db *gorm.DB, ctx context.Context, serviceID uint) error {
+	return db.WithContext(ctx).Exec(`
+		INSERT INTO service_rating_stats (service_id, avg_rating, total_reviews, updated_at)
+		SELECT
+			service_id,
+			ROUND(AVG(rating), 2),
+			COUNT(*),
+			NOW()
+		FROM reviews
+		WHERE service_id = ?
+		GROUP BY service_id
+		ON DUPLICATE KEY UPDATE
+			avg_rating    = VALUES(avg_rating),
+			total_reviews = VALUES(total_reviews),
+			updated_at    = NOW()
+	`, serviceID).Error
 }

@@ -55,6 +55,8 @@ type Booking struct {
 	FeeRate   *float64 `gorm:"-" json:"fee_rate,omitempty"`
 	FeeAmount *float64 `gorm:"-" json:"fee_amount,omitempty"`
 	NetAmount *float64 `gorm:"-" json:"net_amount,omitempty"`
+
+	ReviewedAt *time.Time `gorm:"index" json:"reviewed_at,omitempty"`
 }
 
 type BookingImage struct {
@@ -67,9 +69,42 @@ type BookingImage struct {
 func (Booking) TableName() string      { return "bookings" }
 func (BookingImage) TableName() string { return "booking_images" }
 
+type Review struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	BookingID  uint      `gorm:"not null;uniqueIndex"     json:"booking_id"`
+	CustomerID uint      `gorm:"not null;index"           json:"customer_id"`
+	ServiceID  uint      `gorm:"not null;index"           json:"service_id"`
+	Rating     int8      `gorm:"not null;check:rating >= 1 AND rating <= 5" json:"rating"`
+	Comment    string    `gorm:"type:text"                json:"comment,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+
+	Images []ReviewImage `gorm:"foreignKey:ReviewID" json:"images,omitempty"`
+}
+
+type ReviewImage struct {
+	ID       uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	ReviewID uint   `gorm:"not null;index"           json:"review_id"`
+	ImageURL string `gorm:"type:varchar(500);not null" json:"image_url"`
+}
+
+func (Review) TableName() string      { return "reviews" }
+func (ReviewImage) TableName() string { return "review_images" }
+
+type ServiceRatingStat struct {
+	ServiceID    uint      `gorm:"primaryKey;autoIncrement:false" json:"service_id"`
+	AvgRating    float64   `gorm:"type:decimal(3,2);not null;default:0.00" json:"avg_rating"`
+	TotalReviews int       `gorm:"not null;default:0" json:"total_reviews"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (ServiceRatingStat) TableName() string { return "service_rating_stats" }
+
 func Models() []interface{} {
 	return []interface{}{
 		&Booking{},
 		&BookingImage{},
+		&Review{},
+		&ReviewImage{},
+		&ServiceRatingStat{},
 	}
 }
