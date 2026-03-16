@@ -3,6 +3,8 @@ package booking
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"time"
 
 	address "changsure-core-service/internal/modules/customer_address"
@@ -34,6 +36,9 @@ type Repository interface {
 	FindReviewByBookingID(ctx context.Context, bookingID uint) (*Review, error)
 	FindBookingForReview(ctx context.Context, bookingID uint, customerID uint) (*Booking, error)
 	UpsertServiceRating(ctx context.Context, serviceID uint) error
+
+	GetTechnicianReviewSummary(ctx context.Context, technicianID uint) (*ReviewSummary, error)
+	ListReviewsByTechnician(ctx context.Context, technicianID uint, filter ReviewFilter, offset int, limit int) ([]ReviewWithDetail, int64, error)
 }
 
 type repository struct {
@@ -401,4 +406,160 @@ func upsertServiceRatingTx(db *gorm.DB, ctx context.Context, serviceID uint) err
 			total_reviews = VALUES(total_reviews),
 			updated_at    = NOW()
 	`, serviceID).Error
+}
+
+func (r *repository) GetTechnicianReviewSummary(ctx context.Context, technicianID uint) (*ReviewSummary, error) {
+	type row struct {
+		Rating int8
+		Count  int64
+	}
+	var rows []row
+
+	err := r.db.WithContext(ctx).
+		Table("reviews").
+		Select("reviews.rating, COUNT(*) as count").
+		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+		Where("bookings.technician_id = ?", technicianID).
+		Group("reviews.rating").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &ReviewSummary{
+		Breakdown: map[int]int64{1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+	}
+	var totalScore int64
+	for _, r := range rows {
+		summary.Breakdown[int(r.Rating)] = r.Count
+		summary.TotalReviews += r.Count
+		totalScore += int64(r.Rating) * r.Count
+	}
+	if summary.TotalReviews > 0 {
+		summary.AvgRating = math.Round(float64(totalScore)/float64(summary.TotalReviews)*10) / 10
+	}
+	return summary, nil
+}
+
+func (r *repository) ListReviewsByTechnician(
+	ctx context.Context,
+	technicianID uint,
+	filter ReviewFilter,
+	offset int,
+	limit int,
+) ([]ReviewWithDetail, int64, error) {
+
+	countQ := r.db.WithContext(ctx).
+		Table("reviews").
+		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+		Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
+		Joins("JOIN services ON services.id = technician_services.service_id").
+		Where("bookings.technician_id = ?", technicianID)
+
+	if filter.Rating != nil {
+		countQ = countQ.Where("reviews.rating = ?", *filter.Rating)
+	}
+	if filter.HasImages {
+		countQ = countQ.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
+	}
+	if filter.ServiceType != nil {
+		countQ = countQ.Where("services.category_id = ?", *filter.ServiceType)
+	}
+
+	var total int64
+	if err := countQ.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	q := r.db.WithContext(ctx).
+		Table("reviews").
+		Select(`
+			reviews.*,
+			CONCAT(customers.first_name, ' ', customers.last_name) AS customer_name,
+			customers.avatar_url                                    AS customer_avatar,
+			services.ser_name                                       AS service_name,
+			technician_services.pricing_type                       AS svc_pricing_type,
+			technician_services.price_fixed                        AS svc_price_fixed,
+			technician_services.price_min                          AS svc_price_min,
+			technician_services.price_max                          AS svc_price_max
+		`).
+		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+		Joins("JOIN customers ON customers.id = reviews.customer_id").
+		Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
+		Joins("JOIN services ON services.id = technician_services.service_id").
+		Where("bookings.technician_id = ?", technicianID)
+
+	if filter.Rating != nil {
+		q = q.Where("reviews.rating = ?", *filter.Rating)
+	}
+	if filter.HasImages {
+		q = q.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
+	}
+	if filter.ServiceType != nil {
+		q = q.Where("services.category_id = ?", *filter.ServiceType)
+	}
+
+	type rawRow struct {
+		Review
+		CustomerName   string   `gorm:"column:customer_name"`
+		CustomerAvatar string   `gorm:"column:customer_avatar"`
+		ServiceName    string   `gorm:"column:service_name"`
+		SvcPricingType string   `gorm:"column:svc_pricing_type"`
+		SvcPriceFixed  *float64 `gorm:"column:svc_price_fixed"`
+		SvcPriceMin    *float64 `gorm:"column:svc_price_min"`
+		SvcPriceMax    *float64 `gorm:"column:svc_price_max"`
+	}
+
+	var raws []rawRow
+	err := q.
+		Order("reviews.created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Scan(&raws).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	reviewIDs := make([]uint, len(raws))
+	for i, rw := range raws {
+		reviewIDs[i] = rw.Review.ID
+	}
+
+	imageMap := map[uint][]ReviewImage{}
+	if len(reviewIDs) > 0 {
+		var imgs []ReviewImage
+		if err := r.db.WithContext(ctx).
+			Where("review_id IN ?", reviewIDs).
+			Find(&imgs).Error; err != nil {
+			return nil, 0, err
+		}
+		for _, img := range imgs {
+			imageMap[img.ReviewID] = append(imageMap[img.ReviewID], img)
+		}
+	}
+
+	results := make([]ReviewWithDetail, len(raws))
+	for i, rw := range raws {
+		rw.Review.Images = imageMap[rw.Review.ID]
+		price := formatServicePrice(rw.SvcPricingType, rw.SvcPriceFixed, rw.SvcPriceMin, rw.SvcPriceMax)
+		results[i] = ReviewWithDetail{
+			Review:         rw.Review,
+			CustomerName:   rw.CustomerName,
+			CustomerAvatar: rw.CustomerAvatar,
+			ServiceName:    rw.ServiceName,
+			ServicePrice:   price,
+		}
+	}
+
+	return results, total, nil
+}
+
+func formatServicePrice(pricingType string, fixed, min, max *float64) string {
+	if pricingType == "FIXED" && fixed != nil {
+		return fmt.Sprintf("฿%.0f", *fixed)
+	}
+	if min != nil && max != nil {
+		return fmt.Sprintf("฿%.0f - ฿%.0f", *min, *max)
+	}
+	return ""
 }

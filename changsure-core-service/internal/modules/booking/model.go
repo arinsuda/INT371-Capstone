@@ -99,6 +99,26 @@ type ServiceRatingStat struct {
 
 func (ServiceRatingStat) TableName() string { return "service_rating_stats" }
 
+type ReviewSummary struct {
+	AvgRating    float64       `json:"avg_rating"`
+	TotalReviews int64         `json:"total_reviews"`
+	Breakdown    map[int]int64 `json:"breakdown"`
+}
+
+type ReviewFilter struct {
+	Rating      *int8
+	HasImages   bool
+	ServiceType *uint
+}
+
+type ReviewWithDetail struct {
+	Review
+	CustomerName   string `json:"customer_name"`
+	CustomerAvatar string `json:"customer_avatar"`
+	ServiceName    string `json:"service_name"`
+	ServicePrice   string `json:"service_price"`
+}
+
 func Models() []interface{} {
 	return []interface{}{
 		&Booking{},

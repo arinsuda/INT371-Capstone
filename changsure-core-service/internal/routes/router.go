@@ -115,6 +115,7 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	r.container.TechnicianAddressHandler.RegisterRoutes(technicians)
 	r.container.CriminalCheckHandler.RegisterRoutes(technicians)
 	r.container.WalletHandler.RegisterRoutes(technicians)
+	r.container.TechnicianReviewHandler.RegisterRoutes(technicians)
 }
 
 func (r *Router) setupCustomerRoutes(api fiber.Router) {

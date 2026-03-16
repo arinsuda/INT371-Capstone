@@ -39,6 +39,7 @@ import (
 	techniciancalendar "changsure-core-service/internal/modules/technician_calendar"
 	technicianmatching "changsure-core-service/internal/modules/technician_matching"
 	techworks "changsure-core-service/internal/modules/technician_post"
+	technicianreview "changsure-core-service/internal/modules/technician_review"
 	technicianservice "changsure-core-service/internal/modules/technician_service"
 	technicianservicearea "changsure-core-service/internal/modules/technician_service_area"
 	timeslot "changsure-core-service/internal/modules/time_slot"
@@ -170,8 +171,9 @@ type Container struct {
 	CriminalCheckService criminalcheck.Service
 	CriminalCheckHandler *criminalcheck.Handler
 
-	Mailer                mailer.Mailer
-	CustomerReviewHandler *customerreview.Handler
+	Mailer                  mailer.Mailer
+	CustomerReviewHandler   *customerreview.Handler
+	TechnicianReviewHandler *technicianreview.Handler
 
 	AdminRepo admin.Repository
 }
@@ -226,6 +228,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initCustomerBookingModule()
 	c.initTechnicianBookingModule()
 	c.initCustomerReviewModule()
+	c.initTechnicianReviewModule()
 
 	c.initChatModule()
 
@@ -619,6 +622,14 @@ func (c *Container) initCustomerReviewModule() {
 	}
 	reviewService := customerreview.NewService(c.BookingRepo)
 	c.CustomerReviewHandler = customerreview.NewHandler(reviewService, c.Storage)
+}
+
+func (c *Container) initTechnicianReviewModule() {
+	if c.BookingRepo == nil {
+		panic("technician_review: BookingRepo must be initialized first")
+	}
+	reviewService := technicianreview.NewService(c.BookingRepo)
+	c.TechnicianReviewHandler = technicianreview.NewHandler(reviewService, c.Storage)
 }
 
 func AllModels() []interface{} {
