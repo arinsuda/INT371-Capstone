@@ -70,192 +70,195 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 18, right: 18, top: 50),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Image.asset("assets/image/ChangSure.png", height: 40),
-                ),
-                SizedBox(height: 32),
-
-                const Text(
-                  'ลงทะเบียน',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+        child: ListView(children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 18, right: 18, top: 50),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Image.asset("assets/image/ChangSure.png", height: 40),
                   ),
-                ),
-                SizedBox(height: 24),
-                const Text(
-                  'สร้างบัญชีผู้ใช้',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.colorTertiaryText,
-                  ),
-                ),
-                SizedBox(height: 32),
+                  SizedBox(height: 32),
 
-                _buildTextField(
-                  label: 'อีเมล',
-                  controller: _usernameController,
-                ),
-                SizedBox(height: 16),
-                _buildPasswordField(
-                  label: 'รหัสผ่าน',
-                  controller: _passwordController,
-                  obscure: _obscurePassword,
-                  onToggle: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                ),
-                if (_passwordController.text.isNotEmpty &&
-                    !_isPasswordFormatValid(_passwordController.text))
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                      "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษ (A–Z) และตัวเลข (0–9) อย่างน้อย 8 ตัว",
-                      style: TextStyle(
-                        color: AppColors.colorError,
-                        fontSize: 12,
-                      ),
+                  const Text(
+                    'ลงทะเบียน',
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
                   ),
-                SizedBox(height: 16),
-                _buildPasswordField(
-                  label: 'ยืนยันรหัสผ่าน',
-                  controller: _checkPasswordController,
-                  obscure: _obscureConfirmPassword,
-                  isConfirm: true,
-                  onToggle: () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                    });
-                  },
-                ),
-
-                SizedBox(height: 24),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: PrimaryButton(
-                    text: 'ลงทะเบียน',
-                    onPressed: (!_isFormValid)
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (context) => ChooseRolePage(
-                                  email: _usernameController.text.trim(),
-                                  password: _passwordController.text.trim(),
-                                  confirmPassword: _checkPasswordController.text
-                                      .trim(),
-                                ),
-                              ),
-                            );
-                          },
-                  ),
-                ),
-
-                SizedBox(height: 24),
-                Row(
-                  children: const [
-                    Expanded(
-                      child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
+                  SizedBox(height: 18),
+                  const Text(
+                    'สร้างบัญชีผู้ใช้',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.colorTertiaryText,
                     ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  SizedBox(height: 18),
+
+                  _buildTextField(
+                    label: 'อีเมล',
+                    controller: _usernameController,
+                  ),
+                  SizedBox(height: 16),
+                  _buildPasswordField(
+                    label: 'รหัสผ่าน',
+                    controller: _passwordController,
+                    obscure: _obscurePassword,
+                    onToggle: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  if (_passwordController.text.isNotEmpty &&
+                      !_isPasswordFormatValid(_passwordController.text))
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
                       child: Text(
-                        'หรือ',
-                        style: TextStyle(color: AppColors.colorTertiaryText),
+                        "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษ (A–Z) และตัวเลข (0–9) อย่างน้อย 8 ตัว",
+                        style: TextStyle(
+                          color: AppColors.colorError,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                    Expanded(
-                      child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: signInWithGoogle,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    side: const BorderSide(
-                      color: AppColors.colorStroke,
-                      width: 1,
-                    ),
-                    backgroundColor: googleButtonColor,
+                  SizedBox(height: 16),
+                  _buildPasswordField(
+                    label: 'ยืนยันรหัสผ่าน',
+                    controller: _checkPasswordController,
+                    obscure: _obscureConfirmPassword,
+                    isConfirm: true,
+                    onToggle: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
                   ),
-                  child: Row(
+
+                  SizedBox(height: 24),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: PrimaryButton(
+                      text: 'ลงทะเบียน',
+                      onPressed: (!_isFormValid)
+                          ? null
+                          : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (context) => ChooseRolePage(
+                              email: _usernameController.text.trim(),
+                              password: _passwordController.text.trim(),
+                              confirmPassword: _checkPasswordController.text
+                                  .trim(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  SizedBox(height: 24),
+                  Row(
+                    children: const [
+                      Expanded(
+                        child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'หรือ',
+                          style: TextStyle(color: AppColors.colorTertiaryText),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  OutlinedButton(
+                    onPressed: signInWithGoogle,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: const BorderSide(
+                        color: AppColors.colorStroke,
+                        width: 1,
+                      ),
+                      backgroundColor: googleButtonColor,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/image/Google_Logo.png',
+                          width: 18,
+                          height: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'เข้าสู่ระบบด้วย Google',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 32),
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset(
-                        'assets/image/Google_Logo.png',
-                        width: 18,
-                        height: 18,
-                      ),
-                      const SizedBox(width: 10),
                       const Text(
-                        'เข้าสู่ระบบด้วย Google',
+                        'มีบัญชีผู้ใช้อยุู่แล้ว?',
                         style: TextStyle(
                           fontSize: 14,
+                          color: AppColors.colorTertiaryText,
                           fontWeight: FontWeight.w500,
-                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'เข้าสู่ระบบ',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF3071C7),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'มีบัญชีผู้ใช้อยุู่แล้ว?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.colorTertiaryText,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'เข้าสู่ระบบ',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3071C7),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          )
+        ],)
+        ,
       ),
     );
   }

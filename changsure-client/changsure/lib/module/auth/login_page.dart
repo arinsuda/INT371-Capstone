@@ -129,167 +129,182 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 18, right: 18, top: 50),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Image.asset("assets/image/ChangSure.png", height: 40),
-                ),
-                const SizedBox(height: 32),
-                const Text(
-                  'ลงชื่อเข้าสู่ระบบ',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'กรุณากรอกอีเมลและรหัสผ่าน',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.colorTertiaryText,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                _buildTextField(
-                  label: 'อีเมล',
-                  controller: _usernameController,
-                ),
-                const SizedBox(height: 16),
-                _buildPasswordField(),
-                const SizedBox(height: 16),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ForgotPasswordPage(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Forgot Password ?',
-                      style: TextStyle(
-                        color: Color(0xFF3071C7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+        child: ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 18, right: 18, top: 50),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        "assets/image/ChangSure.png",
+                        height: 40,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: PrimaryButton(
-                    text: _isLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ',
-                    onPressed: (!_isFormValid || _isLoading)
-                        ? null
-                        : _handleLogin,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-                Row(
-                  children: const [
-                    Expanded(
-                      child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        'หรือ',
-                        style: TextStyle(color: AppColors.colorTertiaryText),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(color: Color(0xFFE8E8E8), thickness: 1),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: _signInWithGoogle,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    side: const BorderSide(
-                      color: AppColors.colorStroke,
-                      width: 1,
-                    ),
-                    backgroundColor: googleButtonColor,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/image/Google_Logo.png',
-                        width: 18,
-                        height: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'เข้าสู่ระบบด้วย Google',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+                    const SizedBox(height: 32),
                     const Text(
-                      'ยังไม่มีบัญชีผู้ใช้?',
+                      'ลงชื่อเข้าสู่ระบบ',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.colorTertiaryText,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (context) => const RegisterPage(),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'กรุณากรอกอีเมลและรหัสผ่าน',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.colorTertiaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    _buildTextField(
+                      label: 'อีเมล',
+                      controller: _usernameController,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPasswordField(),
+                    const SizedBox(height: 16),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordPage(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Forgot Password ?',
+                          style: TextStyle(
+                            color: Color(0xFF3071C7),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                        );
-                      },
-                      child: const Text(
-                        'ลงทะเบียนเลย',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF3071C7),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 24),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: PrimaryButton(
+                        text: _isLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ',
+                        onPressed: (!_isFormValid || _isLoading)
+                            ? null
+                            : _handleLogin,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Row(
+                      children: const [
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFE8E8E8),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'หรือ',
+                            style: TextStyle(
+                              color: AppColors.colorTertiaryText,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFE8E8E8),
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton(
+                      onPressed: _signInWithGoogle,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        side: const BorderSide(
+                          color: AppColors.colorStroke,
+                          width: 1,
+                        ),
+                        backgroundColor: googleButtonColor,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/image/Google_Logo.png',
+                            width: 18,
+                            height: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'เข้าสู่ระบบด้วย Google',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'ยังไม่มีบัญชีผู้ใช้?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.colorTertiaryText,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (context) => const RegisterPage(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'ลงทะเบียนเลย',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF3071C7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

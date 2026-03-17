@@ -62,163 +62,175 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsetsGeometry.symmetric(horizontal: 6, vertical: 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: ListView(
+          children: [
+            Padding(
+              padding: EdgeInsetsGeometry.symmetric(
+                horizontal: 6,
+                vertical: 32,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.black,
-                      size: 30,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Image.asset("assets/image/ChangSure.png", height: 35),
-                ],
-              ),
-
-              SizedBox(height: 32),
-
-              Padding(
-                padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
-                child: Text(
-                  "ตรวจสอบยืนยันอีเมล",
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(height: 12),
-              Padding(
-                padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
-                child: Text(
-                  "กรุณาป้อนรหัสที่ส่งไปยัง ${widget.email}",
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.colorTertiaryText,
-                  ),
-                ),
-              ),
-              SizedBox(height: 32),
-
-              Padding(
-                padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
-                child: OtpInputWidget(
-                  onCompleted: (otp) {
-                    setState(() {
-                      _otp = otp;
-                    });
-                  },
-                ),
-              ),
-
-              SizedBox(height: 32),
-
-              Padding(
-                padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
-                child: PrimaryButton(
-                  text: "ยืนยัน",
-                  onPressed: () async {
-                    print(_otp);
-
-                    final request = VerifyOTPRequest(
-                      email: widget.email,
-                      otp: _otp,
-                    );
-
-                    final result = await ref.read(
-                      verifyOTPProvider(request).future,
-                    );
-
-                    print(result.resetToken);
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ChangePasswordPage(resetToken: result.resetToken),
+                  Row(
+                    children: [
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.black,
+                          size: 30,
+                        ),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: 16),
-
-              Center(
-                child: Text(
-                  "รหัสนี้จะหมดอายุใน $formattedTime นาที",
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.colorTertiaryText,
+                      const SizedBox(width: 4),
+                      Image.asset("assets/image/ChangSure.png", height: 35),
+                    ],
                   ),
-                ),
-              ),
 
-              SizedBox(height: 32),
+                  SizedBox(height: 32),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    "ยังไม่ได้รับรหัสใช่หรือไม่?",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.primaryText,
+                  Padding(
+                    padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
+                    child: Text(
+                      "ตรวจสอบยืนยันอีเมล",
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  SizedBox(width: 4),
-
-                  GestureDetector(
-                    onTap: () async {
-                      try {
-                        ref.invalidate(requestOTPProvider(widget.email));
-
-                        final result = await ref.read(
-                          requestOTPProvider(widget.email).future,
-                        );
-
-                        print("OTP ${result.otp}");
-
-                        setState(() {
-                          _remainingSeconds = result.expiresIn;
-                        });
-
-                        _timer?.cancel();
-
-                        _timer = Timer.periodic(const Duration(seconds: 1), (
-                          timer,
-                        ) {
-                          if (_remainingSeconds <= 0) {
-                            timer.cancel();
-                          } else {
-                            setState(() {
-                              _remainingSeconds--;
-                            });
-                          }
-                        });
-                      } catch (e) {
-                        print(e);
-                      }
-                    },
+                  SizedBox(height: 12),
+                  Padding(
+                    padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
                     child: Text(
-                      "ส่งอีกครั้ง",
+                      "กรุณาป้อนรหัสที่ส่งไปยัง ${widget.email}",
                       style: TextStyle(
                         fontSize: 16,
-                        color: AppColors.secondary,
-                        decoration: TextDecoration.underline,
+                        color: AppColors.colorTertiaryText,
                       ),
                     ),
                   ),
+                  SizedBox(height: 32),
+
+                  Padding(
+                    padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
+                    child: OtpInputWidget(
+                      onCompleted: (otp) {
+                        setState(() {
+                          _otp = otp;
+                        });
+                      },
+                    ),
+                  ),
+
+                  SizedBox(height: 32),
+
+                  Padding(
+                    padding: EdgeInsetsGeometry.symmetric(horizontal: 12),
+                    child: PrimaryButton(
+                      text: "ยืนยัน",
+                      onPressed: () async {
+                        print(_otp);
+
+                        final request = VerifyOTPRequest(
+                          email: widget.email,
+                          otp: _otp,
+                        );
+
+                        final result = await ref.read(
+                          verifyOTPProvider(request).future,
+                        );
+
+                        print(result.resetToken);
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChangePasswordPage(
+                              resetToken: result.resetToken,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 16),
+
+                  Center(
+                    child: Text(
+                      "รหัสนี้จะหมดอายุใน $formattedTime นาที",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.colorTertiaryText,
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 32),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        "ยังไม่ได้รับรหัสใช่หรือไม่?",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.primaryText,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+
+                      GestureDetector(
+                        onTap: () async {
+                          try {
+                            ref.invalidate(requestOTPProvider(widget.email));
+
+                            final result = await ref.read(
+                              requestOTPProvider(widget.email).future,
+                            );
+
+                            print("OTP ${result.otp}");
+
+                            setState(() {
+                              _remainingSeconds = result.expiresIn;
+                            });
+
+                            _timer?.cancel();
+
+                            _timer = Timer.periodic(
+                              const Duration(seconds: 1),
+                              (timer) {
+                                if (_remainingSeconds <= 0) {
+                                  timer.cancel();
+                                } else {
+                                  setState(() {
+                                    _remainingSeconds--;
+                                  });
+                                }
+                              },
+                            );
+                          } catch (e) {
+                            print(e);
+                          }
+                        },
+                        child: Text(
+                          "ส่งอีกครั้ง",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.secondary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
