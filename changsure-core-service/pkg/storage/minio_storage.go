@@ -166,7 +166,7 @@ func (s *MinioStorage) PresignGet(
 
 		parsed, _ := url.Parse(signed)
 
-		signed = base + "/minio" + parsed.Path + "?" + parsed.RawQuery
+        signed = base + "/capstone25/cp25ssa1/minio" + parsed.Path + "?" + parsed.RawQuery
 	}
 
 	return signed, nil
