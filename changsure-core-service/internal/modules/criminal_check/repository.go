@@ -8,7 +8,7 @@ import (
 )
 
 type Repository interface {
-	FindByNationalID(nationalID string) (*MockCriminalRecord, error)
+	FindByNationalID(nationalID string) (*CriminalBlacklist, error)
 	SaveLog(log *VerificationLog) error
 
 	ListLogs(filter ListLogsFilter) ([]VerificationLog, int64, error)
@@ -21,10 +21,10 @@ type Repository interface {
 
 	GetStats() (*VerificationStatResponse, error)
 
-	ListCriminalRecords(page, pageSize int, status string) ([]MockCriminalRecord, int64, error)
-	GetCriminalRecordByID(id uint) (*MockCriminalRecord, error)
-	GetCriminalRecordByNationalID(nationalID string) (*MockCriminalRecord, error)
-	CreateCriminalRecord(record *MockCriminalRecord) error
+	ListCriminalRecords(page, pageSize int) ([]CriminalBlacklist, int64, error)
+	GetCriminalRecordByID(id uint) (*CriminalBlacklist, error)
+	GetCriminalRecordByNationalID(nationalID string) (*CriminalBlacklist, error)
+	CreateCriminalRecord(record *CriminalBlacklist) error
 	UpdateCriminalRecord(id uint, updates map[string]interface{}) error
 	DeleteCriminalRecord(id uint) error
 }
@@ -37,8 +37,8 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) FindByNationalID(nationalID string) (*MockCriminalRecord, error) {
-	var record MockCriminalRecord
+func (r *repository) FindByNationalID(nationalID string) (*CriminalBlacklist, error) {
+	var record CriminalBlacklist
 	err := r.db.Where("national_id = ?", nationalID).First(&record).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -130,11 +130,10 @@ func (r *repository) GetStats() (*VerificationStatResponse, error) {
 	r.db.Model(&VerificationLog{}).Where("status = ?", StatusPassed).Count(&stats.Passed)
 	r.db.Model(&VerificationLog{}).Where("status = ?", StatusFailed).Count(&stats.Failed)
 	r.db.Model(&VerificationLog{}).Where("status = ?", StatusPending).Count(&stats.Pending)
-	r.db.Model(&VerificationLog{}).Where("status = ?", StatusNotFound).Count(&stats.NotFound)
 	return &stats, nil
 }
 
-func (r *repository) ListCriminalRecords(page, pageSize int, status string) ([]MockCriminalRecord, int64, error) {
+func (r *repository) ListCriminalRecords(page, pageSize int) ([]CriminalBlacklist, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -143,29 +142,25 @@ func (r *repository) ListCriminalRecords(page, pageSize int, status string) ([]M
 	}
 	offset := (page - 1) * pageSize
 
-	q := r.db.Model(&MockCriminalRecord{})
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-
+	q := r.db.Model(&CriminalBlacklist{})
 	var total int64
 	q.Count(&total)
 
-	var records []MockCriminalRecord
+	var records []CriminalBlacklist
 	err := q.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&records).Error
 	return records, total, err
 }
 
-func (r *repository) GetCriminalRecordByID(id uint) (*MockCriminalRecord, error) {
-	var record MockCriminalRecord
+func (r *repository) GetCriminalRecordByID(id uint) (*CriminalBlacklist, error) {
+	var record CriminalBlacklist
 	if err := r.db.First(&record, id).Error; err != nil {
 		return nil, err
 	}
 	return &record, nil
 }
 
-func (r *repository) GetCriminalRecordByNationalID(nationalID string) (*MockCriminalRecord, error) {
-	var record MockCriminalRecord
+func (r *repository) GetCriminalRecordByNationalID(nationalID string) (*CriminalBlacklist, error) {
+	var record CriminalBlacklist
 	err := r.db.Where("national_id = ?", nationalID).First(&record).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -173,14 +168,14 @@ func (r *repository) GetCriminalRecordByNationalID(nationalID string) (*MockCrim
 	return &record, err
 }
 
-func (r *repository) CreateCriminalRecord(record *MockCriminalRecord) error {
+func (r *repository) CreateCriminalRecord(record *CriminalBlacklist) error {
 	return r.db.Create(record).Error
 }
 
 func (r *repository) UpdateCriminalRecord(id uint, updates map[string]interface{}) error {
-	return r.db.Model(&MockCriminalRecord{}).Where("id = ?", id).Updates(updates).Error
+	return r.db.Model(&CriminalBlacklist{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *repository) DeleteCriminalRecord(id uint) error {
-	return r.db.Delete(&MockCriminalRecord{}, id).Error
+	return r.db.Delete(&CriminalBlacklist{}, id).Error
 }

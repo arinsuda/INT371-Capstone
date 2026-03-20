@@ -40,7 +40,7 @@ type Service interface {
 	ApproveJob(ctx context.Context, adminID uint, jobID uint, reason string) error
 	RejectJob(ctx context.Context, adminID uint, jobID uint, reason string) error
 
-	ListCriminalRecords(ctx context.Context, page, pageSize int, status string) ([]CriminalRecordResponse, int64, error)
+	ListCriminalRecords(ctx context.Context, page, pageSize int) ([]CriminalRecordResponse, int64, error)
 	GetCriminalRecord(ctx context.Context, id uint) (*CriminalRecordResponse, error)
 	CreateCriminalRecord(ctx context.Context, req CreateCriminalRecordRequest) (*CriminalRecordResponse, error)
 	UpdateCriminalRecord(ctx context.Context, id uint, req UpdateCriminalRecordRequest) (*CriminalRecordResponse, error)
@@ -221,7 +221,7 @@ func (s *service) GetJobStatus(ctx context.Context, jobID uint) (*JobStatusRespo
 	if err := json.Unmarshal(job.Payload, &payload); err == nil {
 		logs, _ := s.repo.GetLogsByTechnicianID(payload.TechnicianID)
 		if len(logs) > 0 {
-			latest := logs[0] 
+			latest := logs[0]
 			resp.VerifyStatus = string(latest.Status)
 			resp.VerifyNote = latest.Note
 
@@ -486,8 +486,8 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 	return resp, nil
 }
 
-func (s *service) ListCriminalRecords(ctx context.Context, page, pageSize int, status string) ([]CriminalRecordResponse, int64, error) {
-	records, total, err := s.repo.ListCriminalRecords(page, pageSize, status)
+func (s *service) ListCriminalRecords(ctx context.Context, page, pageSize int) ([]CriminalRecordResponse, int64, error) {
+	records, total, err := s.repo.ListCriminalRecords(page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list criminal records: %w", err)
 	}
@@ -518,10 +518,9 @@ func (s *service) CreateCriminalRecord(ctx context.Context, req CreateCriminalRe
 	if existing != nil {
 		return nil, ErrNationalIDDuplicate
 	}
-	record := &MockCriminalRecord{
+	record := &CriminalBlacklist{
 		NationalID: req.NationalID,
 		FullName:   req.FullName,
-		Status:     req.Status,
 		Note:       req.Note,
 	}
 	if err := s.repo.CreateCriminalRecord(record); err != nil {
@@ -539,11 +538,18 @@ func (s *service) UpdateCriminalRecord(ctx context.Context, id uint, req UpdateC
 		return nil, fmt.Errorf("get criminal record: %w", err)
 	}
 	updates := map[string]interface{}{}
+	if req.NationalID != nil {
+		existing, err := s.repo.GetCriminalRecordByNationalID(*req.NationalID)
+		if err != nil {
+			return nil, fmt.Errorf("check national id: %w", err)
+		}
+		if existing != nil && existing.ID != id {
+			return nil, ErrNationalIDDuplicate
+		}
+		updates["national_id"] = *req.NationalID
+	}
 	if req.FullName != nil {
 		updates["full_name"] = *req.FullName
-	}
-	if req.Status != nil {
-		updates["status"] = *req.Status
 	}
 	if req.Note != nil {
 		updates["note"] = *req.Note
@@ -567,12 +573,11 @@ func (s *service) DeleteCriminalRecord(ctx context.Context, id uint) error {
 	return s.repo.DeleteCriminalRecord(id)
 }
 
-func toCriminalRecordResponse(r MockCriminalRecord) CriminalRecordResponse {
+func toCriminalRecordResponse(r CriminalBlacklist) CriminalRecordResponse {
 	return CriminalRecordResponse{
 		ID:         r.ID,
 		NationalID: r.NationalID,
 		FullName:   r.FullName,
-		Status:     r.Status,
 		Note:       r.Note,
 		CreatedAt:  r.CreatedAt,
 		UpdatedAt:  r.UpdatedAt,

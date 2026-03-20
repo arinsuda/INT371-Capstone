@@ -39,20 +39,11 @@ func namesMatch(ocrName, systemFirstName, systemLastName string) bool {
 		strings.Contains(normalizedOCR, normalizedLast)
 }
 
-func resolveStatus(record *MockCriminalRecord) (CheckStatus, string, string, bool) {
+func resolveStatus(record *CriminalBlacklist) (CheckStatus, string, string, bool) {
 	if record == nil {
-		return StatusNotFound, "ไม่พบข้อมูลในระบบ", "ไม่พบข้อมูลเลขบัตรประชาชน กรุณาติดต่อเจ้าหน้าที่", false
+		return StatusPassed, "ไม่พบประวัติอาชญากรรม", "ผ่านการตรวจสอบประวัติอาชญากรรม", true
 	}
-	switch record.Status {
-	case StatusPassed:
-		return StatusPassed, record.Note, "ผ่านการตรวจสอบประวัติอาชญากรรม", true
-	case StatusFailed:
-		return StatusFailed, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม", false
-	case StatusPending:
-		return StatusPending, record.Note, "อยู่ระหว่างการตรวจสอบประวัติ กรุณารอผล", false
-	default:
-		return StatusNotFound, record.Note, "ไม่พบข้อมูล", false
-	}
+	return StatusFailed, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม", false
 }
 
 func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {

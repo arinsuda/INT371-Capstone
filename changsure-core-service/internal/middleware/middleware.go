@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
+type contextKey string
+
 const (
 	localRequestID      = "request_id"
 	localRequestContext = "requestContext"
@@ -82,7 +84,6 @@ func APIKeyAuth(validAPIKeys []string) fiber.Handler {
 	for _, k := range validAPIKeys {
 		keySet[k] = struct{}{}
 	}
-
 	return func(c fiber.Ctx) error {
 		key := c.Get("X-API-Key")
 		if key != "" {

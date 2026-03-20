@@ -79,6 +79,13 @@ type Review struct {
 	CreatedAt  time.Time `json:"created_at"`
 
 	Images []ReviewImage `gorm:"foreignKey:ReviewID" json:"images,omitempty"`
+
+	CustomerName   string `gorm:"-" json:"-"`
+	CustomerAvatar string `gorm:"-" json:"-"`
+	ServiceName    string `gorm:"-" json:"-"`
+	ServicePicture string `gorm:"-" json:"-"`
+	CategoryID     uint   `gorm:"-" json:"-"`
+	CategoryName   string `gorm:"-" json:"-"`
 }
 
 type ReviewImage struct {
@@ -117,6 +124,9 @@ type ReviewWithDetail struct {
 	CustomerAvatar string `json:"customer_avatar"`
 	ServiceName    string `json:"service_name"`
 	ServicePrice   string `json:"service_price"`
+	ServicePicture string `json:"service_picture"`
+	CategoryID     uint   `json:"category_id"`
+	CategoryName   string `json:"category_name"`
 }
 
 func Models() []interface{} {

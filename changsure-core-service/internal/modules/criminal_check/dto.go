@@ -44,7 +44,7 @@ type ListLogsResponse struct {
 }
 
 type UpdateLogStatusRequest struct {
-	Status CheckStatus `json:"status" validate:"required,oneof=PASSED FAILED PENDING NOT_FOUND OCR_FAILED NAME_NOT_EXTRACTED"`
+	Status CheckStatus `validate:"required,oneof=PASSED FAILED PENDING OCR_FAILED NAME_NOT_EXTRACTED"`
 	Reason string      `json:"reason" validate:"required,min=5,max=500"`
 }
 
@@ -64,24 +64,22 @@ type AdminOverrideLogResponse struct {
 }
 
 type VerificationStatResponse struct {
-	Total    int64 `json:"total"`
-	Passed   int64 `json:"passed"`
-	Failed   int64 `json:"failed"`
-	Pending  int64 `json:"pending"`
-	NotFound int64 `json:"not_found"`
+	Total   int64 `json:"total"`
+	Passed  int64 `json:"passed"`
+	Failed  int64 `json:"failed"`
+	Pending int64 `json:"pending"`
 }
 
 type CreateCriminalRecordRequest struct {
-	NationalID string      `json:"national_id" validate:"required,len=13,numeric"`
-	FullName   string      `json:"full_name"   validate:"required,min=2,max=200"`
-	Status     CheckStatus `json:"status"      validate:"required,oneof=PASSED FAILED PENDING NOT_FOUND"`
-	Note       string      `json:"note"        validate:"required,min=2,max=500"`
+	NationalID string `json:"national_id" validate:"required,len=13,numeric"`
+	FullName   string `json:"full_name"   validate:"required,min=2,max=200"`
+	Note       string `json:"note"        validate:"required,min=2,max=500"`
 }
 
 type UpdateCriminalRecordRequest struct {
-	FullName *string      `json:"full_name" validate:"omitempty,min=2,max=200"`
-	Status   *CheckStatus `json:"status"    validate:"omitempty,oneof=PASSED FAILED PENDING NOT_FOUND"`
-	Note     *string      `json:"note"      validate:"omitempty,min=2,max=500"`
+	NationalID *string `json:"national_id" validate:"omitempty,len=13,numeric"`
+	FullName   *string `json:"full_name"   validate:"omitempty,min=2,max=200"`
+	Note       *string `json:"note"        validate:"omitempty,min=2,max=500"`
 }
 
 type CriminalRecordResponse struct {
@@ -95,14 +93,14 @@ type CriminalRecordResponse struct {
 }
 
 type JobStatusResponse struct {
-	JobID      uint       `json:"job_id"`
-	Status     string     `json:"status"`
-	RetryCount int        `json:"retry_count"`
-	ErrorMsg   string     `json:"error_msg,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	StartedAt  *time.Time `json:"started_at,omitempty"`
-	FinishedAt *time.Time `json:"finished_at,omitempty"`
-	VerifyStatus string `json:"verify_status,omitempty"`
-	VerifyNote   string `json:"verify_note,omitempty"`
-	IsVerified   *bool  `json:"is_verified,omitempty"`
+	JobID        uint       `json:"job_id"`
+	Status       string     `json:"status"`
+	RetryCount   int        `json:"retry_count"`
+	ErrorMsg     string     `json:"error_msg,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	FinishedAt   *time.Time `json:"finished_at,omitempty"`
+	VerifyStatus string     `json:"verify_status,omitempty"`
+	VerifyNote   string     `json:"verify_note,omitempty"`
+	IsVerified   *bool      `json:"is_verified,omitempty"`
 }

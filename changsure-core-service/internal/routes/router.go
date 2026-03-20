@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"changsure-core-service/internal/config"
+	"changsure-core-service/internal/jwtutil"
 	"changsure-core-service/internal/middleware"
 	"changsure-core-service/internal/modules/jobs"
 	ocrroutes "changsure-core-service/internal/modules/ocr/routes"
@@ -70,6 +71,9 @@ func (r *Router) setupPublicRoutes() {
 	r.container.SubDistrictHandler.RegisterRoutes(api)
 	r.container.ServiceCategoryHandler.RegisterRoutes(api)
 	r.container.ServiceHandler.RegisterRoutes(api)
+
+	publicTech := api.Group("/technicians")
+	r.container.CriminalCheckHandler.RegisterRoutes(publicTech, r.cfg.JWT.Secret)
 }
 
 func (r *Router) setupProtectedRoutes() {
@@ -113,7 +117,6 @@ func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	r.container.TechnicianCalendarHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBookingHandler.RegisterRoutes(technicians)
 	r.container.TechnicianAddressHandler.RegisterRoutes(technicians)
-	r.container.CriminalCheckHandler.RegisterRoutes(technicians)
 	r.container.WalletHandler.RegisterRoutes(technicians)
 	r.container.TechnicianReviewHandler.RegisterRoutes(technicians)
 }
@@ -144,16 +147,15 @@ func (r *Router) setupWebSocketRoutes() {
 
 func (r *Router) buildWSTokenVerifier() func(token string) (uint, string, bool) {
 	allowedRoles := map[string]struct{}{
-		middleware.RoleTechnician: {},
-		middleware.RoleCustomer:   {},
+		jwtutil.RoleTechnician: {},
+		jwtutil.RoleCustomer:   {},
 	}
-
 	return func(token string) (uint, string, bool) {
 		token = strings.TrimSpace(strings.TrimPrefix(token, "Bearer "))
 		if token == "" {
 			return 0, "", false
 		}
-		claims, err := middleware.ParseToken(token, r.cfg.JWT.Secret)
+		claims, err := jwtutil.ParseString(r.cfg.JWT.Secret, token)
 		if err != nil || claims == nil || claims.UserID == 0 {
 			return 0, "", false
 		}

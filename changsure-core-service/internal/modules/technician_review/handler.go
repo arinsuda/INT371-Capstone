@@ -4,6 +4,7 @@ import (
 	"time"
 
 	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
 
@@ -40,27 +41,16 @@ func (h *Handler) ListReviews(c fiber.Ctx) error {
 		return appErrors.HandleError(c, err)
 	}
 
-	if h.storage != nil {
-		for i := range reviews {
-			if reviews[i].CustomerAvatar != "" {
-				if signed, err := h.storage.PresignGet(c.Context(), reviews[i].CustomerAvatar, 24*time.Hour, false); err == nil {
-					reviews[i].CustomerAvatar = signed
-				}
-			}
-			for j := range reviews[i].Images {
-				key := reviews[i].Images[j].ImageURL
-				if signed, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
-					reviews[i].Images[j].ImageURL = signed
-				}
-			}
-		}
+	reviewResponses := make([]ReviewItemResponse, 0, len(reviews))
+	for _, r := range reviews {
+		reviewResponses = append(reviewResponses, h.buildReviewItemResponse(c, r))
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
 			"summary": summary,
-			"reviews": reviews,
+			"reviews": reviewResponses,
 		},
 		"meta": fiber.Map{
 			"total": total,
@@ -68,4 +58,56 @@ func (h *Handler) ListReviews(c fiber.Ctx) error {
 			"limit": q.Limit,
 		},
 	})
+}
+
+func (h *Handler) buildReviewItemResponse(c fiber.Ctx, r booking.ReviewWithDetail) ReviewItemResponse {
+	presign := func(key string) string {
+		if h.storage == nil || key == "" {
+			return key
+		}
+		if signed, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
+			return signed
+		}
+		return key
+	}
+
+	var customerAvatar *string
+	if r.CustomerAvatar != "" {
+		signed := presign(r.CustomerAvatar)
+		customerAvatar = &signed
+	}
+
+	var servicePicture *string
+	if r.ServicePicture != "" {
+		signed := presign(r.ServicePicture)
+		servicePicture = &signed
+	}
+
+	images := make([]reviewImageResponse, 0, len(r.Images))
+	for _, img := range r.Images {
+		images = append(images, reviewImageResponse{
+			ImageURL: presign(img.ImageURL),
+		})
+	}
+
+	return ReviewItemResponse{
+		ID:        r.ID,
+		Rating:    r.Rating,
+		Comment:   r.Comment,
+		CreatedAt: r.CreatedAt,
+		Customer: reviewCustomerResponse{
+			ID:     r.CustomerID,
+			Name:   r.CustomerName,
+			Avatar: customerAvatar,
+		},
+		Service: reviewServiceResponse{
+			ID:           r.ServiceID,
+			Name:         r.ServiceName,
+			Price:        r.ServicePrice,
+			Picture:      servicePicture,
+			CategoryID:   r.CategoryID,
+			CategoryName: r.CategoryName,
+		},
+		Images: images,
+	}
 }

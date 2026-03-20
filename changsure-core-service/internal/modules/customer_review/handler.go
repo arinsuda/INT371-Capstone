@@ -7,6 +7,7 @@ import (
 
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/validation"
 	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
@@ -41,7 +42,6 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 	}
 
 	var req CreateReviewRequest
-
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request data")
 	}
@@ -93,18 +93,62 @@ func (h *Handler) CreateReview(c fiber.Ctx) error {
 		return appErrors.HandleError(c, err)
 	}
 
-	if h.storage != nil && review.Images != nil {
-		for i := range review.Images {
-			key := review.Images[i].ImageURL
-			if signedURL, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
-				review.Images[i].ImageURL = signedURL
-			}
-		}
-	}
+	resp := h.buildCreateReviewResponse(c, review)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
 		"message": "รีวิวสำเร็จ",
-		"data":    review,
+		"data":    resp,
 	})
+}
+
+func (h *Handler) buildCreateReviewResponse(c fiber.Ctx, review *booking.Review) CreateReviewResponse {
+	presign := func(key string) string {
+		if h.storage == nil || key == "" {
+			return key
+		}
+		if signed, err := h.storage.PresignGet(c.Context(), key, 24*time.Hour, false); err == nil {
+			return signed
+		}
+		return key
+	}
+
+	var customerAvatar *string
+	if review.CustomerAvatar != "" {
+		signed := presign(review.CustomerAvatar)
+		customerAvatar = &signed
+	}
+
+	var servicePicture *string
+	if review.ServicePicture != "" {
+		signed := presign(review.ServicePicture)
+		servicePicture = &signed
+	}
+
+	images := make([]reviewImageResponse, 0, len(review.Images))
+	for _, img := range review.Images {
+		images = append(images, reviewImageResponse{
+			ImageURL: presign(img.ImageURL),
+		})
+	}
+
+	return CreateReviewResponse{
+		ID:        review.ID,
+		Rating:    review.Rating,
+		Comment:   review.Comment,
+		CreatedAt: review.CreatedAt,
+		Customer: reviewCustomerResponse{
+			ID:     review.CustomerID,
+			Name:   review.CustomerName,
+			Avatar: customerAvatar,
+		},
+		Service: reviewServiceResponse{
+			ID:           review.ServiceID,
+			Name:         review.ServiceName,
+			Picture:      servicePicture,
+			CategoryID:   review.CategoryID,
+			CategoryName: review.CategoryName,
+		},
+		Images: images,
+	}
 }
