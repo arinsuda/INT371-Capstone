@@ -250,8 +250,7 @@ func (h *Handler) ListCriminalRecords(c fiber.Ctx) error {
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
-	status := c.Query("status")
-	records, total, err := h.service.ListCriminalRecords(c.Context(), page, pageSize, status)
+	records, total, err := h.service.ListCriminalRecords(c.Context(), page, pageSize)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to list criminal records", err)
 	}
@@ -319,6 +318,9 @@ func (h *Handler) UpdateCriminalRecord(c fiber.Ctx) error {
 	if err != nil {
 		if errors.Is(err, ErrCriminalRecordNotFound) {
 			return appErrors.NotFound(c, "criminal record not found")
+		}
+		if errors.Is(err, ErrNationalIDDuplicate) {
+			return appErrors.Conflict(c, "เลขบัตรประชาชนนี้มีในระบบแล้ว")
 		}
 		return appErrors.InternalError(c, "failed to update criminal record", err)
 	}

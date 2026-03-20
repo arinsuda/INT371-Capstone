@@ -1,9 +1,11 @@
 package registry
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
@@ -199,13 +201,15 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	}
 	c.initAdminModule()
 
-	c.initCustomerModule()
 	c.initProvinceModule()
 	c.initDistrictModule()
 	c.initSubDistrictModule()
 
-	c.initTechnicianServiceModule()
 	c.initTechnicianModule()
+	c.initTechnicianServiceModule()
+	c.initTechnicianAddressModule()
+	c.initCustomerModule()
+	c.initCustomerAddressModule()
 
 	c.initAuthModule(cfg)
 	c.initNotificationModule()
@@ -216,8 +220,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initBadgeModule()
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
-	c.initTechnicianAddressModule()
-	c.initCustomerAddressModule()
 	c.initTechnicianMatchingModule()
 
 	c.initTimeSlotModule()
@@ -262,15 +264,32 @@ func (c *Container) initStorage(cfg *config.Config) error {
 }
 
 func (c *Container) initAuthModule(cfg *config.Config) {
-	c.AuthRepo = auth.NewRefreshTokenRepository(c.DB)
+
+	tokenRepo := auth.NewTokenRepository(c.DB)
+
+	tokenCfg := auth.TokenConfig{
+		Secret: []byte(cfg.JWT.Secret),
+	}
+
 	c.AuthService = auth.NewService(
+		c.DB,
+		tokenCfg,
+		tokenRepo,
+		c.AdminRepo,
 		c.CustomerRepo,
 		c.TechnicianRepo,
-		c.AdminRepo,
-		c.AuthRepo,
-		cfg,
+		c.CustomerAddressRepo,
+		c.TechnicianAddressRepo,
+		c.TechnicianServiceRepo,
+		c.TechnicianServiceAreaRepo,
 	)
+
 	c.AuthHandler = auth.NewHandler(c.AuthService)
+
+	// Cleaner — ลบ technician ที่ไม่ verify ภายใน 7 วัน + ลบ expired tokens ทุก 24h
+	// ถ้าอยากเปิดใช้ uncomment บรรทัดด้านล่าง
+	cleaner := auth.NewCleaner(c.DB, tokenRepo, 7*24*time.Hour, c.Logger)
+	cleaner.StartBackground(context.Background(), 24*time.Hour)
 }
 
 func (c *Container) initNotificationModule() {

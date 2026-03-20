@@ -357,17 +357,58 @@ func (r *repository) CreateReview(ctx context.Context, review *Review, images []
 }
 
 func (r *repository) FindReviewByBookingID(ctx context.Context, bookingID uint) (*Review, error) {
-	var rev Review
+	type rawRow struct {
+		Review
+		CustomerName   string `gorm:"column:customer_name"`
+		CustomerAvatar string `gorm:"column:customer_avatar"`
+		ServiceName    string `gorm:"column:service_name"`
+		ServicePicture string `gorm:"column:service_picture"`
+		CategoryID     uint   `gorm:"column:category_id"`
+		CategoryName   string `gorm:"column:category_name"`
+	}
+
+	var raw rawRow
 	err := r.db.WithContext(ctx).
-		Preload("Images").
-		Where("booking_id = ?", bookingID).
-		First(&rev).Error
+		Table("reviews").
+		Select(`
+        reviews.*,
+        CONCAT(customers.first_name, ' ', customers.last_name) AS customer_name,
+        customers.avatar_url                                    AS customer_avatar,
+        services.ser_name                                       AS service_name,
+        JSON_UNQUOTE(JSON_EXTRACT(services.image_urls, '$[0]')) AS service_picture,
+        services.category_id                                    AS category_id,
+        service_categories.cat_name                            AS category_name
+    `).
+		Joins("JOIN customers ON customers.id = reviews.customer_id").
+		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+		Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
+		Joins("JOIN services ON services.id = technician_services.service_id").
+		Joins("JOIN service_categories ON service_categories.id = services.category_id").
+		Where("reviews.booking_id = ?", bookingID).
+		First(&raw).Error
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+
+	var imgs []ReviewImage
+	if err := r.db.WithContext(ctx).
+		Where("review_id = ?", raw.Review.ID).
+		Find(&imgs).Error; err != nil {
+		return nil, err
+	}
+
+	rev := raw.Review
+	rev.Images = imgs
+	rev.CustomerName = raw.CustomerName
+	rev.CustomerAvatar = raw.CustomerAvatar
+	rev.ServiceName = raw.ServiceName
+	rev.ServicePicture = raw.ServicePicture
+	rev.CategoryID = raw.CategoryID
+	rev.CategoryName = raw.CategoryName
 	return &rev, nil
 }
 
@@ -449,62 +490,34 @@ func (r *repository) ListReviewsByTechnician(
 	limit int,
 ) ([]ReviewWithDetail, int64, error) {
 
-	countQ := r.db.WithContext(ctx).
-		Table("reviews").
-		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
-		Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
-		Joins("JOIN services ON services.id = technician_services.service_id").
-		Where("bookings.technician_id = ?", technicianID)
+	baseQ := func(db *gorm.DB) *gorm.DB {
+		q := db.WithContext(ctx).
+			Table("reviews").
+			Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+			Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
+			Joins("JOIN services ON services.id = technician_services.service_id").
+			Joins("JOIN service_categories ON service_categories.id = services.category_id").
+			Where("bookings.technician_id = ?", technicianID)
 
-	if filter.Rating != nil {
-		countQ = countQ.Where("reviews.rating = ?", *filter.Rating)
-	}
-	if filter.HasImages != nil {
-		if *filter.HasImages {
-			countQ = countQ.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
-		} else {
-			countQ = countQ.Where("NOT EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
+		if filter.Rating != nil {
+			q = q.Where("reviews.rating = ?", *filter.Rating)
 		}
-	}
-	if filter.ServiceType != nil {
-		countQ = countQ.Where("services.category_id = ?", *filter.ServiceType)
+		if filter.HasImages != nil {
+			if *filter.HasImages {
+				q = q.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
+			} else {
+				q = q.Where("NOT EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
+			}
+		}
+		if filter.ServiceType != nil {
+			q = q.Where("services.category_id = ?", *filter.ServiceType)
+		}
+		return q
 	}
 
 	var total int64
-	if err := countQ.Count(&total).Error; err != nil {
+	if err := baseQ(r.db).Count(&total).Error; err != nil {
 		return nil, 0, err
-	}
-
-	q := r.db.WithContext(ctx).
-		Table("reviews").
-		Select(`
-			reviews.*,
-			CONCAT(customers.first_name, ' ', customers.last_name) AS customer_name,
-			customers.avatar_url                                    AS customer_avatar,
-			services.ser_name                                       AS service_name,
-			technician_services.pricing_type                       AS svc_pricing_type,
-			technician_services.price_fixed                        AS svc_price_fixed,
-			technician_services.price_min                          AS svc_price_min,
-			technician_services.price_max                          AS svc_price_max
-		`).
-		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
-		Joins("JOIN customers ON customers.id = reviews.customer_id").
-		Joins("JOIN technician_services ON technician_services.id = bookings.technician_service_id").
-		Joins("JOIN services ON services.id = technician_services.service_id").
-		Where("bookings.technician_id = ?", technicianID)
-
-	if filter.Rating != nil {
-		q = q.Where("reviews.rating = ?", *filter.Rating)
-	}
-	if filter.HasImages != nil {
-		if *filter.HasImages {
-			q = q.Where("EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
-		} else {
-			q = q.Where("NOT EXISTS (SELECT 1 FROM review_images WHERE review_images.review_id = reviews.id)")
-		}
-	}
-	if filter.ServiceType != nil {
-		q = q.Where("services.category_id = ?", *filter.ServiceType)
 	}
 
 	type rawRow struct {
@@ -512,6 +525,9 @@ func (r *repository) ListReviewsByTechnician(
 		CustomerName   string   `gorm:"column:customer_name"`
 		CustomerAvatar string   `gorm:"column:customer_avatar"`
 		ServiceName    string   `gorm:"column:service_name"`
+		ServicePicture string   `gorm:"column:service_picture"`
+		CategoryID     uint     `gorm:"column:category_id"`
+		CategoryName   string   `gorm:"column:category_name"`
 		SvcPricingType string   `gorm:"column:svc_pricing_type"`
 		SvcPriceFixed  *float64 `gorm:"column:svc_price_fixed"`
 		SvcPriceMin    *float64 `gorm:"column:svc_price_min"`
@@ -519,7 +535,21 @@ func (r *repository) ListReviewsByTechnician(
 	}
 
 	var raws []rawRow
-	err := q.
+	err := baseQ(r.db).
+		Joins("JOIN customers ON customers.id = reviews.customer_id").
+		Select(`
+			reviews.*,
+			CONCAT(customers.first_name, ' ', customers.last_name) AS customer_name,
+			customers.avatar_url                                    AS customer_avatar,
+			services.ser_name                                       AS service_name,
+			JSON_UNQUOTE(JSON_EXTRACT(services.image_urls, '$[0]')) AS service_picture,
+			services.category_id                                    AS category_id,
+			service_categories.cat_name                            AS category_name,
+			technician_services.pricing_type                       AS svc_pricing_type,
+			technician_services.price_fixed                        AS svc_price_fixed,
+			technician_services.price_min                          AS svc_price_min,
+			technician_services.price_max                          AS svc_price_max
+		`).
 		Order("reviews.created_at DESC").
 		Offset(offset).
 		Limit(limit).
@@ -549,13 +579,15 @@ func (r *repository) ListReviewsByTechnician(
 	results := make([]ReviewWithDetail, len(raws))
 	for i, rw := range raws {
 		rw.Review.Images = imageMap[rw.Review.ID]
-		price := formatServicePrice(rw.SvcPricingType, rw.SvcPriceFixed, rw.SvcPriceMin, rw.SvcPriceMax)
 		results[i] = ReviewWithDetail{
 			Review:         rw.Review,
 			CustomerName:   rw.CustomerName,
 			CustomerAvatar: rw.CustomerAvatar,
 			ServiceName:    rw.ServiceName,
-			ServicePrice:   price,
+			ServicePrice:   formatServicePrice(rw.SvcPricingType, rw.SvcPriceFixed, rw.SvcPriceMin, rw.SvcPriceMax),
+			ServicePicture: rw.ServicePicture,
+			CategoryID:     rw.CategoryID,
+			CategoryName:   rw.CategoryName,
 		}
 	}
 

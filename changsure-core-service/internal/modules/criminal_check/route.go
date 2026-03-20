@@ -6,9 +6,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func (h *Handler) RegisterRoutes(r fiber.Router) {
-	r.Post("/:technicianID/verify-identity", h.VerifyIdentity)
-	r.Get("/:technicianID/verify-identity/jobs/:jobID", h.GetJobStatus)
+func (h *Handler) RegisterRoutes(r fiber.Router, secretKey string) {
+	r.Post("/:technicianID/verify-identity",
+		middleware.PreVerifiedAuth(secretKey),
+		h.VerifyIdentity,
+	)
+	r.Get("/:technicianID/verify-identity/jobs/:jobID",
+		h.GetJobStatus,
+	)
 }
 
 func (h *Handler) RegisterAdminRoutes(r fiber.Router) {

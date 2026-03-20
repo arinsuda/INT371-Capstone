@@ -139,7 +139,6 @@ func (w *OCRWorker) executeJob(ctx context.Context, job *backgroundjob.Backgroun
 	switch result.Status {
 	case criminalcheck.StatusPassed,
 		criminalcheck.StatusFailed,
-		criminalcheck.StatusNotFound,
 		criminalcheck.StatusOCRFailed,
 		criminalcheck.StatusNameNotExtracted:
 		w.notifyTechnician(ctx, payload.TechnicianID, result.Status, result.Note)
@@ -237,10 +236,6 @@ func (w *OCRWorker) notifyTechnician(ctx context.Context, technicianID uint, sta
 		notiType = "IDENTITY_VERIFIED"
 		title = "ยืนยันตัวตนสำเร็จ ✅"
 		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
-	case criminalcheck.StatusFailed, criminalcheck.StatusNotFound:
-		notiType = "IDENTITY_REJECTED"
-		title = "ไม่ผ่านการตรวจสอบ ❌"
-		message = fmt.Sprintf("บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่\nเหตุผล: %s", note)
 	case criminalcheck.StatusOCRFailed, criminalcheck.StatusNameNotExtracted:
 		notiType = "IDENTITY_OCR_FAILED"
 		title = "ไม่สามารถอ่านบัตรประชาชนได้ ⚠️"

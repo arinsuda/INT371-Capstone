@@ -8,7 +8,6 @@ const (
 	StatusPassed           CheckStatus = "PASSED"
 	StatusFailed           CheckStatus = "FAILED"
 	StatusPending          CheckStatus = "PENDING"
-	StatusNotFound         CheckStatus = "NOT_FOUND"
 	StatusOCRFailed        CheckStatus = "OCR_FAILED"
 	StatusNameNotExtracted CheckStatus = "NAME_NOT_EXTRACTED"
 )
@@ -35,17 +34,16 @@ type AdminOverrideLog struct {
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 }
 
-type MockCriminalRecord struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement"`
-	NationalID string      `gorm:"size:13;uniqueIndex;not null"`
-	FullName   string      `gorm:"size:200;not null"`
-	Status     CheckStatus `gorm:"size:20;not null"`
-	Note       string      `gorm:"type:text"`
-	CreatedAt  time.Time   `gorm:"autoCreateTime"`
-	UpdatedAt  time.Time   `gorm:"autoUpdateTime"`
+type CriminalBlacklist struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement"`
+	NationalID string    `gorm:"size:13;uniqueIndex;not null"`
+	FullName   string    `gorm:"size:200;not null"`
+	Note       string    `gorm:"type:text"`
+	CreatedAt  time.Time `gorm:"autoCreateTime"`
+	UpdatedAt  time.Time `gorm:"autoUpdateTime"`
 }
 
-func (MockCriminalRecord) TableName() string { return "mock_criminal_records" }
+func (CriminalBlacklist) TableName() string { return "criminal_blacklists" }
 
 func (VerificationLog) TableName() string { return "verification_logs" }
 
@@ -53,7 +51,7 @@ func (AdminOverrideLog) TableName() string { return "admin_override_logs" }
 
 func Models() []interface{} {
 	return []interface{}{
-		&MockCriminalRecord{},
+		&CriminalBlacklist{},
 		&VerificationLog{},
 		&AdminOverrideLog{},
 	}

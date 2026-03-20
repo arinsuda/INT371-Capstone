@@ -585,7 +585,7 @@ func (s *Seeder) seedDocuments() error {
 }
 
 func (s *Seeder) seedCriminalRecords() error {
-	if s.isSeeded(&criminalcheck.MockCriminalRecord{}) {
+	if s.isSeeded(&criminalcheck.CriminalBlacklist{}) {
 		return nil
 	}
 
@@ -611,15 +611,14 @@ func (s *Seeder) seedCriminalRecords() error {
 		return fmt.Errorf("parse criminal records seed: %w", err)
 	}
 
-	data := make([]criminalcheck.MockCriminalRecord, 0, len(seedFile.Records))
+	data := make([]criminalcheck.CriminalBlacklist, 0, len(seedFile.Records))
 	for _, r := range seedFile.Records {
 		if r.NationalID == "" {
 			continue
 		}
-		data = append(data, criminalcheck.MockCriminalRecord{
+		data = append(data, criminalcheck.CriminalBlacklist{
 			NationalID: r.NationalID,
 			FullName:   r.FullName,
-			Status:     criminalcheck.CheckStatus(r.Status),
 			Note:       r.Note,
 		})
 	}

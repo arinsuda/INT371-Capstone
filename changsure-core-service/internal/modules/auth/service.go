@@ -2,402 +2,464 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
-	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
-	"changsure-core-service/internal/config"
-	"changsure-core-service/internal/middleware"
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/jwtutil"
 	"changsure-core-service/internal/modules/admin"
 	"changsure-core-service/internal/modules/customer"
+	customeraddress "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/technician"
+	technicianaddress "changsure-core-service/internal/modules/technician_address"
+	technicianservice "changsure-core-service/internal/modules/technician_service"
+	technicianarea "changsure-core-service/internal/modules/technician_service_area"
 )
 
 type Service interface {
-	Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error)
+	RegisterCustomer(ctx context.Context, req RegisterCustomerRequest) (*RegisterCustomerResponse, error)
+	RegisterTechnician(ctx context.Context, req RegisterTechnicianRequest) (*RegisterTechnicianResponse, error)
 	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
-	GenerateRefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
-	ValidateTechnicianToken(tokenString string) (uint, error)
-}
-
-type CustomerReader interface {
-	FindByEmail(ctx context.Context, email string) (*customer.Customer, error)
-	FindByID(ctx context.Context, id uint) (*customer.Customer, error)
-	Create(ctx context.Context, c *customer.Customer) error
-}
-
-type TechnicianReader interface {
-	FindByEmail(ctx context.Context, email string) (*technician.Technician, error)
-	FindByID(ctx context.Context, id uint) (*technician.Technician, error)
-	Create(ctx context.Context, t *technician.Technician) error
-}
-
-type AdminReader interface {
-	FindByEmail(ctx context.Context, email string) (*admin.Admin, error)
-	FindByID(ctx context.Context, id uint) (*admin.Admin, error)
+	RefreshToken(ctx context.Context, req RefreshTokenRequest) (*RefreshTokenResponse, error)
+	Logout(ctx context.Context, req LogoutRequest) error
 }
 
 type service struct {
-	customers   CustomerReader
-	technicians TechnicianReader
-	admins      AdminReader
-	refreshRepo RefreshTokenRepository
-	cfg         *config.Config
+	db              *gorm.DB
+	cfg             TokenConfig
+	tokenRepo       TokenRepository
+	adminRepo       admin.Repository
+	customerRepo    customer.Repository
+	techRepo        technician.Repository
+	custAddrRepo    customeraddress.Repository
+	techAddrRepo    technicianaddress.Repository
+	techServiceRepo technicianservice.Repository
+	techAreaRepo    technicianarea.Repository
 }
 
 func NewService(
-	cRepo CustomerReader,
-	tRepo TechnicianReader,
-	aRepo AdminReader,
-	rtRepo RefreshTokenRepository,
-	cfg *config.Config,
+	db *gorm.DB,
+	cfg TokenConfig,
+	tokenRepo TokenRepository,
+	adminRepo admin.Repository,
+	customerRepo customer.Repository,
+	techRepo technician.Repository,
+	custAddrRepo customeraddress.Repository,
+	techAddrRepo technicianaddress.Repository,
+	techServiceRepo technicianservice.Repository,
+	techAreaRepo technicianarea.Repository,
 ) Service {
 	return &service{
-		customers:   cRepo,
-		technicians: tRepo,
-		admins:      aRepo,
-		refreshRepo: rtRepo,
-		cfg:         cfg,
+		db:              db,
+		cfg:             cfg,
+		tokenRepo:       tokenRepo,
+		adminRepo:       adminRepo,
+		customerRepo:    customerRepo,
+		techRepo:        techRepo,
+		custAddrRepo:    custAddrRepo,
+		techAddrRepo:    techAddrRepo,
+		techServiceRepo: techServiceRepo,
+		techAreaRepo:    techAreaRepo,
 	}
 }
 
-func generateRandomTokenString() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
-func hashPassword(plain string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
-
-func comparePassword(hash, plain string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain))
-}
-
-func (s *service) accessTokenTTLHours() int {
-	return 24
-}
-
-func (s *service) refreshTokenTTL() time.Duration {
-	return 7 * 24 * time.Hour
-}
-
-func (s *service) Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error) {
-	if req.Password != req.ConfirmPassword {
-		return nil, errors.New("password and confirm_password do not match")
+func (s *service) isEmailTaken(ctx context.Context, email string) (bool, error) {
+	if a, err := s.adminRepo.FindByEmail(ctx, email); err != nil {
+		return false, fmt.Errorf("check admin email: %w", err)
+	} else if a != nil {
+		return true, nil
 	}
 
-	passwordHash, err := hashPassword(req.Password)
-	if err != nil {
+	if c, err := s.customerRepo.FindByEmail(ctx, email); err != nil {
+		return false, fmt.Errorf("check customer email: %w", err)
+	} else if c != nil {
+		return true, nil
+	}
+
+	if t, err := s.techRepo.FindByEmail(ctx, email); err != nil {
+		return false, fmt.Errorf("check technician email: %w", err)
+	} else if t != nil {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *service) isPhoneTaken(ctx context.Context, phone string) (bool, error) {
+
+	if c, err := s.customerRepo.FindByPhone(ctx, phone); err != nil {
+		return false, fmt.Errorf("check customer phone: %w", err)
+	} else if c != nil {
+		return true, nil
+	}
+
+	if t, err := s.techRepo.FindByPhone(ctx, phone); err != nil {
+		return false, fmt.Errorf("check technician phone: %w", err)
+	} else if t != nil {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequest) (*RegisterCustomerResponse, error) {
+	if taken, err := s.isEmailTaken(ctx, req.Email); err != nil {
 		return nil, err
+	} else if taken {
+		return nil, appErrors.NewConflict(ErrEmailAlreadyExists.Error())
 	}
 
-	var (
-		userID uint
-		email  = req.Email
-		role   = req.Role
-	)
+	if taken, err := s.isPhoneTaken(ctx, req.Phone); err != nil {
+		return nil, err
+	} else if taken {
+		return nil, appErrors.NewConflict(ErrPhoneAlreadyExists.Error())
+	}
 
-	switch role {
-	case "customer":
-		c := &customer.Customer{
-			FirstName:    "",
-			LastName:     "",
-			Email:        &email,
-			PasswordHash: passwordHash,
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	cust := &customer.Customer{
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		Email:        &req.Email,
+		Phone:        &req.Phone,
+		PasswordHash: string(hash),
+	}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(cust).Error; err != nil {
+			return fmt.Errorf("create customer: %w", err)
 		}
-		if err := s.customers.Create(ctx, c); err != nil {
-
-			if isDuplicateError(err) {
-				return nil, ErrEmailAlreadyExists
+		if req.Address != nil {
+			addr := buildCustomerAddress(cust.ID, *req.Address, true)
+			if err := tx.Create(addr).Error; err != nil {
+				return fmt.Errorf("create address: %w", err)
 			}
-			return nil, err
 		}
-		userID = c.ID
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	case "technician":
-		t := &technician.Technician{
-			FirstName:    "",
-			LastName:     "",
-			Email:        &email,
-			PasswordHash: passwordHash,
+	return &RegisterCustomerResponse{
+		CustomerID: cust.ID,
+		Email:      req.Email,
+		FirstName:  req.FirstName,
+		LastName:   req.LastName,
+		Role:       RoleCustomer,
+		Message:    "สมัครสมาชิกสำเร็จ",
+	}, nil
+}
+
+func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnicianRequest) (*RegisterTechnicianResponse, error) {
+	if taken, err := s.isEmailTaken(ctx, req.Email); err != nil {
+		return nil, err
+	} else if taken {
+		return nil, appErrors.NewConflict(ErrEmailAlreadyExists.Error())
+	}
+
+	if taken, err := s.isPhoneTaken(ctx, req.Phone); err != nil {
+		return nil, err
+	} else if taken {
+		return nil, appErrors.NewConflict(ErrPhoneAlreadyExists.Error())
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	tech := &technician.Technician{
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		Email:        &req.Email,
+		Phone:        &req.Phone,
+		PasswordHash: string(hash),
+		IsVerified:   false,
+		IsAvailable:  false,
+	}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(tech).Error; err != nil {
+			return fmt.Errorf("create technician: %w", err)
 		}
-		if err := s.technicians.Create(ctx, t); err != nil {
-
-			if isDuplicateError(err) {
-				return nil, ErrEmailAlreadyExists
+		if req.Address != nil {
+			addr := buildTechnicianAddress(tech.ID, *req.Address, true)
+			if err := tx.Create(addr).Error; err != nil {
+				return fmt.Errorf("create address: %w", err)
 			}
-			return nil, err
 		}
-		userID = t.ID
-
-	default:
-		return nil, errors.New("invalid role")
-	}
-
-	now := time.Now().Unix()
-
-	accessToken, err := middleware.GenerateAccessToken(
-		userID,
-		email,
-		role,
-		"",
-		s.cfg.JWT.Secret,
-		s.accessTokenTTLHours(),
-	)
+		if len(req.Services) > 0 {
+			if err := s.techServiceRepo.ReplaceAll(ctx, tx, tech.ID, req.Services); err != nil {
+				return fmt.Errorf("create services: %w", err)
+			}
+		}
+		if len(req.ProvinceIDs) > 0 {
+			if err := s.techAreaRepo.ReplaceForTech(tx, tech.ID, req.ProvinceIDs); err != nil {
+				return fmt.Errorf("create service areas: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	rawRefresh, err := generateRandomTokenString()
+	preVerifiedCfg := TokenConfig{
+		Secret:    s.cfg.Secret,
+		AccessTTL: 15 * 24 * time.Hour,
+	}
+	preVerifiedToken, err := IssueAccessToken(preVerifiedCfg, JWTClaims{
+		UserID:     tech.ID,
+		Email:      req.Email,
+		Role:       RoleTechnician,
+		IsVerified: false,
+		Scope:      jwtutil.ScopePreVerified,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("issue pre_verified token: %w", err)
 	}
 
-	hashRefresh := hashToken(rawRefresh)
-
-	rt := &RefreshToken{
-		UserID:    userID,
-		UserRole:  role,
-		TokenHash: hashRefresh,
-		ExpiresAt: time.Now().Add(s.refreshTokenTTL()),
-	}
-
-	if err := s.refreshRepo.Create(ctx, rt); err != nil {
-		return nil, err
-	}
-
-	return &RegisterResponse{
-		UserID:       userID,
-		Email:        email,
-		Role:         role,
-		AccessToken:  accessToken,
-		RefreshToken: rawRefresh,
-		ExpiresIn:    int64(s.accessTokenTTLHours() * 3600),
-		CreatedAt:    now,
+	return &RegisterTechnicianResponse{
+		TechnicianID:         tech.ID,
+		Email:                req.Email,
+		FirstName:            req.FirstName,
+		LastName:             req.LastName,
+		Role:                 RoleTechnician,
+		IsVerified:           false,
+		Message:              "สมัครสมาชิกสำเร็จ กรุณาอัปโหลดบัตรประชาชนเพื่อยืนยันตัวตน",
+		PreVerifiedToken:     preVerifiedToken,
+		PreVerifiedExpiresIn: preVerifiedCfg.AccessTTLSeconds(),
+		NextStep: NextStepInfo{
+			Action:   "upload_id_card",
+			Endpoint: fmt.Sprintf("/api/technicians/%d/verify-identity", tech.ID),
+			Method:   "POST",
+		},
 	}, nil
 }
 
 func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	var (
-		userID   uint
-		role     string
-		email    = req.Email
-		hash     string
-		username string
-	)
-
-	if c, err := s.customers.FindByEmail(ctx, req.Email); err == nil && c != nil {
-		userID = c.ID
-		role = "customer"
-		hash = c.PasswordHash
-		username = c.FirstName
-	} else if t, err := s.technicians.FindByEmail(ctx, req.Email); err == nil && t != nil {
-
-		userID = t.ID
-		role = "technician"
-		hash = t.PasswordHash
-		username = t.FirstName
-	} else if a, err := s.admins.FindByEmail(ctx, req.Email); err == nil && a != nil {
-
-		userID = a.ID
-		role = "admin"
-		hash = a.PasswordHash
-		username = a.FirstName
-	} else {
-		return nil, ErrInvalidCredentials
+	if a, err := s.adminRepo.FindByEmail(ctx, req.Email); err == nil && a != nil {
+		return s.loginAsAdmin(ctx, a, req.Password)
 	}
 
-	if err := comparePassword(hash, req.Password); err != nil {
-		return nil, ErrInvalidCredentials
+	if cust, err := s.customerRepo.FindByEmail(ctx, req.Email); err == nil && cust != nil {
+		return s.loginAsCustomer(ctx, cust, req.Password)
 	}
 
-	accessToken, err := middleware.GenerateAccessToken(
-		userID,
-		email,
-		role,
-		username,
-		s.cfg.JWT.Secret,
-		s.accessTokenTTLHours(),
-	)
+	if tech, err := s.techRepo.FindByEmail(ctx, req.Email); err == nil && tech != nil {
+		return s.loginAsTechnician(ctx, tech, req.Password)
+	}
+
+	return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
+}
+
+func (s *service) loginAsAdmin(ctx context.Context, a *admin.Admin, password string) (*LoginResponse, error) {
+	if err := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)); err != nil {
+		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
+	}
+	return s.issueTokens(ctx, JWTClaims{
+		UserID:     a.ID,
+		Email:      a.Email,
+		Role:       RoleAdmin,
+		IsVerified: true,
+	}, a.FirstName, a.LastName)
+}
+
+func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, password string) (*LoginResponse, error) {
+	if err := bcrypt.CompareHashAndPassword([]byte(cust.PasswordHash), []byte(password)); err != nil {
+		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
+	}
+	return s.issueTokens(ctx, JWTClaims{
+		UserID:     cust.ID,
+		Email:      *cust.Email,
+		Role:       RoleCustomer,
+		IsVerified: true,
+	}, cust.FirstName, cust.LastName)
+}
+
+func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Technician, password string) (*LoginResponse, error) {
+	if err := bcrypt.CompareHashAndPassword([]byte(tech.PasswordHash), []byte(password)); err != nil {
+		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
+	}
+	if !tech.IsVerified {
+		return nil, appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
+	}
+	return s.issueTokens(ctx, JWTClaims{
+		UserID:     tech.ID,
+		Email:      *tech.Email,
+		Role:       RoleTechnician,
+		IsVerified: tech.IsVerified,
+	}, tech.FirstName, tech.LastName)
+}
+
+func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, lastName string) (*LoginResponse, error) {
+	accessToken, refreshToken, err := IssueTokenPair(s.cfg, claims)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("issue tokens: %w", err)
 	}
 
-	rawRefresh, err := generateRandomTokenString()
-	if err != nil {
-		return nil, err
+	if err := s.tokenRepo.Save(ctx, &RefreshToken{
+		UserID:    claims.UserID,
+		Role:      claims.Role,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().Add(s.cfg.RefreshTTLDuration()),
+	}); err != nil {
+		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
-	hashRefresh := hashToken(rawRefresh)
-
-	rt := &RefreshToken{
-		UserID:    userID,
-		UserRole:  role,
-		TokenHash: hashRefresh,
-		ExpiresAt: time.Now().Add(s.refreshTokenTTL()),
-	}
-
-	if err := s.refreshRepo.Create(ctx, rt); err != nil {
-		return nil, err
-	}
-
-	now := time.Now().Unix()
 
 	return &LoginResponse{
 		AccessToken:  accessToken,
-		RefreshToken: rawRefresh,
-		CreatedAt:    now,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    AccessTTLSeconds(s.cfg),
+		User: UserInfo{
+			ID:         claims.UserID,
+			Email:      claims.Email,
+			FirstName:  firstName,
+			LastName:   lastName,
+			Role:       claims.Role,
+			IsVerified: claims.IsVerified,
+		},
 	}, nil
 }
 
-func (s *service) GenerateRefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
-	if refreshToken == "" {
-		return nil, ErrInvalidRefreshToken
+func (s *service) RefreshToken(ctx context.Context, req RefreshTokenRequest) (*RefreshTokenResponse, error) {
+	stored, err := s.tokenRepo.FindByToken(ctx, req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil, appErrors.NewUnauthorized("refresh token is invalid or expired")
+		}
+		return nil, fmt.Errorf("find refresh token: %w", err)
 	}
 
-	hash := hashToken(refreshToken)
-
-	rt, err := s.refreshRepo.FindActiveByHash(ctx, hash)
-	if err != nil || rt == nil {
-		return nil, ErrInvalidRefreshToken
+	parsed, err := jwtutil.Parse(s.cfg.Secret, req.RefreshToken)
+	if err != nil {
+		return nil, appErrors.NewUnauthorized("refresh token is invalid or expired")
+	}
+	if parsed.TokenType != TokenTypeRefresh {
+		return nil, appErrors.NewUnauthorized("token type must be refresh")
 	}
 
-	var (
-		userID   = rt.UserID
-		role     = rt.UserRole
-		email    string
-		username string
-	)
+	updatedClaims, err := s.syncUserClaims(ctx, stored.UserID, stored.Role)
+	if err != nil {
+		return nil, fmt.Errorf("sync user claims: %w", err)
+	}
 
+	newAccessToken, err := IssueAccessToken(s.cfg, *updatedClaims)
+	if err != nil {
+		return nil, fmt.Errorf("issue access token: %w", err)
+	}
+
+	return &RefreshTokenResponse{
+		AccessToken: newAccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   AccessTTLSeconds(s.cfg),
+	}, nil
+}
+
+func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) (*JWTClaims, error) {
 	switch role {
-	case "customer":
-		c, err := s.customers.FindByID(ctx, userID)
-		if err != nil || c == nil {
-			return nil, ErrInvalidRefreshToken
-		}
-		if c.Email != nil {
-			email = *c.Email
-		}
-		username = c.FirstName
-
-	case "technician":
-		t, err := s.technicians.FindByID(ctx, userID)
-		if err != nil || t == nil {
-			return nil, ErrInvalidRefreshToken
-		}
-		if t.Email != nil {
-			email = *t.Email
-		}
-		username = t.FirstName
-	case "admin":
-		a, err := s.admins.FindByID(ctx, userID)
+	case RoleAdmin:
+		a, err := s.adminRepo.FindByID(ctx, userID)
 		if err != nil || a == nil {
-			return nil, ErrInvalidRefreshToken
+			return nil, appErrors.NewUnauthorized("user not found")
 		}
-		email = a.Email
-		username = a.FirstName
+		return &JWTClaims{
+			UserID:     a.ID,
+			Email:      a.Email,
+			Role:       RoleAdmin,
+			IsVerified: true,
+		}, nil
+
+	case RoleCustomer:
+		cust, err := s.customerRepo.FindByID(ctx, userID)
+		if err != nil || cust == nil {
+			return nil, appErrors.NewUnauthorized("user not found")
+		}
+		return &JWTClaims{
+			UserID:     cust.ID,
+			Email:      *cust.Email,
+			Role:       RoleCustomer,
+			IsVerified: true,
+		}, nil
+
+	case RoleTechnician:
+		tech, err := s.techRepo.FindByID(ctx, userID)
+		if err != nil || tech == nil {
+			return nil, appErrors.NewUnauthorized("user not found")
+		}
+		return &JWTClaims{
+			UserID:     tech.ID,
+			Email:      *tech.Email,
+			Role:       RoleTechnician,
+			IsVerified: tech.IsVerified,
+		}, nil
 
 	default:
-		return nil, ErrInvalidRefreshToken
+		return nil, appErrors.NewUnauthorized(ErrInvalidRole.Error())
 	}
-
-	accessToken, err := middleware.GenerateAccessToken(
-		userID,
-		email,
-		role,
-		username,
-		s.cfg.JWT.Secret,
-		s.accessTokenTTLHours(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	newRawRefresh, err := generateRandomTokenString()
-	if err != nil {
-		return nil, err
-	}
-	newHash := hashToken(newRawRefresh)
-
-	newRT := &RefreshToken{
-		UserID:    userID,
-		UserRole:  role,
-		TokenHash: newHash,
-		ExpiresAt: time.Now().Add(s.refreshTokenTTL()),
-	}
-
-	if err := s.refreshRepo.RevokeAndReplace(ctx, rt, newRT); err != nil {
-		return nil, err
-	}
-
-	return &TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: newRawRefresh,
-		TokenType:    "Bearer",
-		ExpiresIn:    int64(s.accessTokenTTLHours() * 3600),
-		Role:         role,
-	}, nil
 }
 
-func isDuplicateError(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-		return true
+func (s *service) Logout(ctx context.Context, req LogoutRequest) error {
+	if err := s.tokenRepo.Revoke(ctx, req.RefreshToken); err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil
+		}
+		return fmt.Errorf("revoke token: %w", err)
 	}
-	return false
+	return nil
 }
 
-func (s *service) ValidateTechnicianToken(tokenString string) (uint, error) {
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return []byte(s.cfg.JWT.Secret), nil
-	})
-
-	if err != nil {
-		return 0, fmt.Errorf("parse token: %w", err)
+func buildCustomerAddress(custID uint, req customeraddress.CreateCustomerAddressRequest, defaultPrimary bool) *customeraddress.CustomerAddress {
+	isPrimary := defaultPrimary
+	if req.IsPrimary != nil {
+		isPrimary = *req.IsPrimary
 	}
+	addr := &customeraddress.CustomerAddress{CustomerID: custID}
+	addr.Label = req.Label
+	addr.PhoneNumber = req.PhoneNumber
+	addr.AddressLine = req.AddressLine
+	addr.HouseNumber = req.HouseNumber
+	addr.Village = req.Village
+	addr.Moo = req.Moo
+	addr.Soi = req.Soi
+	addr.Road = req.Road
+	addr.SubDistrictID = req.SubDistrictID
+	addr.DistrictID = req.DistrictID
+	addr.ProvinceID = req.ProvinceID
+	addr.Latitude = req.Latitude
+	addr.Longitude = req.Longitude
+	addr.IsPrimary = isPrimary
+	return addr
+}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-
-		role, ok := claims["role"].(string)
-		if !ok || role != "technician" {
-			return 0, fmt.Errorf("role is not technician")
-		}
-
-		var userID uint
-		if idFloat, ok := claims["user_id"].(float64); ok {
-			userID = uint(idFloat)
-		} else {
-			return 0, fmt.Errorf("invalid user id claim")
-		}
-
-		return userID, nil
+func buildTechnicianAddress(techID uint, req technicianaddress.CreateTechnicianAddressRequest, defaultPrimary bool) *technicianaddress.TechnicianAddress {
+	isPrimary := defaultPrimary
+	if req.IsPrimary != nil {
+		isPrimary = *req.IsPrimary
 	}
-
-	return 0, fmt.Errorf("invalid token")
+	addr := &technicianaddress.TechnicianAddress{TechnicianID: techID}
+	addr.Label = req.Label
+	addr.PhoneNumber = req.PhoneNumber
+	addr.AddressLine = req.AddressLine
+	addr.HouseNumber = req.HouseNumber
+	addr.Village = req.Village
+	addr.Moo = req.Moo
+	addr.Soi = req.Soi
+	addr.Road = req.Road
+	addr.SubDistrictID = req.SubDistrictID
+	addr.DistrictID = req.DistrictID
+	addr.ProvinceID = req.ProvinceID
+	addr.Latitude = req.Latitude
+	addr.Longitude = req.Longitude
+	addr.IsPrimary = isPrimary
+	return addr
 }

@@ -1,6 +1,9 @@
 package customerreview
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type CreateReviewRequest struct {
 	Rating    int8     `json:"rating" form:"rating" validate:"required,min=1,max=5"`
@@ -16,4 +19,32 @@ func (r *CreateReviewRequest) Validate() error {
 		return fmt.Errorf("maximum 5 images allowed")
 	}
 	return nil
+}
+
+type reviewImageResponse struct {
+	ImageURL string `json:"image_url"`
+}
+
+type reviewCustomerResponse struct {
+	ID     uint    `json:"id"`
+	Name   string  `json:"name"`
+	Avatar *string `json:"avatar"`
+}
+
+type reviewServiceResponse struct {
+	ID           uint    `json:"id"`
+	Name         string  `json:"name,omitempty"`
+	Picture      *string `json:"picture"`
+	CategoryID   uint    `json:"category_id,omitempty"`
+	CategoryName string  `json:"category_name,omitempty"`
+}
+
+type CreateReviewResponse struct {
+	ID        uint                   `json:"id"`
+	Rating    int8                   `json:"rating"`
+	Comment   string                 `json:"comment,omitempty"`
+	CreatedAt time.Time              `json:"created_at"`
+	Customer  reviewCustomerResponse `json:"customer"`
+	Service   reviewServiceResponse  `json:"service"`
+	Images    []reviewImageResponse  `json:"images"`
 }
