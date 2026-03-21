@@ -17,6 +17,7 @@ type Repository interface {
 	GetBalance(ctx context.Context, technicianID uint) (*TechnicianWallet, error)
 	ListTransactions(ctx context.Context, technicianID uint, page, limit int) ([]*WalletTransaction, int64, error)
 	ListWithdrawals(ctx context.Context, technicianID uint, page, limit int) ([]*WithdrawalRequest, int64, error)
+	GetJobStats(ctx context.Context, technicianID uint) (completed int64, cancelled int64, err error)
 }
 
 type repository struct {
@@ -254,4 +255,18 @@ func (r *repository) ListWithdrawals(ctx context.Context, technicianID uint, pag
 		Find(&items).Error
 
 	return items, total, err
+}
+
+func (r *repository) GetJobStats(ctx context.Context, technicianID uint) (int64, int64, error) {
+	var completed, cancelled int64
+
+	r.db.WithContext(ctx).Table("bookings").
+		Where("technician_id = ? AND status = ?", technicianID, "completed").
+		Count(&completed)
+
+	r.db.WithContext(ctx).Table("bookings").
+		Where("technician_id = ? AND status = ?", technicianID, "cancelled").
+		Count(&cancelled)
+
+	return completed, cancelled, nil
 }

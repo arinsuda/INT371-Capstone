@@ -22,7 +22,7 @@ type WalletTransaction struct {
 	Category      string    `gorm:"type:varchar(50);not null" json:"category"`
 	GrossAmount   float64   `gorm:"type:decimal(12,2);not null" json:"gross_amount"`
 	FeeAmount     float64   `gorm:"type:decimal(12,2);not null;default:0" json:"fee_amount"`
-	FeeRate       float64   `gorm:"type:decimal(5,4);not null;default:0" json:"fee_rate"` // snapshot อัตราตอนนั้น
+	FeeRate       float64   `gorm:"type:decimal(5,4);not null;default:0" json:"fee_rate"`
 	NetAmount     float64   `gorm:"type:decimal(12,2);not null" json:"net_amount"`
 	BalanceBefore float64   `gorm:"type:decimal(12,2);not null" json:"balance_before"`
 	BalanceAfter  float64   `gorm:"type:decimal(12,2);not null" json:"balance_after"`
@@ -34,7 +34,6 @@ type WalletTransaction struct {
 
 func (WalletTransaction) TableName() string { return "wallet_transactions" }
 
-// WithdrawalRequest — บันทึกคำขอถอนเงิน (เสมือน)
 type WithdrawalRequest struct {
 	ID            uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	WalletID      uint      `gorm:"not null;index"           json:"wallet_id"`
@@ -43,7 +42,7 @@ type WithdrawalRequest struct {
 	BankName      string    `gorm:"type:varchar(100)"        json:"bank_name"`
 	AccountNumber string    `gorm:"type:varchar(20)"         json:"account_number"`
 	AccountName   string    `gorm:"type:varchar(200)"        json:"account_name"`
-	Status        string    `gorm:"type:varchar(20);default:completed" json:"status"` // completed (เสมือนจ่ายทันที)
+	Status        string    `gorm:"type:varchar(20);default:completed" json:"status"`
 	Note          *string   `gorm:"type:text"                json:"note,omitempty"`
 	ProcessedAt   time.Time `gorm:"autoCreateTime"           json:"processed_at"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"           json:"created_at"`
@@ -62,6 +61,8 @@ const (
 	TxCategoryRefund     = "REFUND"
 	TxCategoryAdjustment = "ADJUSTMENT"
 )
+
+const WithdrawableFeeRate = 0.05
 
 func Models() []interface{} {
 	return []interface{}{
