@@ -1,11 +1,13 @@
 package wallet
 
 import (
-	appErrors "changsure-core-service/internal/errors"
-	"changsure-core-service/internal/middleware"
-	"changsure-core-service/pkg/utils"
 	"strconv"
 	"strings"
+
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/technician"
+	"changsure-core-service/pkg/utils"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -14,15 +16,42 @@ import (
 type Handler struct {
 	repo      Repository
 	service   Service
+	techRepo  technician.Repository
 	validator *validator.Validate
 }
 
-func NewHandler(repo Repository, service Service) *Handler {
+func NewHandler(repo Repository, service Service, techRepo technician.Repository) *Handler {
 	return &Handler{
 		repo:      repo,
 		service:   service,
+		techRepo:  techRepo,
 		validator: validator.New(),
 	}
+}
+
+func (h *Handler) GetSummary(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	tech, err := h.techRepo.FindByID(c.Context(), techID)
+	if err != nil || tech == nil {
+		return appErrors.NotFound(c, "technician not found")
+	}
+
+	summary, err := h.service.GetSummary(c.Context(), techID, TechInfo{
+		TotalJobs: tech.TotalJobs,
+		RatingAvg: tech.RatingAvg,
+	})
+	if err != nil {
+		return appErrors.InternalError(c, "failed to get wallet summary", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": summary})
 }
 
 func (h *Handler) GetBalance(c fiber.Ctx) error {
@@ -34,15 +63,12 @@ func (h *Handler) GetBalance(c fiber.Ctx) error {
 		return appErrors.HandleError(c, err)
 	}
 
-	w, err := h.repo.GetBalance(c.Context(), techID)
+	resp, err := h.service.GetBalance(c.Context(), techID)
 	if err != nil {
 		return appErrors.InternalError(c, "failed to get wallet", err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    w,
-	})
+	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
 func (h *Handler) ListTransactions(c fiber.Ctx) error {
@@ -110,7 +136,6 @@ func (h *Handler) Withdraw(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
@@ -125,7 +150,6 @@ func (h *Handler) Withdraw(c fiber.Ctx) error {
 
 	result, err := h.service.Withdraw(c.Context(), techID, req)
 	if err != nil {
-
 		if strings.Contains(err.Error(), "insufficient balance") {
 			return appErrors.BadRequest(c, err.Error())
 		}

@@ -268,7 +268,9 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 	tokenRepo := auth.NewTokenRepository(c.DB)
 
 	tokenCfg := auth.TokenConfig{
-		Secret: []byte(cfg.JWT.Secret),
+		Secret:     []byte(cfg.JWT.Secret),
+		AccessTTL:  time.Duration(cfg.JWT.AccessTokenTTL) * time.Second,
+		RefreshTTL: time.Duration(cfg.JWT.RefreshTokenTTL) * time.Second,
 	}
 
 	c.AuthService = auth.NewService(
@@ -532,7 +534,7 @@ func (c *Container) initChatModule() {
 func (c *Container) initWalletModule() {
 	c.WalletRepo = wallet.NewRepository(c.DB)
 	c.WalletService = wallet.NewService(c.WalletRepo, c.DB)
-	c.WalletHandler = wallet.NewHandler(c.WalletRepo, c.WalletService)
+	c.WalletHandler = wallet.NewHandler(c.WalletRepo, c.WalletService, c.TechnicianRepo)
 }
 
 func (c *Container) initPaymentModule(cfg *config.Config) {
