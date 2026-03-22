@@ -9,6 +9,7 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, a *Admin) error
+	Update(ctx context.Context, a *Admin) error
 	FindByEmail(ctx context.Context, email string) (*Admin, error)
 	FindByID(ctx context.Context, id uint) (*Admin, error)
 	FindAll(ctx context.Context) ([]Admin, error)
@@ -24,6 +25,10 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) Create(ctx context.Context, a *Admin) error {
 	return r.db.WithContext(ctx).Create(a).Error
+}
+
+func (r *repository) Update(ctx context.Context, a *Admin) error {
+	return r.db.WithContext(ctx).Save(a).Error
 }
 
 func (r *repository) FindByEmail(ctx context.Context, email string) (*Admin, error) {
