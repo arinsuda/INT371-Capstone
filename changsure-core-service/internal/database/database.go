@@ -101,3 +101,12 @@ func (d *Database) Close() error {
 	}
 	return sqlDB.Close()
 }
+
+func (d *Database) applySQL(sql string) error {
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		return err
+	}
+	_, err = sqlDB.Exec(sql)
+	return err
+}

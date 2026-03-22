@@ -89,8 +89,8 @@ type TechnicianProfileRes struct {
 	AvatarURL *string `json:"avatar_url,omitempty"`
 
 	RatingAvg       *float64 `json:"rating_avg,omitempty"`
-	RatingCount     uint     `json:"rating_count"`
-	TotalJobs       uint     `json:"total_jobs"`
+	RatingCount     int64     `json:"rating_count"`
+	TotalJobs       int64     `json:"total_jobs"`
 	IsAvailable     bool     `json:"is_available"`
 	IsVerified      bool     `json:"is_verified"`
 	TermsAccepted   bool     `json:"terms_accepted"`
@@ -127,4 +127,11 @@ type TechnicianSummaryStats struct {
 	Total         int64 `json:"total"`
 	VerifiedCount int64 `json:"verified_count"`
 	PendingCount  int64 `json:"pending_count"`
+}
+
+type TechnicianStats struct {
+	TechnicianID uint    `gorm:"column:technician_id"`
+	TotalJobs    int64   `gorm:"column:total_jobs"`
+	RatingAvg    float64 `gorm:"column:rating_avg"`
+	RatingCount  int64   `gorm:"column:rating_count"`
 }

@@ -8,7 +8,7 @@ type WithdrawRequest struct {
 }
 
 type TechInfo struct {
-	TotalJobs uint
+	TotalJobs int64
 	RatingAvg *float64
 }
 
@@ -26,7 +26,7 @@ type WalletSummaryResponse struct {
 	TotalEarned         float64 `json:"total_earned"`
 	Currency            string  `json:"currency"`
 
-	TotalJobs     uint    `json:"total_jobs"`
+	TotalJobs     int64    `json:"total_jobs"`
 	CompletedJobs int64   `json:"completed_jobs"`
 	CancelledJobs int64   `json:"cancelled_jobs"`
 	AverageRating float64 `json:"average_rating"`
