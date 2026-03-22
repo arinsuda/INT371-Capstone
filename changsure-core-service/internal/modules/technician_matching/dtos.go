@@ -48,8 +48,8 @@ type TechnicianListItem struct {
 	PriceMin        float64         `json:"price_min"`
 	PriceMax        float64         `json:"price_max"`
 	RatingAvg       float64         `json:"rating_avg"`
-	RatingCount     uint            `json:"rating_count"`
-	TotalJobs       uint            `json:"total_jobs"`
+	RatingCount     int64            `json:"rating_count"`
+	TotalJobs       int64            `json:"total_jobs"`
 	DistanceKm      float64         `json:"distance_km"`
 	ServiceID       uint            `json:"service_id"`
 	CategoryName    string          `json:"category_name"`
@@ -64,8 +64,8 @@ type TechnicianDetail struct {
 	Bio         *string         `json:"bio"`
 	AvatarURL   *string         `json:"avatar_url"`
 	RatingAvg   float64         `json:"rating_avg"`
-	RatingCount uint            `json:"rating_count"`
-	TotalJobs   uint            `json:"total_jobs"`
+	RatingCount int64            `json:"rating_count"`
+	TotalJobs   int64            `json:"total_jobs"`
 	Provinces   []string        `json:"provinces"`
 	Badges      []BadgeResponse `json:"badges"`
 	Services    []string        `json:"services"`

@@ -28,6 +28,16 @@ func (c *Config) GetDatabaseDSN() string {
 	}
 }
 
+func (c *Config) GetMigrationDSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&multiStatements=true",
+		c.Database.Username,
+		c.Database.Password,
+		c.Database.Host,
+		c.Database.Port,
+		c.Database.DatabaseName,
+	)
+}
+
 func (c *Config) GetConnectionMaxLifetime() time.Duration {
 	return time.Duration(c.Database.ConnMaxLifetime) * time.Minute
 }

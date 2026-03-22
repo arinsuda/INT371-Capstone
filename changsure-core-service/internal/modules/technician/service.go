@@ -363,13 +363,19 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 		Preload("Badges").
 		Preload("Badges.Badge").
 		First(&tech, techID).Error
-
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, appErrors.NewNotFound("technician not found")
 		}
 		return nil, fmt.Errorf("fetch technician: %w", err)
 	}
+
+	if stats, err := s.repo.GetStats(ctx, techID); err == nil {
+		tech.TotalJobs = stats.TotalJobs
+		tech.RatingCount = stats.RatingCount
+		tech.RatingAvg = &stats.RatingAvg
+	}
+
 	return &tech, nil
 }
 

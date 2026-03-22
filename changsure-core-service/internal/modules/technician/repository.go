@@ -21,12 +21,22 @@ type Repository interface {
 	Count(ctx context.Context) (int64, error)
 	GetSummaryStats(ctx context.Context) (*TechnicianSummaryStats, error)
 
+	GetStats(ctx context.Context, techID uint) (*TechnicianStats, error)
 	SyncStats(ctx context.Context, techID uint) error
 }
 
 type repository struct{ db *gorm.DB }
 
 func NewRepository(db *gorm.DB) Repository { return &repository{db: db} }
+
+func (r *repository) GetStats(ctx context.Context, techID uint) (*TechnicianStats, error) {
+	var stats TechnicianStats
+	err := r.db.WithContext(ctx).
+		Table("technician_stats").
+		Where("technician_id = ?", techID).
+		Scan(&stats).Error
+	return &stats, err
+}
 
 func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error) {
 	var m Technician
