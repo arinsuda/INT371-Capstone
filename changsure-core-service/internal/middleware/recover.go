@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"log/slog"
+	"runtime/debug"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
@@ -16,6 +17,7 @@ func Recover() fiber.Handler {
 				"path", c.Path(),
 				"method", c.Method(),
 				"request_id", c.Locals(localRequestID),
+				"stack", string(debug.Stack()),
 			)
 		},
 	})

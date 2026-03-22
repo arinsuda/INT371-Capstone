@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
+	"strconv"
 	"time"
 
 	appErrors "changsure-core-service/internal/errors"
@@ -30,9 +31,6 @@ func (h *Handler) GetProfile(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-	// if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
-	// 	return err
-	// }
 
 	res, err := h.svc.GetProfile(c.Context(), techID)
 	if err != nil {
@@ -219,6 +217,33 @@ func (h *Handler) RemoveService(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
+func (h *Handler) ListTechnicians(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+	page, pageSize := parsePagination(c)
+
+	list, total, stats, err := h.svc.List(c.Context(), page, pageSize)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to list technicians", err)
+	}
+
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"technicians":    list,
+			"page":           page,
+			"page_size":      pageSize,
+			"total":          total,
+			"total_pages":    totalPages,
+			"verified_count": stats.VerifiedCount,
+			"pending_count":  stats.PendingCount,
+		},
+	})
+}
+
 func (h *Handler) bindProfileReq(c fiber.Ctx, techID uint) (TechnicianProfileReq, error) {
 	var req TechnicianProfileReq
 
@@ -300,4 +325,15 @@ func (h *Handler) processAndUploadAvatar(c fiber.Ctx, techID uint, fh *multipart
 		return "", appErrors.InternalError(c, "failed to upload avatar", err)
 	}
 	return key, nil
+}
+
+func parsePagination(c fiber.Ctx) (page, pageSize int) {
+	page, pageSize = 1, 10
+	if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+		page = p
+	}
+	if s, err := strconv.Atoi(c.Query("page_size")); err == nil && s > 0 {
+		pageSize = s
+	}
+	return
 }

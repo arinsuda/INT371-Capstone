@@ -3,11 +3,13 @@ package technicianbooking
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/notification"
+	"changsure-core-service/internal/modules/technician"
 
 	"gorm.io/gorm"
 )
@@ -29,16 +31,18 @@ type Service interface {
 }
 
 type service struct {
-	repo  booking.Repository
-	db    *gorm.DB
-	notif notification.Service
+	repo     booking.Repository
+	db       *gorm.DB
+	notif    notification.Service
+	techRepo technician.Repository
 }
 
-func NewService(repo booking.Repository, db *gorm.DB, notif notification.Service) Service {
+func NewService(repo booking.Repository, db *gorm.DB, notif notification.Service, techRepo technician.Repository) Service {
 	return &service{
-		repo:  repo,
-		db:    db,
-		notif: notif,
+		repo:     repo,
+		db:       db,
+		notif:    notif,
+		techRepo: techRepo,
 	}
 }
 
@@ -300,6 +304,18 @@ func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if s.techRepo != nil {
+		go func() {
+			if err := s.techRepo.SyncStats(context.Background(), technicianID); err != nil {
+				slog.Warn("SyncStats failed after CompleteJob",
+					"technician_id", technicianID,
+					"booking_id", bookingID,
+					"error", err,
+				)
+			}
+		}()
 	}
 
 	s.sendNotification(ctx, updated, "JOB_COMPLETED", "ดำเนินการเสร็จสิ้น", "กรุณาตรวจสอบและชำระค่าบริการ")

@@ -177,7 +177,8 @@ type Container struct {
 	CustomerReviewHandler   *customerreview.Handler
 	TechnicianReviewHandler *technicianreview.Handler
 
-	AdminRepo admin.Repository
+	AdminHandler *admin.Handler
+	AdminRepo    admin.Repository
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
@@ -480,6 +481,7 @@ func (c *Container) initTechnicianBookingModule() {
 		c.BookingRepo,
 		c.DB,
 		c.NotificationService,
+		c.TechnicianRepo,
 	)
 	c.TechnicianBookingHandler = technicianbooking.NewHandler(
 		c.TechnicianBookingService,
@@ -635,6 +637,8 @@ func (c *Container) initCriminalCheckModule() {
 
 func (c *Container) initAdminModule() {
 	c.AdminRepo = admin.NewRepository(c.DB)
+	adminSvc := admin.NewService(c.AdminRepo, c.Storage)
+	c.AdminHandler = admin.NewHandler(adminSvc)
 }
 
 func (c *Container) initCustomerReviewModule() {

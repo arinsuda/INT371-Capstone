@@ -23,6 +23,7 @@ type Service interface {
 	List(ctx context.Context, page, pageSize int) ([]*CustomerResponse, error)
 	Update(ctx context.Context, id uint, req *UpdateCustomerRequest) (*CustomerResponse, error)
 	Delete(ctx context.Context, id uint) error
+	Count(ctx context.Context) (int64, error)
 }
 
 type service struct {
@@ -33,6 +34,10 @@ type service struct {
 
 func NewService(repo Repository, s storage.Storage, logger *slog.Logger) Service {
 	return &service{repo: repo, storage: s, logger: logger}
+}
+
+func (s *service) Count(ctx context.Context) (int64, error) {
+	return s.repo.CountCustomer(ctx)
 }
 
 func (s *service) GetByID(ctx context.Context, id uint) (*CustomerResponse, error) {

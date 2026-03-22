@@ -37,6 +37,7 @@ type Service interface {
 	UpdateService(ctx context.Context, techID uint, req UpdateTechServiceReq) (*TechServiceMutationResult, error)
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
 	UpdateAvatar(ctx context.Context, techID uint, avatarKey string) error
+	List(ctx context.Context, page, pageSize int) ([]*TechnicianResponseDashboard, int64, *TechnicianSummaryStats, error)
 }
 
 type service struct {
@@ -303,6 +304,52 @@ func (s *service) UpdateAvatar(ctx context.Context, techID uint, avatarKey strin
 
 	log.Info("avatar updated", "key", avatarKey)
 	return nil
+}
+
+func (s *service) List(ctx context.Context, page, pageSize int) ([]*TechnicianResponseDashboard, int64, *TechnicianSummaryStats, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	stats, err := s.repo.GetSummaryStats(ctx)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("GetSummaryStats: %w", err)
+	}
+
+	technicians, err := s.repo.GetAll(ctx, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("GetAll: %w", err)
+	}
+
+	out := make([]*TechnicianResponseDashboard, 0, len(technicians))
+	for _, t := range technicians {
+		out = append(out, s.toDashboardRes(ctx, &t))
+	}
+	return out, stats.Total, stats, nil
+}
+
+func (s *service) toDashboardRes(ctx context.Context, t *TechnicianWithVerification) *TechnicianResponseDashboard {
+	return &TechnicianResponseDashboard{
+		ID:        t.ID,
+		AvatarURL: s.presignURL(ctx, t.AvatarURL),
+		FirstName: t.FirstName,
+		LastName:  t.LastName,
+		Email:     t.Email,
+		Phone:     t.Phone,
+
+		Provinces:      s.toProvincesRes(t.ServiceAreas),
+		Services:       s.toServicesRes(t.Services),
+		ServiceSummary: s.toServiceSummary(t.Services),
+
+		TechnicianStatus: TechnicianStatus{
+			IsAvailable:        t.IsAvailable,
+			IsVerified:         t.IsVerified,
+			VerificationStatus: t.VerificationStatus,
+		},
+	}
 }
 
 func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Technician, error) {

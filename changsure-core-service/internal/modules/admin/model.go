@@ -4,6 +4,7 @@ import "time"
 
 type Admin struct {
 	ID           uint       `gorm:"primaryKey;autoIncrement"`
+	Avatar       *string    `gorm:"type:text"`
 	FirstName    string     `gorm:"type:varchar(150);not null"`
 	LastName     string     `gorm:"type:varchar(150);not null"`
 	Email        string     `gorm:"type:varchar(100);uniqueIndex;not null"`

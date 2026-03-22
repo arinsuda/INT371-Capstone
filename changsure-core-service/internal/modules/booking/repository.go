@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"time"
 
@@ -339,6 +340,7 @@ func (r *repository) CreateReview(ctx context.Context, review *Review, images []
 		if err := tx.Create(review).Error; err != nil {
 			return err
 		}
+
 		if len(images) > 0 {
 			for i := range images {
 				images[i].ReviewID = review.ID
@@ -347,12 +349,59 @@ func (r *repository) CreateReview(ctx context.Context, review *Review, images []
 				return err
 			}
 		}
+
 		if err := tx.Model(&Booking{}).
 			Where("id = ?", review.BookingID).
 			Update("reviewed_at", review.CreatedAt).Error; err != nil {
 			return err
 		}
-		return upsertServiceRatingTx(tx, ctx, review.ServiceID)
+
+		if err := upsertServiceRatingTx(tx, ctx, review.ServiceID); err != nil {
+			return err
+		}
+
+		var technicianID uint
+		if err := tx.WithContext(ctx).
+			Table("bookings").
+			Select("technician_id").
+			Where("id = ?", review.BookingID).
+			Scan(&technicianID).Error; err != nil {
+
+			slog.Warn("failed to get technician_id for stats sync",
+				"booking_id", review.BookingID,
+				"error", err,
+			)
+			return nil
+		}
+
+		if technicianID == 0 {
+			return nil
+		}
+
+		if err := tx.WithContext(ctx).Exec(`
+			UPDATE technicians t
+			SET
+				rating_count = (
+					SELECT COUNT(*) FROM reviews rv
+					JOIN bookings b ON b.id = rv.booking_id
+					WHERE b.technician_id = ?
+				),
+				rating_avg = (
+					SELECT COALESCE(ROUND(AVG(rv.rating), 2), 0.00)
+					FROM reviews rv
+					JOIN bookings b ON b.id = rv.booking_id
+					WHERE b.technician_id = ?
+				)
+			WHERE t.id = ?
+		`, technicianID, technicianID, technicianID).Error; err != nil {
+			slog.Warn("failed to sync technician rating stats after review",
+				"technician_id", technicianID,
+				"booking_id", review.BookingID,
+				"error", err,
+			)
+		}
+
+		return nil
 	})
 }
 
