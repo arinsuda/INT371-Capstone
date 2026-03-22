@@ -18,6 +18,7 @@ type Repository interface {
 
 	GetAll(ctx context.Context, limit, offset int) ([]*Customer, error)
 	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
+	CountCustomer(ctx context.Context) (int64, error)
 }
 
 type repository struct {
@@ -26,6 +27,15 @@ type repository struct {
 
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
+}
+
+func (r *repository) CountCustomer(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&Customer{}).
+		Where("deleted_at IS NULL").
+		Count(&count).Error
+	return count, err
 }
 
 func (r *repository) Create(ctx context.Context, customer *Customer) error {

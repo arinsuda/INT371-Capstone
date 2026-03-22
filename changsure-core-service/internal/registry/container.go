@@ -481,6 +481,7 @@ func (c *Container) initTechnicianBookingModule() {
 		c.BookingRepo,
 		c.DB,
 		c.NotificationService,
+		c.TechnicianRepo,
 	)
 	c.TechnicianBookingHandler = technicianbooking.NewHandler(
 		c.TechnicianBookingService,

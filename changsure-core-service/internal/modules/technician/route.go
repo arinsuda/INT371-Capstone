@@ -12,3 +12,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Patch("/:technicianID/services/:serviceID", h.UpdateService)
 	router.Delete("/:technicianID/services/:serviceID", h.RemoveService)
 }
+
+func (h *Handler) RegisterAdminRoutes(router fiber.Router) {
+	router.Get("/technicians", h.ListTechnicians)
+}

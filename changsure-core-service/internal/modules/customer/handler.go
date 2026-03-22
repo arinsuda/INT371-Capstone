@@ -110,9 +110,13 @@ func (h *Handler) ListCustomers(c fiber.Ctx) error {
 
 	page, pageSize := parsePagination(c)
 
+	total, err := h.service.Count(c.Context())
+	if err != nil {
+		return appErrors.InternalError(c, "failed to count customers", err)
+	}
+
 	list, err := h.service.List(c.Context(), page, pageSize)
 	if err != nil {
-		h.logger.Error("failed to list customers", "error", err)
 		return appErrors.InternalError(c, "failed to list customers", err)
 	}
 
@@ -122,7 +126,7 @@ func (h *Handler) ListCustomers(c fiber.Ctx) error {
 			"customers": list,
 			"page":      page,
 			"page_size": pageSize,
-			"total":     len(list),
+			"total":     total, 
 		},
 	})
 }

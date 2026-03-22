@@ -101,3 +101,30 @@ type TechnicianProfileRes struct {
 	ServiceSummary []TechServiceSummary         `json:"service_summary"`
 	Badges         []badges.BadgeResponse       `json:"badges"`
 }
+
+type TechnicianStatus struct {
+	IsAvailable        bool   `json:"is_available"`
+	IsVerified         bool   `json:"is_verified"`
+	VerificationStatus string `json:"verification_status"`
+}
+
+type TechnicianResponseDashboard struct {
+	ID        uint    `json:"id"`
+	AvatarURL *string `json:"avatar_url,omitempty"`
+	FirstName string  `json:"firstname"`
+	LastName  string  `json:"lastname"`
+	Email     *string `json:"email,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+
+	Provinces      []provinces.ProvinceResponse `json:"provinces"`
+	Services       []TechServiceRes             `json:"services"`
+	ServiceSummary []TechServiceSummary         `json:"service_summary"`
+
+	TechnicianStatus
+}
+
+type TechnicianSummaryStats struct {
+	Total         int64 `json:"total"`
+	VerifiedCount int64 `json:"verified_count"`
+	PendingCount  int64 `json:"pending_count"`
+}
