@@ -421,7 +421,7 @@ func (c *Container) initTechnicianBadgeModule() {
 
 func (c *Container) initTechnicianWorkModule() {
 	c.TechnicianPostRepo = techworks.NewRepository(c.DB)
-	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo, c.Storage)
+	c.TechnicianPostService = techworks.NewService(c.TechnicianPostRepo, c.Storage, c.NotificationService)
 	c.TechnicianPostHandler = techworks.NewHandler(c.TechnicianPostService)
 }
 
