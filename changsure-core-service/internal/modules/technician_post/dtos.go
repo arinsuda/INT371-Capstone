@@ -77,17 +77,23 @@ type CreatePostReportDTO struct {
 	DeletePost bool    `json:"delete_post"`
 }
 
+type AdminResponse struct {
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	AvatarURL string `json:"avatar_url"`
+}
+
 type PostReportResponse struct {
-	ID           uint    `json:"id"`
-	PostID       uint    `json:"post_id"`
-	TechnicianID uint    `json:"technician_id"`
-	ReportType   string  `json:"report_type"`
-	Reason       *string `json:"reason"`
-	Severity     string  `json:"severity"`
-	DeletePost   bool    `json:"delete_post"`
-	AdminID      uint    `json:"admin_id"`
-	AdminName    string  `json:"admin_name"`
-	ReportedAt   int64   `json:"reported_at"`
+	ID           uint          `json:"id"`
+	PostID       uint          `json:"post_id"`
+	TechnicianID uint          `json:"technician_id"`
+	ReportType   string        `json:"report_type"`
+	Reason       *string       `json:"reason"`
+	Severity     string        `json:"severity"`
+	DeletePost   bool          `json:"delete_post"`
+	Admin        AdminResponse `json:"admin"`
+	ReportedAt   int64         `json:"reported_at"`
 }
 
 type PostReportListResponse struct {

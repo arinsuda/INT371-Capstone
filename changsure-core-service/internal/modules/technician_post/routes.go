@@ -2,19 +2,23 @@ package technicianposts
 
 import "github.com/gofiber/fiber/v3"
 
+
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	posts := router.Group("/:technicianID/posts")
 
 	posts.Post("/", h.CreatePost)
 	posts.Get("/", h.ListPosts)
-	posts.Get("/:id", h.GetPost)
-	posts.Put("/:id", h.UpdatePost)
-	posts.Delete("/:id", h.DeletePost)
+	posts.Get("/reports", h.ListMyReports) 
+	posts.Get("/:postID", h.GetPost)
+	posts.Put("/:postID", h.UpdatePost)
+	posts.Delete("/:postID", h.DeletePost)
 }
+
 
 func (h *Handler) RegisterAdminRoutes(router fiber.Router) {
 	posts := router.Group("/:technicianID/posts")
 
-	posts.Post("/:id/report", h.ReportPost)
-	posts.Get("/reports", h.ListReports)
+	posts.Get("/report-types", h.GetReportTypes) 
+	posts.Get("/reports", h.ListReports)         
+	posts.Post("/:postID/report", h.ReportPost)  
 }

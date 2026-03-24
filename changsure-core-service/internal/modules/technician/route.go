@@ -14,5 +14,5 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 func (h *Handler) RegisterAdminRoutes(router fiber.Router) {
-	router.Get("/technicians", h.ListTechnicians)
+	router.Get("/", h.ListTechnicians)
 }

@@ -96,10 +96,15 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 }
 
 func (r *Router) setupAdminRoutes(api fiber.Router) {
-	admin := api.Group("/admins")
+	admin := api.Group("/admins").Use(middleware.AdminOnly())
 	r.container.AdminHandler.RegisterRoutes(admin)
-	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin)
-	r.container.TechnicianHandler.RegisterAdminRoutes(admin)
+
+	criminal := api.Group("/verification").Use(middleware.AdminOnly())
+	r.container.CriminalCheckHandler.RegisterAdminRoutes(criminal)
+
+	technician := api.Group("/admins/:adminID/technicians").Use(middleware.AdminOnly())
+	r.container.TechnicianHandler.RegisterAdminRoutes(technician)
+	r.container.TechnicianPostHandler.RegisterAdminRoutes(technician)
 }
 
 func (r *Router) startBackgroundJobs() {

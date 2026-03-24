@@ -53,6 +53,36 @@ const (
 	ReportSeverityBlacklist = "BLACKLIST"
 )
 
+const (
+	ReportTypeInappropriateImage    = "รูปผลงานไม่เหมาะสม"
+	ReportTypeCopyrightViolation    = "ใช้รูปผลงานผู้อื่น (ละเมิดลิขสิทธิ์)"
+	ReportTypeUnrelatedImage        = "รูปไม่เกี่ยวข้องกับบริการ"
+	ReportTypeLowQualityImage       = "รูปคุณภาพต่ำ / ไม่ชัดเจน"
+	ReportTypeDuplicateImage        = "รูปซ้ำ / อัปโหลดซ้ำหลายครั้ง"
+	ReportTypeExaggeratedWork       = "อวดอ้างผลงานเกินจริง"
+	ReportTypeIncorrectInfo         = "ข้อมูลผลงานไม่ถูกต้อง"
+	ReportTypeMisleadingDescription = "รายละเอียดงานไม่ครบ / ทำให้เข้าใจผิด"
+	ReportTypeExternalContact       = "โปรโมทช่องทางติดต่อภายนอก"
+	ReportTypePersonalDataExposed   = "มีข้อมูลส่วนบุคคลในรูป"
+)
+
+var allowedReportTypes = map[string]bool{
+	ReportTypeInappropriateImage:    true,
+	ReportTypeCopyrightViolation:    true,
+	ReportTypeUnrelatedImage:        true,
+	ReportTypeLowQualityImage:       true,
+	ReportTypeDuplicateImage:        true,
+	ReportTypeExaggeratedWork:       true,
+	ReportTypeIncorrectInfo:         true,
+	ReportTypeMisleadingDescription: true,
+	ReportTypeExternalContact:       true,
+	ReportTypePersonalDataExposed:   true,
+}
+
+func IsValidReportType(t string) bool {
+	return allowedReportTypes[t]
+}
+
 type TechnicianPostReport struct {
 	ID           uint `gorm:"primaryKey;autoIncrement"`
 	PostID       uint `gorm:"not null;index"`

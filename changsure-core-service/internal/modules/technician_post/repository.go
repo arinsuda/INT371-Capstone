@@ -26,6 +26,7 @@ type Repository interface {
 	CreateReport(ctx context.Context, report *TechnicianPostReport) error
 	CountWarningsByTechnician(ctx context.Context, technicianID uint) (int64, error)
 	ListReportsByTechnician(ctx context.Context, technicianID uint, q ListPostReportsQuery) ([]TechnicianPostReport, int64, error)
+	ExistsReportByAdminAndPost(ctx context.Context, adminID, postID uint) (bool, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -197,4 +198,13 @@ func (r *repository) ListReportsByTechnician(ctx context.Context, technicianID u
 		Find(&reports).Error
 
 	return reports, total, err
+}
+
+func (r *repository) ExistsReportByAdminAndPost(ctx context.Context, adminID, postID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&TechnicianPostReport{}).
+		Where("admin_id = ? AND post_id = ?", adminID, postID).
+		Count(&count).Error
+	return count > 0, err
 }

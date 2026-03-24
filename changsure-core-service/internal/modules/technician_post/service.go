@@ -23,7 +23,6 @@ type Service interface {
 	ListPublicPosts(ctx context.Context, techID uint, q ListTechnicianPostsQuery) (*PostListResponse, error)
 	GetPublic(ctx context.Context, techID, postID uint) (*TechnicianPostResponse, error)
 
-	// Report
 	ReportPost(ctx context.Context, techID, postID, adminID uint, req CreatePostReportDTO) (*PostReportResponse, error)
 	ListReports(ctx context.Context, techID uint, q ListPostReportsQuery, isAdmin bool) (*PostReportListResponse, error)
 }
@@ -161,24 +160,27 @@ func (s *service) Delete(ctx context.Context, techID, postID uint, hard bool) er
 	return s.repo.SoftDeletePost(ctx, postID, techID)
 }
 
-// --- Report ---
-
 func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, req CreatePostReportDTO) (*PostReportResponse, error) {
 	post, err := s.repo.GetPost(ctx, postID, techID)
 	if err != nil {
 		return nil, appErrors.NewNotFound("post not found")
 	}
 
-	// นับจำนวน WARNING ที่มีอยู่แล้ว (เฉพาะ WARNING ไม่นับ BLACKLIST)
+	exists, err := s.repo.ExistsReportByAdminAndPost(ctx, adminID, postID)
+	if err != nil {
+		return nil, fmt.Errorf("check existing report: %w", err)
+	}
+	if exists {
+		return nil, appErrors.NewConflict("this post has already been reported by you")
+	}
+
 	warningCount, err := s.repo.CountWarningsByTechnician(ctx, techID)
 	if err != nil {
 		return nil, fmt.Errorf("count warnings: %w", err)
 	}
 
-	// WARNING ใหม่นี้จะเป็นครั้งที่เท่าไหร่
 	newWarningCount := warningCount + 1
 
-	// ถ้าครบ 3 ครั้ง → บังคับ ban โดยไม่สนว่า Admin เลือก severity อะไร
 	shouldBan := newWarningCount >= 3
 
 	report := &TechnicianPostReport{
@@ -196,7 +198,6 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 			return fmt.Errorf("create report: %w", err)
 		}
 
-		// ลบผลงานถ้าเลือก delete_post
 		if req.DeletePost {
 			if err := tx.Where("id = ? AND technician_id = ?", postID, techID).
 				Delete(&TechnicianPost{}).Error; err != nil {
@@ -204,7 +205,6 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 			}
 		}
 
-		// Ban เมื่อ WARNING ครบ 3 ครั้ง หรือ Admin เลือก BLACKLIST เอง
 		if shouldBan || req.Severity == ReportSeverityBlacklist {
 			if err := tx.Table("technicians").
 				Where("id = ?", techID).
@@ -219,12 +219,18 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 		return nil, err
 	}
 
-	// ส่ง notification แจ้งช่างหลัง transaction สำเร็จ
 	if s.notif != nil {
 		go s.sendReportNotification(context.Background(), techID, postID, post.Title, req, newWarningCount, shouldBan)
 	}
 
-	return toReportResponse(report, ""), nil
+	if err := s.repo.DB().WithContext(ctx).
+		Preload("Admin").
+		First(report, report.ID).Error; err != nil {
+
+		return s.toReportResponse(ctx, report, true), nil
+	}
+
+	return s.toReportResponse(ctx, report, true), nil
 }
 
 func (s *service) sendReportNotification(
@@ -255,7 +261,7 @@ func (s *service) sendReportNotification(
 		)
 
 	default:
-		// BLACKLIST โดย Admin โดยตรง
+
 		notifType = "POST_BLACKLISTED"
 		title = "บัญชีของคุณถูกระงับการใช้งาน 🚫"
 		message = fmt.Sprintf(
@@ -299,17 +305,7 @@ func (s *service) ListReports(ctx context.Context, techID uint, q ListPostReport
 
 	items := make([]PostReportResponse, 0, len(reports))
 	for i := range reports {
-		adminName := ""
-		if reports[i].Admin != nil {
-			adminName = reports[i].Admin.FirstName + " " + reports[i].Admin.LastName
-		}
-		resp := toReportResponse(&reports[i], adminName)
-
-		// ช่างดูได้แต่ไม่เห็น admin_id และ admin_name
-		if !isAdmin {
-			resp.AdminID = 0
-			resp.AdminName = ""
-		}
+		resp := s.toReportResponse(ctx, &reports[i], isAdmin)
 		items = append(items, *resp)
 	}
 
@@ -321,7 +317,23 @@ func (s *service) ListReports(ctx context.Context, techID uint, q ListPostReport
 	}, nil
 }
 
-func toReportResponse(r *TechnicianPostReport, adminName string) *PostReportResponse {
+func (s *service) toReportResponse(ctx context.Context, r *TechnicianPostReport, showAdmin bool) *PostReportResponse {
+	var adminResp AdminResponse
+	if showAdmin && r.Admin != nil {
+		avatarURL := ""
+		if r.Admin.Avatar != nil && *r.Admin.Avatar != "" {
+			if signed, err := s.storage.PresignGet(ctx, *r.Admin.Avatar, imagePresignTTL, false); err == nil {
+				avatarURL = signed
+			}
+		}
+		adminResp = AdminResponse{
+			ID:        r.Admin.ID,
+			FirstName: r.Admin.FirstName,
+			LastName:  r.Admin.LastName,
+			AvatarURL: avatarURL,
+		}
+	}
+
 	return &PostReportResponse{
 		ID:           r.ID,
 		PostID:       r.PostID,
@@ -330,8 +342,7 @@ func toReportResponse(r *TechnicianPostReport, adminName string) *PostReportResp
 		Reason:       r.Reason,
 		Severity:     r.Severity,
 		DeletePost:   r.DeletePost,
-		AdminID:      r.AdminID,
-		AdminName:    adminName,
+		Admin:        adminResp,
 		ReportedAt:   r.CreatedAt.Unix(),
 	}
 }

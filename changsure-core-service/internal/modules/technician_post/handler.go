@@ -43,7 +43,7 @@ func (h *Handler) GetPost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-	postID, err := parseUintParam(c, "id")
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
@@ -79,7 +79,7 @@ func (h *Handler) UpdatePost(c fiber.Ctx) error {
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
-	postID, err := parseUintParam(c, "id")
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
@@ -102,7 +102,7 @@ func (h *Handler) DeletePost(c fiber.Ctx) error {
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
-	postID, err := parseUintParam(c, "id")
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
@@ -113,17 +113,50 @@ func (h *Handler) DeletePost(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "post deleted"})
 }
 
-// ReportPost — Admin only
-func (h *Handler) ReportPost(c fiber.Ctx) error {
-	if err := middleware.CheckAdmin(c); err != nil {
-		return appErrors.HandleError(c, err)
-	}
+func (h *Handler) GetReportTypes(c fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": []string{
+			ReportTypeInappropriateImage,
+			ReportTypeCopyrightViolation,
+			ReportTypeUnrelatedImage,
+			ReportTypeLowQualityImage,
+			ReportTypeDuplicateImage,
+			ReportTypeExaggeratedWork,
+			ReportTypeIncorrectInfo,
+			ReportTypeMisleadingDescription,
+			ReportTypeExternalContact,
+			ReportTypePersonalDataExposed,
+		},
+	})
+}
 
+func (h *Handler) ListReports(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-	postID, err := parseUintParam(c, "id")
+
+	var q ListPostReportsQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return appErrors.BadRequest(c, "invalid query")
+	}
+	q.SetDefaults()
+
+	result, err := h.svc.ListReports(c.Context(), techID, q, true)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": result})
+}
+
+func (h *Handler) ReportPost(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
@@ -137,8 +170,11 @@ func (h *Handler) ReportPost(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
-	if req.ReportType == "" || req.Severity == "" {
-		return appErrors.BadRequest(c, "report_type and severity are required")
+	if req.ReportType == "" {
+		return appErrors.BadRequest(c, "report_type is required")
+	}
+	if !IsValidReportType(req.ReportType) {
+		return appErrors.BadRequest(c, "invalid report_type")
 	}
 	if req.Severity != ReportSeverityWarning && req.Severity != ReportSeverityBlacklist {
 		return appErrors.BadRequest(c, "severity must be WARNING or BLACKLIST")
@@ -148,24 +184,17 @@ func (h *Handler) ReportPost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})
 }
 
-// ListReports — Admin และช่างเจ้าของดูได้
-func (h *Handler) ListReports(c fiber.Ctx) error {
+func (h *Handler) ListMyReports(c fiber.Ctx) error {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
-	// ตรวจสิทธิ์: ต้องเป็น Admin หรือช่างเจ้าของ
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
-	// เช็คว่าเป็น Admin หรือไม่ เพื่อกำหนดข้อมูลที่แสดง
-	isAdmin := middleware.CheckAdmin(c) == nil
 
 	var q ListPostReportsQuery
 	if err := c.Bind().Query(&q); err != nil {
@@ -173,11 +202,10 @@ func (h *Handler) ListReports(c fiber.Ctx) error {
 	}
 	q.SetDefaults()
 
-	result, err := h.svc.ListReports(c.Context(), techID, q, isAdmin)
+	result, err := h.svc.ListReports(c.Context(), techID, q, false)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": result})
 }
 
