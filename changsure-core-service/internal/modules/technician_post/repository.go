@@ -21,6 +21,12 @@ type Repository interface {
 
 	SoftDeletePost(ctx context.Context, postID, technicianID uint) error
 	HardDeletePost(ctx context.Context, postID, technicianID uint) error
+
+	// Report
+	CreateReport(ctx context.Context, report *TechnicianPostReport) error
+	CountWarningsByTechnician(ctx context.Context, technicianID uint) (int64, error)
+	ListReportsByTechnician(ctx context.Context, technicianID uint, q ListPostReportsQuery) ([]TechnicianPostReport, int64, error)
+	ExistsReportByAdminAndPost(ctx context.Context, adminID, postID uint) (bool, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -155,4 +161,50 @@ func (r *repository) HardDeletePost(ctx context.Context, postID, technicianID ui
 			Where("id = ? AND technician_id = ?", postID, technicianID).
 			Delete(&TechnicianPost{}).Error
 	})
+}
+
+// --- Report ---
+
+func (r *repository) CreateReport(ctx context.Context, report *TechnicianPostReport) error {
+	return r.db.WithContext(ctx).Create(report).Error
+}
+
+func (r *repository) CountWarningsByTechnician(ctx context.Context, technicianID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&TechnicianPostReport{}).
+		Where("technician_id = ? AND severity = ?", technicianID, ReportSeverityWarning).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *repository) ListReportsByTechnician(ctx context.Context, technicianID uint, q ListPostReportsQuery) ([]TechnicianPostReport, int64, error) {
+	tx := r.db.WithContext(ctx).
+		Model(&TechnicianPostReport{}).
+		Where("technician_id = ?", technicianID)
+
+	var total int64
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var reports []TechnicianPostReport
+	err := tx.
+		Preload("Post").
+		Preload("Admin").
+		Order("created_at DESC").
+		Limit(q.PerPage).
+		Offset((q.Page - 1) * q.PerPage).
+		Find(&reports).Error
+
+	return reports, total, err
+}
+
+func (r *repository) ExistsReportByAdminAndPost(ctx context.Context, adminID, postID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&TechnicianPostReport{}).
+		Where("admin_id = ? AND post_id = ?", adminID, postID).
+		Count(&count).Error
+	return count > 0, err
 }

@@ -24,21 +24,17 @@ func (h *Handler) CreatePost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	body, err := bindCreateDTO(c)
 	if err != nil {
 		return appErrors.BadRequest(c, err.Error())
 	}
-
 	res, err := h.svc.Create(c.Context(), techID, body)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})
 }
 
@@ -47,17 +43,14 @@ func (h *Handler) GetPost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
-	postID, err := parseUintParam(c, "id")
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
-
 	res, err := h.svc.Get(c.Context(), techID, postID)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
@@ -66,18 +59,15 @@ func (h *Handler) ListPosts(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	var q ListTechnicianPostsQuery
 	if err := c.Bind().Query(&q); err != nil {
 		return appErrors.BadRequest(c, "invalid query")
 	}
 	q.SetDefaults()
-
 	result, err := h.svc.List(c.Context(), techID, q)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": result})
 }
 
@@ -86,26 +76,21 @@ func (h *Handler) UpdatePost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
-	postID, err := parseUintParam(c, "id")
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
-
 	body, err := bindUpdateDTO(c)
 	if err != nil {
 		return appErrors.BadRequest(c, err.Error())
 	}
-
 	res, err := h.svc.Update(c.Context(), techID, postID, body)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
-
 	return c.JSON(fiber.Map{"success": true, "data": res})
 }
 
@@ -114,23 +99,114 @@ func (h *Handler) DeletePost(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
-
 	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
+	postID, err := parseUintParam(c, "postID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid post id")
+	}
+	hard := c.Query("hard") == "true"
+	if err := h.svc.Delete(c.Context(), techID, postID, hard); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "message": "post deleted"})
+}
 
-	postID, err := parseUintParam(c, "id")
+func (h *Handler) GetReportTypes(c fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": []string{
+			ReportTypeInappropriateImage,
+			ReportTypeCopyrightViolation,
+			ReportTypeUnrelatedImage,
+			ReportTypeLowQualityImage,
+			ReportTypeDuplicateImage,
+			ReportTypeExaggeratedWork,
+			ReportTypeIncorrectInfo,
+			ReportTypeMisleadingDescription,
+			ReportTypeExternalContact,
+			ReportTypePersonalDataExposed,
+		},
+	})
+}
+
+func (h *Handler) ListReports(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	var q ListPostReportsQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return appErrors.BadRequest(c, "invalid query")
+	}
+	q.SetDefaults()
+
+	result, err := h.svc.ListReports(c.Context(), techID, q, true)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": result})
+}
+
+func (h *Handler) ReportPost(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	postID, err := parseUintParam(c, "postID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid post id")
 	}
 
-	hard := c.Query("hard") == "true"
+	adminID, ok := middleware.GetUserID(c)
+	if !ok || adminID == 0 {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
 
-	if err := h.svc.Delete(c.Context(), techID, postID, hard); err != nil {
+	var req CreatePostReportDTO
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+	if req.ReportType == "" {
+		return appErrors.BadRequest(c, "report_type is required")
+	}
+	if !IsValidReportType(req.ReportType) {
+		return appErrors.BadRequest(c, "invalid report_type")
+	}
+	if req.Severity != ReportSeverityWarning && req.Severity != ReportSeverityBlacklist {
+		return appErrors.BadRequest(c, "severity must be WARNING or BLACKLIST")
+	}
+
+	res, err := h.svc.ReportPost(c.Context(), techID, postID, adminID, req)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})
+}
+
+func (h *Handler) ListMyReports(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
 		return appErrors.HandleError(c, err)
 	}
 
-	return c.JSON(fiber.Map{"success": true, "message": "post deleted"})
+	var q ListPostReportsQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return appErrors.BadRequest(c, "invalid query")
+	}
+	q.SetDefaults()
+
+	result, err := h.svc.ListReports(c.Context(), techID, q, false)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": result})
 }
 
 func bindCreateDTO(c fiber.Ctx) (CreateTechnicianPostDTO, error) {
