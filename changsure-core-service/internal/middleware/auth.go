@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	LocalUserID     = "userID"
-	LocalEmail      = "email"
-	LocalRole       = "role"
-	LocalIsVerified = "isVerified"
-	LocalScope      = "scope"
+	LocalUserID             = "userID"
+	LocalEmail              = "email"
+	LocalRole               = "role"
+	LocalVerificationStatus = "verificationStatus"
+	LocalScope              = "scope"
 )
 
 func AuthMiddleware(cfg *config.Config) fiber.Handler {
@@ -41,7 +41,7 @@ func JWTAuth(secretKey string) fiber.Handler {
 		c.Locals(LocalUserID, claims.UserID)
 		c.Locals(LocalEmail, claims.Email)
 		c.Locals(LocalRole, claims.Role)
-		c.Locals(LocalIsVerified, claims.IsVerified)
+		c.Locals(LocalVerificationStatus, claims.VerificationStatus)
 		c.Locals(LocalScope, claims.Scope)
 
 		return c.Next()
@@ -94,11 +94,14 @@ func TechnicianVerifiedOnly() fiber.Handler {
 		if role != jwtutil.RoleTechnician {
 			return c.Next()
 		}
-		isVerified, _ := c.Locals(LocalIsVerified).(bool)
-		if !isVerified {
+
+		status, _ := c.Locals(LocalVerificationStatus).(string)
+
+		if status != "PASSED" {
 			return jsonError(c, fiber.StatusForbidden,
 				"account not verified — please upload your ID card", nil)
 		}
+
 		return c.Next()
 	}
 }
@@ -145,9 +148,9 @@ func GetEmail(c fiber.Ctx) (string, bool) {
 	return email, ok && email != ""
 }
 
-func GetIsVerified(c fiber.Ctx) bool {
-	v, _ := c.Locals(LocalIsVerified).(bool)
-	return v
+func GetVerificationStatus(c fiber.Ctx) string {
+	s, _ := c.Locals(LocalVerificationStatus).(string)
+	return s
 }
 
 func GetScope(c fiber.Ctx) string {

@@ -3,7 +3,6 @@ package technicianbooking
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -266,10 +265,6 @@ func (s *service) StartJob(ctx context.Context, technicianID, bookingID uint) (*
 }
 
 func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint) (*booking.Booking, error) {
-	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
-		return nil, err
-	}
-
 	var updated *booking.Booking
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -296,9 +291,10 @@ func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint)
 			return err
 		}
 
+		b.Status = booking.BookingStatusWaitingPayment
+		b.UpdatedAt = now
 		updated = b
-		updated.Status = booking.BookingStatusWaitingPayment
-		updated.UpdatedAt = now
+
 		return nil
 	})
 
@@ -306,21 +302,20 @@ func (s *service) CompleteJob(ctx context.Context, technicianID, bookingID uint)
 		return nil, err
 	}
 
-	if s.techRepo != nil {
-		go func() {
-			if err := s.techRepo.SyncStats(context.Background(), technicianID); err != nil {
-				slog.Warn("SyncStats failed after CompleteJob",
-					"technician_id", technicianID,
-					"booking_id", bookingID,
-					"error", err,
-				)
-			}
-		}()
+	full, err := s.repo.FindByID(ctx, bookingID)
+	if err != nil {
+		full = updated
 	}
 
-	s.sendNotification(ctx, updated, "JOB_COMPLETED", "ดำเนินการเสร็จสิ้น", "กรุณาตรวจสอบและชำระค่าบริการ")
+	s.sendNotification(
+		ctx,
+		full,
+		"JOB_COMPLETED",
+		"ดำเนินการเสร็จสิ้น",
+		"กรุณาตรวจสอบและชำระค่าบริการ",
+	)
 
-	return s.repo.FindByID(ctx, bookingID)
+	return full, nil
 }
 
 func (s *service) ListBookings(ctx context.Context, technicianID uint, q ListBookingsQuery) ([]booking.Booking, int64, int, int, error) {

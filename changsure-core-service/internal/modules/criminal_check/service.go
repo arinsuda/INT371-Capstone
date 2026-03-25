@@ -34,7 +34,12 @@ type Service interface {
 	ListLogs(ctx context.Context, filter ListLogsFilter) (*ListLogsResponse, error)
 	GetLogsByTechnician(ctx context.Context, technicianID uint) ([]VerificationLogResponse, error)
 	UpdateLogStatus(ctx context.Context, adminID uint, logID uint, req UpdateLogStatusRequest) (*VerificationLogResponse, error)
-	OverrideIsVerified(ctx context.Context, adminID uint, technicianID uint, req OverrideIsVerifiedRequest) error
+	OverrideVerificationStatus(
+		ctx context.Context,
+		adminID uint,
+		technicianID uint,
+		req OverrideVerificationStatusRequest,
+	) error
 	GetStats(ctx context.Context) (*VerificationStatResponse, error)
 
 	ListPendingManualJobs(ctx context.Context, page, pageSize int) ([]backgroundjob.BackgroundJob, int64, error)
@@ -190,9 +195,8 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	})
 
 	if isVerified {
-		tech.IsVerified = true
-		_ = s.techRepo.Update(ctx, tech)
-		s.notifyVerificationResult(ctx, technicianID, status, note)
+		_ = s.techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
+		s.notifyVerificationResult(ctx, technicianID, StatusPassed, note)
 	}
 
 	return &VerifyIdentityResponse{
@@ -202,7 +206,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		SystemName:    systemName,
 		Status:        status,
 		Note:          note,
-		IsVerified:    isVerified,
 		Message:       message,
 	}, nil
 }
@@ -232,7 +235,7 @@ func (s *service) GetJobStatus(ctx context.Context, jobID uint) (*JobStatusRespo
 			resp.VerifyNote = latest.Note
 
 			if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
-				resp.IsVerified = &tech.IsVerified
+
 			}
 		}
 	}
@@ -259,10 +262,7 @@ func (s *service) ApproveJob(ctx context.Context, adminID uint, jobID uint, reas
 		return fmt.Errorf("mark done: %w", err)
 	}
 
-	if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
-		tech.IsVerified = true
-		_ = s.techRepo.Update(ctx, tech)
-	}
+	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusPassed)
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
@@ -290,6 +290,8 @@ func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reaso
 	}
 
 	_, _ = s.jobRepo.MarkFailed(ctx, jobID, fmt.Sprintf("rejected by admin: %s", reason))
+
+	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusFailed)
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
@@ -330,15 +332,12 @@ func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint,
 		Reason:        req.Reason,
 	})
 
-	if req.Status == StatusPassed {
-		if tech, err := s.techRepo.FindByID(ctx, log.TechnicianID); err == nil && tech != nil {
-			tech.IsVerified = true
-			_ = s.techRepo.Update(ctx, tech)
-		}
+	switch req.Status {
+	case StatusPassed:
+		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusPassed)
 		s.notifyVerificationResult(ctx, log.TechnicianID, StatusPassed, req.Reason)
-	}
-
-	if req.Status == StatusFailed {
+	case StatusFailed:
+		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusFailed)
 		s.notifyVerificationResult(ctx, log.TechnicianID, StatusFailed, req.Reason)
 	}
 
@@ -353,85 +352,35 @@ func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint,
 	return &resp, nil
 }
 
-func (s *service) OverrideIsVerified(ctx context.Context, adminID uint, technicianID uint, req OverrideIsVerifiedRequest) error {
+func (s *service) OverrideVerificationStatus(
+	ctx context.Context,
+	adminID uint,
+	technicianID uint,
+	req OverrideVerificationStatusRequest,
+) error {
+
 	tech, err := s.techRepo.FindByID(ctx, technicianID)
 	if err != nil || tech == nil {
 		return ErrTechNotFound
 	}
 
-	isVerified := req.VerifyStatus == StatusPassed
+	targetStatus := technician.VerificationStatus(req.Status)
 
-	previousValue := fmt.Sprintf("is_verified=%v", tech.IsVerified)
-	newValue := fmt.Sprintf("is_verified=%v,verify_status=%s", isVerified, req.VerifyStatus)
-
-	tech.IsVerified = isVerified
-	if err := s.techRepo.Update(ctx, tech); err != nil {
-		return fmt.Errorf("update technician: %w", err)
+	if err := s.techRepo.UpdateVerificationStatus(ctx, technicianID, targetStatus); err != nil {
+		return fmt.Errorf("update verification status: %w", err)
 	}
-
-	_ = s.repo.SaveLog(&VerificationLog{
-		TechnicianID: technicianID,
-		NationalID:   s.getLatestNationalID(ctx, technicianID),
-		Status:       req.VerifyStatus,
-		Note:         fmt.Sprintf("[Admin override] %s", req.Reason),
-	})
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
 		TechnicianID:  technicianID,
-		TargetType:    "is_verified",
+		TargetType:    "verification_status",
 		TargetID:      technicianID,
-		PreviousValue: previousValue,
-		NewValue:      newValue,
+		PreviousValue: string(tech.VerificationStatus),
+		NewValue:      string(targetStatus),
 		Reason:        req.Reason,
 	})
 
-	s.notifyVerificationResult(ctx, technicianID, req.VerifyStatus, req.Reason)
-
 	return nil
-}
-
-func (s *service) getLatestNationalID(ctx context.Context, technicianID uint) string {
-	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
-	if err != nil || len(logs) == 0 {
-		return ""
-	}
-	return logs[0].NationalID
-}
-
-func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {
-	if s.notiService == nil {
-		return
-	}
-
-	var title, message, notiType string
-
-	switch status {
-	case StatusPassed:
-		notiType = "IDENTITY_VERIFIED"
-		title = "ยืนยันตัวตนสำเร็จ ✅"
-		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
-	case StatusFailed:
-		notiType = "IDENTITY_REJECTED"
-		title = "ไม่ผ่านการตรวจสอบ ❌"
-		message = "บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่"
-		if note != "" {
-			message = fmt.Sprintf("%s\nเหตุผล: %s", message, note)
-		}
-	default:
-		return
-	}
-
-	_, _ = s.notiService.Create(ctx, notification.CreateNotificationInput{
-		RecipientRole: notification.RoleTechnician,
-		RecipientID:   technicianID,
-		Type:          notiType,
-		Title:         title,
-		Message:       message,
-		EntityType:    "technician",
-		EntityID:      technicianID,
-		Data:          map[string]any{"status": string(status), "note": note},
-	})
 }
 
 func (s *service) GetStats(ctx context.Context) (*VerificationStatResponse, error) {
@@ -476,20 +425,19 @@ func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([
 }
 
 func (s *service) GetVerificationDetail(ctx context.Context, technicianID uint) (*TechnicianVerificationDetail, error) {
-
 	tech, err := s.techRepo.FindByID(ctx, technicianID)
 	if err != nil || tech == nil {
 		return nil, ErrTechNotFound
 	}
 
 	detail := &TechnicianVerificationDetail{
-		TechnicianID: tech.ID,
-		FirstName:    tech.FirstName,
-		LastName:     tech.LastName,
-		Email:        tech.Email,
-		Phone:        tech.Phone,
-		IsVerified:   tech.IsVerified,
-		RegisteredAt: tech.CreatedAt.Unix(),
+		TechnicianID:       tech.ID,
+		FirstName:          tech.FirstName,
+		LastName:           tech.LastName,
+		Email:              tech.Email,
+		Phone:              tech.Phone,
+		VerificationStatus: string(tech.VerificationStatus),
+		RegisteredAt:       tech.CreatedAt.Unix(),
 	}
 
 	if tech.AvatarURL != nil && *tech.AvatarURL != "" {
@@ -518,7 +466,6 @@ func (s *service) GetVerificationDetail(ctx context.Context, technicianID uint) 
 	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
 	if err == nil && len(logs) > 0 {
 		latest := logs[0]
-		detail.VerificationStatus = string(latest.Status)
 		detail.NationalID = &latest.NationalID
 
 		if extracted := parseExtractedNameFromNote(latest.Note); extracted != "" {
@@ -529,8 +476,6 @@ func (s *service) GetVerificationDetail(ctx context.Context, technicianID uint) 
 		if err == nil {
 			detail.LatestLog = &enriched
 		}
-	} else {
-		detail.VerificationStatus = string(StatusPending)
 	}
 
 	if detail.NationalID != nil && *detail.NationalID != "" {
@@ -559,59 +504,6 @@ func (s *service) GetVerificationDetail(ctx context.Context, technicianID uint) 
 	}
 
 	return detail, nil
-}
-
-func parseExtractedNameFromNote(note string) string {
-	const marker = `OCR: "`
-	idx := strings.Index(note, marker)
-	if idx == -1 {
-		return ""
-	}
-	rest := note[idx+len(marker):]
-	end := strings.Index(rest, `"`)
-	if end == -1 {
-		return ""
-	}
-	return rest[:end]
-}
-
-func (s *service) enrichLog(ctx context.Context, l VerificationLog) (VerificationLogResponse, error) {
-	resp := VerificationLogResponse{
-		ID:           l.ID,
-		TechnicianID: l.TechnicianID,
-		NationalID:   l.NationalID,
-		Status:       l.Status,
-		Note:         l.Note,
-		RawOCRText:   l.RawOCRText,
-		CreatedAt:    l.CreatedAt,
-	}
-
-	if tech, err := s.techRepo.FindByID(ctx, l.TechnicianID); err == nil && tech != nil {
-		resp.TechnicianName = tech.FirstName + " " + tech.LastName
-		resp.IsVerified = tech.IsVerified
-
-		if tech.IDCardImageURL != nil && *tech.IDCardImageURL != "" {
-			if signed, err := s.storage.PresignGet(ctx, *tech.IDCardImageURL, time.Hour, false); err == nil {
-				resp.IDCardImageURL = &signed
-			}
-		}
-	}
-
-	if history, err := s.repo.GetOverrideHistory("verification_log", l.ID); err == nil {
-		for _, h := range history {
-			resp.OverrideHistory = append(resp.OverrideHistory, AdminOverrideLogResponse{
-				ID:            h.ID,
-				AdminID:       h.AdminID,
-				TargetType:    h.TargetType,
-				PreviousValue: h.PreviousValue,
-				NewValue:      h.NewValue,
-				Reason:        h.Reason,
-				CreatedAt:     h.CreatedAt,
-			})
-		}
-	}
-
-	return resp, nil
 }
 
 func (s *service) ListCriminalRecords(ctx context.Context, page, pageSize int) ([]CriminalRecordResponse, int64, error) {
@@ -699,6 +591,101 @@ func (s *service) DeleteCriminalRecord(ctx context.Context, id uint) error {
 		return fmt.Errorf("get criminal record: %w", err)
 	}
 	return s.repo.DeleteCriminalRecord(id)
+}
+
+func (s *service) getLatestNationalID(ctx context.Context, technicianID uint) string {
+	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+	if err != nil || len(logs) == 0 {
+		return ""
+	}
+	return logs[0].NationalID
+}
+
+func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {
+	if s.notiService == nil {
+		return
+	}
+
+	var title, message, notiType string
+
+	switch status {
+	case StatusPassed:
+		notiType = "IDENTITY_VERIFIED"
+		title = "ยืนยันตัวตนสำเร็จ ✅"
+		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
+	case StatusFailed:
+		notiType = "IDENTITY_REJECTED"
+		title = "ไม่ผ่านการตรวจสอบ ❌"
+		message = "บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่"
+		if note != "" {
+			message = fmt.Sprintf("%s\nเหตุผล: %s", message, note)
+		}
+	default:
+		return
+	}
+
+	_, _ = s.notiService.Create(ctx, notification.CreateNotificationInput{
+		RecipientRole: notification.RoleTechnician,
+		RecipientID:   technicianID,
+		Type:          notiType,
+		Title:         title,
+		Message:       message,
+		EntityType:    "technician",
+		EntityID:      technicianID,
+		Data:          map[string]any{"status": string(status), "note": note},
+	})
+}
+
+func (s *service) enrichLog(ctx context.Context, l VerificationLog) (VerificationLogResponse, error) {
+	resp := VerificationLogResponse{
+		ID:           l.ID,
+		TechnicianID: l.TechnicianID,
+		NationalID:   l.NationalID,
+		Status:       l.Status,
+		Note:         l.Note,
+		RawOCRText:   l.RawOCRText,
+		CreatedAt:    l.CreatedAt,
+	}
+
+	if tech, err := s.techRepo.FindByID(ctx, l.TechnicianID); err == nil && tech != nil {
+		resp.TechnicianName = tech.FirstName + " " + tech.LastName
+
+		if tech.IDCardImageURL != nil && *tech.IDCardImageURL != "" {
+			if signed, err := s.storage.PresignGet(ctx, *tech.IDCardImageURL, time.Hour, false); err == nil {
+				resp.IDCardImageURL = &signed
+			}
+		}
+	}
+
+	if history, err := s.repo.GetOverrideHistory("verification_log", l.ID); err == nil {
+		for _, h := range history {
+			resp.OverrideHistory = append(resp.OverrideHistory, AdminOverrideLogResponse{
+				ID:            h.ID,
+				AdminID:       h.AdminID,
+				TargetType:    h.TargetType,
+				PreviousValue: h.PreviousValue,
+				NewValue:      h.NewValue,
+				Reason:        h.Reason,
+				CreatedAt:     h.CreatedAt,
+			})
+		}
+	}
+
+	return resp, nil
+}
+
+func parseExtractedNameFromNote(note string) string {
+	const marker = `OCR: "`
+	idx := strings.Index(note, marker)
+	if idx == -1 {
+		return ""
+	}
+	rest := note[idx+len(marker):]
+	end := strings.Index(rest, `"`)
+	if end == -1 {
+		return ""
+	}
+	return rest[:end]
 }
 
 func toCriminalRecordResponse(r CriminalBlacklist) CriminalRecordResponse {

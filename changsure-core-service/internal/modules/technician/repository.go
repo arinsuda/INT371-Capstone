@@ -22,8 +22,8 @@ type Repository interface {
 	GetSummaryStats(ctx context.Context) (*TechnicianSummaryStats, error)
 
 	GetStats(ctx context.Context, techID uint) (*TechnicianStats, error)
-	SyncStats(ctx context.Context, techID uint) error
 	UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error
+	UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -44,6 +44,21 @@ func (r *repository) UpdateIDCardImage(ctx context.Context, techID uint, imageKe
 		Model(&Technician{}).
 		Where("id = ?", techID).
 		Update("id_card_image_url", imageKey).Error
+}
+
+func (r *repository) UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error {
+	updates := map[string]any{
+		"verification_status": status,
+	}
+	if status == StatusPassed {
+		updates["verified_at"] = gorm.Expr("NOW()")
+	} else {
+		updates["verified_at"] = nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("id = ?", techID).
+		Updates(updates).Error
 }
 
 func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error) {
@@ -98,7 +113,6 @@ func (r *repository) ExistsByID(ctx context.Context, id uint) (bool, error) {
 	if err := r.db.WithContext(ctx).
 		Select("id").
 		First(&m, id).Error; err != nil {
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
@@ -113,7 +127,6 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
 		Select("id").
 		Where("email = ?", email).
 		First(&m).Error; err != nil {
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
@@ -124,20 +137,14 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
 
 type TechnicianWithVerification struct {
 	Technician
-	VerificationStatus string `gorm:"column:verification_status"`
-	WarningCount       int64  `gorm:"column:warning_count"`
+	WarningCount int64 `gorm:"column:warning_count"`
 }
 
 func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]TechnicianWithVerification, error) {
 	var list []TechnicianWithVerification
 	err := r.db.WithContext(ctx).
 		Model(&Technician{}).
-		Select(`technicians.*, 
-            COALESCE(
-                (SELECT status FROM verification_logs 
-                 WHERE technician_id = technicians.id 
-                 ORDER BY created_at DESC LIMIT 1),
-            '') AS verification_status,
+		Select(`technicians.*,
             COALESCE(
                 (SELECT COUNT(*) FROM technician_post_reports
                  WHERE technician_id = technicians.id AND severity = 'WARNING'),
@@ -199,21 +206,18 @@ func (r *repository) GetSummaryStats(ctx context.Context) (*TechnicianSummarySta
 
 	if err := r.db.WithContext(ctx).
 		Model(&Technician{}).
-		Where("deleted_at IS NULL AND is_verified = ?", true).
+		Where("deleted_at IS NULL AND verification_status = ?", StatusPassed).
 		Count(&stats.VerifiedCount).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.WithContext(ctx).Raw(`
-        SELECT COUNT(*) FROM technicians t
-        WHERE t.deleted_at IS NULL
-        AND (
-            SELECT status FROM verification_logs
-            WHERE technician_id = t.id
-            ORDER BY created_at DESC
-            LIMIT 1
-        ) = 'PENDING'
-    `).Scan(&stats.PendingCount).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("verification_status IN ?", []VerificationStatus{
+			StatusPending,
+			StatusReview,
+		}).
+		Count(&stats.PendingCount).Error; err != nil {
 		return nil, err
 	}
 

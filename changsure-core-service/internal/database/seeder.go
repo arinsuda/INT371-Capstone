@@ -317,7 +317,6 @@ func (s *Seeder) seedTechnicians() error {
 		Email        string `json:"email"`
 		PasswordHash string `json:"password_hash"`
 		IsAvailable  bool   `json:"is_available"`
-		IsVerified   bool   `json:"is_verified"`
 	}
 
 	items, err := loadSeedFile[TechnicianSeed]("technicians/technician.json")
@@ -334,7 +333,6 @@ func (s *Seeder) seedTechnicians() error {
 			Email:        &email,
 			PasswordHash: item.PasswordHash,
 			IsAvailable:  item.IsAvailable,
-			IsVerified:   item.IsVerified,
 		})
 	}
 

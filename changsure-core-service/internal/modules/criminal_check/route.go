@@ -22,12 +22,10 @@ func (h *Handler) RegisterAdminRoutes(r fiber.Router) {
 	r.Get("/logs/technician/:technicianID", h.GetLogsByTechnician)
 	r.Patch("/logs/:logID", h.UpdateLogStatus)
 	r.Get("/technicians/:technicianID/verification-detail", h.GetVerificationDetail)
-	r.Patch("/technicians/:technicianID/is-verified", h.OverrideIsVerified)
-
+	r.Patch("/technicians/:technicianID/verification-status", h.OverrideVerificationStatus)
 	r.Get("/jobs", h.ListPendingManualJobs)
 	r.Post("/jobs/:jobID/approve", h.ApproveJob)
 	r.Post("/jobs/:jobID/reject", h.RejectJob)
-
 	r.Get("/criminal-records", h.ListCriminalRecords)
 	r.Get("/criminal-records/:recordID", h.GetCriminalRecord)
 	r.Post("/criminal-records", h.CreateCriminalRecord)
