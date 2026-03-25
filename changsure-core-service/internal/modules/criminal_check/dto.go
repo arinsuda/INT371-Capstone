@@ -32,6 +32,7 @@ type VerificationLogResponse struct {
 	Note            string                     `json:"note"`
 	RawOCRText      string                     `json:"raw_ocr_text,omitempty"`
 	IsVerified      bool                       `json:"is_verified"`
+	IDCardImageURL  *string                    `json:"id_card_image_url,omitempty"`
 	CreatedAt       time.Time                  `json:"created_at"`
 	OverrideHistory []AdminOverrideLogResponse `json:"override_history,omitempty"`
 }
@@ -49,8 +50,8 @@ type UpdateLogStatusRequest struct {
 }
 
 type OverrideIsVerifiedRequest struct {
-	IsVerified bool   `json:"is_verified"`
-	Reason     string `json:"reason" validate:"required,min=5,max=500"`
+	VerifyStatus CheckStatus `json:"verify_status" validate:"required,oneof=PASSED FAILED PENDING"`
+	Reason       string      `json:"reason"        validate:"required,min=5,max=500"`
 }
 
 type AdminOverrideLogResponse struct {
@@ -103,4 +104,30 @@ type JobStatusResponse struct {
 	VerifyStatus string     `json:"verify_status,omitempty"`
 	VerifyNote   string     `json:"verify_note,omitempty"`
 	IsVerified   *bool      `json:"is_verified,omitempty"`
+}
+
+type TechnicianVerificationDetail struct {
+	TechnicianID uint    `json:"technician_id"`
+	FirstName    string  `json:"first_name"`
+	LastName     string  `json:"last_name"`
+	Email        *string `json:"email"`
+	Phone        *string `json:"phone"`
+	AvatarURL    *string `json:"avatar_url"`
+
+	ServiceNames  []string `json:"service_names"`
+	ProvinceNames []string `json:"province_names"`
+	RegisteredAt  int64    `json:"registered_at"`
+
+	VerificationStatus string `json:"verification_status"`
+	IsVerified         bool   `json:"is_verified"`
+
+	NationalID     *string `json:"national_id"`
+	ExtractedName  *string `json:"extracted_name"`
+	IDCardImageURL *string `json:"id_card_image_url"`
+
+	CriminalRecord *CriminalRecordResponse `json:"criminal_record"`
+
+	LatestLog *VerificationLogResponse `json:"latest_log"`
+
+	PendingJobID *uint `json:"pending_job_id,omitempty"`
 }

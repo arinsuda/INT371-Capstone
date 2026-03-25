@@ -12,6 +12,7 @@ import (
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/jwtutil"
 	"changsure-core-service/internal/modules/admin"
+	criminalcheck "changsure-core-service/internal/modules/criminal_check"
 	"changsure-core-service/internal/modules/customer"
 	customeraddress "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/technician"
@@ -39,6 +40,7 @@ type service struct {
 	techAddrRepo    technicianaddress.Repository
 	techServiceRepo technicianservice.Repository
 	techAreaRepo    technicianarea.Repository
+	criminalRepo    criminalcheck.Repository
 }
 
 func NewService(
@@ -52,6 +54,7 @@ func NewService(
 	techAddrRepo technicianaddress.Repository,
 	techServiceRepo technicianservice.Repository,
 	techAreaRepo technicianarea.Repository,
+	criminalRepo criminalcheck.Repository,
 ) Service {
 	return &service{
 		db:              db,
@@ -64,6 +67,7 @@ func NewService(
 		techAddrRepo:    techAddrRepo,
 		techServiceRepo: techServiceRepo,
 		techAreaRepo:    techAreaRepo,
+		criminalRepo:    criminalRepo,
 	}
 }
 
@@ -289,15 +293,60 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 	if err := bcrypt.CompareHashAndPassword([]byte(tech.PasswordHash), []byte(password)); err != nil {
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
-	if !tech.IsVerified {
-		return nil, appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
+
+	if !tech.IsAvailable && tech.BannedAt != nil {
+		return nil, appErrors.NewForbidden(ErrTechnicianBanned.Error())
 	}
-	return s.issueTokens(ctx, JWTClaims{
-		UserID:     tech.ID,
-		Email:      *tech.Email,
-		Role:       RoleTechnician,
-		IsVerified: tech.IsVerified,
-	}, tech.FirstName, tech.LastName)
+
+	if tech.IsVerified {
+		return s.issueTokens(ctx, JWTClaims{
+			UserID:     tech.ID,
+			Email:      *tech.Email,
+			Role:       RoleTechnician,
+			IsVerified: true,
+		}, tech.FirstName, tech.LastName)
+	}
+
+	return nil, s.resolveVerificationError(ctx, tech.ID)
+}
+
+func (s *service) resolveVerificationError(ctx context.Context, techID uint) error {
+	if s.criminalRepo == nil {
+		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
+	}
+
+	logs, err := s.criminalRepo.GetLogsByTechnicianID(techID)
+	if err != nil || len(logs) == 0 {
+
+		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
+	}
+
+	latest := logs[0]
+
+	switch latest.Status {
+	case criminalcheck.StatusFailed:
+
+		msg := ErrTechnicianVerifyFailed.Error()
+		if latest.Note != "" {
+			msg = fmt.Sprintf("%s: %s", msg, latest.Note)
+		}
+		return appErrors.NewForbidden(msg)
+
+	case criminalcheck.StatusPending,
+		criminalcheck.StatusNameNotExtracted:
+
+		return appErrors.NewForbidden(ErrTechnicianVerifyPending.Error())
+
+	case criminalcheck.StatusOCRFailed:
+
+		return appErrors.NewForbidden(
+			"ID card verification failed — please re-upload your ID card",
+		)
+
+	default:
+
+		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
+	}
 }
 
 func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, lastName string) (*LoginResponse, error) {

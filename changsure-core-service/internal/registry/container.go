@@ -285,6 +285,7 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		c.TechnicianAddressRepo,
 		c.TechnicianServiceRepo,
 		c.TechnicianServiceAreaRepo,
+		c.CriminalCheckRepo,
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)

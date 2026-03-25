@@ -54,6 +54,11 @@ const (
 )
 
 const (
+	WarningThresholdRestrict = 4 
+	RestrictGracePeriodDays  = 30
+)
+
+const (
 	ReportTypeInappropriateImage    = "รูปผลงานไม่เหมาะสม"
 	ReportTypeCopyrightViolation    = "ใช้รูปผลงานผู้อื่น (ละเมิดลิขสิทธิ์)"
 	ReportTypeUnrelatedImage        = "รูปไม่เกี่ยวข้องกับบริการ"

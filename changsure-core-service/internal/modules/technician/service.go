@@ -331,6 +331,19 @@ func (s *service) List(ctx context.Context, page, pageSize int) ([]*TechnicianRe
 	return out, stats.Total, stats, nil
 }
 
+func resolveAccountStatus(isAvailable bool, warningCount int64, bannedAt *time.Time) string {
+	if !isAvailable {
+		return "BANNED"
+	}
+	if bannedAt != nil {
+		return "RESTRICTED"
+	}
+	if warningCount >= 1 {
+		return "WARNING"
+	}
+	return "ACTIVE"
+}
+
 func (s *service) toDashboardRes(ctx context.Context, t *TechnicianWithVerification) *TechnicianResponseDashboard {
 	return &TechnicianResponseDashboard{
 		ID:        t.ID,
@@ -348,6 +361,9 @@ func (s *service) toDashboardRes(ctx context.Context, t *TechnicianWithVerificat
 			IsAvailable:        t.IsAvailable,
 			IsVerified:         t.IsVerified,
 			VerificationStatus: t.VerificationStatus,
+			AccountStatus:      resolveAccountStatus(t.IsAvailable, t.WarningCount, t.BannedAt),
+			WarningCount:       t.WarningCount,
+			BannedAt:           t.BannedAt,
 		},
 	}
 }

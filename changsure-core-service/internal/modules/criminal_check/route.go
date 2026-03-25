@@ -21,6 +21,7 @@ func (h *Handler) RegisterAdminRoutes(r fiber.Router) {
 	r.Get("/logs", h.ListLogs)
 	r.Get("/logs/technician/:technicianID", h.GetLogsByTechnician)
 	r.Patch("/logs/:logID", h.UpdateLogStatus)
+	r.Get("/technicians/:technicianID/verification-detail", h.GetVerificationDetail)
 	r.Patch("/technicians/:technicianID/is-verified", h.OverrideIsVerified)
 
 	r.Get("/jobs", h.ListPendingManualJobs)

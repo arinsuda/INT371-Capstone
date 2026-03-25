@@ -160,6 +160,7 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
+
 	var req OverrideIsVerifiedRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
@@ -167,16 +168,18 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
+
 	adminID, _ := middleware.GetUserID(c)
 	if err := h.service.OverrideIsVerified(c.Context(), adminID, technicianID, req); err != nil {
 		if errors.Is(err, ErrTechNotFound) {
 			return appErrors.NotFound(c, "technician not found")
 		}
-		return appErrors.InternalError(c, "failed to override is_verified", err)
+		return appErrors.InternalError(c, "failed to override verification status", err)
 	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": fmt.Sprintf("อัปเดต is_verified เป็น %v สำเร็จ", req.IsVerified),
+		"message": fmt.Sprintf("อัปเดตสถานะการยืนยันเป็น %s สำเร็จ", req.VerifyStatus),
 	})
 }
 
@@ -342,4 +345,22 @@ func (h *Handler) DeleteCriminalRecord(c fiber.Ctx) error {
 		return appErrors.InternalError(c, "failed to delete criminal record", err)
 	}
 	return c.JSON(fiber.Map{"success": true, "message": "ลบข้อมูลสำเร็จ"})
+}
+
+func (h *Handler) GetVerificationDetail(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+	technicianID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+	detail, err := h.service.GetVerificationDetail(c.Context(), technicianID)
+	if err != nil {
+		if errors.Is(err, ErrTechNotFound) {
+			return appErrors.NotFound(c, "technician not found")
+		}
+		return appErrors.InternalError(c, "failed to get verification detail", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": detail})
 }

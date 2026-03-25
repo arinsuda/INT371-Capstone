@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -45,6 +46,7 @@ type Service interface {
 	CreateCriminalRecord(ctx context.Context, req CreateCriminalRecordRequest) (*CriminalRecordResponse, error)
 	UpdateCriminalRecord(ctx context.Context, id uint, req UpdateCriminalRecordRequest) (*CriminalRecordResponse, error)
 	DeleteCriminalRecord(ctx context.Context, id uint) error
+	GetVerificationDetail(ctx context.Context, technicianID uint) (*TechnicianVerificationDetail, error)
 }
 
 type service struct {
@@ -90,6 +92,10 @@ func (s *service) EnqueueVerification(ctx context.Context, technicianID uint, im
 	)
 	if err != nil {
 		return 0, fmt.Errorf("upload image: %w", err)
+	}
+
+	if err := s.techRepo.UpdateIDCardImage(ctx, technicianID, objectKey); err != nil {
+		fmt.Printf("[WARN] failed to save id_card_image_url for tech %d: %v\n", technicianID, err)
 	}
 
 	job, err := s.jobRepo.Enqueue(ctx, backgroundjob.JobTypeOCRVerify, backgroundjob.OCRVerifyPayload{
@@ -353,13 +359,22 @@ func (s *service) OverrideIsVerified(ctx context.Context, adminID uint, technici
 		return ErrTechNotFound
 	}
 
-	previousValue := fmt.Sprintf("%v", tech.IsVerified)
-	newValue := fmt.Sprintf("%v", req.IsVerified)
+	isVerified := req.VerifyStatus == StatusPassed
 
-	tech.IsVerified = req.IsVerified
+	previousValue := fmt.Sprintf("is_verified=%v", tech.IsVerified)
+	newValue := fmt.Sprintf("is_verified=%v,verify_status=%s", isVerified, req.VerifyStatus)
+
+	tech.IsVerified = isVerified
 	if err := s.techRepo.Update(ctx, tech); err != nil {
 		return fmt.Errorf("update technician: %w", err)
 	}
+
+	_ = s.repo.SaveLog(&VerificationLog{
+		TechnicianID: technicianID,
+		NationalID:   s.getLatestNationalID(ctx, technicianID),
+		Status:       req.VerifyStatus,
+		Note:         fmt.Sprintf("[Admin override] %s", req.Reason),
+	})
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
@@ -371,13 +386,17 @@ func (s *service) OverrideIsVerified(ctx context.Context, adminID uint, technici
 		Reason:        req.Reason,
 	})
 
-	status := StatusPassed
-	if !req.IsVerified {
-		status = StatusFailed
-	}
-	s.notifyVerificationResult(ctx, technicianID, status, req.Reason)
+	s.notifyVerificationResult(ctx, technicianID, req.VerifyStatus, req.Reason)
 
 	return nil
+}
+
+func (s *service) getLatestNationalID(ctx context.Context, technicianID uint) string {
+	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+	if err != nil || len(logs) == 0 {
+		return ""
+	}
+	return logs[0].NationalID
 }
 
 func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {
@@ -456,6 +475,106 @@ func (s *service) GetLogsByTechnician(ctx context.Context, technicianID uint) ([
 	return responses, nil
 }
 
+func (s *service) GetVerificationDetail(ctx context.Context, technicianID uint) (*TechnicianVerificationDetail, error) {
+
+	tech, err := s.techRepo.FindByID(ctx, technicianID)
+	if err != nil || tech == nil {
+		return nil, ErrTechNotFound
+	}
+
+	detail := &TechnicianVerificationDetail{
+		TechnicianID: tech.ID,
+		FirstName:    tech.FirstName,
+		LastName:     tech.LastName,
+		Email:        tech.Email,
+		Phone:        tech.Phone,
+		IsVerified:   tech.IsVerified,
+		RegisteredAt: tech.CreatedAt.Unix(),
+	}
+
+	if tech.AvatarURL != nil && *tech.AvatarURL != "" {
+		if signed, err := s.storage.PresignGet(ctx, *tech.AvatarURL, time.Hour, false); err == nil {
+			detail.AvatarURL = &signed
+		}
+	}
+
+	if tech.IDCardImageURL != nil && *tech.IDCardImageURL != "" {
+		if signed, err := s.storage.PresignGet(ctx, *tech.IDCardImageURL, time.Hour, false); err == nil {
+			detail.IDCardImageURL = &signed
+		}
+	}
+
+	for _, ts := range tech.Services {
+		if ts.Service.ID != 0 {
+			detail.ServiceNames = append(detail.ServiceNames, ts.Service.SerName)
+		}
+	}
+	for _, area := range tech.ServiceAreas {
+		if area.Province.ID != 0 {
+			detail.ProvinceNames = append(detail.ProvinceNames, area.Province.NameTH)
+		}
+	}
+
+	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
+	if err == nil && len(logs) > 0 {
+		latest := logs[0]
+		detail.VerificationStatus = string(latest.Status)
+		detail.NationalID = &latest.NationalID
+
+		if extracted := parseExtractedNameFromNote(latest.Note); extracted != "" {
+			detail.ExtractedName = &extracted
+		}
+
+		enriched, err := s.enrichLog(ctx, latest)
+		if err == nil {
+			detail.LatestLog = &enriched
+		}
+	} else {
+		detail.VerificationStatus = string(StatusPending)
+	}
+
+	if detail.NationalID != nil && *detail.NationalID != "" {
+		record, err := s.repo.GetCriminalRecordByNationalID(*detail.NationalID)
+		if err == nil && record != nil {
+			resp := toCriminalRecordResponse(*record)
+			detail.CriminalRecord = &resp
+		}
+	}
+
+	pendingJobs, _, err := s.jobRepo.ListByStatus(ctx,
+		backgroundjob.JobTypeOCRVerify,
+		backgroundjob.JobStatusPendingManual,
+		1, 100,
+	)
+	if err == nil {
+		for _, job := range pendingJobs {
+			var payload backgroundjob.OCRVerifyPayload
+			if err := json.Unmarshal(job.Payload, &payload); err == nil {
+				if payload.TechnicianID == technicianID {
+					detail.PendingJobID = &job.ID
+					break
+				}
+			}
+		}
+	}
+
+	return detail, nil
+}
+
+func parseExtractedNameFromNote(note string) string {
+	const marker = `OCR: "`
+	idx := strings.Index(note, marker)
+	if idx == -1 {
+		return ""
+	}
+	rest := note[idx+len(marker):]
+	end := strings.Index(rest, `"`)
+	if end == -1 {
+		return ""
+	}
+	return rest[:end]
+}
+
 func (s *service) enrichLog(ctx context.Context, l VerificationLog) (VerificationLogResponse, error) {
 	resp := VerificationLogResponse{
 		ID:           l.ID,
@@ -466,10 +585,18 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 		RawOCRText:   l.RawOCRText,
 		CreatedAt:    l.CreatedAt,
 	}
+
 	if tech, err := s.techRepo.FindByID(ctx, l.TechnicianID); err == nil && tech != nil {
 		resp.TechnicianName = tech.FirstName + " " + tech.LastName
 		resp.IsVerified = tech.IsVerified
+
+		if tech.IDCardImageURL != nil && *tech.IDCardImageURL != "" {
+			if signed, err := s.storage.PresignGet(ctx, *tech.IDCardImageURL, time.Hour, false); err == nil {
+				resp.IDCardImageURL = &signed
+			}
+		}
 	}
+
 	if history, err := s.repo.GetOverrideHistory("verification_log", l.ID); err == nil {
 		for _, h := range history {
 			resp.OverrideHistory = append(resp.OverrideHistory, AdminOverrideLogResponse{
@@ -483,6 +610,7 @@ func (s *service) enrichLog(ctx context.Context, l VerificationLog) (Verificatio
 			})
 		}
 	}
+
 	return resp, nil
 }
 
