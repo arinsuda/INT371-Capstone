@@ -23,6 +23,7 @@ type Repository interface {
 
 	GetStats(ctx context.Context, techID uint) (*TechnicianStats, error)
 	SyncStats(ctx context.Context, techID uint) error
+	UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -38,9 +39,22 @@ func (r *repository) GetStats(ctx context.Context, techID uint) (*TechnicianStat
 	return &stats, err
 }
 
+func (r *repository) UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error {
+	return r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("id = ?", techID).
+		Update("id_card_image_url", imageKey).Error
+}
+
 func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error) {
 	var m Technician
-	if err := r.db.WithContext(ctx).First(&m, id).Error; err != nil {
+	err := r.db.WithContext(ctx).
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
+		Preload("ServiceAreas", "is_active = ?", true).
+		Preload("ServiceAreas.Province").
+		First(&m, id).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -111,6 +125,7 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
 type TechnicianWithVerification struct {
 	Technician
 	VerificationStatus string `gorm:"column:verification_status"`
+	WarningCount       int64  `gorm:"column:warning_count"`
 }
 
 func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]TechnicianWithVerification, error) {
@@ -122,7 +137,11 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]Technicia
                 (SELECT status FROM verification_logs 
                  WHERE technician_id = technicians.id 
                  ORDER BY created_at DESC LIMIT 1),
-            '') AS verification_status`).
+            '') AS verification_status,
+            COALESCE(
+                (SELECT COUNT(*) FROM technician_post_reports
+                 WHERE technician_id = technicians.id AND severity = 'WARNING'),
+            0) AS warning_count`).
 		Where("technicians.deleted_at IS NULL").
 		Preload("ServiceAreas", "is_active = ?", true).
 		Preload("ServiceAreas.Province").

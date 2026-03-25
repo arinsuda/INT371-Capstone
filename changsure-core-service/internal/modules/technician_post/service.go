@@ -174,6 +174,71 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 		return nil, appErrors.NewConflict("this post has already been reported by you")
 	}
 
+	if req.Severity == ReportSeverityBlacklist {
+		return s.handleBlacklistReport(ctx, techID, postID, adminID, post.Title, req)
+	}
+
+	return s.handleWarningReport(ctx, techID, postID, adminID, post.Title, req)
+}
+
+func (s *service) handleBlacklistReport(
+	ctx context.Context,
+	techID, postID, adminID uint,
+	postTitle string,
+	req CreatePostReportDTO,
+) (*PostReportResponse, error) {
+	report := &TechnicianPostReport{
+		PostID:       postID,
+		TechnicianID: techID,
+		AdminID:      adminID,
+		ReportType:   req.ReportType,
+		Reason:       req.Reason,
+		Severity:     req.Severity,
+		DeletePost:   req.DeletePost,
+	}
+
+	err := s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(report).Error; err != nil {
+			return fmt.Errorf("create report: %w", err)
+		}
+		if req.DeletePost {
+			if err := tx.Where("id = ? AND technician_id = ?", postID, techID).
+				Delete(&TechnicianPost{}).Error; err != nil {
+				return fmt.Errorf("delete post: %w", err)
+			}
+		}
+
+		now := time.Now()
+		if err := tx.Table("technicians").
+			Where("id = ?", techID).
+			Updates(map[string]any{
+				"is_available": false,
+				"banned_at":    now,
+			}).Error; err != nil {
+			return fmt.Errorf("blacklist technician: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if s.notif != nil {
+		go s.sendBlacklistNotification(context.Background(), techID, postID, postTitle, req)
+	}
+
+	if err := s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error; err != nil {
+		return s.toReportResponse(ctx, report, true), nil
+	}
+	return s.toReportResponse(ctx, report, true), nil
+}
+
+func (s *service) handleWarningReport(
+	ctx context.Context,
+	techID, postID, adminID uint,
+	postTitle string,
+	req CreatePostReportDTO,
+) (*PostReportResponse, error) {
 	warningCount, err := s.repo.CountWarningsByTechnician(ctx, techID)
 	if err != nil {
 		return nil, fmt.Errorf("count warnings: %w", err)
@@ -181,7 +246,7 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 
 	newWarningCount := warningCount + 1
 
-	shouldBan := newWarningCount >= 3
+	shouldRestrict := newWarningCount >= WarningThresholdRestrict
 
 	report := &TechnicianPostReport{
 		PostID:       postID,
@@ -197,22 +262,21 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 		if err := tx.Create(report).Error; err != nil {
 			return fmt.Errorf("create report: %w", err)
 		}
-
 		if req.DeletePost {
 			if err := tx.Where("id = ? AND technician_id = ?", postID, techID).
 				Delete(&TechnicianPost{}).Error; err != nil {
 				return fmt.Errorf("delete post: %w", err)
 			}
 		}
+		if shouldRestrict {
+			now := time.Now()
 
-		if shouldBan || req.Severity == ReportSeverityBlacklist {
 			if err := tx.Table("technicians").
-				Where("id = ?", techID).
-				Update("is_available", false).Error; err != nil {
-				return fmt.Errorf("ban technician: %w", err)
+				Where("id = ? AND banned_at IS NULL", techID).
+				Update("banned_at", now).Error; err != nil {
+				return fmt.Errorf("restrict technician: %w", err)
 			}
 		}
-
 		return nil
 	})
 	if err != nil {
@@ -220,17 +284,90 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 	}
 
 	if s.notif != nil {
-		go s.sendReportNotification(context.Background(), techID, postID, post.Title, req, newWarningCount, shouldBan)
+		go s.sendWarningNotification(context.Background(), techID, postID, postTitle, req, newWarningCount, shouldRestrict)
 	}
 
-	if err := s.repo.DB().WithContext(ctx).
-		Preload("Admin").
-		First(report, report.ID).Error; err != nil {
-
+	if err := s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error; err != nil {
 		return s.toReportResponse(ctx, report, true), nil
 	}
-
 	return s.toReportResponse(ctx, report, true), nil
+}
+
+func (s *service) sendBlacklistNotification(
+	ctx context.Context,
+	techID, postID uint,
+	postTitle string,
+	req CreatePostReportDTO,
+) {
+	_, err := s.notif.Create(ctx, notification.CreateNotificationInput{
+		RecipientRole: notification.RoleTechnician,
+		RecipientID:   techID,
+		Type:          "POST_BLACKLISTED",
+		Title:         "บัญชีของคุณถูกระงับการใช้งาน 🚫",
+		Message: fmt.Sprintf(
+			"ผลงาน \"%s\" ถูกรายงานประเภท: %s บัญชีของคุณถูกระงับการใช้งานทันที กรุณาติดต่อทีมงาน",
+			postTitle, req.ReportType,
+		),
+		EntityType: "post",
+		EntityID:   postID,
+		Data: map[string]any{
+			"post_id":     postID,
+			"report_type": req.ReportType,
+			"severity":    req.Severity,
+			"banned":      true,
+		},
+	})
+	if err != nil {
+		slog.Warn("failed to send blacklist notification", "technician_id", techID, "error", err)
+	}
+}
+
+func (s *service) sendWarningNotification(
+	ctx context.Context,
+	techID, postID uint,
+	postTitle string,
+	req CreatePostReportDTO,
+	warningCount int64,
+	shouldRestrict bool,
+) {
+	var title, message, notifType string
+
+	switch {
+	case shouldRestrict:
+		notifType = "POST_RESTRICTED"
+		title = fmt.Sprintf("คำเตือนครั้งที่ %d — บัญชีถูกจำกัดการใช้งาน ⛔", warningCount)
+		message = fmt.Sprintf(
+			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s คุณได้รับคำเตือนครั้งที่ %d บัญชีของคุณถูกจำกัดการรับงานใหม่ และจะถูกปิดใช้งานภายใน %d วัน หากไม่มีการแก้ไข",
+			postTitle, req.ReportType, warningCount, RestrictGracePeriodDays,
+		)
+	default:
+		notifType = "POST_WARNING"
+		title = fmt.Sprintf("คำเตือนครั้งที่ %d ⚠️", warningCount)
+		message = fmt.Sprintf(
+			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s (คำเตือน %d/3 ครั้ง หากถึง 4 ครั้งบัญชีจะถูกจำกัดและปิดใช้งานภายใน %d วัน)",
+			postTitle, req.ReportType, warningCount, RestrictGracePeriodDays,
+		)
+	}
+
+	_, err := s.notif.Create(ctx, notification.CreateNotificationInput{
+		RecipientRole: notification.RoleTechnician,
+		RecipientID:   techID,
+		Type:          notifType,
+		Title:         title,
+		Message:       message,
+		EntityType:    "post",
+		EntityID:      postID,
+		Data: map[string]any{
+			"post_id":       postID,
+			"report_type":   req.ReportType,
+			"severity":      req.Severity,
+			"warning_count": warningCount,
+			"restricted":    shouldRestrict,
+		},
+	})
+	if err != nil {
+		slog.Warn("failed to send warning notification", "technician_id", techID, "error", err)
+	}
 }
 
 func (s *service) sendReportNotification(

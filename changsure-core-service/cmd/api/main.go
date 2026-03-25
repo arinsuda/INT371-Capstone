@@ -16,6 +16,7 @@ import (
 	"changsure-core-service/internal/modules/admin"
 	backgroundjob "changsure-core-service/internal/modules/background_job"
 	criminalcheck "changsure-core-service/internal/modules/criminal_check"
+	"changsure-core-service/internal/modules/jobs"
 	"changsure-core-service/internal/modules/notification"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
 	ocrservice "changsure-core-service/internal/modules/ocr/service"
@@ -188,6 +189,10 @@ func startWorkerPool(
 	pool := worker.NewPool(ocrWorker)
 	go pool.Start(ctx)
 	log.Println("✅ Worker pool started")
+
+	banJob := jobs.NewTechnicianBanJob(db, log.Default())
+	go banJob.Start(ctx)
+	log.Println("✅ Technician ban job started")
 }
 
 func workerConfigFromEnv() worker.OCRWorkerConfig {

@@ -4,6 +4,7 @@ import (
 	badges "changsure-core-service/internal/modules/badge"
 	provinces "changsure-core-service/internal/modules/province"
 	tsvc "changsure-core-service/internal/modules/technician_service"
+	"time"
 )
 
 type TechnicianProfileReq struct {
@@ -89,8 +90,8 @@ type TechnicianProfileRes struct {
 	AvatarURL *string `json:"avatar_url,omitempty"`
 
 	RatingAvg       *float64 `json:"rating_avg,omitempty"`
-	RatingCount     int64     `json:"rating_count"`
-	TotalJobs       int64     `json:"total_jobs"`
+	RatingCount     int64    `json:"rating_count"`
+	TotalJobs       int64    `json:"total_jobs"`
 	IsAvailable     bool     `json:"is_available"`
 	IsVerified      bool     `json:"is_verified"`
 	TermsAccepted   bool     `json:"terms_accepted"`
@@ -103,9 +104,12 @@ type TechnicianProfileRes struct {
 }
 
 type TechnicianStatus struct {
-	IsAvailable        bool   `json:"is_available"`
-	IsVerified         bool   `json:"is_verified"`
-	VerificationStatus string `json:"verification_status"`
+	IsAvailable        bool       `json:"is_available"`
+	IsVerified         bool       `json:"is_verified"`
+	VerificationStatus string     `json:"verification_status"`
+	AccountStatus      string     `json:"account_status"`
+	WarningCount       int64      `json:"warning_count"`
+	BannedAt           *time.Time `json:"banned_at,omitempty"`
 }
 
 type TechnicianResponseDashboard struct {

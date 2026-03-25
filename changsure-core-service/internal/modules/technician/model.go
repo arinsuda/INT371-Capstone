@@ -20,12 +20,14 @@ type Technician struct {
 	Email        *string `gorm:"type:varchar(100);uniqueIndex" json:"email"`
 	PasswordHash string  `gorm:"type:varchar(255);not null" json:"-"`
 
-	IsAvailable bool `gorm:"default:true" json:"is_available"`
-	IsVerified  bool `gorm:"default:false" json:"is_verified"`
+	IsAvailable    bool    `gorm:"default:true" json:"is_available"`
+	IsVerified     bool    `gorm:"default:false" json:"is_verified"`
+	IDCardImageURL *string `gorm:"type:varchar(500)" json:"-"`
 
 	CreatedAt time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"-"`
+	BannedAt  *time.Time `gorm:"index" json:"banned_at,omitempty"`
 
 	RatingAvg   *float64 `gorm:"-" json:"rating_avg,omitempty"`
 	RatingCount int64    `gorm:"-" json:"rating_count"`
