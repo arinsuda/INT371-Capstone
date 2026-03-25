@@ -21,22 +21,12 @@ class TechnicianProfile extends ConsumerStatefulWidget {
 class _ProfileState extends ConsumerState<TechnicianProfile> {
   final ScrollController _scrollController = ScrollController();
 
-  late final Timer _timer;
   @override
   void dispose() {
-    _timer.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      ref.read(userProvider.notifier).refreshUser();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

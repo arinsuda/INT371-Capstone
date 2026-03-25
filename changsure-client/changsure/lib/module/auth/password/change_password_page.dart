@@ -6,7 +6,6 @@ import '../../../data/models/users/users_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../state/user_provider.dart';
-import '../login_page.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   final String resetToken;

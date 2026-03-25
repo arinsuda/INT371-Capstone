@@ -34,6 +34,8 @@ import 'package:changsure/module/profile/customer/history_service_page.dart'
     as user_history;
 import 'package:flutter_svg/svg.dart';
 
+import '../../module/home/technician_dashboard_page.dart';
+
 class FooterBarTemplate extends ConsumerStatefulWidget {
   const FooterBarTemplate({super.key});
 
@@ -44,58 +46,6 @@ class FooterBarTemplate extends ConsumerStatefulWidget {
 class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
     with TickerProviderStateMixin {
   int _focusedIndex = -1;
-
-  Widget _assetIcon(
-    String inactivePath,
-    String activePath,
-    int tabIndex,
-    int selectedIndex,
-  ) {
-    final bool isActive = selectedIndex == tabIndex;
-    final bool isFocused = _focusedIndex == tabIndex;
-
-    String path;
-    if (isFocused) {
-      path = activePath;
-    } else if (isActive) {
-      path = activePath;
-    } else {
-      path = inactivePath;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: isActive
-          ? const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            )
-          : null,
-      child: Image.asset(
-        path,
-        width: 24,
-        height: 24,
-        color: isActive ? Colors.white : const Color(0xFF666666),
-      ),
-    );
-  }
-
-  TextStyle _tabTextStyle(int index, int selectedIndex) {
-    return TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-      color: selectedIndex == index
-          ? AppColors.primary
-          : const Color(0xFF666666),
-    );
-  }
 
   Widget _svgIcon(String iconPath, int tabIndex, int selectedIndex) {
     final bool isActive = selectedIndex == tabIndex;
@@ -220,7 +170,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
     List<Widget> getPages() {
       final commonPages = [
-        const HomePage(),
+        const RoleGatePage(),
         const TrackingStatusTab(),
         const ChatListPage(),
       ];
@@ -308,6 +258,34 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
           }),
         ),
       ),
+    );
+  }
+}
+
+class RoleGatePage extends ConsumerWidget {
+  const RoleGatePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+
+    // 🔄 loading state (กรณี user ยังไม่มา)
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 👤 check role
+    if (user.role == UserRole.customer) {
+      return const HomePage();
+    } else if (user.role == UserRole.technician) {
+      return const TechnicianDashboardPage();
+    }
+
+    // ❗ fallback กันพัง
+    return const Scaffold(
+      body: Center(child: Text('Unknown role')),
     );
   }
 }

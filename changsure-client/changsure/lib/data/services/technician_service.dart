@@ -8,6 +8,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:changsure/core/constants/api_constants.dart';
 
+import '../models/technician/dashboard_model.dart';
+
 class TechnicianService {
   Future<TechnicianModel?> getProfile({
     required String token,
@@ -655,6 +657,55 @@ class TechnicianService {
     } catch (e) {
       print('❌ Error getting verify detail: $e');
       return null;
+    }
+  }
+
+  Future<ReviewResponse> getTechnicianReviews(
+      int technicianId,
+      String token,
+      ) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/reviews',
+    );
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+      return ReviewResponse.fromJson(jsonData);
+    } else {
+      throw Exception('Failed to load reviews');
+    }
+  }
+
+  Future<WalletSummary> getWalletSummary({
+    required String token,
+    required int technicianId,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/technicians/$technicianId/wallet/summary',
+    );
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      return WalletSummary.fromJson(data['data']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch wallet summary');
     }
   }
 }

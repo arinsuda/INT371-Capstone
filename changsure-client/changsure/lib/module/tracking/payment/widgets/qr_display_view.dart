@@ -1,6 +1,7 @@
+import 'package:changsure/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../../../data/models/payment/payment_model.dart';
+import '../../../../data/models/payment/payment_model.dart';
 
 class QRDisplayView extends StatelessWidget {
   final CreateQRResponse qrData;
@@ -29,24 +30,34 @@ class QRDisplayView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'ระบบกำลังรอการชำระเงิน',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            '฿${qrData.amount.toInt()}',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'ระบบกำลังรอการชำระเงิน',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
+              const SizedBox(width: 4),
               Text(
-                '฿${qrData.amount.toInt()}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                'ครบกำหนดในอีก ${_formatCountdown(remaining)} นาที',
+                style: TextStyle(
+                  color: AppColors.colorTertiaryText,
+                  fontSize: 16,
                 ),
               ),
             ],
@@ -59,7 +70,7 @@ class QRDisplayView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade100),
+                border: Border.all(color: AppColors.colorStroke),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -110,19 +121,22 @@ class QRDisplayView extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline,
                         size: 14,
-                        color: Colors.blue,
+                        color: AppColors.primary,
                       ),
-                      const SizedBox(width: 4),
-                      const Text(
+                      const SizedBox(width: 8),
+                      Text(
                         'กรุณาสแกนคิวอาร์โค้ดเพื่อชำระเงิน',
-                        style: TextStyle(color: Colors.blue, fontSize: 12),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   Expanded(
                     child: webViewController != null
@@ -138,57 +152,37 @@ class QRDisplayView extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.timer_outlined,
-                  size: 14,
-                  color: Colors.grey.shade600,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'ครบกำหนดในอีก ${_formatCountdown(remaining)} นาที',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBE6),
+              color: AppColors.colorWarning,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFFFE58F)),
             ),
-            child: const Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.orange,
-                  size: 20,
+                const Icon(
+                  Icons.warning_amber_outlined,
+                  size: 18,
+                  color: Color(0xFFAD6800),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'ท่านสามารถแสดงหน้าจอคิวอาร์โค้ด เพื่อให้ลูกค้าสแกนชำระเงินได้',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF856404)),
+                    "ท่านสามารถแสดงหน้าจอคิวอาร์โค้ด เพื่อให้ลูกค้าสแกนชำระเงินได้",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFAD6800),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              'หมายเลขบริการ: $bookingNumber',
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ),
+          const SizedBox(height: 24),
+
         ],
       ),
     );

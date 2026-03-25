@@ -1,9 +1,16 @@
+import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/core/button/tertiary_button.dart';
+import 'package:changsure/module/tracking/widget/rating_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/booking/booking_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../data/models/users/users_model.dart';
+import '../../../state/user_provider.dart';
 
-class ServiceSection extends StatelessWidget {
+class ServiceSection extends ConsumerWidget {
   final Booking booking;
   final VoidCallback? onViewDetail;
 
@@ -28,12 +35,18 @@ class ServiceSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
     final isCompleted = booking.status == 'COMPLETED';
+    final isTechnician = user?.role == UserRole.technician;
 
-    return isCompleted
-        ? _buildCompletedSection(context)
-        : _buildDefaultSection(context);
+    if (!isCompleted) {
+      return _buildDefaultSection(context);
+    }
+
+    return isTechnician
+        ? _buildCompletedTechSection(context)
+        : _buildCompletedCusSection(context);
   }
 
   Widget _buildDefaultSection(BuildContext context) {
@@ -44,12 +57,14 @@ class ServiceSection extends StatelessWidget {
     return Column(
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildServiceImage(imageUrl),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
                     service?.serName ?? 'บริการ',
@@ -76,17 +91,22 @@ class ServiceSection extends StatelessWidget {
         _buildDateRow(timeSlot),
         const SizedBox(height: 16),
         if (onViewDetail != null) ...[
-          _buildViewDetailButton(),
+          _buildViewDetailButton("ดูรายละเอียดเพิ่มเติม"),
           const SizedBox(height: 12),
         ],
       ],
     );
   }
 
-  Widget _buildCompletedSection(BuildContext context) {
+  Widget _buildCompletedTechSection(BuildContext context) {
     final service = booking.technicianService?.service;
     final imageUrl = service?.getFirstImage() ?? '';
     final timeSlot = booking.timeSlot;
+    final date = booking.appointmentDate;
+    String formatThaiDate(DateTime date) {
+      final formatter = DateFormat('d MMM yy', 'th');
+      return formatter.format(date);
+    }
 
     final paidAmount = booking.finalPrice;
     final displayPrice = booking.getPriceDisplay();
@@ -94,23 +114,151 @@ class ServiceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // หมายเลขบริการ
+        // Service row
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'หมายเลขบริการ',
-              style: TextStyle(
-                color: AppColors.colorTertiaryText,
-                fontSize: 13,
+            _buildServiceImage(imageUrl),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service?.serName ?? 'บริการ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    displayPrice,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Price summary row
+                  if (paidAmount != null) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatThaiDate(date),
+                          style: TextStyle(
+                            color: AppColors.colorTertiaryText,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'ทั้งหมด:',
+                              style: TextStyle(
+                                color: AppColors.colorTertiaryText,
+                                fontSize: 12,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              '฿${paidAmount.toInt()}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
-            Text(booking.bookingNumber, style: const TextStyle(fontSize: 13)),
           ],
         ),
-        const SizedBox(height: 12),
-        const Divider(color: AppColors.colorStroke, height: 1),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 8),
+
+        // ปุ่มดูรายละเอียด
+        if (onViewDetail != null) ...[
+          _buildViewDetailButton("ดูสรุปค่าบริการ"),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompletedCusSection(BuildContext context) {
+    final service = booking.technicianService?.service;
+    final imageUrl = service?.getFirstImage() ?? '';
+    final timeSlot = booking.timeSlot;
+    final date = booking.appointmentDate;
+    String formatThaiDate(DateTime date) {
+      final formatter = DateFormat('d MMM yy', 'th');
+      return formatter.format(date);
+    }
+    final hasReviewed = booking.reviewedAt != null;
+
+    final paidAmount = booking.finalPrice;
+    final displayPrice = booking.getPriceDisplay();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundImage:
+                  booking.technician?.avatarUrl != null &&
+                      booking.technician!.avatarUrl!.isNotEmpty
+                  ? NetworkImage(booking.technician!.avatarUrl!)
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "คุณ ${booking.technician!.firstName} ${booking.technician!.lastName}",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.star_rate_rounded,
+                  color: Color(0xFFFFC53D),
+                  size: 18,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  "${booking.technician!.ratingAvg}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  " / 5",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.colorTertiaryText,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Divider(height: 1, color: AppColors.colorStroke),
+        const SizedBox(height: 10),
 
         // Service row
         Row(
@@ -138,51 +286,89 @@ class ServiceSection extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // Price summary row
+                  if (paidAmount != null) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatThaiDate(date),
+                          style: TextStyle(
+                            color: AppColors.colorTertiaryText,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'ทั้งหมด:',
+                              style: TextStyle(
+                                color: AppColors.colorTertiaryText,
+                                fontSize: 12,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              '฿${paidAmount.toInt()}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
-            // ราคาขวามือ
-            if (paidAmount != null)
-              Text(
-                '฿${paidAmount.toInt()}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
           ],
         ),
 
-        const SizedBox(height: 12),
-        const Divider(color: AppColors.colorStroke, height: 1),
         const SizedBox(height: 8),
 
-        // Price summary row
-        if (paidAmount != null) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'ทั้งหมด',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        Row(
+          children: [
+            Expanded(
+              child: TertiaryButton(
+                text: "รับบริการอีกครั้ง",
+                onPressed: () {},
+                padding: EdgeInsets.symmetric(vertical: 4),
+                fontSize: 14,
+                borderRadius: 12,
               ),
-              Text(
-                '฿${paidAmount.toInt()}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                text: hasReviewed ? "ให้คะแนนแล้ว" : "ให้คะแนน",
+                onPressed: hasReviewed
+                    ? null // ❌ disabled
+                    : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReviewPage(
+                        serviceImage: service!.imageUrls,
+                        serviceName: service.serName,
+                        bookingId: booking.id,
+                      ),
+                    ),
+                  );
+                },
+                padding: EdgeInsets.symmetric(vertical: 4),
+                fontSize: 14,
+                borderRadius: 12,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // ปุ่มดูรายละเอียด
-        if (onViewDetail != null) ...[
-          _buildViewDetailButton(),
-          const SizedBox(height: 12),
-        ],
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -195,8 +381,8 @@ class ServiceSection extends StatelessWidget {
       child: imageUrl.isNotEmpty
           ? Image.network(
               imageUrl,
-              width: 60,
-              height: 60,
+              width: 80,
+              height: 80,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
             )
@@ -239,16 +425,16 @@ class ServiceSection extends StatelessWidget {
     );
   }
 
-  Widget _buildViewDetailButton() {
+  Widget _buildViewDetailButton(String label) {
     return Align(
       alignment: Alignment.centerRight,
       child: OutlinedButton.icon(
         onPressed: onViewDetail,
-        label: const Text(
-          "ดูรายละเอียดเพิ่มเติม",
-          style: TextStyle(
+        label: Text(
+          label,
+          style: const TextStyle(
             color: Colors.black,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -257,8 +443,8 @@ class ServiceSection extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
-          minimumSize: const Size(0, 34),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 0),
+          minimumSize: const Size(0, 30),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),

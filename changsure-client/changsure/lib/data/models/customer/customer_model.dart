@@ -60,4 +60,81 @@ class CustomerModel {
 
 }
 
+class ReviewBody {
+  final int id;
+  final int bookingId;
+  final int customerId;
+  final int serviceId;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+  final List<ReviewImageBody> images;
+
+  ReviewBody({
+    required this.id,
+    required this.bookingId,
+    required this.customerId,
+    required this.serviceId,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+    required this.images,
+  });
+
+  factory ReviewBody.fromJson(Map<String, dynamic> json) {
+    return ReviewBody(
+      id: json['id'],
+      bookingId: json['booking_id'],
+      customerId: json['customer_id'],
+      serviceId: json['service_id'],
+      rating: json['rating'],
+      comment: json['comment'],
+      createdAt: DateTime.parse(json['created_at']),
+      images: (json['images'] as List<dynamic>)
+          .map((e) => ReviewImageBody.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class ReviewImageBody {
+  final int id;
+  final int reviewId;
+  final String imageUrl;
+
+  ReviewImageBody({
+    required this.id,
+    required this.reviewId,
+    required this.imageUrl,
+  });
+
+  factory ReviewImageBody.fromJson(Map<String, dynamic> json) {
+    return ReviewImageBody(
+      id: json['id'],
+      reviewId: json['review_id'],
+      imageUrl: json['image_url'],
+    );
+  }
+}
+
+class CreateReviewRequest {
+  final int rating;
+  final String? comment;
+  final List<String>? images;
+
+  CreateReviewRequest({
+    required this.rating,
+    this.comment,
+     this.images,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "rating": rating,
+      "comment": comment,
+      "images": images,
+    };
+  }
+}
+
 

@@ -69,7 +69,7 @@ class CompletedPage extends ConsumerWidget {
             ref.invalidate(myBookingsProvider);
           },
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            // padding: const EdgeInsets.all(16),
             itemCount: bookings.length,
             itemBuilder: (context, index) {
               final booking = bookings[index];

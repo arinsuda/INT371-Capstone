@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:changsure/core/constants/api_constants.dart';
 import 'package:http/http.dart' as http;
 
@@ -238,6 +239,48 @@ class CustomerService {
     } catch (e) {
       print("❌ Error deleting address: $e");
       return false;
+    }
+  }
+
+  Future<void> createReview({
+    required String token,
+    required int customerId,
+    required int bookingId,
+    required int rating,
+    String? comment,
+    List<File>? images,
+  }) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/customers/$customerId/bookings/$bookingId/reviews',
+    );
+
+    final request = http.MultipartRequest('POST', url);
+
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+    });
+
+    request.fields['rating'] = rating.toString();
+
+    if (comment != null && comment.trim().isNotEmpty) {
+      request.fields['comment'] = comment.trim();
+    }
+
+    if (images != null && images.isNotEmpty) {
+      for (final file in images) {
+        request.files.add(
+          await http.MultipartFile.fromPath('images', file.path),
+        );
+      }
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+        'Failed to create review (${response.statusCode}): ${response.body}',
+      );
     }
   }
 }

@@ -28,6 +28,7 @@ class Booking {
   final double? feeRate;
   final double? feeAmount;
   final double? netAmount;
+  final DateTime? reviewedAt;
 
   Booking({
     required this.id,
@@ -57,6 +58,7 @@ class Booking {
     this.feeRate,
     this.feeAmount,
     this.netAmount,
+    this.reviewedAt
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -102,6 +104,8 @@ class Booking {
       feeRate: (json['fee_rate'] as num?)?.toDouble(),
       feeAmount: (json['fee_amount'] as num?)?.toDouble(),
       netAmount: (json['net_amount'] as num?)?.toDouble(),
+      reviewedAt: TimeParser.parseNullable(json['reviewed_at']),
+
     );
   }
 
@@ -126,6 +130,7 @@ class Booking {
       'status': status,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'reviewed_at': updatedAt?.toIso8601String(),
     };
   }
 

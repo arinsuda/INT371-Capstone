@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:changsure/core/constants/realtime_events.dart';
-import 'package:changsure/module/payment/widgets/failed_view.dart';
+import 'package:changsure/module/tracking//payment/widgets/failed_view.dart';
 import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
@@ -8,9 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
-import '../../data/models/booking/booking_model.dart';
-import '../../state/payment_provider.dart';
-import './widgets/input_price_view.dart';
+import '../../../core/button/primary_button.dart';
+import '../../../core/button/tertiary_button.dart';
+import '../../../data/models/booking/booking_model.dart';
+import '../../../state/payment_provider.dart';
+import 'widgets/input_price_view.dart';
 import './widgets/qr_display_view.dart';
 import './widgets/success_view.dart';
 
@@ -180,10 +182,6 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
   }
 
   PreferredSizeWidget _buildAppBar(QRPaymentStatus status) {
-    final title = status == QRPaymentStatus.success
-        ? 'ระบบเลือกช่างอัตโนมัติ'
-        : 'ระบบชำระเงิน';
-
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -195,12 +193,13 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
           }
         },
       ),
+      toolbarHeight: 80,
       title: Text(
-        title,
+        "ระบบชำระเงิน",
         style: const TextStyle(
           color: Color(0xFF003DAB),
           fontWeight: FontWeight.bold,
-          fontSize: 16,
+          fontSize: 20,
         ),
       ),
       centerTitle: true,
@@ -213,6 +212,23 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
         (state.status == QRPaymentStatus.loading && state.qrData == null);
 
     if (isInputPhase) {
+      final isFixed = widget.booking.pricingType == 'FIXED';
+
+      if (isFixed) {
+        // ✅ FIXED → ไม่ต้องกรอก → ยิง QR เลย
+        final fixedPrice = widget.booking.quotedPriceFixed ?? 0;
+
+        // ยิงครั้งเดียว (กันยิงซ้ำ)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (state.status == QRPaymentStatus.idle) {
+            _generateQR(fixedPrice);
+          }
+        });
+
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      // ✅ RANGE → ให้กรอกเหมือนเดิม
       return InputPriceView(
         booking: widget.booking,
         isLoading: state.status == QRPaymentStatus.loading,
@@ -261,36 +277,57 @@ class _ExitConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'ยกเลิกการชำระเงิน?',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      ),
-      content: const Text(
-        'QR Code จะถูกยกเลิก และคุณจะต้องสร้างใหม่อีกครั้ง',
-        style: TextStyle(fontSize: 14, color: Colors.grey),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('อยู่ต่อ', style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ยกเลิกการชำระเงิน?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ),
-          child: const Text(
-            'ออกจากหน้านี้',
-            style: TextStyle(color: Colors.white),
-          ),
+            const SizedBox(height: 12),
+            const SizedBox(
+              width: 280,
+              child: Text(
+                "QR Code จะถูกยกเลิกและคุณจะต้องสร้างใหม่อีกครั้ง",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TertiaryButton(
+                    text: "ยกเลิก",
+                    onPressed: () {
+                      Navigator.pop(context, false);
+                    },
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    fontSize: 14,
+                    borderRadius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrimaryButton(
+                    text: "ยืนยัน",
+                    onPressed: () {
+                      Navigator.pop(context, true);
+                    },
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

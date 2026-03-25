@@ -15,6 +15,7 @@ import 'package:changsure/data/services/auth_service.dart';
 import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
 import '../data/models/customer/customer_model.dart';
+import '../data/models/technician/dashboard_model.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();
@@ -137,7 +138,7 @@ class UserNotifier extends Notifier<UserModel?> {
           state!.token!,
           state!.id,
         );
-        print("REFRESH PROFILE: ${profile?.isVerified}");
+
         if (profile != null) {
           state = state!.copyWith(technicianProfile: profile);
         }
@@ -435,47 +436,126 @@ class VerifyNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final verifyDetailProvider = FutureProvider.family<VerifyTechnician?, int>((
-    ref,
-    jobId,
-    ) async {
+  ref,
+  jobId,
+) async {
   final user = ref.read(userProvider);
 
   if (user == null || user.token == null) return null;
 
   final service = tech.TechnicianService();
 
-  return await service.getVerifyDetail(
-    user.id,
-    jobId,
-    user.token!,
-  );
+  return await service.getVerifyDetail(user.id, jobId, user.token!);
 });
 
 final passwordResetServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
 
-final requestOTPProvider =
-FutureProvider.family<OTPResponse, String>((ref, email) async {
+final requestOTPProvider = FutureProvider.family<OTPResponse, String>((
+  ref,
+  email,
+) async {
   final service = ref.read(passwordResetServiceProvider);
   return service.requestOTP(email);
 });
 
 final verifyOTPProvider =
-FutureProvider.family<VerifyOTPResponse, VerifyOTPRequest>((ref, request) async {
+    FutureProvider.family<VerifyOTPResponse, VerifyOTPRequest>((
+      ref,
+      request,
+    ) async {
+      final service = ref.read(passwordResetServiceProvider);
 
-  final service = ref.read(passwordResetServiceProvider);
-
-  return service.verifyOTP(request);
-
-});
+      return service.verifyOTP(request);
+    });
 
 final resetPasswordProvider =
-FutureProvider.family<ResetPasswordResponse, ResetPasswordRequest>(
-      (ref, request) async {
+    FutureProvider.family<ResetPasswordResponse, ResetPasswordRequest>((
+      ref,
+      request,
+    ) async {
+      final service = ref.read(passwordResetServiceProvider);
 
-    final service = ref.read(passwordResetServiceProvider);
+      return service.resetPassword(request);
+    });
 
-    return service.resetPassword(request);
-  },
+final technicianServiceProvider = Provider<tech.TechnicianService>((ref) {
+  return tech.TechnicianService();
+});
+
+final technicianReviewsProvider = FutureProvider.family<ReviewResponse, int>((
+  ref,
+  technicianId,
+) async {
+  final service = ref.read(technicianServiceProvider);
+  final user = ref.watch(userProvider);
+
+  if (user == null || user.token == null) {
+    throw Exception('User not ready');
+  }
+
+  return service.getTechnicianReviews(technicianId, user.token!);
+});
+
+final reviewNotifierProvider =
+StateNotifierProvider<ReviewNotifier, AsyncValue<void>>(
+      (ref) => ReviewNotifier(ref),
 );
+
+class ReviewNotifier extends StateNotifier<AsyncValue<void>> {
+  final Ref ref;
+
+  ReviewNotifier(this.ref) : super(const AsyncValue.data(null));
+
+  Future<void> createReview({
+    required int bookingId,
+    required int rating,
+    String? comment,
+    List<File>? images,
+  }) async {
+    state = const AsyncValue.loading();
+
+    try {
+      final user = ref.read(userProvider);
+
+      if (user == null || user.token == null) {
+        throw Exception("User not logged in");
+      }
+
+      if (user.role != UserRole.customer) {
+        throw Exception("Only customer can review");
+      }
+
+      final service = cust.CustomerService();
+
+      await service.createReview(
+        token: user.token!, // 🔥 ต้องใส่ token แล้ว
+        customerId: user.id,
+        bookingId: bookingId,
+        rating: rating,
+        comment: comment,
+        images: images, // ✅ List<File>
+      );
+
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+final walletSummaryProvider = FutureProvider<WalletSummary>((ref) async {
+  final user = ref.watch(userProvider);
+
+  if (user == null || user.token == null) {
+    throw Exception("User not ready");
+  }
+
+  final service = ref.read(technicianServiceProvider);
+
+  return service.getWalletSummary(
+    token: user.token!,
+    technicianId: user.id,
+  );
+});

@@ -249,3 +249,179 @@ class VerifyTechnician {
     return VerifyTechnician(verifyStatus: json['verify_status'] as String?);
   }
 }
+
+class ReviewImage {
+  final String imageUrl;
+
+  ReviewImage({
+    required this.imageUrl,
+  });
+
+  factory ReviewImage.fromJson(Map<String, dynamic> json) {
+    return ReviewImage(
+      imageUrl: json['image_url'] ?? '',
+    );
+  }
+}
+
+class Customer {
+  final int id;
+  final String name;
+  final String avatar;
+
+  Customer({
+    required this.id,
+    required this.name,
+    required this.avatar,
+  });
+
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    return Customer(
+      id: json['id'],
+      name: json['name'] ?? '',
+      avatar: json['avatar'] ?? '',
+    );
+  }
+}
+
+class Service {
+  final int id;
+  final String name;
+  final String price;
+  final String picture;
+  final int categoryId;
+  final String categoryName;
+
+  Service({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.picture,
+    required this.categoryId,
+    required this.categoryName,
+  });
+
+  factory Service.fromJson(Map<String, dynamic> json) {
+    return Service(
+      id: json['id'],
+      name: json['name'] ?? '',
+      price: json['price'] ?? '',
+      picture: json['picture'] ?? '',
+      categoryId: json['category_id'],
+      categoryName: json['category_name'] ?? '',
+    );
+  }
+}
+
+class Review {
+  final int id;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+  final Customer customer;
+  final Service service;
+  final List<ReviewImage> images;
+
+  Review({
+    required this.id,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+    required this.customer,
+    required this.service,
+    required this.images,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      id: json['id'],
+      rating: json['rating'],
+      comment: json['comment'] ?? '',
+      createdAt: DateTime.parse(json['created_at']),
+      customer: Customer.fromJson(json['customer']),
+      service: Service.fromJson(json['service']),
+      images: (json['images'] as List)
+          .map((e) => ReviewImage.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class ReviewSummary {
+  final double avgRating;
+  final int totalReviews;
+  final Map<String, int> breakdown;
+
+  ReviewSummary({
+    required this.avgRating,
+    required this.totalReviews,
+    required this.breakdown,
+  });
+
+  factory ReviewSummary.fromJson(Map<String, dynamic> json) {
+    return ReviewSummary(
+      avgRating: (json['avg_rating'] as num).toDouble(),
+      totalReviews: json['total_reviews'],
+      breakdown: Map<String, int>.from(json['breakdown']),
+    );
+  }
+}
+
+class Meta {
+  final int limit;
+  final int page;
+  final int total;
+
+  Meta({
+    required this.limit,
+    required this.page,
+    required this.total,
+  });
+
+  factory Meta.fromJson(Map<String, dynamic> json) {
+    return Meta(
+      limit: json['limit'],
+      page: json['page'],
+      total: json['total'],
+    );
+  }
+}
+
+class ReviewData {
+  final List<Review> reviews;
+  final ReviewSummary summary;
+
+  ReviewData({
+    required this.reviews,
+    required this.summary,
+  });
+
+  factory ReviewData.fromJson(Map<String, dynamic> json) {
+    return ReviewData(
+      reviews: (json['reviews'] as List)
+          .map((e) => Review.fromJson(e))
+          .toList(),
+      summary: ReviewSummary.fromJson(json['summary']),
+    );
+  }
+}
+
+class ReviewResponse {
+  final ReviewData data;
+  final Meta meta;
+  final bool success;
+
+  ReviewResponse({
+    required this.data,
+    required this.meta,
+    required this.success,
+  });
+
+  factory ReviewResponse.fromJson(Map<String, dynamic> json) {
+    return ReviewResponse(
+      data: ReviewData.fromJson(json['data']),
+      meta: Meta.fromJson(json['meta']),
+      success: json['success'],
+    );
+  }
+}
