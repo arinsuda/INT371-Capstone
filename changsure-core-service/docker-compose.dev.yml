@@ -1,53 +1,82 @@
+name: changsure-dev
+
 services:
   db:
     container_name: changsure-mysql-local
     image: mysql:8.0
-    restart: always
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: changSure@sit.65
-      MYSQL_DATABASE: changsurev1
-      MYSQL_USER: changSure
-      MYSQL_PASSWORD: changSure@sit.65
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       TZ: Asia/Bangkok
     ports:
-      - "127.0.0.1:3306:3306"
+      - "127.0.0.1:${DB_PORT:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_ROOT_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
+      start_period: 30s
       retries: 5
+    networks:
+      - changsure-net
 
   redis:
     container_name: changsure-redis-local
-    image: redis:7
-    restart: always
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
+      start_period: 10s
       retries: 5
+    networks:
+      - changsure-net
 
   minio:
     container_name: changsure-minio-local
-    image: minio/minio
+    image: minio/minio:latest
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
+      start_period: 20s
       retries: 5
+    networks:
+      - changsure-net
 
   ocr:
     container_name: changsure-ocr-local
@@ -58,26 +87,37 @@ services:
     image: changsure-ocr:local
     restart: unless-stopped
     environment:
-      APP_ENV: development
-      OCR_USE_GPU: "false"
-      OCR_WORKERS: "1"
-      ENABLE_DOCS: "true"           
-      MIN_CONFIDENCE_THRESHOLD: "0.3"
-      OCR_TIMEOUT_SECONDS: "120"
+      APP_ENV: ${APP_ENV:-development}
+      OCR_USE_GPU: ${OCR_USE_GPU:-false}
+      OCR_WORKERS: ${OCR_WORKERS:-1}
+      ENABLE_DOCS: ${ENABLE_DOCS:-true}
+      MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.3}
+      OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-120}
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${OCR_PORT:-8000}:8000"
     volumes:
-      - ocr_models:/app/.easyocr 
-    mem_limit: 4g 
+      - ocr_models:/app/.easyocr
+    mem_limit: 4g
     memswap_limit: 4g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
       interval: 30s
       timeout: 10s
-      start_period: 90s           
+      start_period: 90s
       retries: 3
+    networks:
+      - changsure-net
 
 volumes:
   mysql_data:
+    driver: local
+  redis_data:
+    driver: local
   minio_data:
-  ocr_models:                     
+    driver: local
+  ocr_models:
+    driver: local
+
+networks:
+  changsure-net:
+    driver: bridge
