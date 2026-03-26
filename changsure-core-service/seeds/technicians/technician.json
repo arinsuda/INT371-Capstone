@@ -5,7 +5,7 @@
     "email": "technician001@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมศักดิ์",
@@ -13,7 +13,7 @@
     "email": "technician002@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อนันต์",
@@ -21,7 +21,7 @@
     "email": "technician003@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วิชัย",
@@ -29,7 +29,7 @@
     "email": "technician004@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สุรชัย",
@@ -37,7 +37,7 @@
     "email": "technician005@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ณัฐวุฒิ",
@@ -45,7 +45,7 @@
     "email": "technician006@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธนพล",
@@ -53,7 +53,7 @@
     "email": "technician007@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "กิตติ",
@@ -61,7 +61,7 @@
     "email": "technician008@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ศุภชัย",
@@ -69,7 +69,7 @@
     "email": "technician009@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ปรีชา",
@@ -77,7 +77,7 @@
     "email": "technician010@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชาญชัย",
@@ -85,7 +85,7 @@
     "email": "technician011@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อาทิตย์",
@@ -93,7 +93,7 @@
     "email": "technician012@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "นพดล",
@@ -101,7 +101,7 @@
     "email": "technician013@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชัยวัฒน์",
@@ -109,7 +109,7 @@
     "email": "technician014@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ภาณุ",
@@ -117,7 +117,7 @@
     "email": "technician015@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วรพล",
@@ -125,7 +125,7 @@
     "email": "technician016@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "จักรพงษ์",
@@ -133,7 +133,7 @@
     "email": "technician017@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธีรพงศ์",
@@ -141,7 +141,7 @@
     "email": "technician018@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "เกรียงศักดิ์",
@@ -149,7 +149,7 @@
     "email": "technician019@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "พิชัย",
@@ -157,7 +157,7 @@
     "email": "technician020@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมชาย",
@@ -165,7 +165,7 @@
     "email": "technician021@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมศักดิ์",
@@ -173,7 +173,7 @@
     "email": "technician022@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อนันต์",
@@ -181,7 +181,7 @@
     "email": "technician023@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วิชัย",
@@ -189,7 +189,7 @@
     "email": "technician024@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สุรชัย",
@@ -197,7 +197,7 @@
     "email": "technician025@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ณัฐวุฒิ",
@@ -205,7 +205,7 @@
     "email": "technician026@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธนพล",
@@ -213,7 +213,7 @@
     "email": "technician027@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "กิตติ",
@@ -221,7 +221,7 @@
     "email": "technician028@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ศุภชัย",
@@ -229,7 +229,7 @@
     "email": "technician029@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ปรีชา",
@@ -237,7 +237,7 @@
     "email": "technician030@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชาญชัย",
@@ -245,7 +245,7 @@
     "email": "technician031@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อาทิตย์",
@@ -253,7 +253,7 @@
     "email": "technician032@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "นพดล",
@@ -261,7 +261,7 @@
     "email": "technician033@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชัยวัฒน์",
@@ -269,7 +269,7 @@
     "email": "technician034@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ภาณุ",
@@ -277,7 +277,7 @@
     "email": "technician035@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วรพล",
@@ -285,7 +285,7 @@
     "email": "technician036@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "จักรพงษ์",
@@ -293,7 +293,7 @@
     "email": "technician037@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธีรพงศ์",
@@ -301,7 +301,7 @@
     "email": "technician038@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "เกรียงศักดิ์",
@@ -309,7 +309,7 @@
     "email": "technician039@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "พิชัย",
@@ -317,7 +317,7 @@
     "email": "technician040@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมชาย",
@@ -325,7 +325,7 @@
     "email": "technician041@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมศักดิ์",
@@ -333,7 +333,7 @@
     "email": "technician042@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อนันต์",
@@ -341,7 +341,7 @@
     "email": "technician043@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วิชัย",
@@ -349,7 +349,7 @@
     "email": "technician044@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สุรชัย",
@@ -357,7 +357,7 @@
     "email": "technician045@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ณัฐวุฒิ",
@@ -365,7 +365,7 @@
     "email": "technician046@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธนพล",
@@ -373,7 +373,7 @@
     "email": "technician047@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "กิตติ",
@@ -381,7 +381,7 @@
     "email": "technician048@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ศุภชัย",
@@ -389,7 +389,7 @@
     "email": "technician049@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ปรีชา",
@@ -397,7 +397,7 @@
     "email": "technician050@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชาญชัย",
@@ -405,7 +405,7 @@
     "email": "technician051@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อาทิตย์",
@@ -413,7 +413,7 @@
     "email": "technician052@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "นพดล",
@@ -421,7 +421,7 @@
     "email": "technician053@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชัยวัฒน์",
@@ -429,7 +429,7 @@
     "email": "technician054@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ภาณุ",
@@ -437,7 +437,7 @@
     "email": "technician055@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วรพล",
@@ -445,7 +445,7 @@
     "email": "technician056@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "จักรพงษ์",
@@ -453,7 +453,7 @@
     "email": "technician057@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธีรพงศ์",
@@ -461,7 +461,7 @@
     "email": "technician058@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "เกรียงศักดิ์",
@@ -469,7 +469,7 @@
     "email": "technician059@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "พิชัย",
@@ -477,7 +477,7 @@
     "email": "technician060@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมชาย",
@@ -485,7 +485,7 @@
     "email": "technician061@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมศักดิ์",
@@ -493,7 +493,7 @@
     "email": "technician062@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อนันต์",
@@ -501,7 +501,7 @@
     "email": "technician063@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วิชัย",
@@ -509,7 +509,7 @@
     "email": "technician064@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สุรชัย",
@@ -517,7 +517,7 @@
     "email": "technician065@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ณัฐวุฒิ",
@@ -525,7 +525,7 @@
     "email": "technician066@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธนพล",
@@ -533,7 +533,7 @@
     "email": "technician067@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "กิตติ",
@@ -541,7 +541,7 @@
     "email": "technician068@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ศุภชัย",
@@ -549,7 +549,7 @@
     "email": "technician069@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ปรีชา",
@@ -557,7 +557,7 @@
     "email": "technician070@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชาญชัย",
@@ -565,7 +565,7 @@
     "email": "technician071@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อาทิตย์",
@@ -573,7 +573,7 @@
     "email": "technician072@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "นพดล",
@@ -581,7 +581,7 @@
     "email": "technician073@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชัยวัฒน์",
@@ -589,7 +589,7 @@
     "email": "technician074@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ภาณุ",
@@ -597,7 +597,7 @@
     "email": "technician075@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วรพล",
@@ -605,7 +605,7 @@
     "email": "technician076@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "จักรพงษ์",
@@ -613,7 +613,7 @@
     "email": "technician077@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธีรพงศ์",
@@ -621,7 +621,7 @@
     "email": "technician078@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "เกรียงศักดิ์",
@@ -629,7 +629,7 @@
     "email": "technician079@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "พิชัย",
@@ -637,7 +637,7 @@
     "email": "technician080@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมชาย",
@@ -645,7 +645,7 @@
     "email": "technician081@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สมศักดิ์",
@@ -653,7 +653,7 @@
     "email": "technician082@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อนันต์",
@@ -661,7 +661,7 @@
     "email": "technician083@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วิชัย",
@@ -669,7 +669,7 @@
     "email": "technician084@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "สุรชัย",
@@ -677,7 +677,7 @@
     "email": "technician085@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ณัฐวุฒิ",
@@ -685,7 +685,7 @@
     "email": "technician086@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธนพล",
@@ -693,7 +693,7 @@
     "email": "technician087@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "กิตติ",
@@ -701,7 +701,7 @@
     "email": "technician088@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ศุภชัย",
@@ -709,7 +709,7 @@
     "email": "technician089@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ปรีชา",
@@ -717,7 +717,7 @@
     "email": "technician090@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชาญชัย",
@@ -725,7 +725,7 @@
     "email": "technician091@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "อาทิตย์",
@@ -733,7 +733,7 @@
     "email": "technician092@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "นพดล",
@@ -741,7 +741,7 @@
     "email": "technician093@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ชัยวัฒน์",
@@ -749,7 +749,7 @@
     "email": "technician094@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ภาณุ",
@@ -757,7 +757,7 @@
     "email": "technician095@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "วรพล",
@@ -765,7 +765,7 @@
     "email": "technician096@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "จักรพงษ์",
@@ -773,7 +773,7 @@
     "email": "technician097@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "ธีรพงศ์",
@@ -781,7 +781,7 @@
     "email": "technician098@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "เกรียงศักดิ์",
@@ -789,7 +789,7 @@
     "email": "technician099@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   },
   {
     "firstname": "พิชัย",
@@ -797,6 +797,6 @@
     "email": "technician100@changsure.dev",
     "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C",
     "is_available": true,
-    "is_verified": true
+    "verification_status": "PASSED"
   }
 ]
