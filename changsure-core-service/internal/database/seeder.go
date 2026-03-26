@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -312,11 +313,12 @@ func (s *Seeder) seedTechnicians() error {
 	}
 
 	type TechnicianSeed struct {
-		Firstname    string `json:"firstname"`
-		Lastname     string `json:"lastname"`
-		Email        string `json:"email"`
-		PasswordHash string `json:"password_hash"`
-		IsAvailable  bool   `json:"is_available"`
+		Firstname          string `json:"firstname"`
+		Lastname           string `json:"lastname"`
+		Email              string `json:"email"`
+		PasswordHash       string `json:"password_hash"`
+		IsAvailable        bool   `json:"is_available"`
+		VerificationStatus string `json:"verification_status"`
 	}
 
 	items, err := loadSeedFile[TechnicianSeed]("technicians/technician.json")
@@ -325,15 +327,52 @@ func (s *Seeder) seedTechnicians() error {
 	}
 
 	technicians := make([]technician.Technician, 0, len(items))
-	for _, item := range items {
-		email := item.Email
+
+	for i, item := range items {
+
+		email := strings.ToLower(strings.TrimSpace(item.Email))
+
+		if email == "" || item.Firstname == "" || item.Lastname == "" {
+			log.Printf("⚠️ Skip technician #%d: missing required fields", i)
+			continue
+		}
+
+		status := technician.StatusPending
+
+		switch strings.ToUpper(strings.TrimSpace(item.VerificationStatus)) {
+		case string(technician.StatusPassed):
+			status = technician.StatusPassed
+		case string(technician.StatusPending):
+			status = technician.StatusPending
+		case string(technician.StatusReview):
+			status = technician.StatusReview
+		case string(technician.StatusFailed):
+			status = technician.StatusFailed
+		default:
+
+			status = technician.StatusPending
+		}
+
+		var verifiedAt *time.Time
+		if status == technician.StatusPassed {
+			now := time.Now().UTC()
+			verifiedAt = &now
+		}
+
 		technicians = append(technicians, technician.Technician{
-			FirstName:    item.Firstname,
-			LastName:     item.Lastname,
-			Email:        &email,
-			PasswordHash: item.PasswordHash,
-			IsAvailable:  item.IsAvailable,
+			FirstName:          item.Firstname,
+			LastName:           item.Lastname,
+			Email:              &email,
+			PasswordHash:       item.PasswordHash,
+			IsAvailable:        item.IsAvailable,
+			VerificationStatus: status,
+			VerifiedAt:         verifiedAt,
 		})
+	}
+
+	if len(technicians) == 0 {
+		log.Println("ℹ️ No valid technicians to seed")
+		return nil
 	}
 
 	return s.db.CreateInBatches(technicians, 100).Error
