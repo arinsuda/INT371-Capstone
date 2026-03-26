@@ -188,7 +188,7 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		return nil, appErrors.NewBadRequest("consents are required")
 	}
 
-	if _, err := s.documentService.GetPublished("terms", "th"); err != nil {
+	if _, err := s.documentService.GetPublished("changsure-terms", "th"); err != nil {
 		return nil, appErrors.NewBadRequest("terms document not available")
 	}
 
@@ -237,7 +237,7 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		}
 
 		if _, err := s.documentService.Accept(
-			"terms",
+			"changsure-terms",
 			tech.ID,
 			RoleTechnician,
 			"th",
