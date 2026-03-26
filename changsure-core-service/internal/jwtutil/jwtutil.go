@@ -10,9 +10,9 @@ import (
 
 const (
 	ScopePreVerified = "pre_verified"
-	RoleCustomer   = "customer"
-	RoleTechnician = "technician"
-	RoleAdmin      = "admin"
+	RoleCustomer     = "customer"
+	RoleTechnician   = "technician"
+	RoleAdmin        = "admin"
 
 	TokenTypeAccess  = "access"
 	TokenTypeRefresh = "refresh"
@@ -28,12 +28,12 @@ var (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID     uint   `json:"user_id"`
-	Email      string `json:"email"`
-	Role       string `json:"role"`
-	IsVerified bool   `json:"is_verified"`
-	TokenType  string `json:"token_type"`
-	Scope      string `json:"scope,omitempty"`
+	UserID             uint   `json:"user_id"`
+	Email              string `json:"email"`
+	Role               string `json:"role"`
+	VerificationStatus string `json:"verification_status"`
+	TokenType          string `json:"token_type"`
+	Scope              string `json:"scope,omitempty"`
 }
 
 type Config struct {
@@ -65,11 +65,11 @@ func (c Config) RefreshTTLDuration() time.Duration {
 }
 
 type IssueInput struct {
-	UserID     uint
-	Email      string
-	Role       string
-	IsVerified bool
-	Scope      string
+	UserID             uint
+	Email              string
+	Role               string
+	VerificationStatus string
+	Scope              string
 }
 
 func IssueTokenPair(cfg Config, in IssueInput) (accessToken, refreshToken string, err error) {
@@ -98,12 +98,12 @@ func sign(secret []byte, in IssueInput, tokenType string, now time.Time, ttl tim
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
-		UserID:     in.UserID,
-		Email:      in.Email,
-		Role:       in.Role,
-		IsVerified: in.IsVerified,
-		TokenType:  tokenType,
-		Scope:      in.Scope,
+		UserID:             in.UserID,
+		Email:              in.Email,
+		Role:               in.Role,
+		VerificationStatus: in.VerificationStatus,
+		TokenType:          tokenType,
+		Scope:              in.Scope,
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(secret)
 }

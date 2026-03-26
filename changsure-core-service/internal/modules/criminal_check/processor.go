@@ -17,7 +17,6 @@ type VerificationResult struct {
 	Status        CheckStatus
 	Note          string
 	Message       string
-	IsVerified    bool
 }
 
 func ProcessVerification(
@@ -81,6 +80,10 @@ func ProcessVerification(
 
 	status, note, message, isVerified := resolveStatus(record)
 
+	if isVerified {
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
+	}
+
 	if status == StatusPassed {
 		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
 			status = StatusPending
@@ -102,8 +105,7 @@ func ProcessVerification(
 	})
 
 	if isVerified {
-		tech.IsVerified = true
-		_ = techRepo.Update(ctx, tech)
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
 	}
 
 	return &VerificationResult{
@@ -114,6 +116,5 @@ func ProcessVerification(
 		Status:        status,
 		Note:          note,
 		Message:       message,
-		IsVerified:    isVerified,
 	}, nil
 }

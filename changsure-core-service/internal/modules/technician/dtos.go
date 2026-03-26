@@ -81,31 +81,28 @@ type TechServiceMutationResult struct {
 }
 
 type TechnicianProfileRes struct {
-	ID        uint    `json:"id"`
-	FirstName string  `json:"firstname"`
-	LastName  string  `json:"lastname"`
-	Bio       *string `json:"bio,omitempty"`
-	Phone     *string `json:"phone,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	AvatarURL *string `json:"avatar_url,omitempty"`
-
-	RatingAvg       *float64 `json:"rating_avg,omitempty"`
-	RatingCount     int64    `json:"rating_count"`
-	TotalJobs       int64    `json:"total_jobs"`
-	IsAvailable     bool     `json:"is_available"`
-	IsVerified      bool     `json:"is_verified"`
-	TermsAccepted   bool     `json:"terms_accepted"`
-	PrivacyAccepted bool     `json:"privacy_accepted"`
-
-	Provinces      []provinces.ProvinceResponse `json:"provinces"`
-	Services       []TechServiceRes             `json:"services"`
-	ServiceSummary []TechServiceSummary         `json:"service_summary"`
-	Badges         []badges.BadgeResponse       `json:"badges"`
+	ID                 uint                         `json:"id"`
+	FirstName          string                       `json:"firstname"`
+	LastName           string                       `json:"lastname"`
+	Bio                *string                      `json:"bio,omitempty"`
+	Phone              *string                      `json:"phone,omitempty"`
+	Email              *string                      `json:"email,omitempty"`
+	AvatarURL          *string                      `json:"avatar_url,omitempty"`
+	RatingAvg          float64                      `json:"rating_avg,omitempty"`
+	RatingCount        int64                        `json:"rating_count"`
+	TotalJobs          int64                        `json:"total_jobs"`
+	IsAvailable        bool                         `json:"is_available"`
+	VerificationStatus string                       `json:"verification_status"`
+	TermsAccepted      bool                         `json:"terms_accepted"`
+	PrivacyAccepted    bool                         `json:"privacy_accepted"`
+	Provinces          []provinces.ProvinceResponse `json:"provinces"`
+	Services           []TechServiceRes             `json:"services"`
+	ServiceSummary     []TechServiceSummary         `json:"service_summary"`
+	Badges             []badges.BadgeResponse       `json:"badges"`
 }
 
 type TechnicianStatus struct {
 	IsAvailable        bool       `json:"is_available"`
-	IsVerified         bool       `json:"is_verified"`
 	VerificationStatus string     `json:"verification_status"`
 	AccountStatus      string     `json:"account_status"`
 	WarningCount       int64      `json:"warning_count"`

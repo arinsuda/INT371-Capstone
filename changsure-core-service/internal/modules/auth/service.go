@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,6 +16,7 @@ import (
 	criminalcheck "changsure-core-service/internal/modules/criminal_check"
 	"changsure-core-service/internal/modules/customer"
 	customeraddress "changsure-core-service/internal/modules/customer_address"
+	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	technicianservice "changsure-core-service/internal/modules/technician_service"
@@ -41,6 +43,7 @@ type service struct {
 	techServiceRepo technicianservice.Repository
 	techAreaRepo    technicianarea.Repository
 	criminalRepo    criminalcheck.Repository
+	documentService document.Service
 }
 
 func NewService(
@@ -55,6 +58,7 @@ func NewService(
 	techServiceRepo technicianservice.Repository,
 	techAreaRepo technicianarea.Repository,
 	criminalRepo criminalcheck.Repository,
+	documentService document.Service,
 ) Service {
 	return &service{
 		db:              db,
@@ -68,6 +72,7 @@ func NewService(
 		techServiceRepo: techServiceRepo,
 		techAreaRepo:    techAreaRepo,
 		criminalRepo:    criminalRepo,
+		documentService: documentService,
 	}
 }
 
@@ -163,16 +168,28 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 }
 
 func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnicianRequest) (*RegisterTechnicianResponse, error) {
-	if taken, err := s.isEmailTaken(ctx, req.Email); err != nil {
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	phone := strings.TrimSpace(req.Phone)
+
+	if taken, err := s.isEmailTaken(ctx, email); err != nil {
 		return nil, err
 	} else if taken {
 		return nil, appErrors.NewConflict(ErrEmailAlreadyExists.Error())
 	}
 
-	if taken, err := s.isPhoneTaken(ctx, req.Phone); err != nil {
+	if taken, err := s.isPhoneTaken(ctx, phone); err != nil {
 		return nil, err
 	} else if taken {
 		return nil, appErrors.NewConflict(ErrPhoneAlreadyExists.Error())
+	}
+
+	if len(req.Consents) == 0 {
+		return nil, appErrors.NewBadRequest("consents are required")
+	}
+
+	if _, err := s.documentService.GetPublished("changsure-terms", "th"); err != nil {
+		return nil, appErrors.NewBadRequest("terms document not available")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -180,36 +197,55 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
+	now := time.Now().UTC()
+
 	tech := &technician.Technician{
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Email:        &req.Email,
-		Phone:        &req.Phone,
-		PasswordHash: string(hash),
-		IsVerified:   false,
-		IsAvailable:  false,
+		FirstName:          req.FirstName,
+		LastName:           req.LastName,
+		Email:              &email,
+		Phone:              &phone,
+		PasswordHash:       string(hash),
+		VerificationStatus: technician.StatusPending,
+		IsAvailable:        false,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
 		if err := tx.Create(tech).Error; err != nil {
 			return fmt.Errorf("create technician: %w", err)
 		}
+
 		if req.Address != nil {
 			addr := buildTechnicianAddress(tech.ID, *req.Address, true)
 			if err := tx.Create(addr).Error; err != nil {
 				return fmt.Errorf("create address: %w", err)
 			}
 		}
+
 		if len(req.Services) > 0 {
 			if err := s.techServiceRepo.ReplaceAll(ctx, tx, tech.ID, req.Services); err != nil {
 				return fmt.Errorf("create services: %w", err)
 			}
 		}
+
 		if len(req.ProvinceIDs) > 0 {
 			if err := s.techAreaRepo.ReplaceForTech(tx, tech.ID, req.ProvinceIDs); err != nil {
 				return fmt.Errorf("create service areas: %w", err)
 			}
 		}
+
+		if _, err := s.documentService.Accept(
+			"changsure-terms",
+			tech.ID,
+			RoleTechnician,
+			"th",
+			req.Consents,
+		); err != nil {
+			return fmt.Errorf("accept terms: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -220,12 +256,13 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		Secret:    s.cfg.Secret,
 		AccessTTL: 15 * 24 * time.Hour,
 	}
+
 	preVerifiedToken, err := IssueAccessToken(preVerifiedCfg, JWTClaims{
-		UserID:     tech.ID,
-		Email:      req.Email,
-		Role:       RoleTechnician,
-		IsVerified: false,
-		Scope:      jwtutil.ScopePreVerified,
+		UserID:             tech.ID,
+		Email:              email,
+		Role:               RoleTechnician,
+		VerificationStatus: string(technician.StatusPending),
+		Scope:              jwtutil.ScopePreVerified,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("issue pre_verified token: %w", err)
@@ -233,11 +270,11 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 
 	return &RegisterTechnicianResponse{
 		TechnicianID:         tech.ID,
-		Email:                req.Email,
+		Email:                email,
 		FirstName:            req.FirstName,
 		LastName:             req.LastName,
 		Role:                 RoleTechnician,
-		IsVerified:           false,
+		VerificationStatus:   string(technician.StatusPending),
 		Message:              "สมัครสมาชิกสำเร็จ กรุณาอัปโหลดบัตรประชาชนเพื่อยืนยันตัวตน",
 		PreVerifiedToken:     preVerifiedToken,
 		PreVerifiedExpiresIn: preVerifiedCfg.AccessTTLSeconds(),
@@ -270,10 +307,10 @@ func (s *service) loginAsAdmin(ctx context.Context, a *admin.Admin, password str
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 	return s.issueTokens(ctx, JWTClaims{
-		UserID:     a.ID,
-		Email:      a.Email,
-		Role:       RoleAdmin,
-		IsVerified: true,
+		UserID:             a.ID,
+		Email:              a.Email,
+		Role:               RoleAdmin,
+		VerificationStatus: string(technician.StatusPassed),
 	}, a.FirstName, a.LastName)
 }
 
@@ -282,14 +319,15 @@ func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, 
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 	return s.issueTokens(ctx, JWTClaims{
-		UserID:     cust.ID,
-		Email:      *cust.Email,
-		Role:       RoleCustomer,
-		IsVerified: true,
+		UserID:             cust.ID,
+		Email:              *cust.Email,
+		Role:               RoleCustomer,
+		VerificationStatus: string(technician.StatusPassed),
 	}, cust.FirstName, cust.LastName)
 }
 
 func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Technician, password string) (*LoginResponse, error) {
+
 	if err := bcrypt.CompareHashAndPassword([]byte(tech.PasswordHash), []byte(password)); err != nil {
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
@@ -298,12 +336,12 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		return nil, appErrors.NewForbidden(ErrTechnicianBanned.Error())
 	}
 
-	if tech.IsVerified {
+	if tech.VerificationStatus == technician.StatusPassed {
 		return s.issueTokens(ctx, JWTClaims{
-			UserID:     tech.ID,
-			Email:      *tech.Email,
-			Role:       RoleTechnician,
-			IsVerified: true,
+			UserID:             tech.ID,
+			Email:              *tech.Email,
+			Role:               RoleTechnician,
+			VerificationStatus: string(tech.VerificationStatus),
 		}, tech.FirstName, tech.LastName)
 	}
 
@@ -370,12 +408,12 @@ func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, 
 		TokenType:    "Bearer",
 		ExpiresIn:    AccessTTLSeconds(s.cfg),
 		User: UserInfo{
-			ID:         claims.UserID,
-			Email:      claims.Email,
-			FirstName:  firstName,
-			LastName:   lastName,
-			Role:       claims.Role,
-			IsVerified: claims.IsVerified,
+			ID:                 claims.UserID,
+			Email:              claims.Email,
+			FirstName:          firstName,
+			LastName:           lastName,
+			Role:               claims.Role,
+			VerificationStatus: claims.VerificationStatus,
 		},
 	}, nil
 }
@@ -416,16 +454,17 @@ func (s *service) RefreshToken(ctx context.Context, req RefreshTokenRequest) (*R
 
 func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) (*JWTClaims, error) {
 	switch role {
+
 	case RoleAdmin:
 		a, err := s.adminRepo.FindByID(ctx, userID)
 		if err != nil || a == nil {
 			return nil, appErrors.NewUnauthorized("user not found")
 		}
 		return &JWTClaims{
-			UserID:     a.ID,
-			Email:      a.Email,
-			Role:       RoleAdmin,
-			IsVerified: true,
+			UserID:             a.ID,
+			Email:              a.Email,
+			Role:               RoleAdmin,
+			VerificationStatus: string(technician.StatusPassed),
 		}, nil
 
 	case RoleCustomer:
@@ -434,10 +473,10 @@ func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) 
 			return nil, appErrors.NewUnauthorized("user not found")
 		}
 		return &JWTClaims{
-			UserID:     cust.ID,
-			Email:      *cust.Email,
-			Role:       RoleCustomer,
-			IsVerified: true,
+			UserID:             cust.ID,
+			Email:              *cust.Email,
+			Role:               RoleCustomer,
+			VerificationStatus: string(technician.StatusPassed),
 		}, nil
 
 	case RoleTechnician:
@@ -446,10 +485,10 @@ func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) 
 			return nil, appErrors.NewUnauthorized("user not found")
 		}
 		return &JWTClaims{
-			UserID:     tech.ID,
-			Email:      *tech.Email,
-			Role:       RoleTechnician,
-			IsVerified: tech.IsVerified,
+			UserID:             tech.ID,
+			Email:              *tech.Email,
+			Role:               RoleTechnician,
+			VerificationStatus: string(tech.VerificationStatus),
 		}, nil
 
 	default:

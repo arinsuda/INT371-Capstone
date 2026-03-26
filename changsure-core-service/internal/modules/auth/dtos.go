@@ -18,16 +18,16 @@ type RegisterCustomerRequest struct {
 }
 
 type RegisterTechnicianRequest struct {
-	Email           string `json:"email"            validate:"required,email"`
-	Password        string `json:"password"         validate:"required,min=8"`
-	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=Password"`
-	FirstName       string `json:"firstname"        validate:"required,min=2,max=150"`
-	LastName        string `json:"lastname"         validate:"required,min=2,max=150"`
-	Phone           string `json:"phone"            validate:"required,len=10,numeric"`
-
-	Address     *technicianaddress.CreateTechnicianAddressRequest `json:"address,omitempty"`
-	Services    []technicianservice.ServicePatchItem              `json:"services,omitempty"`
-	ProvinceIDs []uint                                            `json:"province_ids,omitempty"`
+	Email           string                                            `json:"email"            validate:"required,email"`
+	Password        string                                            `json:"password"         validate:"required,min=8"`
+	ConfirmPassword string                                            `json:"confirm_password" validate:"required,eqfield=Password"`
+	FirstName       string                                            `json:"firstname"        validate:"required,min=2,max=150"`
+	LastName        string                                            `json:"lastname"         validate:"required,min=2,max=150"`
+	Phone           string                                            `json:"phone"            validate:"required,len=10,numeric"`
+	Address         *technicianaddress.CreateTechnicianAddressRequest `json:"address,omitempty"`
+	Services        []technicianservice.ServicePatchItem              `json:"services,omitempty"`
+	ProvinceIDs     []uint                                            `json:"province_ids,omitempty"`
+	Consents        []string                                          `json:"consents" validate:"required,min=1"`
 }
 
 type RegisterCustomerResponse struct {
@@ -45,9 +45,9 @@ type RegisterTechnicianResponse struct {
 	FirstName            string       `json:"firstname"`
 	LastName             string       `json:"lastname"`
 	Role                 string       `json:"role"`
-	IsVerified           bool         `json:"is_verified"`
 	Message              string       `json:"message"`
-	PreVerifiedToken     string       `json:"pre_verified_token"` 
+	VerificationStatus   string       `json:"verification_status"`
+	PreVerifiedToken     string       `json:"pre_verified_token"`
 	PreVerifiedExpiresIn int64        `json:"pre_verified_expires_in"`
 	NextStep             NextStepInfo `json:"next_step"`
 }
@@ -72,12 +72,12 @@ type LoginResponse struct {
 }
 
 type UserInfo struct {
-	ID         uint   `json:"id"`
-	Email      string `json:"email"`
-	FirstName  string `json:"firstname"`
-	LastName   string `json:"lastname"`
-	Role       string `json:"role"`
-	IsVerified bool   `json:"is_verified"`
+	ID                 uint   `json:"id"`
+	Email              string `json:"email"`
+	FirstName          string `json:"firstname"`
+	LastName           string `json:"lastname"`
+	Role               string `json:"role"`
+	VerificationStatus string `json:"verification_status"`
 }
 
 type RefreshTokenRequest struct {

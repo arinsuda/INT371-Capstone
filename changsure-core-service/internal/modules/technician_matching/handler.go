@@ -2,24 +2,64 @@ package technicianmatching
 
 import (
 	"errors"
+	"strconv"
 
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/middleware"
+	technician "changsure-core-service/internal/modules/technician"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
-	svc Service
+	svc      Service
+	adminSvc technician.Service
 }
 
-func NewHandler(s Service) *Handler {
-	return &Handler{svc: s}
+func NewHandler(s Service, adminSvc technician.Service) *Handler {
+	return &Handler{
+		svc:      s,
+		adminSvc: adminSvc,
+	}
 }
 
 func (h *Handler) ListTechnicians(c fiber.Ctx) error {
-	customerID, ok := middleware.GetUserID(c)
-	if customerID == 0 || !ok {
+	role, _ := middleware.GetRole(c)
+	userID, _ := middleware.GetUserID(c)
+
+	if role == "admin" {
+		page := 1
+		pageSize := 20
+
+		if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+			page = p
+		}
+		if s, err := strconv.Atoi(c.Query("page_size")); err == nil && s > 0 {
+			pageSize = s
+		}
+
+		list, total, stats, err := h.adminSvc.List(c.Context(), page, pageSize)
+		if err != nil {
+			return appErrors.InternalError(c, "failed to list technicians", err)
+		}
+
+		totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data": fiber.Map{
+				"technicians":    list,
+				"page":           page,
+				"page_size":      pageSize,
+				"total":          total,
+				"total_pages":    totalPages,
+				"verified_count": stats.VerifiedCount,
+				"pending_count":  stats.PendingCount,
+			},
+		})
+	}
+
+	if userID == 0 {
 		return appErrors.Unauthorized(c, ErrUnauthorized.Error())
 	}
 
@@ -29,7 +69,7 @@ func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 	}
 	q.SetDefaults()
 
-	result, err := h.svc.ListTechnicians(c.Context(), customerID, q)
+	result, err := h.svc.ListTechnicians(c.Context(), userID, q)
 	if err != nil {
 		return h.handleServiceError(c, err)
 	}

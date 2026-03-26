@@ -4,21 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"log/slog"
 	"time"
 
-	"gorm.io/gorm"
-
 	appErrors "changsure-core-service/internal/errors"
-	docrepo "changsure-core-service/internal/modules/document"
-
 	"changsure-core-service/internal/modules/badge"
+	docrepo "changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/province"
-
 	tb "changsure-core-service/internal/modules/technician_badge"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
-
 	"changsure-core-service/pkg/storage"
 )
 
@@ -325,18 +321,36 @@ func (s *service) List(ctx context.Context, page, pageSize int) ([]*TechnicianRe
 	}
 
 	out := make([]*TechnicianResponseDashboard, 0, len(technicians))
+
+	var verifiedCount int64
+	var pendingCount int64
+
 	for _, t := range technicians {
-		out = append(out, s.toDashboardRes(ctx, &t))
+		res := s.toDashboardRes(ctx, &t)
+		out = append(out, res)
+
+		if res.TechnicianStatus.VerificationStatus == string(StatusPassed) {
+			verifiedCount++
+		} else {
+			pendingCount++
+		}
 	}
+
+	stats.VerifiedCount = verifiedCount
+	stats.PendingCount = pendingCount
+
 	return out, stats.Total, stats, nil
 }
 
-func resolveAccountStatus(isAvailable bool, warningCount int64, bannedAt *time.Time) string {
-	if !isAvailable {
+func resolveAccountStatus(t *Technician, warningCount int64) string {
+	if !t.IsAvailable {
 		return "BANNED"
 	}
-	if bannedAt != nil {
-		return "RESTRICTED"
+	if t.BannedAt != nil {
+		return "BANNED"
+	}
+	if !t.IsAvailable {
+		return "INACTIVE"
 	}
 	if warningCount >= 1 {
 		return "WARNING"
@@ -359,9 +373,8 @@ func (s *service) toDashboardRes(ctx context.Context, t *TechnicianWithVerificat
 
 		TechnicianStatus: TechnicianStatus{
 			IsAvailable:        t.IsAvailable,
-			IsVerified:         t.IsVerified,
-			VerificationStatus: t.VerificationStatus,
-			AccountStatus:      resolveAccountStatus(t.IsAvailable, t.WarningCount, t.BannedAt),
+			VerificationStatus: string(t.VerificationStatus),
+			AccountStatus:      resolveAccountStatus(&t.Technician, t.WarningCount),
 			WarningCount:       t.WarningCount,
 			BannedAt:           t.BannedAt,
 		},
@@ -389,7 +402,7 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 	if stats, err := s.repo.GetStats(ctx, techID); err == nil {
 		tech.TotalJobs = stats.TotalJobs
 		tech.RatingCount = stats.RatingCount
-		tech.RatingAvg = &stats.RatingAvg
+		tech.RatingAvg = stats.RatingAvg
 	}
 
 	return &tech, nil
@@ -397,31 +410,30 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 
 func (s *service) toProfileRes(ctx context.Context, tech *Technician) *TechnicianProfileRes {
 	var termsAccepted, privacyAccepted bool
-
 	if s.docRepo != nil {
 		termsAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "terms-of-service")
 		privacyAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
 	}
 
 	return &TechnicianProfileRes{
-		ID:              tech.ID,
-		FirstName:       tech.FirstName,
-		LastName:        tech.LastName,
-		Bio:             tech.Bio,
-		Phone:           tech.Phone,
-		Email:           tech.Email,
-		AvatarURL:       s.presignURL(ctx, tech.AvatarURL),
-		RatingAvg:       tech.RatingAvg,
-		RatingCount:     tech.RatingCount,
-		TotalJobs:       tech.TotalJobs,
-		IsAvailable:     tech.IsAvailable,
-		IsVerified:      tech.IsVerified,
-		TermsAccepted:   termsAccepted,
-		PrivacyAccepted: privacyAccepted,
-		Provinces:       s.toProvincesRes(tech.ServiceAreas),
-		Services:        s.toServicesRes(tech.Services),
-		ServiceSummary:  s.toServiceSummary(tech.Services),
-		Badges:          s.toBadgesRes(ctx, tech.Badges),
+		ID:                 tech.ID,
+		FirstName:          tech.FirstName,
+		LastName:           tech.LastName,
+		Bio:                tech.Bio,
+		Phone:              tech.Phone,
+		Email:              tech.Email,
+		AvatarURL:          s.presignURL(ctx, tech.AvatarURL),
+		RatingAvg:          tech.RatingAvg,
+		RatingCount:        tech.RatingCount,
+		TotalJobs:          tech.TotalJobs,
+		IsAvailable:        tech.IsAvailable,
+		VerificationStatus: string(tech.VerificationStatus),
+		TermsAccepted:      termsAccepted,
+		PrivacyAccepted:    privacyAccepted,
+		Provinces:          s.toProvincesRes(tech.ServiceAreas),
+		Services:           s.toServicesRes(tech.Services),
+		ServiceSummary:     s.toServiceSummary(tech.Services),
+		Badges:             s.toBadgesRes(ctx, tech.Badges),
 	}
 }
 
@@ -599,4 +611,20 @@ func validateServices(items []tsvc.ServicePatchItem) error {
 		}
 	}
 	return nil
+}
+
+func isProfileIncomplete(t *Technician) bool {
+	if t.FirstName == "" || t.LastName == "" {
+		return true
+	}
+	// if t.AvatarURL == nil || *t.AvatarURL == "" {
+	// 	return true
+	// }
+	// if len(t.Services) == 0 {
+	// 	return true
+	// }
+	// if len(t.ServiceAreas) == 0 {
+	// 	return true
+	// }
+	return false
 }

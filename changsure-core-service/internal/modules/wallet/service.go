@@ -54,8 +54,8 @@ func (s *service) GetSummary(ctx context.Context, technicianID uint, tech TechIn
 	withdrawable := calcWithdrawable(w.Balance)
 
 	var avgRating float64
-	if tech.RatingAvg != nil {
-		avgRating = *tech.RatingAvg
+	if tech.RatingAvg != 0 {
+		avgRating = tech.RatingAvg
 	}
 
 	return &WalletSummaryResponse{

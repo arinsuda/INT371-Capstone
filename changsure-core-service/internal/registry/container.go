@@ -212,6 +212,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initCustomerModule()
 	c.initCustomerAddressModule()
 
+	c.initDocumentModule()
 	c.initAuthModule(cfg)
 	c.initNotificationModule()
 	c.initOCRModule(cfg)
@@ -237,8 +238,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 
 	c.initWalletModule()
 	c.initPaymentModule(cfg)
-
-	c.initDocumentModule()
 
 	c.initMailer(cfg)
 	c.initResetPasswordModule(cfg)
@@ -286,6 +285,7 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		c.TechnicianServiceRepo,
 		c.TechnicianServiceAreaRepo,
 		c.CriminalCheckRepo,
+		c.DocumentService,
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)
@@ -365,7 +365,7 @@ func (c *Container) initTechnicianMatchingModule() {
 		c.TechnicianMatchingRepo,
 		c.Storage,
 	)
-	c.TechnicianMatchingHandler = technicianmatching.NewHandler(c.TechnicianMatchingService)
+	c.TechnicianMatchingHandler = technicianmatching.NewHandler(c.TechnicianMatchingService, c.TechnicianService)
 }
 
 func (c *Container) initTechnicianModule() {

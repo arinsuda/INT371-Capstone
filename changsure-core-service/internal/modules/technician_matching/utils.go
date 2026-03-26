@@ -29,8 +29,8 @@ func ExtractPriceRange(t technician.Technician, targetServiceID *uint) (float64,
 }
 
 func ExtractRating(t technician.Technician) float64 {
-	if t.RatingAvg != nil {
-		return *t.RatingAvg
+	if t.RatingAvg != 0 {
+		return t.RatingAvg
 	}
 	return 0.0
 }

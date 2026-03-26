@@ -152,16 +152,17 @@ func (h *Handler) UpdateLogStatus(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
+func (h *Handler) OverrideVerificationStatus(c fiber.Ctx) error {
 	if err := middleware.CheckAdmin(c); err != nil {
 		return err
 	}
+
 	technicianID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid technician id")
 	}
 
-	var req OverrideIsVerifiedRequest
+	var req OverrideVerificationStatusRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
@@ -170,7 +171,13 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 	}
 
 	adminID, _ := middleware.GetUserID(c)
-	if err := h.service.OverrideIsVerified(c.Context(), adminID, technicianID, req); err != nil {
+
+	if err := h.service.OverrideVerificationStatus(
+		c.Context(),
+		adminID,
+		technicianID,
+		req,
+	); err != nil {
 		if errors.Is(err, ErrTechNotFound) {
 			return appErrors.NotFound(c, "technician not found")
 		}
@@ -179,7 +186,7 @@ func (h *Handler) OverrideIsVerified(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": fmt.Sprintf("อัปเดตสถานะการยืนยันเป็น %s สำเร็จ", req.VerifyStatus),
+		"message": fmt.Sprintf("อัปเดต verification status เป็น %s สำเร็จ", req.Status),
 	})
 }
 

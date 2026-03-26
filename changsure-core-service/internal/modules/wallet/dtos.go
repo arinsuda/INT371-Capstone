@@ -9,7 +9,7 @@ type WithdrawRequest struct {
 
 type TechInfo struct {
 	TotalJobs int64
-	RatingAvg *float64
+	RatingAvg float64
 }
 
 type WalletBalanceResponse struct {

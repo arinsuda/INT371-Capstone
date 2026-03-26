@@ -70,7 +70,23 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		}).
 		Preload("Images").
 		Preload("TimeSlot").
-		Preload("Technician").
+		Preload("Technician", func(db *gorm.DB) *gorm.DB {
+			return db.Select(`
+		technicians.*,
+		COALESCE((
+			SELECT ROUND(AVG(r.rating), 2)
+			FROM reviews r
+			JOIN bookings b ON b.id = r.booking_id
+			WHERE b.technician_id = technicians.id
+		), 0) AS rating_avg,
+		COALESCE((
+			SELECT COUNT(*)
+			FROM bookings b
+			WHERE b.technician_id = technicians.id
+			AND b.status = 'COMPLETED'
+		), 0) AS total_jobs
+	`)
+		}).
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Preload("TechnicianService.Service.Category").
@@ -272,7 +288,23 @@ func (r *repository) ListByCustomer(
 	err := q.
 		Preload("Images").
 		Preload("TimeSlot").
-		Preload("Technician").
+		Preload("Technician", func(db *gorm.DB) *gorm.DB {
+			return db.Select(`
+			technicians.*,
+			COALESCE((
+				SELECT ROUND(AVG(r.rating), 2)
+				FROM reviews r
+				JOIN bookings b ON b.id = r.booking_id
+				WHERE b.technician_id = technicians.id
+			), 0) AS rating_avg,
+			COALESCE((
+				SELECT COUNT(*)
+				FROM bookings b
+				WHERE b.technician_id = technicians.id
+				AND b.status = 'COMPLETED'
+			), 0) AS total_jobs
+		`)
+		}).
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Order("created_at DESC").
