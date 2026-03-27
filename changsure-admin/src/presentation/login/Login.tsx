@@ -45,7 +45,7 @@ export const LoginPage = () => {
       {/* LEFT SIDE */}
       <div className="hidden md:block md:w-3/5">
         <img
-          src="/images/login.png"
+          src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/images/login.png`}
           alt="login"
           className="h-full w-full object-cover"
         />
@@ -54,7 +54,8 @@ export const LoginPage = () => {
       {/* RIGHT SIDE */}
       <div className="w-full md:w-1/2 flex items-center justify-center bg-gray-50">
         <div className="w-full max-w-md">
-          <img src="/images/chang-sure.png" className="w-52" />
+          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/images/chang-sure.png`}
+ className="w-52" />
 
           <div className="pt-6">
             <h2 className="text-[36px] font-semibold mb-2">

@@ -52,7 +52,8 @@ export const DashboardLayoutUI = ({
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-6">
-          <img src="/images/chang-sure.png" className="h-8" />
+          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/images/chang-sure.png`}
+ className="h-8" />
         </div>
 
         {/* Menu */}

@@ -11,7 +11,7 @@ const noto = Noto_Sans_Thai({
 export const metadata: Metadata = {
   title: "ChangSure",
   icons: {
-    icon: "/images/logo-changsure.png"
+    icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/images/logo-changsure.png`
   }
 }
 

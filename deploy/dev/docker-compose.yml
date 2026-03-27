@@ -88,6 +88,8 @@ services:
     image: changsure-admin:dev
     container_name: changsure-admin-dev
     restart: unless-stopped
+    environment:                                         
+      - NEXT_PUBLIC_BASE_PATH=/capstone25/cp25ssa1    
     ports:
       - "127.0.0.1:3003:3000"
     networks:
@@ -106,7 +108,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        
+
   # ================================
   # OBJECT STORAGE (MinIO)
   # ================================
@@ -218,7 +220,7 @@ services:
     networks:
       - changsure-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       start_period: 30s
