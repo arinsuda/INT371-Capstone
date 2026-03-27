@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/state/notifications/realtime_provider.dart';
+import 'package:changsure/state/post_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
@@ -11,7 +12,6 @@ import '../../../../data/models/chat/chat_helper.dart';
 import '../../../../data/services/chat_service.dart';
 import '../../../../state/chat_provider.dart';
 import '../../../../state/user_provider.dart';
-import '../../../../state/public_technician_provider.dart';
 import 'package:changsure/core/constants/realtime_events.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
@@ -47,6 +47,21 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.technicianId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.listen(technicianProfileProvider(widget.technicianId!), (_, state) {
+          state.whenData((profile) {
+            if (profile != null && mounted) {
+              setState(() {
+                _participantInfo = ChatParticipantInfo.fromTechnicianProfile(
+                  profile,
+                );
+              });
+            }
+          });
+        });
+      });
+    }
     _initializePage();
 
     _listenForRoomStatusChanges();
@@ -154,25 +169,20 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         return; // หยุดเลย ไม่ต้องไป fallback
       }
 
-      // 🔹 กรณีมี technicianId
+      // ✅ เปลี่ยนเป็น
       if (widget.technicianId != null) {
-        final profileAsync =
-        ref.read(publicTechnicianProvider(widget.technicianId!));
-
-        await profileAsync.when(
-          data: (profile) {
-            if (profile != null && mounted) {
-              setState(() {
-                _participantInfo =
-                    ChatParticipantInfo.fromTechnicianProfile(profile);
-              });
-            }
-          },
-          loading: () {},
-          error: (error, _) {
-            debugPrint('Failed to load technician profile: $error');
-          },
-        );
+        ref.read(technicianProfileProvider(widget.technicianId!)).whenData((
+          profile,
+        ) {
+          if (profile != null && mounted) {
+            setState(() {
+              _participantInfo = ChatParticipantInfo.fromTechnicianProfile(
+                profile,
+              );
+            });
+          }
+        });
+        return;
       }
 
       // 🔹 fallback จาก title
@@ -204,7 +214,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       }
     }
   }
-
 
   Future<void> _handleImageSelection() async {
     try {

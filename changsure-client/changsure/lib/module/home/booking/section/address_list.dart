@@ -149,14 +149,11 @@ class _AddressListState extends ConsumerState<AddressList> {
                     label: (label != null && label.isNotEmpty) ? label : null,
                     phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
-
                     addressLine: addressLine,
-
                     zipCode: zipCode,
                     provinceId: provinceId,
                     districtId: districtId,
                     subDistrictId: subDistrictId,
-
                     lat: lat,
                     lng: lng,
                   )
@@ -165,13 +162,10 @@ class _AddressListState extends ConsumerState<AddressList> {
                     label: (label != null && label.isNotEmpty) ? label : null,
                     phoneNumber: phoneNumber,
                     isPrimary: isPrimary,
-
                     addressLine: addressLine,
-                    zipCode: zipCode,
                     provinceId: provinceId,
                     districtId: districtId,
                     subDistrictId: subDistrictId,
-
                     lat: lat,
                     lng: lng,
                   );
@@ -508,9 +502,7 @@ class _AddressListState extends ConsumerState<AddressList> {
                                 : null,
                             phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
-
                             addressLine: addressLine,
-
                             zipCode: zipCode,
                             provinceId: provinceId,
                             districtId: districtId,
@@ -526,14 +518,10 @@ class _AddressListState extends ConsumerState<AddressList> {
                                 : null,
                             phoneNumber: phoneNumber,
                             isPrimary: isPrimary,
-
                             addressLine: addressLine,
-
-                            zipCode: zipCode,
                             provinceId: provinceId,
                             districtId: districtId,
                             subDistrictId: subDistrictId,
-
                             lat: lat,
                             lng: lng,
                           );

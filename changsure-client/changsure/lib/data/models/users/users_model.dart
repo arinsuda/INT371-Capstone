@@ -68,4 +68,156 @@ class UserModel {
       addresses: addresses ?? this.addresses,
     );
   }
+
+  List<AddressModel> get allAddresses {
+    if (role == UserRole.technician) {
+      return technicianProfile?.addresses ?? [];
+    }
+    return addresses;
+  }
+}
+
+class RegisterModel {
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String role;
+
+  RegisterModel({
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.role,
+  });
+
+  /// 🔥 ใช้ส่งไป backend
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      'confirm_password': confirmPassword,
+      'role': role,
+    };
+  }
+
+  /// 🔄 ใช้กรณี backend ส่งกลับมา (ถ้ามี)
+  factory RegisterModel.fromJson(Map<String, dynamic> json) {
+    return RegisterModel(
+      email: json['email'] ?? '',
+      password: json['password'] ?? '',
+      confirmPassword: json['confirm_password'] ?? '',
+      role: json['role'] ?? '',
+    );
+  }
+
+  /// 🧠 optional: copyWith ไว้แก้ค่าแบบ immutable
+  RegisterModel copyWith({
+    String? email,
+    String? password,
+    String? confirmPassword,
+    String? role,
+  }) {
+    return RegisterModel(
+      email: email ?? this.email,
+      password: password ?? this.password,
+      confirmPassword: confirmPassword ?? this.confirmPassword,
+      role: role ?? this.role,
+    );
+  }
+}
+
+class OTPResponse {
+  final String message;
+  final int expiresIn;
+  final String otp;
+
+  OTPResponse({
+    required this.message,
+    required this.expiresIn,
+    required this.otp,
+  });
+
+  factory OTPResponse.fromJson(Map<String, dynamic> json) {
+    return OTPResponse(
+      message: json['message'],
+      expiresIn: json['expires_in'],
+      otp: json['otp'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'expires_in': expiresIn,
+      'otp': otp,
+    };
+  }
+}
+
+class VerifyOTPRequest {
+  final String email;
+  final String otp;
+
+  VerifyOTPRequest({
+    required this.email,
+    required this.otp,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "email": email,
+      "otp": otp,
+    };
+  }
+}
+
+class VerifyOTPResponse {
+  final String message;
+  final String resetToken;
+
+  VerifyOTPResponse({
+    required this.message,
+    required this.resetToken,
+  });
+
+  factory VerifyOTPResponse.fromJson(Map<String, dynamic> json) {
+    return VerifyOTPResponse(
+      message: json['message'],
+      resetToken: json['reset_token'],
+    );
+  }
+}
+
+class ResetPasswordRequest {
+  final String resetToken;
+  final String newPassword;
+  final String confirmPassword;
+
+  ResetPasswordRequest({
+    required this.resetToken,
+    required this.newPassword,
+    required this.confirmPassword,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "reset_token": resetToken,
+      "new_password": newPassword,
+      "confirm_password": confirmPassword,
+    };
+  }
+}
+
+class ResetPasswordResponse {
+  final String message;
+
+  ResetPasswordResponse({
+    required this.message,
+  });
+
+  factory ResetPasswordResponse.fromJson(Map<String, dynamic> json) {
+    return ResetPasswordResponse(
+      message: json["message"],
+    );
+  }
 }

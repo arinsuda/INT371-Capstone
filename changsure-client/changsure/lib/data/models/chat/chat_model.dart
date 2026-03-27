@@ -44,6 +44,14 @@ enum BookingStatus {
         this == BookingStatus.inProgress ||
         this == BookingStatus.waitingPayment;
   }
+
+  bool get canViewChat {
+    return this == BookingStatus.accepted ||
+        this == BookingStatus.inProgress ||
+        this == BookingStatus.waitingPayment ||
+        this == BookingStatus.completed ||
+        this == BookingStatus.cancelled;
+  }
 }
 
 class ChatRoom {
@@ -125,11 +133,10 @@ class ChatRoom {
         lastMsgType: MessageType.fromString(
           _parseString(json['last_msg_type']) ?? 'TEXT',
         ),
-
         lastMsgTime: _parseDateTime(json['last_msg_time']) ?? DateTime.now(),
         lastSender: _parseString(json['last_sender']) ?? '',
         unreadCount: _parseInt(json['unread_count']) ?? 0,
-        canSendMessage: _parseBool(json['can_send_message']) ?? true,
+        canSendMessage: _parseBool(json['can_send_message']) ?? false,
       );
     } catch (error) {
       throw FormatException('Failed to parse ChatRoom: $error');
@@ -156,7 +163,7 @@ class ChatRoom {
 
   bool get hasUnread => unreadCount > 0;
 
-  bool get isChatAllowed => bookingStatus.isChatAllowed && canSendMessage;
+  bool get isChatAllowed => canSendMessage;
 
   @override
   bool operator ==(Object other) =>
@@ -190,8 +197,6 @@ class ChatMessage {
   final String content;
   final bool isRead;
   final DateTime createdAt;
-
-  
 
   const ChatMessage({
     required this.id,
@@ -241,17 +246,12 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     try {
       final booking = json['booking'] as Map<String, dynamic>? ?? {};
-
       final sender = json['sender'] as Map<String, dynamic>? ?? {};
 
-      final bookingId =
-          _parseInt(json['booking_id']) ??
-          _parseInt(booking['booking_id']) ??
-          0;
+      final bookingId = _parseInt(json['booking_id']) ?? 0;
 
       return ChatMessage(
         id: _parseInt(json['id']) ?? 0,
-
         bookingId: bookingId,
         bookingNumber: _parseString(booking['booking_number']) ?? '',
         serviceCategory: _parseString(booking['service_category']) ?? '',
@@ -264,7 +264,6 @@ class ChatMessage {
         type: MessageType.fromString(_parseString(json['type']) ?? 'TEXT'),
         content: _parseString(json['content']) ?? '',
         isRead: _parseBool(json['is_read']) ?? false,
-
         createdAt: _parseDateTime(json['created_at']) ?? DateTime.now(),
       );
     } catch (error, stackTrace) {
@@ -371,18 +370,9 @@ bool? _parseBool(dynamic value) {
 
 DateTime? _parseDateTime(dynamic value) {
   if (value == null) return null;
-
   try {
-    if (value is DateTime) {
-      return value.toLocal();
-    }
-
-    if (value is String) {
-      final parsed = DateTime.parse(value);
-
-      return parsed.toLocal();
-    }
-
+    if (value is DateTime) return value.toLocal();
+    if (value is String) return DateTime.parse(value).toLocal();
     if (value is int) {
       return DateTime.fromMillisecondsSinceEpoch(value).toLocal();
     }
@@ -390,6 +380,5 @@ DateTime? _parseDateTime(dynamic value) {
     print('Error parsing datetime: $value - $e');
     return null;
   }
-
   return null;
 }

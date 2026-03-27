@@ -25,30 +25,15 @@ class RealtimeService {
   void connect({required String token, required RealtimeRole role}) {
     disconnect();
 
-    final rolePath = (role == RealtimeRole.technician)
-        ? '/ws/technicians'
-        : '/ws/customers';
+    final rolePath = role == RealtimeRole.technician
+        ? "technicians"
+        : "customers";
 
-    Uri targetUri = Uri.parse(
-      ApiConstants.baseUrl,
-    );
+    final uri = Uri.parse("${ApiConstants.wsBaseUrl}$rolePath?token=$token");
 
-    String newScheme = targetUri.scheme;
-    if (targetUri.scheme == 'https') {
-      newScheme = 'wss';
-    } else if (targetUri.scheme == 'http') {
-      newScheme = 'ws';
-    }
+    print("🔌 WS connect → $uri");
 
-    final finalUri = targetUri.replace(
-      scheme: newScheme,
-      path: rolePath,
-      queryParameters: {'token': token},
-    );
-
-
-      _channel = WebSocketChannel.connect(finalUri);
-
+    _channel = WebSocketChannel.connect(uri);
 
     _sub = _channel!.stream.listen(
       (event) {
@@ -69,7 +54,6 @@ class RealtimeService {
       onDone: () {
         _controller.add({'type': 'CLOSED'});
       },
-      cancelOnError: true,
     );
   }
 

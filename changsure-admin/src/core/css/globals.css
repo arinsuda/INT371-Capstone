@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ffffff;
+  }
+}
+
+@theme {
+  --color-primary: #003eb3;
+  --color-secondary: #5990d4;
+  --color-primaryBG: #ffffff;
+  --color-primaryBGHover: #f8f9fe;
+  --color-primaryBorder: #aaaaaa;
+  --color-primarySecondaryBorder: #d6d6d6;
+  --color-primaryText: #000000;
+  --color-primaryBorderHover: #3071c7;
+  --color-primaryHover: #7eafe0;
+  --color-primaryTextHover: #00000050;
+  --color-colorTertiaryText: #737373;
+  --color-colorSecondaryText: #ffffff;
+  --color-colorStroke: #e8e8e8;
+  --color-colorError: #ff4d4f;
+  --color-colorWarning: #fff1b8;
+  --color-secondaryBorder: #d6d6d6;
+}
+
+.line-height {
+  line-height: 32px !important;
+}
+
+body {
+  color: black;
+  background: #ffffff;
+  font-family: "Noto Sans Thai", sans-serif;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1268px) {
+  .container {
+    padding: 0 5%;
+  }
+}
+
+@layer base {
+  ul {
+    @apply list-disc; /* สไตล์สำหรับ ul */
+  }
+  ol {
+    @apply list-decimal; /* สไตล์สำหรับ ol */
+  }
+  li {
+    @apply list-inside py-1; /* ให้จุดหรือหมายเลขอยู่ด้านในเนื้อหา */
+  }
+}

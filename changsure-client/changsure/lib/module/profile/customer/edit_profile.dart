@@ -156,6 +156,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     try {
       final success = await CustomerService().updateCustomer(
         user.token!,
+        user.id,
         user.role,
         updates,
       );
@@ -227,7 +228,8 @@ class _EditProfileState extends ConsumerState<EditProfile> {
     final customer = user?.customerProfile;
     final avatarUrl = customer?.avatarUrl;
 
-    return Scaffold(
+    return
+      Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Form(

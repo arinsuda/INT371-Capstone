@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import 'package:camera/camera.dart';
+import 'package:changsure/state/notifications/notification_provider.dart';
+import 'package:changsure/state/notifications/realtime_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,9 +10,13 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:changsure/state/user_provider.dart';
-import 'package:changsure/module/auth/login.dart';
+import 'package:changsure/module/auth/login_page.dart';
 import 'package:changsure/core/theme.dart';
 import 'package:changsure/core/footer/footer_bar.dart';
+
+import '../module/auth/start_page.dart';
+
+late List<CameraDescription> cameras;
 
 class DevHttpOverrides extends HttpOverrides {
   @override
@@ -28,7 +35,7 @@ void main() async {
   if (kDebugMode) {
     HttpOverrides.global = DevHttpOverrides();
   }
-
+  cameras = await availableCameras();
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -39,6 +46,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Changsure App',
+      debugShowCheckedModeBanner: false,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         scrollbars: false,
       ),
@@ -66,6 +74,20 @@ class AppRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userProvider);
-    return userState == null ? const LoginScreen() : const FooterBarTemplate();
+
+    if (userState != null) {
+      ref.listen(realtimeStreamProvider, (previous, next) {
+        next.whenData((event) {
+          final type = event['type']?.toString() ?? '';
+          print("🌐 Global Socket Event: $type");
+
+          if (type == 'NOTIFICATION_NEW' || type.startsWith('BOOKING_')) {
+            ref.read(notificationProvider.notifier).loadInitialData();
+          }
+        });
+      });
+    }
+
+    return userState == null ? const StartPage() : const FooterBarTemplate();
   }
 }

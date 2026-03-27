@@ -124,32 +124,24 @@ class AddressPage extends ConsumerWidget {
             label: label.isNotEmpty ? label : null,
             phoneNumber: phoneNumber,
             isPrimary: isPrimary,
-
             addressLine: addressLine,
-            zipCode: zipCode,
-
             provinceId: provinceId,
             districtId: districtId,
             subDistrictId: subDistrictId,
-
             lat: lat,
             lng: lng,
           );
         } else {
           success = await notifier.saveCustomerAddress(
             id: currentAddress?.id,
-            phoneNumber: phoneNumber,
             label: label.isNotEmpty ? label : null,
+            phoneNumber: phoneNumber,
             isPrimary: isPrimary,
-
             addressLine: addressLine,
-
             zipCode: zipCode,
-
             provinceId: provinceId,
             districtId: districtId,
             subDistrictId: subDistrictId,
-
             lat: lat,
             lng: lng,
           );

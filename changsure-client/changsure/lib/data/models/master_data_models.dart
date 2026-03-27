@@ -36,12 +36,15 @@ class SubDistrictModel {
   final String nameTh;
   final String postalCode;
   final int districtId;
+  // BE ส่ง province_id ด้วย (จาก ToResponse ใน sub_district/dtos.go)
+  final int provinceId;
 
   SubDistrictModel({
     required this.id,
     required this.nameTh,
     required this.postalCode,
     required this.districtId,
+    required this.provinceId,
   });
 
   factory SubDistrictModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +53,7 @@ class SubDistrictModel {
       nameTh: json['name_th'] ?? '',
       postalCode: json['postal_code']?.toString() ?? '',
       districtId: json['district_id'] ?? 0,
+      provinceId: json['province_id'] ?? 0,
     );
   }
 }
@@ -57,11 +61,18 @@ class SubDistrictModel {
 class ServiceCategoryModel {
   final int id;
   final String catName;
+  // เพิ่ม field ที่ BE ส่งมาจาก CategoryResponse (mapper.go)
+  final String? catDesc;
+  final String? iconUrl;
+  final bool isActive;
   final List<ServiceModel> services;
 
   ServiceCategoryModel({
     required this.id,
     required this.catName,
+    this.catDesc,
+    this.iconUrl,
+    this.isActive = true,
     this.services = const [],
   });
 
@@ -69,14 +80,25 @@ class ServiceCategoryModel {
     return ServiceCategoryModel(
       id: json['id'],
       catName: json['cat_name'],
+      catDesc: json['cat_desc'],
+      iconUrl: json['icon_url'],
+      isActive: json['is_active'] ?? true,
       services: [],
     );
   }
 
-  ServiceCategoryModel copyWith({List<ServiceModel>? services}) {
+  ServiceCategoryModel copyWith({
+    List<ServiceModel>? services,
+    String? catDesc,
+    String? iconUrl,
+    bool? isActive,
+  }) {
     return ServiceCategoryModel(
       id: id,
       catName: catName,
+      catDesc: catDesc ?? this.catDesc,
+      iconUrl: iconUrl ?? this.iconUrl,
+      isActive: isActive ?? this.isActive,
       services: services ?? this.services,
     );
   }
@@ -92,6 +114,9 @@ class ServiceModel {
   final List<String> workingDuration;
   final List<String> additionalTerms;
   final ServicePrice defaultPrice;
+  // BE ส่ง is_active และ category_name ด้วย (ServiceResponse ใน dtos.go)
+  final bool isActive;
+  final String? categoryName;
 
   ServiceModel({
     required this.id,
@@ -103,6 +128,8 @@ class ServiceModel {
     this.workingDuration = const [],
     this.additionalTerms = const [],
     required this.defaultPrice,
+    this.isActive = true,
+    this.categoryName,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -116,6 +143,8 @@ class ServiceModel {
       workingDuration: List<String>.from(json['working_duration'] ?? []),
       additionalTerms: List<String>.from(json['additional_terms'] ?? []),
       defaultPrice: ServicePrice.fromJson(json['default_price'] ?? {}),
+      isActive: json['is_active'] ?? true,
+      categoryName: json['category_name'],
     );
   }
 }
@@ -138,11 +167,23 @@ class ServicePrice {
   }
 }
 
+// เพิ่ม == และ hashCode ให้ตรงกับ AutoSelectTechnicianQuery
+// เพื่อให้ FutureProvider.family cache ทำงานถูกต้อง
 class TechnicianQuery {
   final int serviceId;
   final int provinceId;
 
-  TechnicianQuery({required this.serviceId, required this.provinceId});
+  const TechnicianQuery({required this.serviceId, required this.provinceId});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TechnicianQuery &&
+          serviceId == other.serviceId &&
+          provinceId == other.provinceId;
+
+  @override
+  int get hashCode => serviceId.hashCode ^ provinceId.hashCode;
 }
 
 class BadgeModel {
@@ -220,7 +261,7 @@ class Technician {
               .toList() ??
           [],
       totalJobs: json['total_jobs'] ?? 0,
-      categoryName: json['category_name'],
+      categoryName: json['category_name'] ?? '',
     );
   }
 }
@@ -254,4 +295,127 @@ class AutoSelectTechnicianQuery {
       provinceId.hashCode ^
       minPrice.hashCode ^
       maxPrice.hashCode;
+}
+
+class DocumentTermResponse {
+  final String slug;
+  final int version;
+  final String locale;
+  final DateTime updatedAt;
+  final DocumentContent content;
+
+  DocumentTermResponse({
+    required this.slug,
+    required this.version,
+    required this.locale,
+    required this.updatedAt,
+    required this.content,
+  });
+
+  factory DocumentTermResponse.fromJson(Map<String, dynamic> json) {
+    return DocumentTermResponse(
+      slug: json['slug'],
+      version: json['version'],
+      locale: json['locale'],
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      content: DocumentContent.fromJson(json['content']),
+    );
+  }
+}
+
+class DocumentContent {
+  final String body;
+  final List<DocumentConsent> consents;
+
+  DocumentContent({
+    required this.body,
+    required this.consents,
+  });
+
+  factory DocumentContent.fromJson(Map<String, dynamic> json) {
+    return DocumentContent(
+      body: json['body'] ?? '',
+      consents: (json['consents'] as List<dynamic>? ?? [])
+          .map((e) => DocumentConsent.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class DocumentConsent {
+  final String key;
+  final String label;
+  final bool required;
+  final String description;
+
+  DocumentConsent({
+    required this.key,
+    required this.label,
+    required this.required,
+    required this.description,
+  });
+
+  factory DocumentConsent.fromJson(Map<String, dynamic> json) {
+    return DocumentConsent(
+      key: json['key'] ?? '',
+      label: json['label'] ?? '',
+      required: json['required'] ?? false,
+      description: json['description'] ?? '',
+    );
+  }
+}
+
+class DocumentAcceptanceRequest {
+  final int userId;
+  final String role;
+  final List<String> consents;
+
+  DocumentAcceptanceRequest({
+    required this.userId,
+    required this.role,
+    required this.consents,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "user_id": userId,
+      "role": role,
+      "consents": consents,
+    };
+  }
+}
+
+class DocumentAcceptanceResponse {
+  final String id;
+  final int userId;
+  final String userRole;
+  final String documentId;
+  final int version;
+  final DateTime acceptedAt;
+  final String locale;
+  final List<String> consents;
+
+  DocumentAcceptanceResponse({
+    required this.id,
+    required this.userId,
+    required this.userRole,
+    required this.documentId,
+    required this.version,
+    required this.acceptedAt,
+    required this.locale,
+    required this.consents,
+  });
+
+  factory DocumentAcceptanceResponse.fromJson(Map<String, dynamic> json) {
+    return DocumentAcceptanceResponse(
+      id: json["id"],
+      userId: json["user_id"],
+      userRole: json["user_role"],
+      documentId: json["document_id"],
+      version: json["version"],
+      acceptedAt: DateTime.parse(json["accepted_at"]),
+      locale: json["locale"],
+      consents: List<String>.from(json["consents"]),
+    );
+  }
 }

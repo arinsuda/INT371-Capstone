@@ -9,7 +9,6 @@ import 'user_provider.dart';
 class ActivityEditorState {
   final bool isLoading;
 
-  // final int? serviceId;
   final int? categoryId;
   final String? selectedCategory;
 
@@ -22,7 +21,6 @@ class ActivityEditorState {
   final String? descriptionError;
   final String? imageError;
 
-  // final int? originalServiceId;
   final int? originalCategoryId;
   final String? originalDescription;
 
@@ -127,31 +125,33 @@ class ActivityEditorNotifier
     if (user?.token == null) return;
 
     final service = TechnicianService();
-    final post = await service.getPostById(user!.token!, id);
+    final post = await service.getPostById(
+      token: user!.token!,
+      technicianId: user.id,
+      postId: id,
+    );
 
-    if (post != null) {
-      descriptionController.text = post.content;
-
-      List<int> realImageIds = post.imageIds;
-
-      state = state.copyWith(
-        isLoading: false,
-        categoryId: post.categoryId,
-        selectedCategory: post.categoryName,
-        assetImages: post.images,
-        assetImageIds: realImageIds,
-        originalCategoryId: post.categoryId,
-        originalDescription: post.content,
-        currentDescription: post.content,
-      );
-    } else {
+    if (post == null) {
       state = state.copyWith(isLoading: false);
+      return;
     }
+
+    descriptionController.text = post.description ?? '';
+
+    state = state.copyWith(
+      isLoading: false,
+      categoryId: post.categoryId,
+      selectedCategory: post.categoryName,
+      assetImages: post.images.map((e) => e.imageUrl).toList(),
+      assetImageIds: post.images.map((e) => e.id).toList(),
+      originalCategoryId: post.categoryId,
+      originalDescription: post.description,
+      currentDescription: post.description ?? '',
+    );
   }
 
   void _onTextChanged() {
     state = state.copyWith(currentDescription: descriptionController.text);
-
     if (state.descriptionError != null) {
       state = ActivityEditorState(
         isLoading: state.isLoading,
@@ -169,10 +169,6 @@ class ActivityEditorNotifier
       );
     }
   }
-
-  // void setService(int id, String name) {
-  //   state = state.copyWith(serviceId: id, selectedCategory: name);
-  // }
 
   void setCategory(int id, String name) {
     state = state.copyWith(categoryId: id, selectedCategory: name);
@@ -208,8 +204,7 @@ class ActivityEditorNotifier
     final newAssetIds = [...state.assetImageIds];
 
     newAssets.removeAt(index);
-
-    int deletedId = newAssetIds.removeAt(index);
+    final deletedId = newAssetIds.removeAt(index);
 
     final newIdsToDelete = [...state.idsToDelete];
     if (deletedId > 0) {
@@ -241,8 +236,6 @@ class ActivityEditorNotifier
       imageError = "กรุณาเพิ่มรูปภาพ";
     }
 
-    if (state.categoryId == null) {}
-
     if (descriptionError != null || imageError != null) {
       state = ActivityEditorState(
         isLoading: state.isLoading,
@@ -262,25 +255,32 @@ class ActivityEditorNotifier
     }
 
     final user = ref.read(userProvider);
+    if (user?.token == null) return false;
+
     final service = TechnicianService();
 
     state = state.copyWith(isLoading: true);
     bool success = false;
 
     if (isCreateMode) {
+      // BE ต้องการ title เป็น required — ใช้ description แรก 50 ตัวอักษรเป็น title
+      final desc = descriptionController.text.trim();
+      final title = desc.length > 50 ? desc.substring(0, 50) : desc;
+
       success = await service.createPost(
         token: user!.token!,
-        description: descriptionController.text,
-        categoryId: state.categoryId!,
-
-        provinceId: user.technicianProfile?.provinces.firstOrNull?.id ?? 1,
+        technicianId: user.id,
+        title: title,
+        description: desc,
+        categoryId: state.categoryId,
         images: state.pickedImages,
       );
     } else {
       success = await service.updatePost(
         token: user!.token!,
+        technicianId: user.id,
         postId: arg,
-        description: descriptionController.text,
+        description: descriptionController.text.trim(),
         categoryId: state.categoryId,
         newImages: state.pickedImages,
         imageIdsToDelete: state.idsToDelete,

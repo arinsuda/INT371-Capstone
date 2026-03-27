@@ -323,7 +323,7 @@ class _CalendarState extends ConsumerState<Calendar> {
 
     // 🔵 ถ้ามี status จาก API ให้ override
     if (data != null) {
-      final status = data.status.toUpperCase();
+      final status = data.status?.toUpperCase();
 
       if (status == 'CLOSED') {
         textColor = AppColors.colorStroke;

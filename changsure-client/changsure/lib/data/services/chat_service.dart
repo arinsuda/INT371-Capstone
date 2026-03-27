@@ -17,9 +17,7 @@ class ChatServiceException implements Exception {
   @override
   String toString() {
     final buffer = StringBuffer('ChatServiceException: $message');
-    if (statusCode != null) {
-      buffer.write(' (Status: $statusCode)');
-    }
+    if (statusCode != null) buffer.write(' (Status: $statusCode)');
     return buffer.toString();
   }
 }
@@ -57,7 +55,7 @@ class ChatService {
   Future<List<ChatRoom>> getChatRooms(String token) async {
     _validateToken(token);
 
-    final uri = Uri.parse('${ApiConstants.baseUrl}/chats/rooms');
+    final uri = Uri.parse('${ApiConstants.baseUrl}/chat-rooms');
 
     try {
       final response = await _executeWithRetry(
@@ -89,7 +87,7 @@ class ChatService {
     _validateToken(token);
     _validateBookingId(bookingId);
 
-    final uri = Uri.parse('${ApiConstants.baseUrl}/chats/rooms/$bookingId')
+    final uri = Uri.parse('${ApiConstants.baseUrl}/chat-rooms/$bookingId')
         .replace(
           queryParameters: {
             'limit': limit.toString(),
@@ -103,7 +101,7 @@ class ChatService {
       );
 
       return _handleResponse(response, (json) {
-        final List list = json is List ? json : (json['data'] ?? []);
+        final List list = json['data'] ?? [];
         return list
             .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -125,13 +123,11 @@ class ChatService {
     _validateToken(token);
     _validateBookingId(bookingId);
 
-    final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/chats/rooms/$bookingId/read',
-    );
+    final uri = Uri.parse('${ApiConstants.baseUrl}/chat-rooms/$bookingId');
 
     try {
       final response = await _executeWithRetry(
-        () => _client.post(uri, headers: _authHeader(token)).timeout(_timeout),
+        () => _client.patch(uri, headers: _authHeader(token)).timeout(_timeout),
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -162,14 +158,13 @@ class ChatService {
     _validateSendMessageRequest(req, imageFile);
 
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/chats/rooms/${req.bookingId}/messages',
+      '${ApiConstants.baseUrl}/chat-rooms/${req.bookingId}/messages',
     );
 
     try {
       final request = http.MultipartRequest('POST', uri);
-
       request.headers['Authorization'] = 'Bearer $token';
-      request.fields['booking_id'] = req.bookingId.toString();
+
       request.fields['type'] = req.type.value;
       request.fields['content'] = req.content;
 
@@ -197,40 +192,6 @@ class ChatService {
     }
   }
 
-  Future<T> _executeWithRetry<T>(Future<T> Function() request) async {
-    int attempts = 0;
-
-    while (true) {
-      try {
-        attempts++;
-        return await request();
-      } catch (e) {
-        final shouldRetry = _shouldRetry(e, attempts);
-
-        if (!shouldRetry) {
-          rethrow;
-        }
-
-        final delay = Duration(milliseconds: 100 * (1 << (attempts - 1)));
-        await Future.delayed(delay);
-      }
-    }
-  }
-
-  bool _shouldRetry(dynamic error, int attempts) {
-    if (attempts >= _maxRetries) return false;
-
-    if (error is SocketException) return true;
-    if (error is TimeoutException) return true;
-
-    if (error is http.Response) {
-      final status = error.statusCode;
-      return status == 429 || status == 502 || status == 503 || status == 504;
-    }
-
-    return false;
-  }
-
   Future<void> markMessagesAsRead(
     String token,
     int bookingId,
@@ -244,13 +205,13 @@ class ChatService {
     }
 
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/chats/rooms/$bookingId/messages/read',
+      '${ApiConstants.baseUrl}/chat-rooms/$bookingId/messages',
     );
 
     try {
       final response = await _executeWithRetry(
         () => _client
-            .post(
+            .patch(
               uri,
               headers: _authHeader(token),
               body: jsonEncode({'message_ids': messageIds}),
@@ -264,8 +225,6 @@ class ChatService {
           statusCode: response.statusCode,
         );
       }
-
-      print('✅ Marked ${messageIds.length} messages as read');
     } on SocketException catch (e) {
       throw NetworkException('No internet connection', originalError: e);
     } on TimeoutException catch (e) {
@@ -277,6 +236,31 @@ class ChatService {
         originalError: e,
       );
     }
+  }
+
+  Future<T> _executeWithRetry<T>(Future<T> Function() request) async {
+    int attempts = 0;
+    while (true) {
+      try {
+        attempts++;
+        return await request();
+      } catch (e) {
+        if (!_shouldRetry(e, attempts)) rethrow;
+        final delay = Duration(milliseconds: 100 * (1 << (attempts - 1)));
+        await Future.delayed(delay);
+      }
+    }
+  }
+
+  bool _shouldRetry(dynamic error, int attempts) {
+    if (attempts >= _maxRetries) return false;
+    if (error is SocketException) return true;
+    if (error is TimeoutException) return true;
+    if (error is http.Response) {
+      final status = error.statusCode;
+      return status == 429 || status == 502 || status == 503 || status == 504;
+    }
+    return false;
   }
 
   Future<void> _addImageToRequest(
@@ -335,10 +319,10 @@ class ChatService {
 
     String message = 'Something went wrong';
     if (json is Map) {
-      if (json['error'] is Map) {
-        message = json['error']['message'] ?? message;
+      if (json['error'] is String) {
+        message = json['error'];
       } else if (json['message'] != null) {
-        message = json['message'];
+        message = json['message'].toString();
       }
     }
 
@@ -379,11 +363,9 @@ class ChatService {
     if (!req.validate()) {
       throw ValidationException('Invalid message request');
     }
-
     if (req.type == MessageType.image && imageFile == null) {
       throw ValidationException('Image file is required for IMAGE messages');
     }
-
     if (req.type == MessageType.text && req.content.trim().isEmpty) {
       throw ValidationException('Content is required for TEXT messages');
     }
@@ -392,27 +374,4 @@ class ChatService {
   void dispose() {
     _client.close();
   }
-
-  Future<List<ChatMessage>> getChatMessages(
-      String token,
-      int roomId,
-      ) async {
-    final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/chats/rooms/$roomId'),
-      headers: {
-        'Content-Type': 'application/json',
-        ..._authHeader(token), // ✅ ใช้ spread operator
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final jsonData = jsonDecode(response.body);
-      final List data = jsonData['data'];
-
-      return data.map((e) => ChatMessage.fromJson(e)).toList();
-    } else {
-      throw Exception('Failed to load chat messages');
-    }
-  }
-
 }

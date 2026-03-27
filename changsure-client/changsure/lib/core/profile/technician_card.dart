@@ -1,4 +1,4 @@
-import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart';
+import 'package:changsure/module/profile/technician/activities/pages/activity_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/bottom_nav_provider.dart';
@@ -149,6 +149,7 @@ class TechnicianCard extends ConsumerWidget {
                       child: Padding(
                         padding: EdgeInsets.only(bottom: index == 0 ? 4.0 : 0),
                         child: Stack(
+                          fit: StackFit.expand,
                           children: [
                             Positioned.fill(
                               child: Image.network(
@@ -191,7 +192,7 @@ class TechnicianCard extends ConsumerWidget {
             context,
             MaterialPageRoute(
               builder: (_) =>
-                  PublicActivityDetailPage(technicianId: technicianId!, postId: id),
+                  ActivityDetailPage(postId: id, technicianId: technicianId!),
             ),
           );
         } else {
@@ -211,13 +212,10 @@ class TechnicianCard extends ConsumerWidget {
           children: [
             Stack(
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  child: buildImages(),
-                ),
+                // ✅ ลบ ClipRRect ที่ครอบ buildImages() ออก
+                // เพราะมันไป clip overlay +N ทิ้ง
+                // แต่ละ case ใน buildImages() มี ClipRRect ของตัวเองแล้ว
+                buildImages(),
                 Positioned(
                   top: 0,
                   left: 10,
@@ -248,9 +246,9 @@ class TechnicianCard extends ConsumerWidget {
             const SizedBox(height: 8),
 
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: SizedBox(
-                height: 35,
+                height: 50,
                 child: Text(
                   description,
                   maxLines: 2,
@@ -266,7 +264,7 @@ class TechnicianCard extends ConsumerWidget {
             const SizedBox(height: 8),
 
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: Text(
                 "ดูรายละเอียดเพิ่มเติม",
                 style: TextStyle(

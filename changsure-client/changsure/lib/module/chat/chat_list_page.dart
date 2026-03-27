@@ -167,19 +167,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: _ChatListAppBar(unreadCount: totalUnreadCount),
-      body: RefreshIndicator(
-        onRefresh: _refreshChatRooms,
-        child: Column(
-          children: [
-            _SearchBar(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              onClear: _clearSearch,
-            ),
+      body: Column(
+        children: [
+          _SearchBar(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            onClear: _clearSearch,
+          ),
 
-            _CategoryTabs(),
+          _CategoryTabs(),
 
-            Expanded(
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshChatRooms,
               child: filteredRoomsAsync.when(
                 data: (rooms) {
                   if (rooms.isEmpty) {
@@ -200,8 +200,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
                     _ErrorView(error: error, onRetry: _refreshChatRooms),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -217,6 +217,9 @@ class _ChatListAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
       centerTitle: true,
       toolbarHeight: 80,
       title: const SizedBox.shrink(),
@@ -334,6 +337,7 @@ class _ChatRoomsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(top: 16),
       itemCount: rooms.length,
       itemBuilder: (context, index) {
@@ -685,7 +689,7 @@ class _CategoryTabs extends ConsumerWidget {
     final unreadMap = ref.watch(chatCategoryUnreadProvider);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 16),
       child: Row(
         children: [
           _buildTab(

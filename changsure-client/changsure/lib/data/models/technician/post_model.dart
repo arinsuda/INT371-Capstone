@@ -1,62 +1,77 @@
 class PostModel {
   final int id;
+  final int technicianId;
   final String title;
-  final String content;
-  final List<String> images;
-  final List<int> imageIds;
-  final String createdAt;
-  final int serviceId;
-  final String serviceName;
-  final int categoryId;
-  final String categoryName;
-  final String provinceName;
+  final String? description;
+  final int? serviceId;
+  final String? serviceName;
+  final int? categoryId;
+  final String? categoryName;
+  final int? provinceId;
+  final String? provinceName;
+  final List<PostImage> images;
+  final bool? isPublished;
+  final int createdAt;
 
   PostModel({
     required this.id,
+    required this.technicianId,
     required this.title,
-    required this.content,
+    this.description,
+    this.serviceId,
+    this.serviceName,
+    this.categoryId,
+    this.categoryName,
+    this.provinceId,
+    this.provinceName,
     required this.images,
-    required this.imageIds,
+    this.isPublished,
     required this.createdAt,
-    required this.serviceId,
-    required this.serviceName,
-    required this.categoryId,
-    required this.categoryName,
-    required this.provinceName,
   });
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
-    List<String> imgUrls = [];
-    List<int> imgIds = [];
-
-    if (json['images'] != null) {
-      for (var item in json['images']) {
-        imgUrls.add(item['image_url'] ?? '');
-        imgIds.add(item['id'] ?? 0);
-      }
-    }
-
-    String dateStr = '';
-    if (json['created_at'] != null) {
-      final date = DateTime.fromMillisecondsSinceEpoch(
-        (json['created_at'] as int) * 1000,
-      );
-      dateStr = "${date.day}/${date.month}/${date.year}";
-    }
-
     return PostModel(
-      id: json['id'] ?? 0,
-      title: json['title'] ?? '',
-      content: json['description'] ?? '',
-      images: imgUrls,
-      imageIds: imgIds,
-      createdAt: dateStr,
-      serviceId: json['service_id'] ?? 0,
-      serviceName: json['service_name'] ?? '',
+      id: (json['id'] ?? 0) as int,
+      technicianId: (json['technician_id'] ?? 0) as int,
+      title: (json['title'] as String?) ?? '',
+      description: json['description'] as String?,
+      serviceId: json['service_id'] as int?,
+      serviceName: json['service_name'] as String?,
+      categoryId: json['category_id'] as int?,
+      categoryName: json['category_name'] as String?,
+      provinceId: json['province_id'] as int?,
+      provinceName: json['province_name'] as String?,
+      images:
+          (json['images'] as List?)
+              ?.map((e) => PostImage.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      isPublished: json['is_published'] as bool?,
+      createdAt: (json['created_at'] ?? 0) as int,
+    );
+  }
 
-      categoryId: json['category_id'] ?? 0,
-      categoryName: json['category_name'] ?? 'งานทั่วไป',
-      provinceName: json['province_name'] ?? '',
+  DateTime get createdDate =>
+      DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
+
+  String get formattedDate {
+    final date = createdDate;
+    return "${date.day}/${date.month}/${date.year}";
+  }
+}
+
+class PostImage {
+  final int id;
+  final String imageUrl;
+  final int order;
+
+  PostImage({required this.id, required this.imageUrl, required this.order});
+
+  factory PostImage.fromJson(Map<String, dynamic> json) {
+    return PostImage(
+      id: json['id'] ?? 0,
+      imageUrl: json['image_url'] ?? '',
+      order: json['order'] ?? 0,
     );
   }
 }

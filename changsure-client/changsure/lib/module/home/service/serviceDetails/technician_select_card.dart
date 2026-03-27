@@ -1,8 +1,6 @@
-import 'package:changsure/module/profile/technician/owner/activities/shared/constants/activity_constants.dart';
+import 'package:changsure/module/profile/technician/activities/shared/constants/activity_constants.dart';
 import 'package:changsure/module/home/booking/booking_page.dart';
-import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart';
-import 'package:changsure/state/bottom_nav_provider.dart';
-import 'package:changsure/state/bottom_subpage_history_provider.dart';
+import 'package:changsure/module/profile/technician/pages/technician_view_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/button/primary_button.dart';
@@ -256,7 +254,8 @@ class TechnicianCardCTM extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PublicTechnicianProfilePage(
+                            builder: (_) => TechnicianProfilePage(
+                              isOwner: false,
                               technicianId: tech.id,
                             ),
                           ),

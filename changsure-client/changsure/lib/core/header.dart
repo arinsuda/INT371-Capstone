@@ -6,8 +6,11 @@ import '../state/bottom_nav_provider.dart';
 class Header extends ConsumerWidget {
   final String header;
   final VoidCallback? onPressed;
+  final double? fontSize;
+  final Color? color;
+  final Color? iconColor;
 
-  const Header({super.key, required this.header, this.onPressed});
+  const Header({super.key, required this.header, this.onPressed,  this.fontSize, this.color, this.iconColor});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,7 +20,7 @@ class Header extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            icon: Icon(Icons.arrow_back, color: iconColor ?? Colors.black, size: 30,),
             onPressed:
                 onPressed ??
                 () {
@@ -37,10 +40,10 @@ class Header extends ConsumerWidget {
             child: Center(
               child: Text(
                 header,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: fontSize ?? 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF004AAD),
+                  color: color ?? Color(0xFF004AAD),
                 ),
               ),
             ),

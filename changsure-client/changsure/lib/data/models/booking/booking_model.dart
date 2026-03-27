@@ -1,7 +1,3 @@
-// ==========================================
-// 1. Core Booking Models
-// ==========================================
-
 import 'package:changsure/core/profile/utils/time_parser.dart';
 
 class Booking {
@@ -29,6 +25,10 @@ class Booking {
   final Technician? technician;
   final TechnicianService? technicianService;
   final List<BookingImage>? images;
+  final double? feeRate;
+  final double? feeAmount;
+  final double? netAmount;
+  final DateTime? reviewedAt;
 
   Booking({
     required this.id,
@@ -55,6 +55,10 @@ class Booking {
     this.technician,
     this.technicianService,
     this.images,
+    this.feeRate,
+    this.feeAmount,
+    this.netAmount,
+    this.reviewedAt
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -97,6 +101,11 @@ class Booking {
       customer: json['customer'] != null
           ? Customer.fromJson(json['customer'])
           : null,
+      feeRate: (json['fee_rate'] as num?)?.toDouble(),
+      feeAmount: (json['fee_amount'] as num?)?.toDouble(),
+      netAmount: (json['net_amount'] as num?)?.toDouble(),
+      reviewedAt: TimeParser.parseNullable(json['reviewed_at']),
+
     );
   }
 
@@ -121,6 +130,7 @@ class Booking {
       'status': status,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'reviewed_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -187,10 +197,10 @@ class Customer {
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       id: json['id'] ?? 0,
-      firstName: json['firstname'] ?? '',
-      lastName: json['lastname'] ?? '',
+      firstName: json['first_name'] ?? json['firstname'] ?? '',
+      lastName: json['last_name'] ?? json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
-      phoneNumber: json['phone_number'],
+      phoneNumber: json['phone'] ?? json['phone_number'],
     );
   }
 
@@ -220,9 +230,6 @@ class BookingImage {
   }
 }
 
-// ==========================================
-// 2. Supporting Models (Technician, Service, Slot)
-// ==========================================
 class TimeSlotForBooking {
   final int id;
   final String startTime;
@@ -270,12 +277,12 @@ class Technician {
   factory Technician.fromJson(Map<String, dynamic> json) {
     return Technician(
       id: json['id'] ?? 0,
-      firstName: json['firstname'] ?? '',
-      lastName: json['lastname'] ?? '',
+      firstName: json['first_name'] ?? json['firstname'] ?? '',
+      lastName: json['last_name'] ?? json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
-      phoneNumber: json['phone_number'],
-      ratingAvg: json['rating_avg'] ?? 0,
-      totalJobs: json['total_jobs'] ?? 0,
+      phoneNumber: json['phone'] ?? json['phone_number'],
+      ratingAvg: (json['rating_avg'] as num?)?.toInt() ?? 0,
+      totalJobs: (json['total_jobs'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -340,10 +347,6 @@ class Service {
   String getFirstImage() =>
       (imageUrls != null && imageUrls!.isNotEmpty) ? imageUrls!.first : '';
 }
-
-// ==========================================
-// 3. Request & Response Wrappers
-// ==========================================
 
 class BookingCreateRequest {
   final int technicianId;
@@ -443,10 +446,6 @@ class PaginationMeta {
   int get totalPages => (total / limit).ceil();
 }
 
-// ==========================================
-// 4. Calendar & Availability Models
-// ==========================================
-
 class PublicCalendarResponse {
   final String month;
   final List<PublicCalendarDay> days;
@@ -454,22 +453,18 @@ class PublicCalendarResponse {
   PublicCalendarResponse({required this.month, required this.days});
 
   factory PublicCalendarResponse.fromJson(Map<String, dynamic> json) {
-    final data = json['data'];
-
     return PublicCalendarResponse(
-      month: data?['month'] ?? "",
-      days: data?['days'] != null
-          ? (data['days'] as List)
-                .map((e) => PublicCalendarDay.fromJson(e))
-                .toList()
-          : [],
+      month: json['month'] as String? ?? '',
+      days: (json['days'] as List<dynamic>? ?? [])
+          .map((e) => PublicCalendarDay.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
 
 class PublicCalendarDay {
   final DateTime date;
-  final String status;
+  final String? status;
   final int totalSlots;
   final int bookedSlots;
   final int availableSlots;
@@ -478,7 +473,7 @@ class PublicCalendarDay {
 
   PublicCalendarDay({
     required this.date,
-    required this.status,
+    this.status,
     required this.totalSlots,
     required this.bookedSlots,
     required this.availableSlots,
@@ -489,15 +484,15 @@ class PublicCalendarDay {
   factory PublicCalendarDay.fromJson(Map<String, dynamic> json) {
     return PublicCalendarDay(
       date: TimeParser.parse(json['date']),
-      status: json['status'] ?? '',
-      totalSlots: json['total_slots'] ?? 0,
-      bookedSlots: json['booked_slots'] ?? 0,
-      availableSlots: json['available_slots'] ?? 0,
+      status: json['status'] as String?,
+      totalSlots: json['total_slots'] as int? ?? 0,
+      bookedSlots: json['booked_slots'] as int? ?? 0,
+      availableSlots: json['available_slots'] as int? ?? 0,
       timeSlots: (json['time_slots'] as List<dynamic>? ?? [])
-          .map((e) => TimeSlot.fromJson(e))
+          .map((e) => TimeSlot.fromJson(e as Map<String, dynamic>))
           .toList(),
       bookings: (json['bookings'] as List<dynamic>? ?? [])
-          .map((e) => BookingDetail.fromJson(e))
+          .map((e) => BookingDetail.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -520,13 +515,15 @@ class TimeSlot {
 
   factory TimeSlot.fromJson(Map<String, dynamic> json) {
     return TimeSlot(
-      id: json['id'] ?? 0,
-      startTime: json['start_time'] ?? '',
-      endTime: json['end_time'] ?? '',
-      isActive: json['is_active'] ?? false,
-      isBooked: json['is_booked'] ?? false,
+      id: json['id'] as int? ?? 0,
+      startTime: json['start_time'] as String? ?? '',
+      endTime: json['end_time'] as String? ?? '',
+      isActive: json['is_active'] as bool? ?? false,
+      isBooked: json['is_booked'] as bool? ?? false,
     );
   }
+
+  String getTimeRange() => '$startTime - $endTime';
 }
 
 class BookingDetail {
@@ -551,8 +548,8 @@ class BookingDetail {
     required this.timeSlotId,
     required this.serviceName,
     required this.pricingType,
-    required this.quotedPriceMin,
-    required this.quotedPriceMax,
+    this.quotedPriceMin,
+    this.quotedPriceMax,
     required this.appointmentDate,
     required this.status,
     required this.customerId,
@@ -564,19 +561,19 @@ class BookingDetail {
 
   factory BookingDetail.fromJson(Map<String, dynamic> json) {
     return BookingDetail(
-      id: json['id'] ?? 0,
-      bookingNumber: json['booking_number'] ?? '',
-      timeSlotId: json['time_slot_id'] ?? 0,
-      serviceName: json['service_name'] ?? '',
-      pricingType: json['pricing_type'] ?? '',
+      id: json['id'] as int? ?? 0,
+      bookingNumber: json['booking_number'] as String? ?? '',
+      timeSlotId: json['time_slot_id'] as int? ?? 0,
+      serviceName: json['service_name'] as String? ?? '',
+      pricingType: json['pricing_type'] as String? ?? '',
       quotedPriceMin: (json['quoted_price_min'] as num?)?.toDouble(),
       quotedPriceMax: (json['quoted_price_max'] as num?)?.toDouble(),
       appointmentDate: TimeParser.parse(json['appointment_date']),
-      status: json['status'] ?? '',
-      customerId: json['customer_id'] ?? 0,
-      customerName: json['customer_name'] ?? '',
-      customerPhone: json['customer_phone'] ?? '',
-      customerAvatar: json['customer_avatar'] ?? '',
+      status: json['status'] as String? ?? '',
+      customerId: json['customer_id'] as int? ?? 0,
+      customerName: json['customer_name'] as String? ?? '',
+      customerPhone: json['customer_phone'] as String? ?? '',
+      customerAvatar: json['customer_avatar'] as String? ?? '',
       images: (json['images'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
@@ -600,7 +597,7 @@ class TechnicianBooking {
   final String customerAvatar;
   final List<String> images;
   final List<String> serviceImages;
-  final int? quotedPrice; // สำหรับ FIXED
+  final int? quotedPrice;
   final int? finalPrice;
 
   TechnicianBooking({
@@ -624,28 +621,22 @@ class TechnicianBooking {
   });
 
   factory TechnicianBooking.fromJson(Map<String, dynamic> json) {
-    final pricingType = json['pricing_type'] ?? "";
-
     return TechnicianBooking(
-      id: json['id'] ?? 0,
-      bookingNumber: json['booking_number'] ?? "",
-      timeSlotId: json['time_slot_id'] ?? 0,
-      serviceName: json['service_name'] ?? "",
-      pricingType: pricingType,
-
+      id: json['id'] as int? ?? 0,
+      bookingNumber: json['booking_number'] as String? ?? '',
+      timeSlotId: json['time_slot_id'] as int? ?? 0,
+      serviceName: json['service_name'] as String? ?? '',
+      pricingType: json['pricing_type'] as String? ?? '',
       quotedPriceMin: (json['quoted_price_min'] as num?)?.toInt(),
       quotedPriceMax: (json['quoted_price_max'] as num?)?.toInt(),
-
-      // ✅ สำคัญมาก
       quotedPrice: (json['quoted_price'] as num?)?.toInt(),
       finalPrice: (json['final_price'] as num?)?.toInt(),
-
-      appointmentDate: json['appointment_date'] ?? "",
-      status: json['status'] ?? "",
-      customerId: json['customer_id'] ?? 0,
-      customerName: json['customer_name'] ?? "",
-      customerPhone: json['customer_phone'] ?? "",
-      customerAvatar: json['customer_avatar'] ?? "",
+      appointmentDate: json['appointment_date'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      customerId: json['customer_id'] as int? ?? 0,
+      customerName: json['customer_name'] as String? ?? '',
+      customerPhone: json['customer_phone'] as String? ?? '',
+      customerAvatar: json['customer_avatar'] as String? ?? '',
       images: (json['images'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
@@ -654,80 +645,39 @@ class TechnicianBooking {
           .toList(),
     );
   }
-
 }
 
 class UpdateTechnicianCalendarResponse {
-  final TechnicianCalendarData data;
-  final String message;
-  final bool success;
-
-  UpdateTechnicianCalendarResponse({
-    required this.data,
-    required this.message,
-    required this.success,
-  });
-
-  factory UpdateTechnicianCalendarResponse.fromJson(Map<String, dynamic> json) {
-    return UpdateTechnicianCalendarResponse(
-      data: TechnicianCalendarData.fromJson(json['data']),
-      message: json['message'] ?? "",
-      success: json['success'] ?? false,
-    );
-  }
-}
-
-class TechnicianCalendarData {
   final String date;
   final bool isOpen;
 
-  TechnicianCalendarData({required this.date, required this.isOpen});
+  UpdateTechnicianCalendarResponse({required this.date, required this.isOpen});
 
-  factory TechnicianCalendarData.fromJson(Map<String, dynamic> json) {
-    return TechnicianCalendarData(
-      date: json['date'] ?? "",
-      isOpen: json['is_open'] ?? false,
+  factory UpdateTechnicianCalendarResponse.fromJson(Map<String, dynamic> json) {
+    return UpdateTechnicianCalendarResponse(
+      date: json['date'] as String? ?? '',
+      isOpen: json['is_open'] as bool? ?? false,
     );
   }
 }
 
 class UpdateTimeSlotsResponse {
-  final TimeSlotData data;
-  final String message;
-  final bool success;
-
-  UpdateTimeSlotsResponse({
-    required this.data,
-    required this.message,
-    required this.success,
-  });
-
-  factory UpdateTimeSlotsResponse.fromJson(Map<String, dynamic> json) {
-    return UpdateTimeSlotsResponse(
-      data: TimeSlotData.fromJson(json['data']),
-      message: json['message'] ?? "",
-      success: json['success'] ?? false,
-    );
-  }
-}
-
-class TimeSlotData {
   final String date;
   final bool isDefault;
   final List<TimeSlot> timeSlots;
 
-  TimeSlotData({
+  UpdateTimeSlotsResponse({
     required this.date,
     required this.isDefault,
     required this.timeSlots,
   });
 
-  factory TimeSlotData.fromJson(Map<String, dynamic> json) {
-    return TimeSlotData(
-      date: json['date'] ?? "",
-      isDefault: json['is_default'] ?? false,
+  factory UpdateTimeSlotsResponse.fromJson(Map<String, dynamic> json) {
+    return UpdateTimeSlotsResponse(
+      date: json['date'] as String? ?? '',
+      isDefault: json['is_default'] as bool? ?? false,
       timeSlots: (json['time_slots'] as List<dynamic>? ?? [])
-          .map((e) => TimeSlot.fromJson(e))
+          .map((e) => TimeSlot.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

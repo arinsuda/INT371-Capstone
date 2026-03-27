@@ -28,7 +28,7 @@ class LabeledTextArea extends StatelessWidget {
             style: const TextStyle(
               fontWeight: FontWeight.w500,
               color: AppColors.colorTertiaryText,
-              fontSize: 12,
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: 6),

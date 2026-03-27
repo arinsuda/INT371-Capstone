@@ -11,24 +11,19 @@ import 'package:changsure/state/user_provider.dart';
 
 import 'package:changsure/module/profile/address_page.dart' as shared_address;
 
-import 'package:changsure/module/profile/technician/public/pages/public_technician_profile_page.dart'
-    as public_tech_profile;
-import 'package:changsure/module/profile/technician/public/pages/public_activity_detail_page.dart'
-    as public_activity_detail;
-
-import 'package:changsure/module/profile/technician/owner/pages/technician_profile_page.dart'
+import 'package:changsure/module/profile/technician/pages/profile_page.dart'
+    as tech_me_profile;
+import 'package:changsure/module/profile/technician/pages/technician_view_page.dart'
     as tech_profile;
-import 'package:changsure/module/profile/technician/owner/pages/my_profile_page.dart'
-    as tech_view_profile;
-import 'package:changsure/module/profile/technician/owner/pages/edit_profile_page.dart'
+import 'package:changsure/module/profile/technician/pages/edit_profile_page.dart'
     as tech_edit;
-import 'package:changsure/module/profile/technician/owner/activities/pages/activities_list_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/activities_list_page.dart'
     as tech_view_list;
-import 'package:changsure/module/profile/technician/owner/activities/pages/post_activity_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/post_activity_page.dart'
     as tech_post;
-import 'package:changsure/module/profile/technician/owner/activities/pages/edit_activity_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/edit_activity_page.dart'
     as tech_edit_act;
-import 'package:changsure/module/profile/technician/owner/activities/pages/activity_detail_page.dart'
+import 'package:changsure/module/profile/technician/activities/pages/activity_detail_page.dart'
     as tech_view_act;
 
 import 'package:changsure/module/profile/customer/profile_page.dart'
@@ -37,6 +32,9 @@ import 'package:changsure/module/profile/customer/edit_profile.dart'
     as user_edit;
 import 'package:changsure/module/profile/customer/history_service_page.dart'
     as user_history;
+import 'package:flutter_svg/svg.dart';
+
+import '../../module/home/technician_dashboard_page.dart';
 
 class FooterBarTemplate extends ConsumerStatefulWidget {
   const FooterBarTemplate({super.key});
@@ -49,55 +47,73 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
     with TickerProviderStateMixin {
   int _focusedIndex = -1;
 
-  Widget _assetIcon(
-    String inactivePath,
-    String activePath,
-    int tabIndex,
-    int selectedIndex,
-  ) {
+  Widget _svgIcon(String iconPath, int tabIndex, int selectedIndex) {
     final bool isActive = selectedIndex == tabIndex;
-    final bool isFocused = _focusedIndex == tabIndex;
 
-    String path;
-    if (isFocused) {
-      path = activePath;
-    } else if (isActive) {
-      path = activePath;
-    } else {
-      path = inactivePath;
-    }
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
 
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: isActive
-          ? const BoxDecoration(
-              color: AppColors.primary,
+        /// วงกลมขาว (เลื่อนขึ้น)
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          bottom: isActive ? 8 : 0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: isActive ? 60 : 0,
+            height: isActive ? 60 : 0,
+            decoration: const BoxDecoration(
+              color: Colors.white,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+            ),
+          ),
+        ),
+
+        /// icon + primary circle (ลอยขึ้น)
+        AnimatedSlide(
+          offset: isActive ? const Offset(0, -0.25) : Offset.zero,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: EdgeInsets.all(isActive ? 14 : 10),
+            decoration: BoxDecoration(
+              color: isActive ? AppColors.primary : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: AnimatedScale(
+              scale: isActive ? 1.2 : 1.0,
+              duration: const Duration(milliseconds: 250),
+              child: SvgPicture.asset(
+                iconPath,
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  isActive ? Colors.white : const Color(0xFF666666),
+                  BlendMode.srcIn,
                 ),
-              ],
-            )
-          : null,
-      child: Image.asset(
-        path,
-        width: 24,
-        height: 24,
-        color: isActive ? Colors.white : const Color(0xFF666666),
-      ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  TextStyle _tabTextStyle(int index, int selectedIndex) {
-    return TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-      color: selectedIndex == index
-          ? AppColors.primary
-          : const Color(0xFF666666),
+  Widget _tabLabel(String label, bool isActive, BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.bodySmall;
+
+    return AnimatedDefaultTextStyle(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      style: baseStyle!.copyWith(
+        fontSize: isActive ? 12 : 12,
+        fontWeight: FontWeight.w600,
+        color: isActive ? AppColors.primary : const Color(0xFF666666),
+      ),
+      child: Text(label),
     );
   }
 
@@ -114,24 +130,8 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.addressPage:
           subPage = const shared_address.AddressPage();
           break;
-        case BottomSubPage.publicTechnicianProfile:
-          if (subConfig.technicianId != null) {
-            subPage = public_tech_profile.PublicTechnicianProfilePage(
-              technicianId: subConfig.technicianId!,
-            );
-          }
-          break;
-        case BottomSubPage.publicActivityDetail:
-          if (subConfig.activityId != null && subConfig.technicianId != null) {
-            subPage = public_activity_detail.PublicActivityDetailPage(
-              postId: subConfig.activityId!,
-              technicianId: subConfig.technicianId!,
-            );
-          }
-          break;
-
         case BottomSubPage.technicianViewProfile:
-          subPage = const tech_view_profile.ViewProfilePage();
+          subPage = const tech_profile.TechnicianProfilePage(isOwner: true);
           break;
         case BottomSubPage.technicianEditProfile:
           subPage = const tech_edit.EditProfile();
@@ -145,7 +145,7 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
         case BottomSubPage.technicianViewActivityById:
           if (subConfig.activityId != null) {
             subPage = tech_view_act.ActivityDetailPage(
-              id: subConfig.activityId!,
+              postId: subConfig.activityId!,
             );
           }
           break;
@@ -170,14 +170,14 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
 
     List<Widget> getPages() {
       final commonPages = [
-        const HomePage(),
+        const RoleGatePage(),
         const TrackingStatusTab(),
         const ChatListPage(),
       ];
 
       Widget profilePage;
       if (userRole == UserRole.technician) {
-        profilePage = const tech_profile.TechnicianProfile();
+        profilePage = const tech_me_profile.TechnicianProfile();
       } else {
         profilePage = const user_profile.UserProfile();
       }
@@ -197,15 +197,15 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
       ),
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom + 8,
+          bottom: MediaQuery.of(context).padding.bottom + 6,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black26,
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -213,20 +213,16 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: List.generate(4, (index) {
             final labels = ["หน้าหลัก", "ติดตามสถานะ", "แชท", "โปรไฟล์"];
-            final inactivePaths = [
-              'assets/icons/home.png',
-              'assets/icons/status.png',
-              'assets/icons/chat.png',
-              'assets/icons/profile.png',
-            ];
-            final activePaths = [
-              'assets/icons/home_active.png',
-              'assets/icons/status_active.png',
-              'assets/icons/chat_active.png',
-              'assets/icons/profile_active.png',
+            final icons = [
+              'assets/icons/homeIcon.svg',
+              'assets/icons/statusIcon.svg',
+              'assets/icons/chatIcon.svg',
+              'assets/icons/userIcon.svg',
             ];
 
-            return GestureDetector(
+            return Expanded(
+                child:
+              InkWell(
               onTapDown: (_) {
                 setState(() {
                   _focusedIndex = index;
@@ -247,24 +243,49 @@ class _FooterBarTemplateState extends ConsumerState<FooterBarTemplate>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _assetIcon(
-                    inactivePaths[index],
-                    activePaths[index],
-                    index,
-
-                    selectedIndex,
+                  SizedBox(
+                    height: 50, // ล็อกพื้นที่ icon
+                    child: _svgIcon(icons[index], index, selectedIndex),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
+                  _tabLabel(
                     labels[index],
-                    style: _tabTextStyle(index, selectedIndex),
+                    selectedIndex == index,
+                    context,
                   ),
                 ],
               ),
-            );
+            ));
           }),
         ),
       ),
+    );
+  }
+}
+
+class RoleGatePage extends ConsumerWidget {
+  const RoleGatePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+
+    // 🔄 loading state (กรณี user ยังไม่มา)
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 👤 check role
+    if (user.role == UserRole.customer) {
+      return const HomePage();
+    } else if (user.role == UserRole.technician) {
+      return const TechnicianDashboardPage();
+    }
+
+    // ❗ fallback กันพัง
+    return const Scaffold(
+      body: Center(child: Text('Unknown role')),
     );
   }
 }

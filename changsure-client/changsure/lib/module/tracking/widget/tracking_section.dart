@@ -55,9 +55,13 @@ class TrackingSection extends ConsumerWidget {
     final status = booking.status;
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
+    final isCustomer = user?.role == UserRole.customer;
     final isNewJob = status == 'PENDING' && isTechnician;
 
-    int currentStep = 0;
+    print("Customer ${isCustomer}");
+    print("Technician ${isTechnician}");
+
+    int currentStep = 1;
     switch (status) {
       case 'PENDING':
         currentStep = 2;
@@ -106,7 +110,7 @@ class TrackingSection extends ConsumerWidget {
               border: Border.all(color: statusTextColor, width: 1),
             ),
             child: Text(
-              statusText,
+              status == 'COMPLETED' ? 'ดำเนินการเสร็จสิ้น' : statusText,
               style: TextStyle(
                 color: statusTextColor,
                 fontSize: 12,
@@ -116,6 +120,38 @@ class TrackingSection extends ConsumerWidget {
           ),
 
         const SizedBox(height: 16),
+
+        if (status == 'WAITING_PAYMENT' && !isTechnician) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.colorWarning,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.warning_amber_outlined,
+                  size: 18,
+                  color: Color(0xFFAD6800),
+                ),
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: Text(
+                    "กรุณาชำระเงิน โดยท่านสามารถสแกนคิวเอาร์โค้ดเพื่อชำระเงินได้จากหน้าระบบของช่างที่รับบริการของคุณ",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFAD6800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -130,9 +166,11 @@ class TrackingSection extends ConsumerWidget {
             Text(booking.bookingNumber, style: const TextStyle(fontSize: 14)),
           ],
         ),
-        const SizedBox(height: 20),
 
-        _buildCustomStepper(currentStep),
+        if (isCustomer == true) ...[
+          const SizedBox(height: 20),
+          _buildCustomStepper(currentStep),
+        ],
       ],
     );
   }
