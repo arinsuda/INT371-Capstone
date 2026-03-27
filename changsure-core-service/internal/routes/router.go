@@ -71,6 +71,7 @@ func (r *Router) setupPublicRoutes() {
 	r.container.SubDistrictHandler.RegisterRoutes(api)
 	r.container.ServiceCategoryHandler.RegisterRoutes(api)
 	r.container.ServiceHandler.RegisterRoutes(api)
+	r.container.DocumentHandler.RegisterRoutes(api)
 
 	publicTech := api.Group("/technicians")
 	r.container.CriminalCheckHandler.RegisterRoutes(publicTech, r.cfg.JWT.Secret)
@@ -91,7 +92,6 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 	r.container.TimeSlotHandler.RegisterRoutes(api)
 	r.container.ChatHandler.RegisterRoutes(api)
 	r.container.PaymentHandler.RegisterRoutes(api)
-	r.container.DocumentHandler.RegisterRoutes(api)
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
