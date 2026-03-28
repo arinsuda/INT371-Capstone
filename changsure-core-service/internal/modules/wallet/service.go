@@ -3,6 +3,7 @@ package wallet
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -14,13 +15,30 @@ type Service interface {
 	Withdraw(ctx context.Context, technicianID uint, req WithdrawRequest) (*WithdrawResult, error)
 }
 
-type service struct {
-	repo Repository
-	db   *gorm.DB
+type Config struct {
+	FeeRate          float64
+	MinWithdraw      float64
+	MaxWithdraw      float64
+	MaxDailyWithdraw float64
 }
 
-func NewService(repo Repository, db *gorm.DB) Service {
-	return &service{repo: repo, db: db}
+func DefaultConfig() Config {
+	return Config{
+		FeeRate:          DefaultWithdrawableFeeRate,
+		MinWithdraw:      MinWithdrawAmount,
+		MaxWithdraw:      MaxWithdrawAmount,
+		MaxDailyWithdraw: MaxDailyWithdraw,
+	}
+}
+
+type service struct {
+	repo   Repository
+	db     *gorm.DB
+	config Config
+}
+
+func NewService(repo Repository, db *gorm.DB, cfg Config) Service {
+	return &service{repo: repo, db: db, config: cfg}
 }
 
 func (s *service) GetBalance(ctx context.Context, technicianID uint) (*WalletBalanceResponse, error) {
@@ -29,14 +47,24 @@ func (s *service) GetBalance(ctx context.Context, technicianID uint) (*WalletBal
 		return nil, fmt.Errorf("get balance: %w", err)
 	}
 
-	withdrawable := calcWithdrawable(w.Balance)
+	lastTxn, _ := s.repo.GetLastTransaction(ctx, technicianID)
+	var lastTxAt *time.Time
+	if lastTxn != nil {
+		lastTxAt = &lastTxn.CreatedAt
+	}
+
+	withdrawable := s.calcWithdrawable(w.Balance)
 
 	return &WalletBalanceResponse{
 		TechnicianID:        w.TechnicianID,
 		Balance:             w.Balance,
+		PendingBalance:      0,
 		WithdrawableBalance: withdrawable,
 		TotalEarned:         w.TotalEarned,
 		Currency:            w.Currency,
+		FeeRate:             s.config.FeeRate,
+		WalletStatus:        w.Status,
+		LastTransactionAt:   lastTxAt,
 	}, nil
 }
 
@@ -51,57 +79,106 @@ func (s *service) GetSummary(ctx context.Context, technicianID uint, tech TechIn
 		return nil, fmt.Errorf("get job stats: %w", err)
 	}
 
-	withdrawable := calcWithdrawable(w.Balance)
+	now := time.Now()
+	thisMonth, _ := s.repo.GetMonthlyEarned(ctx, technicianID, now.Year(), now.Month())
+	lastMonth, _ := s.repo.GetMonthlyEarned(ctx, technicianID, now.Year(), now.Month()-1)
+
+	var avgJobValue float64
+	if completed > 0 {
+		avgJobValue = decimal.NewFromFloat(w.TotalEarned).
+			Div(decimal.NewFromInt(completed)).
+			RoundBank(2).InexactFloat64()
+	}
 
 	var avgRating float64
 	if tech.RatingAvg != 0 {
 		avgRating = tech.RatingAvg
 	}
 
+	withdrawable := s.calcWithdrawable(w.Balance)
+
 	return &WalletSummaryResponse{
 		Balance:             w.Balance,
+		PendingBalance:      0,
 		WithdrawableBalance: withdrawable,
 		TotalEarned:         w.TotalEarned,
 		Currency:            w.Currency,
+		WalletStatus:        w.Status,
 		TotalJobs:           tech.TotalJobs,
 		CompletedJobs:       completed,
 		CancelledJobs:       cancelled,
 		AverageRating:       avgRating,
+		ThisMonthEarned:     thisMonth,
+		LastMonthEarned:     lastMonth,
+		AvgJobValue:         avgJobValue,
 	}, nil
 }
 
 func (s *service) Withdraw(ctx context.Context, technicianID uint, req WithdrawRequest) (*WithdrawResult, error) {
-	if req.Amount <= 0 {
-		return nil, fmt.Errorf("amount must be greater than 0")
+
+	if req.Amount < s.config.MinWithdraw {
+		return nil, fmt.Errorf("%w: minimum is %.0f THB", ErrWithdrawAmountTooLow, s.config.MinWithdraw)
+	}
+	if req.Amount > s.config.MaxWithdraw {
+		return nil, fmt.Errorf("%w: maximum is %.0f THB", ErrWithdrawAmountTooHigh, s.config.MaxWithdraw)
 	}
 
-	var wtx *WalletTransaction
+	if req.IdempotencyKey != "" {
+		existing, err := s.repo.FindWithdrawalByIdempotencyKey(ctx, technicianID, req.IdempotencyKey)
+		if err != nil {
+			return nil, fmt.Errorf("idempotency check: %w", err)
+		}
+		if existing != nil {
 
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		withdrawal := WithdrawalRequest{
+			return &WithdrawResult{
+				Withdrawal:   existing,
+				BalanceAfter: 0,
+				Message:      fmt.Sprintf("ถอนเงิน %.2f THB (idempotent)", existing.Amount),
+			}, nil
+		}
+	}
+
+	dailyTotal, err := s.repo.GetDailyWithdrawalTotal(ctx, technicianID, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("check daily limit: %w", err)
+	}
+	if dailyTotal+req.Amount > s.config.MaxDailyWithdraw {
+		return nil, fmt.Errorf("%w: daily limit is %.0f THB, used %.2f THB",
+			ErrDailyLimitExceeded, s.config.MaxDailyWithdraw, dailyTotal)
+	}
+
+	var (
+		wtx        *WalletTransaction
+		withdrawal *WithdrawalRequest
+	)
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		record := WithdrawalRequest{
 			BankName:      req.BankName,
 			AccountNumber: req.AccountNumber,
 			AccountName:   req.AccountName,
 		}
 
-		var err error
-		wtx, err = s.repo.DebitForWithdrawal(ctx, tx, technicianID, req.Amount, withdrawal)
-		return err
+		var txErr error
+		wtx, withdrawal, txErr = s.repo.DebitForWithdrawal(ctx, tx, technicianID, req.Amount, record)
+		return txErr
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &WithdrawResult{
+		Withdrawal:   withdrawal,
 		Transaction:  wtx,
 		BalanceAfter: wtx.BalanceAfter,
-		Message:      fmt.Sprintf("ถอนเงิน %.2f THB สำเร็จ (เสมือน)", req.Amount),
+		Message:      fmt.Sprintf("ถอนเงิน %.2f THB สำเร็จ", req.Amount),
 	}, nil
 }
 
-func calcWithdrawable(balance float64) float64 {
+func (s *service) calcWithdrawable(balance float64) float64 {
 	b := decimal.NewFromFloat(balance)
-	rate := decimal.NewFromFloat(WithdrawableFeeRate)
+	rate := decimal.NewFromFloat(s.config.FeeRate)
 	result := b.Mul(decimal.NewFromInt(1).Sub(rate)).RoundBank(2)
 	return result.InexactFloat64()
 }

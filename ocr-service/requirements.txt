@@ -1,22 +1,17 @@
-# ── Web framework ────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
 
-# ── OCR ──────────────────────────────────────────────────
 easyocr==1.7.1
-# PyTorch CPU — swap for cu118/cu121 wheels for GPU builds
+
 torch==2.2.2
 torchvision==0.17.2
 
-# ── Image processing ─────────────────────────────────────
 opencv-python-headless==4.10.0.84
 numpy==1.26.4
 Pillow==10.4.0
 
-# ── File validation ───────────────────────────────────────
 python-magic==0.4.27
 
-# ── Config ───────────────────────────────────────────────
 pydantic==2.8.2
 pydantic-settings==2.4.0

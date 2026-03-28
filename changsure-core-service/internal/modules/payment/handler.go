@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -22,6 +21,7 @@ type Handler struct {
 	validator     *validator.Validate
 	isTestMode    bool
 	webhookSecret string
+	logger        *slog.Logger
 }
 
 func NewHandler(
@@ -29,86 +29,88 @@ func NewHandler(
 	hub *realtime.Hub,
 	webhookSecret string,
 	isTestMode bool,
+	logger *slog.Logger,
 ) *Handler {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &Handler{
 		service:       service,
 		hub:           hub,
 		validator:     validator.New(),
 		isTestMode:    isTestMode,
 		webhookSecret: webhookSecret,
+		logger:        logger.With("handler", "payment"),
 	}
 }
 
-func (h *Handler) GenerateQR(c fiber.Ctx) error {
-	req := new(CreateQRRequest)
+func (h *Handler) CreatePayment(c fiber.Ctx) error {
+	req := new(CreatePaymentRequest)
 	if err := c.Bind().JSON(req); err != nil {
 		return h.respondError(c, http.StatusBadRequest, "INVALID_REQUEST_FORMAT", "invalid format", err)
-	}
-	response, err := h.service.CreatePaymentQR(c.Context(), req)
-	if err != nil {
-		return h.handleServiceError(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(response)
-}
-
-func (h *Handler) GetPaymentSource(c fiber.Ctx) error {
-	sourceID := c.Params("source_id")
-	if sourceID == "" {
-		return h.respondError(c, http.StatusBadRequest, "INVALID_SOURCE_ID", "source ID is required", nil)
-	}
-	source, err := h.service.GetPaymentSource(c.Context(), sourceID)
-	if err != nil {
-		return h.handleServiceError(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(source)
-}
-
-func (h *Handler) ConfirmPayment(c fiber.Ctx) error {
-	type ConfirmRequest struct {
-		BookingID uint `json:"booking_id" validate:"required"`
-	}
-	req := new(ConfirmRequest)
-	if err := c.Bind().JSON(req); err != nil {
-		return h.respondError(c, http.StatusBadRequest, "INVALID_REQUEST_FORMAT", "invalid request format", err)
 	}
 	if err := h.validator.Struct(req); err != nil {
 		return h.respondValidationError(c, err)
 	}
-	if err := h.service.ConfirmPayment(c.Context(), req.BookingID); err != nil {
+
+	response, err := h.service.CreatePayment(c.Context(), req)
+	if err != nil {
 		return h.handleServiceError(c, err)
 	}
-	return c.Status(http.StatusOK).JSON(fiber.Map{
+
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"success": true,
-		"message": "payment confirmed",
-		"data":    fiber.Map{"booking_id": req.BookingID, "status": "COMPLETED"},
+		"data":    response,
 	})
 }
 
-func (h *Handler) GetPaymentHistory(c fiber.Ctx) error {
+func (h *Handler) GetPayment(c fiber.Ctx) error {
+	paymentID := c.Params("paymentID")
+	if paymentID == "" {
+		return h.respondError(c, http.StatusBadRequest, "INVALID_PAYMENT_ID", "payment ID is required", nil)
+	}
+
+	source, err := h.service.GetPaymentSource(c.Context(), paymentID)
+	if err != nil {
+		return h.handleServiceError(c, err)
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"data":    source,
+	})
+}
+
+func (h *Handler) GetPaymentsByBooking(c fiber.Ctx) error {
 	bookingID, err := strconv.ParseUint(c.Params("booking_id"), 10, 64)
 	if err != nil {
 		return h.respondError(c, http.StatusBadRequest, "INVALID_BOOKING_ID", "booking ID must be a number", err)
 	}
+
 	history, err := h.service.GetPaymentHistory(c.Context(), uint(bookingID))
 	if err != nil {
 		return h.handleServiceError(c, err)
 	}
+
 	return c.Status(http.StatusOK).JSON(fiber.Map{"success": true, "data": history})
 }
 
-func (h *Handler) CheckPaymentStatus(c fiber.Ctx) error {
+func (h *Handler) GetPaymentStatusByBooking(c fiber.Ctx) error {
 	bookingID, err := strconv.ParseUint(c.Params("booking_id"), 10, 64)
 	if err != nil {
 		return h.respondError(c, http.StatusBadRequest, "INVALID_BOOKING_ID", "booking ID must be a number", err)
 	}
+
 	hasPaid, err := h.service.HasSuccessfulPayment(c.Context(), uint(bookingID))
 	if err != nil {
 		return h.handleServiceError(c, err)
 	}
+
 	status := "unpaid"
 	if hasPaid {
 		status = "paid"
 	}
+
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"success":  true,
 		"has_paid": hasPaid,
@@ -116,31 +118,75 @@ func (h *Handler) CheckPaymentStatus(c fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) CancelPendingPayment(c fiber.Ctx) error {
+	bookingID, err := strconv.ParseUint(c.Params("booking_id"), 10, 64)
+	if err != nil {
+		return h.respondError(c, http.StatusBadRequest, "INVALID_BOOKING_ID", "booking ID must be a number", err)
+	}
+
+	if err := h.service.CancelPaymentQR(c.Context(), uint(bookingID)); err != nil {
+		return h.handleServiceError(c, err)
+	}
+
+	return c.Status(http.StatusNoContent).Send(nil)
+}
+
+func (h *Handler) UpdatePaymentStatus(c fiber.Ctx) error {
+	type UpdateStatusRequest struct {
+		BookingID uint   `json:"booking_id" validate:"required"`
+		Status    string `json:"status"     validate:"required,oneof=CONFIRMED REFUNDED"`
+	}
+
+	req := new(UpdateStatusRequest)
+	if err := c.Bind().JSON(req); err != nil {
+		return h.respondError(c, http.StatusBadRequest, "INVALID_REQUEST_FORMAT", "invalid request format", err)
+	}
+	if err := h.validator.Struct(req); err != nil {
+		return h.respondValidationError(c, err)
+	}
+
+	if err := h.service.ConfirmPayment(c.Context(), req.BookingID); err != nil {
+		return h.handleServiceError(c, err)
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"booking_id": req.BookingID,
+			"status":     req.Status,
+		},
+	})
+}
+
 func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 	rawBody := c.Request().Body()
 
-	os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
+	if h.isTestMode {
+		_ = os.WriteFile("/tmp/webhook_body.json", rawBody, 0644)
+	}
 
 	rawSig := string(c.Request().Header.Peek("Omise-Signature"))
-	log.Printf("🔍 Body bytes (first 100): %v", rawBody[:min(100, len(rawBody))])
-	log.Printf("🔍 Body as string: [%s]", string(rawBody[:min(200, len(rawBody))]))
-	log.Printf("🔍 Raw Omise-Signature: '%s'", rawSig)
-	log.Printf("🔍 Body length: %d", len(rawBody))
-	log.Printf("🔍 Body: %s", string(rawBody))
 
-    if h.webhookSecret != "" {
-        if rawSig == "" {
-            return c.Status(fiber.StatusUnauthorized).
-                JSON(fiber.Map{"error": "missing signature"})
-        }
-        if !VerifyOmiseSignature(rawBody, rawSig, h.webhookSecret) {
-            return c.Status(fiber.StatusUnauthorized).
-                JSON(fiber.Map{"error": "invalid signature"})
-        }
-        log.Printf("✅ Webhook signature verified")
-    } else {
-        log.Printf("⚠️  No webhook secret configured, skipping verification")
-    }
+	h.logger.Debug("webhook received",
+		"body_len", len(rawBody),
+		"has_sig", rawSig != "",
+	)
+
+	if h.webhookSecret != "" {
+		if rawSig == "" {
+			h.logger.Warn("webhook missing signature")
+			return c.Status(fiber.StatusUnauthorized).
+				JSON(fiber.Map{"error": "missing signature"})
+		}
+		if !VerifyOmiseSignature(rawBody, rawSig, h.webhookSecret) {
+			h.logger.Warn("webhook invalid signature")
+			return c.Status(fiber.StatusUnauthorized).
+				JSON(fiber.Map{"error": "invalid signature"})
+		}
+		h.logger.Debug("webhook signature verified")
+	} else {
+		h.logger.Warn("no webhook secret configured, skipping verification")
+	}
 
 	var event OmiseWebhookEvent
 	if err := json.Unmarshal(rawBody, &event); err != nil {
@@ -150,77 +196,81 @@ func (h *Handler) OmiseWebhook(c fiber.Ctx) error {
 	switch event.Key {
 	case "charge.complete":
 		if event.Data.Status == "failed" {
-			if err := h.service.HandleFailedPayment(
-				c.Context(),
-				event.Data.ID,
-				event.Data.Metadata,
-			); err != nil {
-				log.Printf("[ERROR] HandleFailedPayment: %v", err)
-			}
-			go h.broadcastFromMetadata(event.Data.Metadata, func(customerID, technicianID uint) {
-				payload := realtime.MarshalEvent(realtime.EventPaymentFailed, map[string]any{
-					"charge_id":  event.Data.ID,
-					"booking_id": metadataBookingIDStr(event.Data.Metadata),
-					"status":     "failed",
-				})
-				if customerID != 0 {
-					h.hub.BroadcastToCustomer(customerID, payload)
-				}
-				if technicianID != 0 {
-					h.hub.BroadcastToTechnician(technicianID, payload)
-				}
-			})
+			h.handleFailedCharge(c.Context(), event)
 		} else {
-			if err := h.service.ConfirmPaymentFromWebhook(
-				c.Context(),
-				event.Data.ID,
-				event.Data.Metadata,
-				event.Data.Amount,
-			); err != nil {
-				log.Printf("[ERROR] ConfirmPaymentFromWebhook: %v", err)
-				return h.handleServiceError(c, err)
+			if err := h.handleSuccessfulCharge(c, event); err != nil {
+				return err
 			}
-			go h.broadcastFromMetadata(event.Data.Metadata, func(customerID, technicianID uint) {
-				payload := realtime.MarshalEvent(realtime.EventPaymentSuccess, map[string]any{
-					"source_id": event.Data.ID,
-					"amount":    float64(event.Data.Amount) / 100,
-					"status":    "COMPLETED",
-				})
-				if customerID != 0 {
-					h.hub.BroadcastToCustomer(customerID, payload)
-				}
-				if technicianID != 0 {
-					h.hub.BroadcastToTechnician(technicianID, payload)
-				}
-			})
 		}
-
 	default:
+		h.logger.Info("webhook ignored", "key", event.Key)
 		return c.JSON(fiber.Map{"status": "ignored", "key": event.Key})
 	}
 
 	return c.JSON(fiber.Map{"status": "ok"})
 }
 
-func (h *Handler) SimulatePaymentSuccess(c fiber.Ctx) error {
+func (h *Handler) handleFailedCharge(ctx context.Context, event OmiseWebhookEvent) {
+	if err := h.service.HandleFailedPayment(ctx, event.Data.ID, event.Data.Metadata); err != nil {
+		h.logger.Error("HandleFailedPayment", "charge_id", event.Data.ID, "error", err)
+	}
+
+	go h.broadcastFromMetadata(event.Data.Metadata, func(customerID, technicianID uint) {
+		payload := realtime.MarshalEvent(realtime.EventPaymentFailed, map[string]any{
+			"charge_id":  event.Data.ID,
+			"booking_id": metadataBookingIDStr(event.Data.Metadata),
+			"status":     "failed",
+		})
+		if customerID != 0 {
+			h.hub.BroadcastToCustomer(customerID, payload)
+		}
+		if technicianID != 0 {
+			h.hub.BroadcastToTechnician(technicianID, payload)
+		}
+	})
+}
+
+func (h *Handler) handleSuccessfulCharge(c fiber.Ctx, event OmiseWebhookEvent) error {
+	if err := h.service.ConfirmPaymentFromWebhook(
+		c.Context(),
+		event.Data.ID,
+		event.Data.Metadata,
+		event.Data.Amount,
+	); err != nil {
+		h.logger.Error("ConfirmPaymentFromWebhook", "charge_id", event.Data.ID, "error", err)
+		return h.handleServiceError(c, err)
+	}
+
+	go h.broadcastFromMetadata(event.Data.Metadata, func(customerID, technicianID uint) {
+		payload := realtime.MarshalEvent(realtime.EventPaymentSuccess, map[string]any{
+			"source_id": event.Data.ID,
+			"amount":    float64(event.Data.Amount) / 100,
+			"status":    "COMPLETED",
+		})
+		if customerID != 0 {
+			h.hub.BroadcastToCustomer(customerID, payload)
+		}
+		if technicianID != 0 {
+			h.hub.BroadcastToTechnician(technicianID, payload)
+		}
+	})
+	return nil
+}
+
+func (h *Handler) SimulatePayment(c fiber.Ctx) error {
 	if !h.isTestMode {
 		return h.respondError(c, http.StatusForbidden, "NOT_ALLOWED", "simulation only available in test mode", nil)
 	}
 
-	type SimulateRequest struct {
-		SourceID  string  `json:"source_id"  validate:"required"`
-		BookingID uint    `json:"booking_id" validate:"required"`
-		Amount    float64 `json:"amount"     validate:"required,gt=0"`
-	}
-	req := new(SimulateRequest)
+	req := new(SimulatePaymentRequest)
 	if err := c.Bind().JSON(req); err != nil {
-		return h.respondError(c, 400, "INVALID_REQUEST", "invalid format", err)
+		return h.respondError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid format", err)
 	}
 	if err := h.validator.Struct(req); err != nil {
 		return h.respondValidationError(c, err)
 	}
 
-	chargeID := fmt.Sprintf("sim_%s_%d", req.SourceID, req.BookingID)
+	chargeID := "sim_" + req.PaymentID + "_" + strconv.Itoa(int(req.BookingID))
 	metadata := map[string]interface{}{
 		"booking_id": strconv.Itoa(int(req.BookingID)),
 	}
@@ -236,7 +286,7 @@ func (h *Handler) SimulatePaymentSuccess(c fiber.Ctx) error {
 
 	go h.broadcastFromMetadata(metadata, func(customerID, technicianID uint) {
 		payload := realtime.MarshalEvent(realtime.EventPaymentSuccess, map[string]any{
-			"source_id": req.SourceID,
+			"source_id": req.PaymentID,
 			"amount":    req.Amount,
 			"status":    "COMPLETED",
 		})
@@ -248,7 +298,7 @@ func (h *Handler) SimulatePaymentSuccess(c fiber.Ctx) error {
 		}
 	})
 
-	return c.Status(http.StatusOK).JSON(fiber.Map{
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"success": true,
 		"message": "payment success simulated",
 		"data": fiber.Map{
@@ -269,23 +319,23 @@ func (h *Handler) broadcastFromMetadata(
 
 	rawID, ok := metadata["booking_id"]
 	if !ok {
-		log.Printf("[WARN] broadcastFromMetadata: no booking_id in metadata, skipping broadcast")
+		h.logger.Warn("broadcastFromMetadata: no booking_id in metadata")
 		return
 	}
 	bookingIDStr, ok := rawID.(string)
 	if !ok {
-		log.Printf("[WARN] broadcastFromMetadata: booking_id is not string, skipping broadcast")
+		h.logger.Warn("broadcastFromMetadata: booking_id is not string")
 		return
 	}
 	bookingID64, err := strconv.ParseUint(bookingIDStr, 10, 64)
 	if err != nil {
-		log.Printf("[WARN] broadcastFromMetadata: invalid booking_id %q, skipping broadcast", bookingIDStr)
+		h.logger.Warn("broadcastFromMetadata: invalid booking_id", "value", bookingIDStr)
 		return
 	}
 
 	bkg, err := h.service.GetBookingSummary(context.Background(), uint(bookingID64))
 	if err != nil || bkg == nil {
-		log.Printf("[WARN] broadcastFromMetadata: booking %d not found: %v", bookingID64, err)
+		h.logger.Warn("broadcastFromMetadata: booking not found", "booking_id", bookingID64, "error", err)
 		return
 	}
 
@@ -315,6 +365,7 @@ func (h *Handler) handleServiceError(c fiber.Ctx, err error) error {
 	case errors.Is(err, ErrPaymentProviderUnavailable):
 		return h.respondError(c, http.StatusServiceUnavailable, "PROVIDER_UNAVAILABLE", err.Error(), nil)
 	default:
+		h.logger.Error("unhandled payment error", "error", err)
 		return h.respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred", err)
 	}
 }
@@ -337,25 +388,7 @@ func (h *Handler) respondValidationError(c fiber.Ctx, err error) error {
 
 func (h *Handler) respondError(c fiber.Ctx, statusCode int, code, message string, err error) error {
 	if err != nil && statusCode >= 500 {
-		log.Printf("[ERROR] payment handler: code=%s message=%s err=%v", code, message, err)
+		h.logger.Error("payment error", "code", code, "message", message, "error", err)
 	}
-	return c.Status(statusCode).JSON(ErrorResponse{
-		Code:    code,
-		Message: message,
-	})
-}
-
-func (h *Handler) CancelPaymentQR(c fiber.Ctx) error {
-	bookingID, err := strconv.ParseUint(c.Params("booking_id"), 10, 64)
-	if err != nil {
-		return h.respondError(c, http.StatusBadRequest, "INVALID_BOOKING_ID", "booking ID must be a number", err)
-	}
-	if err := h.service.CancelPaymentQR(c.Context(), uint(bookingID)); err != nil {
-		return h.handleServiceError(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "payment cancelled",
-		"data":    fiber.Map{"booking_id": bookingID, "status": PaymentStatusCancelled},
-	})
+	return c.Status(statusCode).JSON(ErrorResponse{Code: code, Message: message})
 }

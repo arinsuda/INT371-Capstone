@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"strconv"
 	"time"
@@ -23,27 +23,9 @@ type service struct {
 	walletRepo     wallet.Repository
 	omise          OmiseClient
 	config         Config
-	logger         Logger
+	logger         *slog.Logger
 	db             *gorm.DB
 	feeRate        float64
-}
-
-type Logger interface {
-	Info(msg string, fields ...interface{})
-	Error(msg string, fields ...interface{})
-	Warn(msg string, fields ...interface{})
-}
-
-type defaultLogger struct{}
-
-func (l *defaultLogger) Info(msg string, fields ...interface{}) {
-	log.Printf("[INFO] %s %v", msg, fields)
-}
-func (l *defaultLogger) Error(msg string, fields ...interface{}) {
-	log.Printf("[ERROR] %s %v", msg, fields)
-}
-func (l *defaultLogger) Warn(msg string, fields ...interface{}) {
-	log.Printf("[WARN] %s %v", msg, fields)
 }
 
 func NewService(
@@ -55,9 +37,8 @@ func NewService(
 	db *gorm.DB,
 	feeRate float64,
 	config Config,
-	logger Logger,
+	logger *slog.Logger,
 ) (Service, error) {
-
 	if feeRate <= 0 || feeRate >= 1 {
 		feeRate = 0.05
 	}
@@ -83,7 +64,7 @@ func NewService(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 	if logger == nil {
-		logger = &defaultLogger{}
+		logger = slog.Default()
 	}
 
 	return &service{
@@ -94,18 +75,26 @@ func NewService(
 		walletRepo:     walletRepo,
 		omise:          NewOmiseClient(repo, config),
 		config:         config,
-		logger:         logger,
+		logger:         logger.With("service", "payment"),
 		db:             db,
 		feeRate:        feeRate,
 	}, nil
 }
 
-func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*CreateQRResponse, error) {
+func (s *service) CreatePayment(ctx context.Context, req *CreatePaymentRequest) (*CreatePaymentResponse, error) {
 	if req.Amount == nil {
 		return nil, NewPaymentError("INVALID_AMOUNT", "amount is required", nil)
 	}
 	if *req.Amount <= 0 {
 		return nil, ErrInvalidAmount
+	}
+
+	if req.IdempotencyKey != "" {
+		existing, err := s.paymentTxnRepo.FindByIdempotencyKey(ctx, req.BookingID, req.IdempotencyKey)
+		if err == nil && existing != nil {
+			s.logger.Info("idempotent payment request", "booking_id", req.BookingID, "key", req.IdempotencyKey)
+			return s.toCreatePaymentResponse(ctx, existing, nil)
+		}
 	}
 
 	bkg, err := s.bookingRepo.FindByID(ctx, req.BookingID)
@@ -128,7 +117,7 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 	source, err := s.omise.CreateSource(ctx, &CreateSourceRequest{
 		Amount:      int64(math.Round(resolved * 100)),
 		Currency:    "THB",
-		Type:        "promptpay",
+		Type:        req.Method,
 		BookingID:   strconv.FormatUint(uint64(bkg.ID), 10),
 		Description: fmt.Sprintf("Booking #%s", bkg.BookingNumber),
 	})
@@ -137,27 +126,35 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 	}
 
 	txn := &PaymentTransaction{
-		BookingID: bkg.ID,
-		SourceID:  &source.ID,
-		Amount:    resolved,
-		Currency:  "THB",
-		Status:    PaymentStatusPending,
+		BookingID:      bkg.ID,
+		SourceID:       &source.ID,
+		Amount:         resolved,
+		Currency:       "THB",
+		PaymentMethod:  req.Method,
+		Status:         PaymentStatusPending,
+		IdempotencyKey: req.IdempotencyKey,
 	}
 	if err := s.paymentTxnRepo.Create(ctx, txn); err != nil {
 		return nil, err
 	}
 
+	return s.toCreatePaymentResponse(ctx, txn, source)
+}
+
+func (s *service) toCreatePaymentResponse(ctx context.Context, txn *PaymentTransaction, source *PaymentSource) (*CreatePaymentResponse, error) {
+	bkg, err := s.bookingRepo.FindByID(ctx, txn.BookingID)
+	if err != nil || bkg == nil {
+		return nil, fmt.Errorf("booking not found: %w", err)
+	}
+
 	techName, svcName, apptDate := s.extractBookingInfo(bkg)
 
-	return &CreateQRResponse{
-		SourceID:    source.ID,
-		QRCodeURI:   source.QRCodeURI,
-		Amount:      resolved,
-		Currency:    source.Currency,
-		ExpiresAt:   source.ExpiresAt,
-		Status:      PaymentStatusPending,
-		QRCodeReady: source.QRReady,
-		BookingID:   bkg.ID,
+	resp := &CreatePaymentResponse{
+		Method:    txn.PaymentMethod,
+		Amount:    txn.Amount,
+		Currency:  txn.Currency,
+		Status:    txn.Status,
+		BookingID: txn.BookingID,
 		Booking: BookingSnapshot{
 			ID:              bkg.ID,
 			BookingNumber:   bkg.BookingNumber,
@@ -168,7 +165,22 @@ func (s *service) CreatePaymentQR(ctx context.Context, req *CreateQRRequest) (*C
 			ServiceName:     svcName,
 		},
 		Description: fmt.Sprintf("Booking #%s", bkg.BookingNumber),
-	}, nil
+	}
+
+	if txn.SourceID != nil {
+		resp.PaymentID = *txn.SourceID
+	}
+
+	if source != nil {
+		resp.ExpiresAt = source.ExpiresAt
+		resp.QR = &QRPaymentDetail{
+			SourceID:  source.ID,
+			QRCodeURI: source.QRCodeURI,
+			QRReady:   source.QRReady,
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *service) CancelPaymentQR(ctx context.Context, bookingID uint) error {
@@ -185,7 +197,7 @@ func (s *service) CancelPaymentQR(ctx context.Context, bookingID uint) error {
 		return NewPaymentError("CANCEL_FAILED", "failed to cancel pending transactions", err)
 	}
 
-	s.logger.Info("payment QR cancelled", "booking_id", bookingID)
+	s.logger.Info("payment cancelled", "booking_id", bookingID)
 	return nil
 }
 
@@ -198,7 +210,7 @@ func (s *service) ConfirmPaymentFromWebhook(
 
 	existingTxn, _ := s.paymentTxnRepo.FindByChargeID(ctx, chargeID)
 	if existingTxn != nil && existingTxn.Status == PaymentStatusSuccessful {
-		s.logger.Warn("charge already processed, skipping", "charge_id", chargeID)
+		s.logger.Info("charge already processed, skipping", "charge_id", chargeID)
 		return nil
 	}
 
@@ -231,15 +243,12 @@ func (s *service) ConfirmPaymentFromWebhook(
 		}
 
 		if bkg.Status == booking.BookingStatusCompleted {
-			s.logger.Warn("booking already completed, skipping",
-				"booking_id", bookingID,
-				"charge_id", chargeID,
-			)
+			s.logger.Warn("booking already completed", "booking_id", bookingID, "charge_id", chargeID)
 			return nil
 		}
 
 		if bkg.Status != booking.BookingStatusWaitingPayment {
-			s.logger.Warn("booking is not in WAITING_PAYMENT status, skipping",
+			s.logger.Warn("booking not in WAITING_PAYMENT",
 				"booking_id", bookingID,
 				"status", bkg.Status,
 				"charge_id", chargeID,
@@ -272,7 +281,6 @@ func (s *service) ConfirmPaymentFromWebhook(
 		eventType := "charge.complete"
 
 		if existingTxn != nil {
-
 			if err := s.paymentTxnRepo.MarkAsSuccessfulTx(ctx, tx, existingTxn.ID, chargeID, map[string]interface{}{
 				"charge_id":           chargeID,
 				"status":              PaymentStatusSuccessful,
@@ -301,7 +309,7 @@ func (s *service) ConfirmPaymentFromWebhook(
 			}
 		}
 
-		s.logger.Info("payment confirmed from webhook",
+		s.logger.Info("payment confirmed",
 			"booking_id", bookingID,
 			"charge_id", chargeID,
 			"amount_thb", amountTHB,
@@ -340,24 +348,24 @@ func (s *service) GetPaymentHistory(ctx context.Context, bookingID uint) ([]*Pay
 	return s.paymentTxnRepo.FindByBookingID(ctx, bookingID)
 }
 
-func (s *service) extractBookingInfo(bkg *booking.Booking) (techName, svcName, apptDate string) {
-	if bkg.Technician.FirstName != "" {
-		techName = bkg.Technician.FirstName + " " + bkg.Technician.LastName
-	}
-	if bkg.TechnicianService.Service.SerName != "" {
-		svcName = bkg.TechnicianService.Service.SerName
-	}
-	if !bkg.AppointmentDate.IsZero() {
-		apptDate = bkg.AppointmentDate.Format("2006-01-02")
-	}
-	return
-}
+func (s *service) HandleFailedPayment(ctx context.Context, chargeID string, metadata map[string]interface{}) error {
+	now := time.Now()
+	webhookJSON, _ := json.Marshal(metadata)
+	webhookJSONStr := string(webhookJSON)
+	eventType := "charge.fail"
 
-func (s *service) handleRepositoryError(err error) error {
-	if _, ok := err.(*PaymentError); ok {
-		return err
+	existingTxn, err := s.paymentTxnRepo.FindByChargeID(ctx, chargeID)
+	if err != nil || existingTxn == nil {
+		s.logger.Warn("no transaction for failed charge", "charge_id", chargeID)
+		return nil
 	}
-	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
+
+	return s.paymentTxnRepo.MarkAsFailed(ctx, chargeID, map[string]interface{}{
+		"charge_id":           chargeID,
+		"webhook_received_at": now,
+		"raw_webhook_payload": webhookJSONStr,
+		"webhook_event_type":  eventType,
+	})
 }
 
 func (s *service) GetBookingSummary(ctx context.Context, bookingID uint) (*BookingSummary, error) {
@@ -385,26 +393,22 @@ func (s *service) GetBookingSummary(ctx context.Context, bookingID uint) (*Booki
 	}, nil
 }
 
-func (s *service) HandleFailedPayment(
-	ctx context.Context,
-	chargeID string,
-	metadata map[string]interface{},
-) error {
-	now := time.Now()
-	webhookJSON, _ := json.Marshal(metadata)
-	webhookJSONStr := string(webhookJSON)
-	eventType := "charge.fail"
-
-	existingTxn, err := s.paymentTxnRepo.FindByChargeID(ctx, chargeID)
-	if err != nil || existingTxn == nil {
-		s.logger.Warn("no transaction found for failed charge", "charge_id", chargeID)
-		return nil
+func (s *service) extractBookingInfo(bkg *booking.Booking) (techName, svcName, apptDate string) {
+	if bkg.Technician.FirstName != "" {
+		techName = bkg.Technician.FirstName + " " + bkg.Technician.LastName
 	}
+	if bkg.TechnicianService.Service.SerName != "" {
+		svcName = bkg.TechnicianService.Service.SerName
+	}
+	if !bkg.AppointmentDate.IsZero() {
+		apptDate = bkg.AppointmentDate.Format("2006-01-02")
+	}
+	return
+}
 
-	return s.paymentTxnRepo.MarkAsFailed(ctx, chargeID, map[string]interface{}{
-		"charge_id":           chargeID,
-		"webhook_received_at": now,
-		"raw_webhook_payload": webhookJSONStr,
-		"webhook_event_type":  eventType,
-	})
+func (s *service) handleRepositoryError(err error) error {
+	if _, ok := err.(*PaymentError); ok {
+		return err
+	}
+	return NewPaymentError("INTERNAL_ERROR", "an internal error occurred while processing payment", err)
 }

@@ -1,61 +1,34 @@
-from functools import lru_cache
-from typing import List
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-    )
+    APP_ENV: str = "development"
+    DEBUG: bool = False
 
-    # ── App ──────────────────────────────────────────────
-    APP_ENV: str = "production"
-    ENABLE_DOCS: bool = False
-    CORS_ORIGINS: List[str] = ["*"]
+    OCR_LANGUAGES: list[str] = ["th", "en"]
+    OCR_USE_GPU: bool = True
+    OCR_TIMEOUT_SECONDS: int = 120
+    OCR_MODEL_DIR: str = "/app/.easyocr/model"
 
-    # ── OCR Engine ───────────────────────────────────────
-    OCR_LANGUAGES: List[str] = ["th", "en"]
-    OCR_USE_GPU: bool = False
-    OCR_WORKERS: int = 2                   # parallel OCR workers
-    OCR_TIMEOUT_SECONDS: int = 60
+    MAX_IMAGE_WIDTH: int = 1024
+    MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024
 
-    # ── Image Validation ─────────────────────────────────
-    MAX_FILE_SIZE_MB: float = 10.0
-    ALLOWED_CONTENT_TYPES: List[str] = [
+    BATCH_MAX_FILES: int = 10
+
+    BATCH_MAX_CONCURRENCY: int = 1
+
+    MIN_CONFIDENCE_THRESHOLD: float = 0.3
+
+    ALLOWED_CONTENT_TYPES: list[str] = [
         "image/jpeg",
         "image/png",
         "image/webp",
-        "image/bmp",
-        "image/tiff",
     ]
-    MIN_IMAGE_WIDTH: int = 300
-    MIN_IMAGE_HEIGHT: int = 200
-    MAX_IMAGE_WIDTH: int = 8000
-    MAX_IMAGE_HEIGHT: int = 8000
 
-    # ── Preprocessing ────────────────────────────────────
-    ENABLE_PREPROCESSING: bool = True
-    ENABLE_DESKEW: bool = True
-    ENABLE_DENOISE: bool = False  # ปิด — กิน RAM มากบน CPU
-    TARGET_DPI: int = 300
+    RATE_LIMIT_REQUESTS: int = 10
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
 
-    # ── Confidence ───────────────────────────────────────
-    MIN_CONFIDENCE_THRESHOLD: float = 0.5
-
-    # ── Rate Limiting ────────────────────────────────────
-    RATE_LIMIT_ENABLED: bool = False
-    RATE_LIMIT_PER_MINUTE: int = 60
-
-    @property
-    def MAX_FILE_SIZE_BYTES(self) -> int:
-        return int(self.MAX_FILE_SIZE_MB * 1024 * 1024)
+    TRUSTED_PROXY_IPS: list[str] = ["127.0.0.1"]
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-settings = get_settings()
+settings = Settings()

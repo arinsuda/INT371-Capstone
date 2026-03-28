@@ -84,27 +84,18 @@ services:
       context: ../ocr-service
       dockerfile: Dockerfile
       target: runtime
-    image: changsure-ocr:local
     restart: unless-stopped
+
     environment:
-      APP_ENV: ${APP_ENV:-development}
-      OCR_USE_GPU: ${OCR_USE_GPU:-false}
-      OCR_WORKERS: ${OCR_WORKERS:-1}
-      ENABLE_DOCS: ${ENABLE_DOCS:-true}
-      MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.3}
-      OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-120}
+      - OCR_USE_GPU=false
+      - OCR_WORKERS=1
+      - OCR_TIMEOUT_SECONDS=20
+      - OCR_MAX_CONCURRENT=1
+      - RATE_LIMIT_ENABLED=false
+
+    mem_limit: 2g            
     ports:
-      - "127.0.0.1:${OCR_PORT:-8000}:8000"
-    volumes:
-      - ocr_models:/app/.easyocr
-    mem_limit: 4g
-    memswap_limit: 4g
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
-      interval: 30s
-      timeout: 10s
-      start_period: 90s
-      retries: 3
+      - "127.0.0.1:8000:8000"
     networks:
       - changsure-net
 

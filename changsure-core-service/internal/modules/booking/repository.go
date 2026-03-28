@@ -70,23 +70,6 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		}).
 		Preload("Images").
 		Preload("TimeSlot").
-		Preload("Technician", func(db *gorm.DB) *gorm.DB {
-			return db.Select(`
-		technicians.*,
-		COALESCE((
-			SELECT ROUND(AVG(r.rating), 2)
-			FROM reviews r
-			JOIN bookings b ON b.id = r.booking_id
-			WHERE b.technician_id = technicians.id
-		), 0) AS rating_avg,
-		COALESCE((
-			SELECT COUNT(*)
-			FROM bookings b
-			WHERE b.technician_id = technicians.id
-			AND b.status = 'COMPLETED'
-		), 0) AS total_jobs
-	`)
-		}).
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Preload("TechnicianService.Service.Category").
@@ -95,6 +78,25 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 		return nil, err
 	}
 
+	var snap TechnicianSnapshot
+	r.db.WithContext(ctx).
+		Table("technicians").
+		Select(`
+			id, first_name, last_name, phone, avatar_url,
+			COALESCE((
+				SELECT ROUND(AVG(rv.rating), 2)
+				FROM reviews rv JOIN bookings bk ON bk.id = rv.booking_id
+				WHERE bk.technician_id = technicians.id
+			), 0) AS rating_avg,
+			COALESCE((
+				SELECT COUNT(*) FROM bookings bk
+				WHERE bk.technician_id = technicians.id AND bk.status = 'COMPLETED'
+			), 0) AS total_jobs
+		`).
+		Where("id = ?", b.TechnicianID).
+		Scan(&snap)
+	b.Technician = snap
+
 	if b.Status == BookingStatusCompleted {
 		type feeRow struct {
 			FeeRate   float64
@@ -102,15 +104,13 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Booking, error) {
 			NetAmount float64
 		}
 		var row feeRow
-		err := r.db.WithContext(ctx).
+		if err := r.db.WithContext(ctx).
 			Table("wallet_transactions").
 			Select("fee_rate, fee_amount, net_amount").
 			Where("booking_id = ? AND category = ?", b.ID, "JOB_PAYMENT").
 			Order("created_at DESC").
 			Limit(1).
-			Scan(&row).Error
-
-		if err == nil && row.NetAmount != 0 {
+			Scan(&row).Error; err == nil && row.NetAmount != 0 {
 			b.FeeRate = &row.FeeRate
 			b.FeeAmount = &row.FeeAmount
 			b.NetAmount = &row.NetAmount
@@ -288,23 +288,6 @@ func (r *repository) ListByCustomer(
 	err := q.
 		Preload("Images").
 		Preload("TimeSlot").
-		Preload("Technician", func(db *gorm.DB) *gorm.DB {
-			return db.Select(`
-			technicians.*,
-			COALESCE((
-				SELECT ROUND(AVG(r.rating), 2)
-				FROM reviews r
-				JOIN bookings b ON b.id = r.booking_id
-				WHERE b.technician_id = technicians.id
-			), 0) AS rating_avg,
-			COALESCE((
-				SELECT COUNT(*)
-				FROM bookings b
-				WHERE b.technician_id = technicians.id
-				AND b.status = 'COMPLETED'
-			), 0) AS total_jobs
-		`)
-		}).
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Order("created_at DESC").
@@ -315,6 +298,7 @@ func (r *repository) ListByCustomer(
 		return nil, 0, err
 	}
 
+	r.hydrateTechnicians(ctx, bookings)
 	return bookings, total, nil
 }
 
@@ -353,7 +337,6 @@ func (r *repository) ListByTechnician(
 		}).
 		Preload("Images").
 		Preload("TimeSlot").
-		Preload("Technician").
 		Preload("TechnicianService").
 		Preload("TechnicianService.Service").
 		Order("created_at DESC").
@@ -364,6 +347,7 @@ func (r *repository) ListByTechnician(
 		return nil, 0, err
 	}
 
+	r.hydrateTechnicians(ctx, bookings)
 	return bookings, total, nil
 }
 

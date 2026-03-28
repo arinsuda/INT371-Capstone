@@ -84,8 +84,7 @@ func (r *repository) SearchTechnicians(
 
 func applyFilters(tx *gorm.DB, q TechnicianSearchQuery) *gorm.DB {
 
-	tx = tx.Where("technicians.is_verified = TRUE")
-
+	tx = tx.Where("technicians.verification_status = ?", technicians.StatusPassed)
 	if q.ServiceID != nil {
 		tx = tx.Joins(
 			"JOIN technician_services ts ON ts.technician_id = technicians.id AND ts.service_id = ? AND ts.is_active = TRUE",

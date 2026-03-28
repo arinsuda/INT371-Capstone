@@ -116,19 +116,15 @@ func (s *service) EnqueueVerification(ctx context.Context, technicianID uint, im
 }
 
 func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error) {
+
 	ocrResult, err := s.ocrService.ProcessOCR(imageBytes, filename)
 	if err != nil {
 		return nil, fmt.Errorf("ocr failed: %w", err)
 	}
 
-	var rawTexts []string
-	for _, item := range ocrResult.Items {
-		rawTexts = append(rawTexts, item.Text)
-	}
-	rawOCRText := strings.Join(rawTexts, " ")
+	rawOCRText := strings.TrimSpace(ocrResult.IDNumber + " " + ocrResult.NameRaw)
 
-	nationalID, idCardY := extractNationalIDWithY(ocrResult.Items)
-	if nationalID == "" {
+	if ocrResult.IDNumber == "" {
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
@@ -143,18 +139,34 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		}, nil
 	}
 
-	extractedName := extractThaiName(ocrResult.Items, idCardY)
-	if extractedName == "" {
+	if !ocrResult.Valid {
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
-			NationalID:   nationalID,
+			NationalID:   ocrResult.IDNumber,
+			Status:       StatusOCRFailed,
+			Note:         "เลข 13 หลักไม่ผ่าน checksum",
+			RawOCRText:   rawOCRText,
+		})
+		return &VerifyIdentityResponse{
+			TechnicianID: technicianID,
+			NationalID:   ocrResult.IDNumber,
+			Status:       StatusOCRFailed,
+			Note:         "เลข 13 หลักไม่ผ่าน checksum",
+			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้ชัดเจนและครบถ้วน",
+		}, nil
+	}
+
+	if ocrResult.NameRaw == "" {
+		_ = s.repo.SaveLog(&VerificationLog{
+			TechnicianID: technicianID,
+			NationalID:   ocrResult.IDNumber,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
-			NationalID:   nationalID,
+			NationalID:   ocrResult.IDNumber,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้เห็นชื่อ-นามสกุลชัดเจน",
@@ -167,20 +179,19 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	}
 	systemName := tech.FirstName + " " + tech.LastName
 
-	record, err := s.repo.FindByNationalID(nationalID)
+	record, err := s.repo.FindByNationalID(ocrResult.IDNumber)
 	if err != nil {
 		return nil, fmt.Errorf("find criminal record: %w", err)
 	}
 
-	status, note, message, isVerified := resolveStatus(record)
+	status, note, message := resolveStatus(record)
 
 	if status == StatusPassed {
-		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
+		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
 			status = StatusPending
-			isVerified = false
 			note = fmt.Sprintf(
 				"เลขบัตรผ่าน แต่ชื่อไม่ตรง — OCR: %q | ระบบ: %q",
-				extractedName, systemName,
+				ocrResult.NameRaw, systemName,
 			)
 			message = "ชื่อในบัตรไม่ตรงกับชื่อในระบบ กรุณารอ admin ตรวจสอบ"
 		}
@@ -188,21 +199,16 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 
 	_ = s.repo.SaveLog(&VerificationLog{
 		TechnicianID: technicianID,
-		NationalID:   nationalID,
+		NationalID:   ocrResult.IDNumber,
 		Status:       status,
 		Note:         note,
 		RawOCRText:   rawOCRText,
 	})
 
-	if isVerified {
-		_ = s.techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
-		s.notifyVerificationResult(ctx, technicianID, StatusPassed, note)
-	}
-
 	return &VerifyIdentityResponse{
 		TechnicianID:  technicianID,
-		NationalID:    nationalID,
-		ExtractedName: extractedName,
+		NationalID:    ocrResult.IDNumber,
+		ExtractedName: ocrResult.NameRaw,
 		SystemName:    systemName,
 		Status:        status,
 		Note:          note,
@@ -233,10 +239,6 @@ func (s *service) GetJobStatus(ctx context.Context, jobID uint) (*JobStatusRespo
 			latest := logs[0]
 			resp.VerifyStatus = string(latest.Status)
 			resp.VerifyNote = latest.Note
-
-			if tech, err := s.techRepo.FindByID(ctx, payload.TechnicianID); err == nil && tech != nil {
-
-			}
 		}
 	}
 
@@ -290,7 +292,6 @@ func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reaso
 	}
 
 	_, _ = s.jobRepo.MarkFailed(ctx, jobID, fmt.Sprintf("rejected by admin: %s", reason))
-
 	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusFailed)
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
@@ -358,7 +359,6 @@ func (s *service) OverrideVerificationStatus(
 	technicianID uint,
 	req OverrideVerificationStatusRequest,
 ) error {
-
 	tech, err := s.techRepo.FindByID(ctx, technicianID)
 	if err != nil || tech == nil {
 		return ErrTechNotFound
@@ -591,14 +591,6 @@ func (s *service) DeleteCriminalRecord(ctx context.Context, id uint) error {
 		return fmt.Errorf("get criminal record: %w", err)
 	}
 	return s.repo.DeleteCriminalRecord(id)
-}
-
-func (s *service) getLatestNationalID(ctx context.Context, technicianID uint) string {
-	logs, err := s.repo.GetLogsByTechnicianID(technicianID)
-	if err != nil || len(logs) == 0 {
-		return ""
-	}
-	return logs[0].NationalID
 }
 
 func (s *service) notifyVerificationResult(ctx context.Context, technicianID uint, status CheckStatus, note string) {

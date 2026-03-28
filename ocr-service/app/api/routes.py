@@ -1,134 +1,188 @@
-import logging
+import asyncio
 import time
+import uuid
 
-from fastapi import APIRouter, Request, UploadFile, File, Depends
+from fastapi import APIRouter, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.engine import ocr_engine
-from app.models.schemas import OCRResponse, OCRItem, BBox, HealthResponse, PreprocessingMeta
-from app.services.validator import validate_upload
+from app.core.exceptions import (
+    FileTooLargeError,
+    InvalidFileTypeError,
+    OCRTimeoutError,
+    BatchTooLargeError,
+)
+from app.models.schemas import BatchItemResult, OrientationMeta
 from app.services.preprocessor import preprocess
-
-logger = logging.getLogger(__name__)
+from app.services.validator import validate_upload
+from app.services.thai_id import extract_thai_id, validate_thai_id
+from app.services.normalizer import normalize_name_from_ocr_items
+from app.services.rate_limiter import rate_limiter
 
 router = APIRouter()
 
 
-# ── Health ───────────────────────────────────────────────────────────────────
+def _get_client_ip(request: Request) -> str:
+    peer = request.client.host if request.client else None
 
-@router.get(
-    "/health",
-    response_model=HealthResponse,
-    tags=["Ops"],
-    summary="Health check",
-)
-async def health():
-    return HealthResponse(
-        status="ok",
-        version="2.0.0",
-        engine="easyocr",
-        languages=settings.OCR_LANGUAGES,
-        gpu=settings.OCR_USE_GPU,
-        workers=settings.OCR_WORKERS,
-    )
+    if peer in settings.TRUSTED_PROXY_IPS:
+
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+
+    return peer or "unknown"
 
 
-@router.get("/readyz", tags=["Ops"], summary="Readiness probe")
-async def readyz():
-    if not ocr_engine._ready:
-        return JSONResponse(status_code=503, content={"status": "not_ready"})
-    return {"status": "ready"}
+async def _process_single(
+    raw: bytes,
+    content_type: str | None,
+) -> dict:
+    validate_upload(raw, content_type)
+
+    id_region, name_region, orientation_meta = preprocess(raw)
+    del raw
+
+    id_texts = await ocr_engine.read(id_region)
+    name_texts = await ocr_engine.read(name_region)
+    del id_region, name_region
+
+    thai_id = extract_thai_id(id_texts)
+    valid = validate_thai_id(thai_id) if thai_id else False
+    name_raw = normalize_name_from_ocr_items(name_texts)
+
+    return {
+        "id_number": thai_id,
+        "valid": valid,
+        "name_raw": name_raw,
+        "orientation_meta": orientation_meta,
+        "id_texts": id_texts,
+        "name_texts": name_texts,
+    }
 
 
-# ── OCR ──────────────────────────────────────────────────────────────────────
+@router.post("/ocr")
+async def ocr(request: Request, file: UploadFile = File(...)):
+    request_id = str(uuid.uuid4())
+    t0 = time.perf_counter()
 
-@router.post(
-    "/ocr",
-    response_model=OCRResponse,
-    tags=["OCR"],
-    summary="Scan image and extract text",
-    responses={
-        413: {"description": "File too large"},
-        415: {"description": "Unsupported file type"},
-        422: {"description": "Invalid or unreadable image"},
-        504: {"description": "OCR timed out"},
-    },
-)
-async def run_ocr(
-    request: Request,
-    file: UploadFile = File(..., description="Image file (JPEG, PNG, WebP, BMP, TIFF)"),
-):
-    t_start = time.perf_counter()
-    request_id = getattr(request.state, "request_id", None)
+    await rate_limiter.check(_get_client_ip(request))
 
-    # 1. Read bytes
     raw = await file.read()
 
-    # 2. Validate file type + size
-    validate_upload(raw, file.content_type)
-
-    # 3. Preprocess
-    img, meta = preprocess(raw)
-
-    # 4. OCR
-    raw_results = await ocr_engine.read(img)
-
-    # 5. Shape response
-    items = [
-        OCRItem(
-            text=r["text"],
-            confidence=r["confidence"],
-            bbox=BBox.from_easyocr(r["bbox"]),
-        )
-        for r in raw_results
-    ]
-
-    elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
-
-    return OCRResponse(
-        count=len(items),
-        items=items,
-        request_id=request_id,
-        elapsed_ms=elapsed_ms,
-        preprocessing=PreprocessingMeta(**meta),
-    )
-
-
-# ── Batch ────────────────────────────────────────────────────────────────────
-
-@router.post(
-    "/ocr/batch",
-    tags=["OCR"],
-    summary="Scan multiple images (max 5)",
-)
-async def run_ocr_batch(
-    request: Request,
-    files: list[UploadFile] = File(...),
-):
-    import asyncio
-
-    if len(files) > 5:
+    try:
+        result = await _process_single(raw, file.content_type)
+    except FileTooLargeError:
         return JSONResponse(
-            status_code=400,
-            content={"success": False, "error": "TOO_MANY_FILES", "message": "Max 5 files per batch"},
+            status_code=413,
+            content={
+                "success": False,
+                "error": "FileTooLarge",
+                "message": f"File exceeds {settings.MAX_FILE_SIZE_BYTES // (1024*1024)} MB limit",
+                "request_id": request_id,
+            },
+        )
+    except InvalidFileTypeError:
+        return JSONResponse(
+            status_code=415,
+            content={
+                "success": False,
+                "error": "InvalidFileType",
+                "message": f"Allowed types: {', '.join(settings.ALLOWED_CONTENT_TYPES)}",
+                "request_id": request_id,
+            },
         )
 
-    async def process_one(f: UploadFile, index: int):
-        try:
-            raw = await f.read()
-            validate_upload(raw, f.content_type)
-            img, meta = preprocess(raw)
-            raw_results = await ocr_engine.read(img)
-            items = [
-                {"text": r["text"], "confidence": r["confidence"], "bbox": r["bbox"]}
-                for r in raw_results
-            ]
-            return {"index": index, "filename": f.filename, "success": True,
-                    "count": len(items), "items": items}
-        except Exception as e:
-            return {"index": index, "filename": f.filename, "success": False,
-                    "error": type(e).__name__, "message": str(e)}
+    response: dict = {
+        "request_id": request_id,
+        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
+        "id_number": result["id_number"],
+        "valid": result["valid"],
+        "name_raw": result["name_raw"],
+        "orientation": OrientationMeta(**result["orientation_meta"]),
+    }
+    if settings.DEBUG:
+        response["debug"] = {
+            "id_texts": result["id_texts"],
+            "name_texts": result["name_texts"],
+        }
 
-    results = await asyncio.gather(*[process_one(f, i) for i, f in enumerate(files)])
-    return {"success": True, "results": sorted(results, key=lambda x: x["index"])}
+    return response
+
+
+@router.post("/ocr/batch")
+async def ocr_batch(request: Request, files: list[UploadFile] = File(...)):
+    request_id = str(uuid.uuid4())
+    t0 = time.perf_counter()
+
+    await rate_limiter.check(_get_client_ip(request))
+
+    if len(files) > settings.BATCH_MAX_FILES:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": "BatchTooLarge",
+                "message": f"Maximum {settings.BATCH_MAX_FILES} files per batch request",
+                "request_id": request_id,
+            },
+        )
+
+    sem = asyncio.Semaphore(settings.BATCH_MAX_CONCURRENCY)
+
+    async def _process_item(index: int, upload: UploadFile) -> BatchItemResult:
+        async with sem:
+            raw = await upload.read()
+            try:
+                result = await _process_single(raw, upload.content_type)
+                return BatchItemResult(
+                    filename=upload.filename or f"file_{index}",
+                    index=index,
+                    success=True,
+                    id_number=result["id_number"],
+                    valid=result["valid"],
+                    name_raw=result["name_raw"],
+                    orientation=OrientationMeta(**result["orientation_meta"]),
+                )
+            except (FileTooLargeError, InvalidFileTypeError, ValueError) as exc:
+                return BatchItemResult(
+                    filename=upload.filename or f"file_{index}",
+                    index=index,
+                    success=False,
+                    error=type(exc).__name__,
+                )
+            except OCRTimeoutError:
+                return BatchItemResult(
+                    filename=upload.filename or f"file_{index}",
+                    index=index,
+                    success=False,
+                    error="OCRTimeout",
+                )
+
+    results = await asyncio.gather(*(_process_item(i, f) for i, f in enumerate(files)))
+
+    results = sorted(results, key=lambda r: r.index)
+
+    succeeded = sum(1 for r in results if r.success)
+
+    return {
+        "request_id": request_id,
+        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
+        "total": len(results),
+        "succeeded": succeeded,
+        "failed": len(results) - succeeded,
+        "results": results,
+    }
+
+
+@router.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+
+@router.get("/readyz")
+async def readyz():
+    if not ocr_engine.is_ready:
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+    return {"status": "ready", "languages": settings.OCR_LANGUAGES}

@@ -8,22 +8,21 @@ import (
 )
 
 type Repository interface {
+	WithTx(tx *gorm.DB) Repository
 	FindByID(ctx context.Context, id uint) (*Technician, error)
 	FindByEmail(ctx context.Context, email string) (*Technician, error)
 	FindByPhone(ctx context.Context, phone string) (*Technician, error)
 	Create(ctx context.Context, m *Technician) error
 	Update(ctx context.Context, m *Technician) error
-
 	ExistsByID(ctx context.Context, id uint) (bool, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
-
 	GetAll(ctx context.Context, limit, offset int) ([]TechnicianWithVerification, error)
 	Count(ctx context.Context) (int64, error)
 	GetSummaryStats(ctx context.Context) (*TechnicianSummaryStats, error)
-
 	GetStats(ctx context.Context, techID uint) (*TechnicianStats, error)
 	UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error
 	UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error
+	GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]TechnicianWithVerification, int64, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -222,4 +221,95 @@ func (r *repository) GetSummaryStats(ctx context.Context) (*TechnicianSummarySta
 	}
 
 	return &stats, nil
+}
+
+func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]TechnicianWithVerification, int64, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 || q.PageSize > 100 {
+		q.PageSize = 20
+	}
+	offset := (q.Page - 1) * q.PageSize
+
+	base := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Select(`technicians.*,
+			COALESCE((
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			), 0) AS warning_count`).
+		Where("technicians.deleted_at IS NULL")
+
+	if q.Search != "" {
+		kw := "%" + q.Search + "%"
+		base = base.Where(
+			"technicians.first_name LIKE ? OR technicians.last_name LIKE ? OR technicians.email LIKE ? OR technicians.phone LIKE ?",
+			kw, kw, kw, kw,
+		)
+	}
+
+	if q.VerificationStatus != "" {
+		base = base.Where("technicians.verification_status = ?", q.VerificationStatus)
+	}
+
+	switch q.AccountStatus {
+	case "BANNED":
+		base = base.Where("technicians.banned_at IS NOT NULL OR technicians.is_available = FALSE")
+	case "WARNING":
+
+		base = base.Where(`
+			technicians.banned_at IS NULL AND technicians.is_available = TRUE
+			AND (
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) >= 1
+		`)
+	case "ACTIVE":
+		base = base.Where(`
+			technicians.banned_at IS NULL AND technicians.is_available = TRUE
+			AND (
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) = 0
+		`)
+	}
+
+	if q.HasWarning != nil {
+		if *q.HasWarning {
+			base = base.Where(`(
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) >= 1`)
+		} else {
+			base = base.Where(`(
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) = 0`)
+		}
+	}
+	if q.MinWarning > 0 {
+		base = base.Where(`(
+			SELECT COUNT(*) FROM technician_post_reports
+			WHERE technician_id = technicians.id AND severity = 'WARNING'
+		) >= ?`, q.MinWarning)
+	}
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var list []TechnicianWithVerification
+	err := base.
+		Order("technicians.created_at DESC").
+		Limit(q.PageSize).
+		Offset(offset).
+		Find(&list).Error
+
+	return list, total, err
+}
+
+func (r *repository) WithTx(tx *gorm.DB) Repository {
+	return &repository{db: tx}
 }

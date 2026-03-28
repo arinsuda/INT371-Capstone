@@ -2,7 +2,6 @@ package technicianmatching
 
 import (
 	"errors"
-	"strconv"
 
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/middleware"
@@ -28,34 +27,20 @@ func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 	userID, _ := middleware.GetUserID(c)
 
 	if role == "admin" {
-		page := 1
-		pageSize := 20
-
-		if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
-			page = p
+		var q technician.AdminListQuery
+		if err := c.Bind().Query(&q); err != nil {
+			return appErrors.BadRequest(c, "invalid query parameters")
 		}
-		if s, err := strconv.Atoi(c.Query("page_size")); err == nil && s > 0 {
-			pageSize = s
-		}
+		q.SetDefaults()
 
-		list, total, stats, err := h.adminSvc.List(c.Context(), page, pageSize)
+		resp, err := h.adminSvc.ListWithFilter(c.Context(), q)
 		if err != nil {
 			return appErrors.InternalError(c, "failed to list technicians", err)
 		}
 
-		totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
-
 		return c.JSON(fiber.Map{
 			"success": true,
-			"data": fiber.Map{
-				"technicians":    list,
-				"page":           page,
-				"page_size":      pageSize,
-				"total":          total,
-				"total_pages":    totalPages,
-				"verified_count": stats.VerifiedCount,
-				"pending_count":  stats.PendingCount,
-			},
+			"data":    resp,
 		})
 	}
 

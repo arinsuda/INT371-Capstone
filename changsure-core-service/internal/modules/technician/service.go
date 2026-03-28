@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"log/slog"
+	"math"
 	"time"
+
+	"gorm.io/gorm"
 
 	appErrors "changsure-core-service/internal/errors"
 	"changsure-core-service/internal/modules/badge"
@@ -15,6 +17,7 @@ import (
 	tb "changsure-core-service/internal/modules/technician_badge"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
+	bookingconst "changsure-core-service/internal/shared"
 	"changsure-core-service/pkg/storage"
 )
 
@@ -34,6 +37,8 @@ type Service interface {
 	RemoveService(ctx context.Context, techID uint, req RemoveTechServiceReq) error
 	UpdateAvatar(ctx context.Context, techID uint, avatarKey string) error
 	List(ctx context.Context, page, pageSize int) ([]*TechnicianResponseDashboard, int64, *TechnicianSummaryStats, error)
+	GetDetail(ctx context.Context, techID uint, callerRole string) (*TechnicianDetailRes, error)
+	ListWithFilter(ctx context.Context, q AdminListQuery) (*AdminListResponse, error)
 }
 
 type service struct {
@@ -408,6 +413,201 @@ func (s *service) fetchWithAssociations(ctx context.Context, techID uint) (*Tech
 	return &tech, nil
 }
 
+func (s *service) GetDetail(ctx context.Context, techID uint, callerRole string) (*TechnicianDetailRes, error) {
+	tech, err := s.fetchWithAssociations(ctx, techID)
+	if err != nil {
+		return nil, err
+	}
+
+	reviewSummary := s.getReviewSummary(ctx, techID)
+
+	res := &TechnicianDetailRes{
+		ID:                 tech.ID,
+		FirstName:          tech.FirstName,
+		LastName:           tech.LastName,
+		Bio:                tech.Bio,
+		AvatarURL:          s.presignURL(ctx, tech.AvatarURL),
+		IsAvailable:        tech.IsAvailable,
+		VerificationStatus: string(tech.VerificationStatus),
+		RatingAvg:          tech.RatingAvg,
+		RatingCount:        tech.RatingCount,
+		TotalJobs:          tech.TotalJobs,
+		RegisteredAt:       tech.CreatedAt.Unix(),
+		Provinces:          s.toProvincesRes(tech.ServiceAreas),
+		Services:           s.toServicesRes(tech.Services),
+		ServiceSummary:     s.toServiceSummary(tech.Services),
+		Badges:             s.toBadgesRes(ctx, tech.Badges),
+		ReviewSummary:      reviewSummary,
+	}
+
+	if callerRole == "admin" {
+		res.Phone = tech.Phone
+		res.Email = tech.Email
+
+		if tech.IDCardImageURL != nil && *tech.IDCardImageURL != "" {
+			signed := s.presignURLStr(ctx, *tech.IDCardImageURL)
+			res.IDCardImageURL = &signed
+		}
+
+		res.AccountStatus = &TechnicianStatus{
+			IsAvailable:        tech.IsAvailable,
+			VerificationStatus: string(tech.VerificationStatus),
+			AccountStatus:      resolveAccountStatus(tech, 0),
+			BannedAt:           tech.BannedAt,
+		}
+
+		res.JobStats = s.getJobStats(ctx, techID)
+
+		if s.docRepo != nil {
+			termsAccepted, _ := s.docRepo.HasAccepted(ctx, tech.ID, "technician", "terms-of-service")
+			privacyAccepted, _ := s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
+			res.TermsAccepted = &termsAccepted
+			res.PrivacyAccepted = &privacyAccepted
+		}
+	}
+
+	return res, nil
+}
+
+func (s *service) getJobStats(ctx context.Context, techID uint) *JobStatsRes {
+	type countRow struct {
+		Status string
+		Count  int64
+	}
+	var rows []countRow
+
+	s.db.WithContext(ctx).
+		Table(bookingconst.TableBookings).
+		Select("status, COUNT(*) as count").
+		Where("technician_id = ?", techID).
+		Group("status").
+		Scan(&rows)
+
+	stats := &JobStatsRes{}
+	for _, r := range rows {
+		stats.TotalJobs += r.Count
+		switch r.Status {
+		case bookingconst.StatusCompleted:
+			stats.CompletedJobs = r.Count
+		case bookingconst.StatusCancelled, bookingconst.StatusRejected:
+			stats.CancelledJobs += r.Count
+		}
+	}
+	return stats
+}
+
+func (s *service) getReviewSummary(ctx context.Context, techID uint) *ReviewBreakdownRes {
+	type ratingRow struct {
+		Rating int8
+		Count  int64
+	}
+	var rows []ratingRow
+
+	s.db.WithContext(ctx).
+		Table(bookingconst.TableReviews).
+		Select("reviews.rating, COUNT(*) as count").
+		Joins("JOIN "+bookingconst.TableBookings+" ON bookings.id = reviews.booking_id").
+		Where("bookings.technician_id = ?", techID).
+		Group("reviews.rating").
+		Scan(&rows)
+
+	res := &ReviewBreakdownRes{
+		Breakdown: map[int]int64{1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+	}
+	var totalScore int64
+	for _, r := range rows {
+		res.Breakdown[int(r.Rating)] = r.Count
+		res.TotalReviews += r.Count
+		totalScore += int64(r.Rating) * r.Count
+	}
+	if res.TotalReviews > 0 {
+		res.AvgRating = math.Round(float64(totalScore)/float64(res.TotalReviews)*10) / 10
+	}
+	return res
+}
+
+func (s *service) ListWithFilter(ctx context.Context, q AdminListQuery) (*AdminListResponse, error) {
+	q.SetDefaults()
+
+	technicians, total, err := s.repo.GetAllWithFilter(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("GetAllWithFilter: %w", err)
+	}
+
+	summaryStats, _ := s.repo.GetSummaryStats(ctx)
+
+	var bannedCount, warnedCount int64
+	items := make([]AdminTechnicianListItem, 0, len(technicians))
+
+	for _, t := range technicians {
+		item := s.toAdminListItem(ctx, &t)
+		items = append(items, item)
+
+		if item.AccountStatus == "BANNED" {
+			bannedCount++
+		}
+		if item.PostWarningStatus == PostWarningWarned {
+			warnedCount++
+		}
+	}
+
+	totalPages := int((total + int64(q.PageSize) - 1) / int64(q.PageSize))
+
+	resp := &AdminListResponse{
+		Technicians:  items,
+		Total:        total,
+		Page:         q.Page,
+		PageSize:     q.PageSize,
+		TotalPages:   totalPages,
+		BannedCount:  bannedCount,
+		WarningCount: warnedCount,
+	}
+	if summaryStats != nil {
+		resp.VerifiedCount = summaryStats.VerifiedCount
+		resp.PendingCount = summaryStats.PendingCount
+	}
+
+	return resp, nil
+}
+
+func (s *service) toAdminListItem(ctx context.Context, t *TechnicianWithVerification) AdminTechnicianListItem {
+
+	accountStatus := resolveAccountStatus(&t.Technician, t.WarningCount)
+
+	var postWarning PostWarningStatus
+	switch {
+	case accountStatus == "BANNED":
+		postWarning = PostWarningBanned
+	case t.WarningCount >= 1:
+		postWarning = PostWarningWarned
+	default:
+		postWarning = PostWarningNormal
+	}
+
+	var clearDeadline *time.Time
+	if t.BannedAt != nil {
+		d := t.BannedAt.AddDate(0, 0, 30)
+		clearDeadline = &d
+	}
+
+	return AdminTechnicianListItem{
+		ID:                 t.ID,
+		FirstName:          t.FirstName,
+		LastName:           t.LastName,
+		Email:              t.Email,
+		Phone:              t.Phone,
+		AvatarURL:          s.presignURL(ctx, t.AvatarURL),
+		VerificationStatus: string(t.VerificationStatus),
+		IsAvailable:        t.IsAvailable,
+		AccountStatus:      accountStatus,
+		BannedAt:           t.BannedAt,
+		ClearDeadline:      clearDeadline,
+		PostWarningStatus:  postWarning,
+		WarningCount:       t.WarningCount,
+		RegisteredAt:       t.CreatedAt.Unix(),
+	}
+}
+
 func (s *service) toProfileRes(ctx context.Context, tech *Technician) *TechnicianProfileRes {
 	var termsAccepted, privacyAccepted bool
 	if s.docRepo != nil {
@@ -617,14 +817,6 @@ func isProfileIncomplete(t *Technician) bool {
 	if t.FirstName == "" || t.LastName == "" {
 		return true
 	}
-	// if t.AvatarURL == nil || *t.AvatarURL == "" {
-	// 	return true
-	// }
-	// if len(t.Services) == 0 {
-	// 	return true
-	// }
-	// if len(t.ServiceAreas) == 0 {
-	// 	return true
-	// }
+
 	return false
 }

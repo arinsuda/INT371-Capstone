@@ -11,26 +11,17 @@ import (
 
 type PaymentTransactionRepository interface {
 	Create(ctx context.Context, tx *PaymentTransaction) error
-
 	FindByBookingID(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error)
-
 	FindByChargeID(ctx context.Context, chargeID string) (*PaymentTransaction, error)
-
+	FindByIdempotencyKey(ctx context.Context, bookingID uint, key string) (*PaymentTransaction, error)
 	GetLatestPendingByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error)
-
-	UpdateStatus(ctx context.Context, id uint, status string) error
-
-	MarkAsSuccessfulTx(ctx context.Context, tx *gorm.DB, id uint, chargeID string, data map[string]interface{}) error
-
-	MarkAsSuccessful(ctx context.Context, chargeID string, webhookData map[string]interface{}) error
-
-	RecordWebhookEvent(ctx context.Context, chargeID string, eventType string, eventData interface{}) error
-
 	GetLatestByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error)
-
-	CancelPendingByBookingID(ctx context.Context, bookingID uint) error
-
+	UpdateStatus(ctx context.Context, id uint, status string) error
+	MarkAsSuccessfulTx(ctx context.Context, tx *gorm.DB, id uint, chargeID string, data map[string]interface{}) error
+	MarkAsSuccessful(ctx context.Context, chargeID string, webhookData map[string]interface{}) error
 	MarkAsFailed(ctx context.Context, chargeID string, webhookData map[string]interface{}) error
+	CancelPendingByBookingID(ctx context.Context, bookingID uint) error
+	RecordWebhookEvent(ctx context.Context, chargeID string, eventType string, eventData interface{}) error
 }
 
 type paymentTransactionRepo struct {
@@ -65,10 +56,37 @@ func (r *paymentTransactionRepo) FindByChargeID(ctx context.Context, chargeID st
 	return &tx, nil
 }
 
+func (r *paymentTransactionRepo) FindByIdempotencyKey(ctx context.Context, bookingID uint, key string) (*PaymentTransaction, error) {
+	if key == "" {
+		return nil, nil
+	}
+
+	var tx PaymentTransaction
+	err := r.db.WithContext(ctx).
+		Where("booking_id = ? AND idempotency_key = ?", bookingID, key).
+		First(&tx).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
 func (r *paymentTransactionRepo) GetLatestPendingByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error) {
 	var tx PaymentTransaction
 	err := r.db.WithContext(ctx).
 		Where("booking_id = ? AND status = ?", bookingID, PaymentStatusPending).
+		Order("created_at DESC").
+		First(&tx).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+func (r *paymentTransactionRepo) GetLatestByBookingID(ctx context.Context, bookingID uint) (*PaymentTransaction, error) {
+	var tx PaymentTransaction
+	err := r.db.WithContext(ctx).
+		Where("booking_id = ?", bookingID).
 		Order("created_at DESC").
 		First(&tx).Error
 	if err != nil {
@@ -134,60 +152,6 @@ func (r *paymentTransactionRepo) MarkAsSuccessful(
 		}).Error
 }
 
-func (r *paymentTransactionRepo) RecordWebhookEvent(
-	ctx context.Context,
-	chargeID string,
-	eventType string,
-	eventData interface{},
-) error {
-	var tx PaymentTransaction
-	if err := r.db.WithContext(ctx).
-		Where("charge_id = ?", chargeID).
-		First(&tx).Error; err != nil {
-		return err
-	}
-
-	eventJSON, err := json.Marshal(eventData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
-	}
-
-	eventJSONStr := string(eventJSON)
-
-	event := &PaymentEvent{
-		PaymentTransactionID: tx.ID,
-		EventType:            eventType,
-		EventData:            &eventJSONStr,
-	}
-
-	return r.db.WithContext(ctx).Create(event).Error
-}
-
-func (r *paymentTransactionRepo) GetLatestByBookingID(
-	ctx context.Context,
-	bookingID uint,
-) (*PaymentTransaction, error) {
-	var tx PaymentTransaction
-	err := r.db.WithContext(ctx).
-		Where("booking_id = ?", bookingID).
-		Order("created_at DESC").
-		First(&tx).Error
-	if err != nil {
-		return nil, err
-	}
-	return &tx, nil
-}
-
-func (r *paymentTransactionRepo) CancelPendingByBookingID(
-	ctx context.Context,
-	bookingID uint,
-) error {
-	return r.db.WithContext(ctx).
-		Model(&PaymentTransaction{}).
-		Where("booking_id = ? AND status = ?", bookingID, PaymentStatusPending).
-		Update("status", PaymentStatusCancelled).Error
-}
-
 func (r *paymentTransactionRepo) MarkAsFailed(
 	ctx context.Context,
 	chargeID string,
@@ -210,4 +174,39 @@ func (r *paymentTransactionRepo) MarkAsFailed(
 			"webhook_event_type":  &eventType,
 			"raw_webhook_payload": webhookJSONStr,
 		}).Error
+}
+
+func (r *paymentTransactionRepo) CancelPendingByBookingID(ctx context.Context, bookingID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&PaymentTransaction{}).
+		Where("booking_id = ? AND status = ?", bookingID, PaymentStatusPending).
+		Update("status", PaymentStatusCancelled).Error
+}
+
+func (r *paymentTransactionRepo) RecordWebhookEvent(
+	ctx context.Context,
+	chargeID string,
+	eventType string,
+	eventData interface{},
+) error {
+	var tx PaymentTransaction
+	if err := r.db.WithContext(ctx).
+		Where("charge_id = ?", chargeID).
+		First(&tx).Error; err != nil {
+		return err
+	}
+
+	eventJSON, err := json.Marshal(eventData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event data: %w", err)
+	}
+
+	eventJSONStr := string(eventJSON)
+	event := &PaymentEvent{
+		PaymentTransactionID: tx.ID,
+		EventType:            eventType,
+		EventData:            &eventJSONStr,
+	}
+
+	return r.db.WithContext(ctx).Create(event).Error
 }
