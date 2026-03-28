@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:changsure/core/button/tertiary_button.dart';
 import 'package:changsure/module/auth/technician/setup_technician_profile.dart';
 import 'package:changsure/module/auth/technician/technician_register_step_provider.dart';
@@ -6,12 +8,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/button/primary_button.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/master_data_models.dart';
+import '../../../data/models/users/users_model.dart';
 import '../../../state/master_data_provider.dart';
 import '../../../state/user_provider.dart';
 import '../../profile/technician/editProfile/service_categories.dart';
 
 class WorkTypeListPage extends ConsumerStatefulWidget {
-  const WorkTypeListPage({super.key});
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final RegisterAddressModel address;
+  final List<String>? consents;
+
+  const WorkTypeListPage({
+    super.key,
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.address,
+    required this.consents,
+  });
 
   @override
   ConsumerState<WorkTypeListPage> createState() => _WorkTypeListPageState();
@@ -24,9 +40,8 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
   Map<int, TextEditingController> _maxPriceControllers = {};
   Map<int, TextEditingController> _fixPriceControllers = {};
   Map<int, String?> _priceErrors = {};
-
   bool _isInitialized = false;
-  final _formKey = GlobalKey<FormState>();
+  Set<int> _initializedCategoryIds = {};
 
   List<ServiceCategoryModel> allCategories = [];
 
@@ -67,7 +82,10 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
         )..addListener(() => setState(() {}));
 
         _maxPriceControllers[sId] = TextEditingController(
-          text: service.defaultPrice.max?.toString() ?? '',
+          text:
+              service.defaultPrice.max?.toString() ??
+              service.defaultPrice.value?.toString() ??
+              '',
         )..addListener(() => setState(() {}));
 
         _fixPriceControllers[sId] = TextEditingController(
@@ -89,7 +107,9 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
   }
 
   void _saveServices() async {
-    List<Map<String, dynamic>> servicesData = [];
+    if (!_validateAll()) return;
+
+    List<TechnicianServiceModel> servicesData = [];
 
     for (var sId in _selectedServices.keys) {
       if (_selectedServices[sId] == true) {
@@ -110,76 +130,116 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
           serviceMap["price_min"] = double.tryParse(
             _minPriceControllers[sId]?.text ?? '',
           );
-
           serviceMap["price_max"] = double.tryParse(
             _maxPriceControllers[sId]?.text ?? '',
           );
         }
 
-        servicesData.add(serviceMap);
+        servicesData.add(
+          TechnicianServiceModel(
+            serviceId: sId,
+            pricingType: apiType,
+            priceFixed: type == 'fix'
+                ? double.tryParse(_fixPriceControllers[sId]?.text ?? '')
+                : null,
+            priceMin: type == 'range'
+                ? double.tryParse(_minPriceControllers[sId]?.text ?? '')
+                : null,
+            priceMax: type == 'range'
+                ? double.tryParse(_maxPriceControllers[sId]?.text ?? '')
+                : null,
+          ),
+        );
       }
     }
 
     final registerData = ref.read(technicianRegisterDataProvider);
 
-    final success = await ref
-        .read(userProvider.notifier)
-        .saveTechnicianProfile(
-          firstName: registerData.firstName ?? '',
-          lastName: registerData.lastName ?? '',
-          phone: registerData.phone ?? '',
-          provinceIds: registerData.provinceIds,
-          services: servicesData,
+    // ✅ รวมข้อมูลทั้งหมดเป็น model
+    final model = TechnicianRegisterModel(
+      email: registerData.email ?? widget.email,
+      password: registerData.password ?? widget.password,
+      confirmPassword: registerData.confirmPassword ?? widget.confirmPassword,
+      firstname: registerData.firstName ?? '',
+      lastname: registerData.lastName ?? '',
+      phone: registerData.phone ?? '',
+      address: registerData.address ?? widget.address,
+      provinceIds: registerData.provinceIds,
+      consents: registerData.consents ?? widget.consents,
+      services: servicesData,
+    );
+
+    // ✅ เรียก REGISTER API
+    try {
+      final result = await ref
+          .read(technicianRegisterProvider.notifier)
+          .register(model);
+
+      final token = result?["pre_verified_token"];
+      final technicianId = result?["technician_id"];
+
+      print("TOKEN = $token");
+      print("Technician ID = $technicianId");
+      // ✅ save token
+      ref.read(technicianRegisterDataProvider.notifier).update((state) {
+        return TechnicianRegisterData(
+          email: state.email,
+          password: state.password,
+          confirmPassword: state.confirmPassword,
+          address: state.address,
+          consents: state.consents,
+          firstName: state.firstName,
+          lastName: state.lastName,
+          phone: state.phone,
+          provinceIds: state.provinceIds,
+          servicesData: state.servicesData,
+          preVerifiedToken: token,
+          technicianId: technicianId,
         );
+      });
 
-    ref.read(technicianRegisterDataProvider).servicesData = servicesData;
-
-
-    if (success) {
+// ✅ success
       ref.read(technicianRegisterStepProvider.notifier).state = 3;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("สมัครไม่สำเร็จ: $e")),
+      );
     }
   }
 
-  Widget _buildCategory(ServiceCategoryModel category) {
-    final servicesAsync = ref.watch(servicesByCategoryProvider(category.id));
+  bool _validateAll() {
+    Map<int, String?> newPriceErrors = {};
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            category.catName,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+    for (var sId in _selectedServices.keys) {
+      if (_selectedServices[sId] == true) {
+        if (_priceType[sId] == "range") {
+          final min = _minPriceControllers[sId]?.text.trim() ?? '';
+          final max = _maxPriceControllers[sId]?.text.trim() ?? '';
 
-          const SizedBox(height: 8),
+          if (min.isEmpty || max.isEmpty) {
+            newPriceErrors[sId] = "กรุณากรอกราคาให้ครบ";
+          } else {
+            final minVal = double.tryParse(min) ?? 0;
+            final maxVal = double.tryParse(max) ?? 0;
 
-          servicesAsync.when(
-            loading: () => const CircularProgressIndicator(),
-            error: (e, _) => const Text("โหลด services ไม่สำเร็จ"),
-            data: (services) {
-              return Column(
-                children: services.map((service) {
-                  final checked = _selectedServices[service.id] ?? false;
+            if (maxVal < minVal) {
+              newPriceErrors[sId] = "Max ต้องมากกว่า Min";
+            }
+          }
+        } else {
+          final fix = _fixPriceControllers[sId]?.text.trim() ?? '';
+          if (fix.isEmpty) {
+            newPriceErrors[sId] = "กรุณากรอกราคา";
+          }
+        }
+      }
+    }
 
-                  return CheckboxListTile(
-                    value: checked,
-                    title: Text(service.serName),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedServices[service.id] = val ?? false;
-                      });
-                    },
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _priceErrors = newPriceErrors;
+    });
+
+    return !_priceErrors.values.any((e) => e != null);
   }
 
   @override
@@ -191,9 +251,8 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
       error: (e, _) => const Text("โหลดข้อมูลไม่สำเร็จ"),
       data: (categories) {
         allCategories = categories;
-        if (!_isInitialized) {
-          _initializeServices(categories);
-        }
+
+        _initializeServices(categories);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,8 +274,8 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
                 children: categories.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  ServiceCategoryModel cat = entry.value;
+                  final index = entry.key;
+                  final cat = entry.value;
 
                   return ServiceCategory(
                     category: cat,
@@ -261,7 +320,9 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
                     child: TertiaryButton(
                       text: "ย้อนกลับ",
                       onPressed: () {
-                        ref.read(technicianRegisterStepProvider.notifier).state--;
+                        ref
+                            .read(technicianRegisterStepProvider.notifier)
+                            .state--;
                       },
                       padding: EdgeInsetsGeometry.symmetric(vertical: 8),
                     ),

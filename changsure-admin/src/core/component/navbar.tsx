@@ -110,11 +110,11 @@ export const DashboardLayoutUI = ({
             </button>
 
             {/* Search */}
-            <input
+            {/* <input
               type="text"
               placeholder="ค้นหา..."
               className="w-full px-4 py-2 rounded-full border border-colorStroke bg-primaryBGHover focus:outline-none text-sm"
-            />
+            /> */}
           </div>
           {/* RIGHT USER */}
           <div className="relative">

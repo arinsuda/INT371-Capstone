@@ -200,97 +200,37 @@ class _ChooseRolePageState extends ConsumerState<ChooseRolePage> {
               child: PrimaryButton(
                 text: "ยืนยัน",
                 onPressed: canConfirm
-                    ? () async {
+                    ? () {
                   try {
-                    /// 1️⃣ REGISTER
-                    final registerModel = RegisterModel(
-                      email: widget.email,
-                      password: widget.password,
-                      confirmPassword: widget.confirmPassword,
-                      role: selectedRole,
-                    );
+                    /// ✅ แค่เช็ค role แล้ว navigate
 
-                    await ref
-                        .read(registerProvider.notifier)
-                        .register(registerModel);
-
-                    final registerState = ref.read(registerProvider);
-
-                    if (registerState.hasError) {
-                      debugPrint("REGISTER API ERROR: ${registerState.error}");
-                    }
-
-                    if (!(registerState.hasValue && registerState.value != null)) {
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('สมัครสมาชิกไม่สำเร็จ'),
-                          backgroundColor: Colors.red,
+                    if (selectedRole == "technician") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TechnicianStartPage(
+                            email: widget.email,
+                            password: widget.password,
+                            confirmPassword: widget.confirmPassword,
+                          ),
                         ),
                       );
-                      return;
-                    }
-
-                    /// 2️⃣ LOGIN อัตโนมัติ
-                    final authService = AuthService();
-                    final result = await authService.login(
-                      widget.email,
-                      widget.password,
-                    );
-
-                    if (result == null) {
-                      // error
-                      return;
-                    }
-
-
-                    final token = result['access_token'] as String;
-                    final userId = result['user_id'] as int;
-                    final roleStr = (result['role'] as String).toUpperCase();
-
-                    UserModel user;
-
-                    if (roleStr == 'TECHNICIAN') {
-                      final techProfile =
-                      await authService.getTechnicianProfile(token, userId);
-
-                      user = UserModel(
-                        id: userId,
-                        email: widget.email,
-                        token: token,
-                        role: UserRole.technician,
-                        technicianProfile: techProfile,
-                      );
                     } else {
-                      final customerProfile =
-                      await authService.getCustomerProfile(token, userId);
-
-                      user = UserModel(
-                        id: userId,
-                        email: widget.email,
-                        token: token,
-                        role: UserRole.customer,
-                        customerProfile: customerProfile,
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SetupProfilePage(
+                            email: widget.email,
+                            password: widget.password,
+                            confirmPassword: widget.confirmPassword,
+                          ),
+                        ),
                       );
                     }
-
-                    await ref.read(userProvider.notifier).login(
-                      user,
-                      result['refresh_token'] as String,
-                    );
-
-                    /// 3️⃣ NAVIGATE ตาม role ที่เลือก
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => selectedRole == "technician"
-                            ? TechnicianStartPage(email: widget.email)
-                            : SetupProfilePage(email: widget.email),
-                      ),
-                    );
                   } catch (e, stack) {
-                    debugPrint("REGISTER ERROR: $e");
+                    debugPrint("NAVIGATION ERROR: $e");
                     debugPrintStack(stackTrace: stack);
+
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

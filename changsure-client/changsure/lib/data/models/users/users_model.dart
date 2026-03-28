@@ -77,52 +77,145 @@ class UserModel {
   }
 }
 
-class RegisterModel {
+class CustomerRegisterModel {
   final String email;
   final String password;
   final String confirmPassword;
-  final String role;
+  final String firstname;
+  final String lastname;
+  final String phone;
+  final RegisterAddressModel address;
 
-  RegisterModel({
+  CustomerRegisterModel({
     required this.email,
     required this.password,
     required this.confirmPassword,
-    required this.role,
+    required this.firstname,
+    required this.lastname,
+    required this.phone,
+    required this.address,
   });
 
-  /// 🔥 ใช้ส่งไป backend
   Map<String, dynamic> toJson() {
     return {
-      'email': email,
-      'password': password,
-      'confirm_password': confirmPassword,
-      'role': role,
+      "email": email,
+      "password": password,
+      "confirm_password": confirmPassword,
+      "firstname": firstname,
+      "lastname": lastname,
+      "phone": phone,
+      "address": address.toJson(),
     };
   }
+}
 
-  /// 🔄 ใช้กรณี backend ส่งกลับมา (ถ้ามี)
-  factory RegisterModel.fromJson(Map<String, dynamic> json) {
-    return RegisterModel(
-      email: json['email'] ?? '',
-      password: json['password'] ?? '',
-      confirmPassword: json['confirm_password'] ?? '',
-      role: json['role'] ?? '',
-    );
+class TechnicianServiceModel {
+  final int serviceId;
+  final String pricingType;
+  final double? priceFixed;
+  final double? priceMin;
+  final double? priceMax;
+
+  TechnicianServiceModel({
+    required this.serviceId,
+    required this.pricingType,
+    this.priceFixed,
+    this.priceMin,
+    this.priceMax,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "service_id": serviceId,
+      "pricing_type": pricingType,
+      "price_fixed": priceFixed,
+      "price_min": priceMin,
+      "price_max": priceMax,
+    };
   }
+}
 
-  /// 🧠 optional: copyWith ไว้แก้ค่าแบบ immutable
-  RegisterModel copyWith({
-    String? email,
-    String? password,
-    String? confirmPassword,
-    String? role,
-  }) {
-    return RegisterModel(
-      email: email ?? this.email,
-      password: password ?? this.password,
-      confirmPassword: confirmPassword ?? this.confirmPassword,
-      role: role ?? this.role,
-    );
+class TechnicianRegisterModel {
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String firstname;
+  final String lastname;
+  final String phone;
+  final List<String>? consents;
+  final RegisterAddressModel address;
+  final List<TechnicianServiceModel> services;
+  final List<int>? provinceIds;
+
+  TechnicianRegisterModel({
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.firstname,
+    required this.lastname,
+    required this.phone,
+    required this.address,
+    required this.services,
+    required this.provinceIds,
+    required this.consents
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "email": email,
+      "password": password,
+      "confirm_password": confirmPassword,
+      "firstname": firstname,
+      "lastname": lastname,
+      "phone": phone,
+      "address": address.toJson(),
+      "services": services.map((e) => e.toJson()).toList(),
+      "province_ids": provinceIds,
+      "consents" : consents
+    };
+  }
+}
+
+class RegisterAddressModel {
+  final String label;
+  final String? phoneNumber;
+  final String addressLine;
+  final int subDistrictId;
+  final int districtId;
+  final int provinceId;
+  final double latitude;
+  final double longitude;
+  final bool isPrimary;
+
+  RegisterAddressModel({
+    required this.label,
+    this.phoneNumber,
+    required this.addressLine,
+    required this.subDistrictId,
+    required this.districtId,
+    required this.provinceId,
+    required this.latitude,
+    required this.longitude,
+    required this.isPrimary,
+  });
+
+  Map<String, dynamic> toJson() {
+    final map = {
+      "label": label,
+      "address_line": addressLine,
+      "sub_district_id": subDistrictId,
+      "district_id": districtId,
+      "province_id": provinceId,
+      "latitude": latitude,
+      "longitude": longitude,
+      "is_primary": isPrimary,
+    };
+
+    if (phoneNumber != null && phoneNumber!.isNotEmpty) {
+      map["phone_number"] = phoneNumber!;
+    }
+
+    return map;
   }
 }
 

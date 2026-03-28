@@ -71,7 +71,7 @@ class _ProfileState extends ConsumerState<TechnicianProfile> {
               },
             ),
 
-            if (tech?.isVerified == false) ...[
+            if (tech?.verificationStatus == "PENDING") ...[
               Padding(
                 padding: EdgeInsetsGeometry.symmetric(horizontal: 18, vertical: 16),
                 child: Container(

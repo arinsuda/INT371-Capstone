@@ -16,6 +16,7 @@ import 'package:changsure/data/services/technician_service.dart' as tech;
 import 'package:changsure/data/services/customer_service.dart' as cust;
 import '../data/models/customer/customer_model.dart';
 import '../data/models/technician/dashboard_model.dart';
+import '../module/auth/technician/setup_technician_profile.dart';
 
 final userProvider = NotifierProvider<UserNotifier, UserModel?>(() {
   return UserNotifier();
@@ -411,19 +412,21 @@ class VerifyNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
 
     try {
-      final user = ref.read(userProvider);
+      final registerData = ref.read(technicianRegisterDataProvider);
+      print("Pre Verify $registerData");
+      print("PreVerifyToken: ${registerData.preVerifiedToken}");
 
-      if (user == null || user.token == null) {
-        throw Exception("User not logged in");
-      }
-
-      if (user.role != UserRole.technician) {
-        throw Exception("User is not technician");
+      if (registerData.preVerifiedToken == null) {
+        throw Exception("No pre_verified_token");
       }
 
       final service = tech.TechnicianService();
 
-      final jobId = await service.verifyTechnician(user.id, user.token!, file);
+      final jobId = await service.verifyTechnician(
+        registerData.technicianId!,
+        registerData.preVerifiedToken!,
+        file,
+      );
 
       state = const AsyncValue.data(null);
 
@@ -499,9 +502,9 @@ final technicianReviewsProvider = FutureProvider.family<ReviewResponse, int>((
 });
 
 final reviewNotifierProvider =
-StateNotifierProvider<ReviewNotifier, AsyncValue<void>>(
+    StateNotifierProvider<ReviewNotifier, AsyncValue<void>>(
       (ref) => ReviewNotifier(ref),
-);
+    );
 
 class ReviewNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
@@ -530,7 +533,8 @@ class ReviewNotifier extends StateNotifier<AsyncValue<void>> {
       final service = cust.CustomerService();
 
       await service.createReview(
-        token: user.token!, // 🔥 ต้องใส่ token แล้ว
+        token: user.token!,
+        // 🔥 ต้องใส่ token แล้ว
         customerId: user.id,
         bookingId: bookingId,
         rating: rating,
@@ -554,8 +558,5 @@ final walletSummaryProvider = FutureProvider<WalletSummary>((ref) async {
 
   final service = ref.read(technicianServiceProvider);
 
-  return service.getWalletSummary(
-    token: user.token!,
-    technicianId: user.id,
-  );
+  return service.getWalletSummary(token: user.token!, technicianId: user.id);
 });
