@@ -22,6 +22,7 @@ import (
 	customeraddresses "changsure-core-service/internal/modules/customer_address"
 	customerbooking "changsure-core-service/internal/modules/customer_booking"
 	customerreview "changsure-core-service/internal/modules/customer_review"
+	"changsure-core-service/internal/modules/dashboard"
 	"changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/notification"
@@ -179,6 +180,10 @@ type Container struct {
 
 	AdminHandler *admin.Handler
 	AdminRepo    admin.Repository
+
+	DashboardRepo    dashboard.Repository
+	DashboardService dashboard.Service
+	DashboardHandler *dashboard.Handler
 }
 
 func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...ContainerOption) (*Container, error) {
@@ -201,48 +206,39 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 		return nil, err
 	}
 	c.initAdminModule()
-
 	c.initProvinceModule()
 	c.initDistrictModule()
 	c.initSubDistrictModule()
-
 	c.initTechnicianModule()
 	c.initTechnicianServiceModule()
 	c.initTechnicianAddressModule()
 	c.initCustomerModule()
 	c.initCustomerAddressModule()
-
 	c.initDocumentModule()
 	c.initAuthModule(cfg)
 	c.initNotificationModule()
 	c.initOCRModule(cfg)
-
 	c.initServiceCategoryModule(cfg)
 	c.initServiceModule()
 	c.initBadgeModule()
 	c.initTechnicianBadgeModule()
 	c.initTechnicianWorkModule()
 	c.initTechnicianMatchingModule()
-
 	c.initTimeSlotModule()
 	c.initBookingCoreModule()
-
 	c.initTechnicianCalendarModule()
-
 	c.initCustomerBookingModule()
 	c.initTechnicianBookingModule()
 	c.initCustomerReviewModule()
 	c.initTechnicianReviewModule()
-
 	c.initChatModule()
-
 	c.initWalletModule()
 	c.initPaymentModule(cfg)
-
 	c.initMailer(cfg)
 	c.initResetPasswordModule(cfg)
 	c.initBackgroundJobModule()
 	c.initCriminalCheckModule()
+	c.initDashboardModule()
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -289,9 +285,6 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)
-
-	// Cleaner — ลบ technician ที่ไม่ verify ภายใน 7 วัน + ลบ expired tokens ทุก 24h
-	// ถ้าอยากเปิดใช้ uncomment บรรทัดด้านล่าง
 	cleaner := auth.NewCleaner(c.DB, tokenRepo, 7*24*time.Hour, c.Logger)
 	cleaner.StartBackground(context.Background(), 24*time.Hour)
 }
@@ -536,7 +529,7 @@ func (c *Container) initChatModule() {
 
 func (c *Container) initWalletModule() {
 	c.WalletRepo = wallet.NewRepository(c.DB)
-	c.WalletService = wallet.NewService(c.WalletRepo, c.DB)
+	c.WalletService = wallet.NewService(c.WalletRepo, c.DB, wallet.DefaultConfig())
 	c.WalletHandler = wallet.NewHandler(c.WalletRepo, c.WalletService, c.TechnicianRepo)
 }
 
@@ -586,6 +579,7 @@ func (c *Container) initPaymentModule(cfg *config.Config) {
 		c.Hub,
 		cfg.Omise.WebhookSecret,
 		isDev,
+		c.Logger,
 	)
 }
 
@@ -658,22 +652,23 @@ func (c *Container) initTechnicianReviewModule() {
 	c.TechnicianReviewHandler = technicianreview.NewHandler(reviewService, c.Storage)
 }
 
+func (c *Container) initDashboardModule() {
+	c.DashboardRepo = dashboard.NewRepository(c.DB)
+	c.DashboardService = dashboard.NewService(c.DashboardRepo, c.Storage)
+	c.DashboardHandler = dashboard.NewHandler(c.DashboardService)
+}
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
-
 	models = append(models, auth.Models()...)
 	models = append(models, notification.Models()...)
-
 	models = append(models, province.Models()...)
 	models = append(models, district.Models()...)
 	models = append(models, subdistrict.Models()...)
-
 	models = append(models, servicecategory.Models()...)
 	models = append(models, service.Models()...)
-
 	models = append(models, customer.Models()...)
 	models = append(models, customeraddresses.Models()...)
-
 	models = append(models, technician.Models()...)
 	models = append(models, technicianaddress.Models()...)
 	models = append(models, technicianservice.Models()...)
@@ -682,19 +677,14 @@ func AllModels() []interface{} {
 	models = append(models, techworks.Models()...)
 	models = append(models, techniciancalendar.Models()...)
 	models = append(models, badge.Models()...)
-
 	models = append(models, booking.Models()...)
 	models = append(models, timeslot.Models()...)
-
 	models = append(models, chat.Models()...)
-
 	models = append(models,
 		&payment.PaymentTransaction{},
 		&payment.PaymentEvent{},
 	)
-
 	models = append(models, wallet.Models()...)
-
 	models = append(models, document.Models()...)
 	models = append(models, resetpassword.Models()...)
 	models = append(models, criminalcheck.Models()...)

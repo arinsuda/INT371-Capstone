@@ -4,59 +4,52 @@ import (
 	"time"
 
 	customer "changsure-core-service/internal/modules/customer"
-	"changsure-core-service/internal/modules/technician"
 	techService "changsure-core-service/internal/modules/technician_service"
 	timeslot "changsure-core-service/internal/modules/time_slot"
 )
 
+type TechnicianSnapshot struct {
+	ID          uint    `json:"id"`
+	FirstName   string  `json:"firstname"`
+	LastName    string  `json:"lastname"`
+	Phone       *string `json:"phone,omitempty"`
+	AvatarURL   *string `json:"avatar_url,omitempty"`
+	RatingAvg   float64 `json:"rating_avg"`
+	TotalJobs   int64   `json:"total_jobs"`
+	RatingCount int64   `json:"rating_count"`
+}
+
 type Booking struct {
-	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
-
-	BookingNumber string `gorm:"type:varchar(10);uniqueIndex;not null" json:"booking_number"`
-
-	CustomerID          uint `gorm:"not null;index" json:"-"`
-	TechnicianID        uint `gorm:"not null;index" json:"technician_id"`
-	TechnicianServiceID uint `gorm:"not null;index" json:"technician_service_id"`
-
-	AddressID uint `gorm:"not null;index" json:"address_id"`
-
-	TimeSlotID uint `gorm:"not null;index" json:"time_slot_id"`
-
-	AppointmentDate time.Time `gorm:"type:date;not null;index" json:"appointment_date"`
-
-	RecordedAddress string `gorm:"type:text" json:"recorded_address"`
-
-	PricingType string `gorm:"type:enum('FIXED','RANGE');not null" json:"pricing_type"`
-
-	QuotedPriceFixed *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_fixed"`
-	QuotedPriceMin   *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_min"`
-	QuotedPriceMax   *float64 `gorm:"type:decimal(12,2)" json:"quoted_price_max"`
-
-	PaymentMethod string `gorm:"type:varchar(20);default:'COD'" json:"payment_method"`
-	CustomerNote  string `gorm:"type:text" json:"customer_note"`
-
-	FinalPrice *float64 `gorm:"type:decimal(12,2)" json:"final_price"`
-
-	Status string `gorm:"type:varchar(20);default:'PENDING';index" json:"status"`
-
-	LastReadByCustomer   *time.Time `gorm:"index" json:"last_read_by_customer,omitempty"`
-	LastReadByTechnician *time.Time `gorm:"index" json:"last_read_by_technician,omitempty"`
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-
-	TimeSlot          timeslot.TimeSlot             `gorm:"foreignKey:TimeSlotID" json:"time_slot"`
-	Customer          customer.Customer             `gorm:"foreignKey:CustomerID" json:"customer"`
-	Technician        technician.Technician         `gorm:"foreignKey:TechnicianID" json:"technician"`
-	TechnicianService techService.TechnicianService `gorm:"foreignKey:TechnicianServiceID" json:"technician_service"`
-
-	Images []BookingImage `gorm:"foreignKey:BookingID" json:"images"`
-
-	FeeRate   *float64 `gorm:"-" json:"fee_rate,omitempty"`
-	FeeAmount *float64 `gorm:"-" json:"fee_amount,omitempty"`
-	NetAmount *float64 `gorm:"-" json:"net_amount,omitempty"`
-
-	ReviewedAt *time.Time `gorm:"index" json:"reviewed_at,omitempty"`
+	ID                   uint                          `gorm:"primaryKey;autoIncrement" json:"id"`
+	BookingNumber        string                        `gorm:"type:varchar(10);uniqueIndex;not null" json:"booking_number"`
+	CustomerID           uint                          `gorm:"not null;index" json:"-"`
+	TechnicianID         uint                          `gorm:"not null;index" json:"technician_id"`
+	TechnicianServiceID  uint                          `gorm:"not null;index" json:"technician_service_id"`
+	AddressID            uint                          `gorm:"not null;index" json:"address_id"`
+	TimeSlotID           uint                          `gorm:"not null;index" json:"time_slot_id"`
+	AppointmentDate      time.Time                     `gorm:"type:date;not null;index" json:"appointment_date"`
+	RecordedAddress      string                        `gorm:"type:text" json:"recorded_address"`
+	PricingType          string                        `gorm:"type:enum('FIXED','RANGE');not null" json:"pricing_type"`
+	QuotedPriceFixed     *float64                      `gorm:"type:decimal(12,2)" json:"quoted_price_fixed"`
+	QuotedPriceMin       *float64                      `gorm:"type:decimal(12,2)" json:"quoted_price_min"`
+	QuotedPriceMax       *float64                      `gorm:"type:decimal(12,2)" json:"quoted_price_max"`
+	PaymentMethod        string                        `gorm:"type:varchar(20);default:'COD'" json:"payment_method"`
+	CustomerNote         string                        `gorm:"type:text" json:"customer_note"`
+	FinalPrice           *float64                      `gorm:"type:decimal(12,2)" json:"final_price"`
+	Status               string                        `gorm:"type:varchar(20);default:'PENDING';index" json:"status"`
+	LastReadByCustomer   *time.Time                    `gorm:"index" json:"last_read_by_customer,omitempty"`
+	LastReadByTechnician *time.Time                    `gorm:"index" json:"last_read_by_technician,omitempty"`
+	TimeSlot             timeslot.TimeSlot             `gorm:"foreignKey:TimeSlotID" json:"time_slot"`
+	Customer             customer.Customer             `gorm:"foreignKey:CustomerID" json:"customer"`
+	Technician           TechnicianSnapshot            `gorm:"-"                              json:"technician"` // ← เปลี่ยน
+	TechnicianService    techService.TechnicianService `gorm:"foreignKey:TechnicianServiceID" json:"technician_service"`
+	Images               []BookingImage                `gorm:"foreignKey:BookingID" json:"images"`
+	FeeRate              *float64                      `gorm:"-" json:"fee_rate,omitempty"`
+	FeeAmount            *float64                      `gorm:"-" json:"fee_amount,omitempty"`
+	NetAmount            *float64                      `gorm:"-" json:"net_amount,omitempty"`
+	CreatedAt            time.Time                     `json:"created_at"`
+	UpdatedAt            time.Time                     `json:"updated_at"`
+	ReviewedAt           *time.Time                    `gorm:"index" json:"reviewed_at,omitempty"`
 }
 
 type BookingImage struct {
@@ -70,22 +63,20 @@ func (Booking) TableName() string      { return "bookings" }
 func (BookingImage) TableName() string { return "booking_images" }
 
 type Review struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	BookingID  uint      `gorm:"not null;uniqueIndex"     json:"booking_id"`
-	CustomerID uint      `gorm:"not null;index"           json:"customer_id"`
-	ServiceID  uint      `gorm:"not null;index"           json:"service_id"`
-	Rating     int8      `gorm:"not null;check:rating >= 1 AND rating <= 5" json:"rating"`
-	Comment    string    `gorm:"type:text"                json:"comment,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-
-	Images []ReviewImage `gorm:"foreignKey:ReviewID" json:"images,omitempty"`
-
-	CustomerName   string `gorm:"-" json:"-"`
-	CustomerAvatar string `gorm:"-" json:"-"`
-	ServiceName    string `gorm:"-" json:"-"`
-	ServicePicture string `gorm:"-" json:"-"`
-	CategoryID     uint   `gorm:"-" json:"-"`
-	CategoryName   string `gorm:"-" json:"-"`
+	ID             uint          `gorm:"primaryKey;autoIncrement" json:"id"`
+	BookingID      uint          `gorm:"not null;uniqueIndex"     json:"booking_id"`
+	CustomerID     uint          `gorm:"not null;index"           json:"customer_id"`
+	ServiceID      uint          `gorm:"not null;index"           json:"service_id"`
+	Rating         int8          `gorm:"not null;check:rating >= 1 AND rating <= 5" json:"rating"`
+	Comment        string        `gorm:"type:text"                json:"comment,omitempty"`
+	CreatedAt      time.Time     `json:"created_at"`
+	Images         []ReviewImage `gorm:"foreignKey:ReviewID" json:"images,omitempty"`
+	CustomerName   string        `gorm:"-" json:"-"`
+	CustomerAvatar string        `gorm:"-" json:"-"`
+	ServiceName    string        `gorm:"-" json:"-"`
+	ServicePicture string        `gorm:"-" json:"-"`
+	CategoryID     uint          `gorm:"-" json:"-"`
+	CategoryName   string        `gorm:"-" json:"-"`
 }
 
 type ReviewImage struct {

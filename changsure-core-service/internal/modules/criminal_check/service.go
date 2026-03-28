@@ -116,7 +116,7 @@ func (s *service) EnqueueVerification(ctx context.Context, technicianID uint, im
 }
 
 func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBytes []byte, filename string) (*VerifyIdentityResponse, error) {
-	
+
 	ocrResult, err := s.ocrService.ProcessOCR(imageBytes, filename)
 	if err != nil {
 		return nil, fmt.Errorf("ocr failed: %w", err)
@@ -124,7 +124,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 
 	rawOCRText := strings.TrimSpace(ocrResult.IDNumber + " " + ocrResult.NameRaw)
 
-	
 	if ocrResult.IDNumber == "" {
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
@@ -140,7 +139,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		}, nil
 	}
 
-	
 	if !ocrResult.Valid {
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
@@ -158,7 +156,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		}, nil
 	}
 
-	
 	if ocrResult.NameRaw == "" {
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
@@ -176,14 +173,12 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		}, nil
 	}
 
-	
 	tech, err := s.techRepo.FindByID(ctx, technicianID)
 	if err != nil || tech == nil {
 		return nil, ErrTechNotFound
 	}
 	systemName := tech.FirstName + " " + tech.LastName
 
-	
 	record, err := s.repo.FindByNationalID(ocrResult.IDNumber)
 	if err != nil {
 		return nil, fmt.Errorf("find criminal record: %w", err)
@@ -191,7 +186,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 
 	status, note, message, isVerified := resolveStatus(record)
 
-	
 	if status == StatusPassed {
 		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
 			status = StatusPending

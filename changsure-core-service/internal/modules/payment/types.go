@@ -37,26 +37,21 @@ type Repository interface {
 }
 
 type Service interface {
-	CreatePaymentQR(
-		ctx context.Context,
-		req *CreateQRRequest,
-	) (*CreateQRResponse, error)
+	CreatePayment(ctx context.Context, req *CreatePaymentRequest) (*CreatePaymentResponse, error)
 	GetPaymentSource(ctx context.Context, sourceID string) (*PaymentSource, error)
 
 	ConfirmPayment(ctx context.Context, bookingID uint) error
-	ConfirmPaymentFromWebhook(
-		ctx context.Context,
-		chargeID string,
-		metadata map[string]interface{},
-		amount int64,
-	) error
+	ConfirmPaymentFromWebhook(ctx context.Context, chargeID string, metadata map[string]interface{}, amount int64) error
 
 	GetPaymentHistory(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error)
 	HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error)
 	CancelPaymentQR(ctx context.Context, bookingID uint) error
 	HandleFailedPayment(ctx context.Context, chargeID string, metadata map[string]interface{}) error
-
 	GetBookingSummary(ctx context.Context, bookingID uint) (*BookingSummary, error)
+}
+
+type OmiseClient interface {
+	CreateSource(ctx context.Context, req *CreateSourceRequest) (*PaymentSource, error)
 }
 
 type CreateSourceRequest struct {
@@ -68,13 +63,6 @@ type CreateSourceRequest struct {
 	Description string
 }
 
-type OmiseClient interface {
-	CreateSource(
-		ctx context.Context,
-		req *CreateSourceRequest,
-	) (*PaymentSource, error)
-}
-
 func FromOmiseSource(
 	source *omise.Source,
 	chargeID string,
@@ -82,7 +70,6 @@ func FromOmiseSource(
 	description string,
 	expiryMinutes int,
 ) *PaymentSource {
-
 	ps := &PaymentSource{
 		ID:          source.ID,
 		Type:        string(source.Type),
@@ -98,14 +85,10 @@ func FromOmiseSource(
 	if source.ScannableCode != nil &&
 		source.ScannableCode.Image != nil &&
 		source.ScannableCode.Image.DownloadURI != "" {
-
 		ps.QRCodeURI = source.ScannableCode.Image.DownloadURI
 		ps.QRReady = true
 	}
 
-	ps.ExpiresAt = source.CreatedAt.Add(
-		time.Duration(expiryMinutes) * time.Minute,
-	)
-
+	ps.ExpiresAt = source.CreatedAt.Add(time.Duration(expiryMinutes) * time.Minute)
 	return ps
 }

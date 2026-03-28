@@ -24,23 +24,10 @@ type Handler struct {
 }
 
 func NewHandler(service Service, s storage.Storage, hub *realtime.Hub) *Handler {
-	return &Handler{
-		service: service,
-		storage: s,
-		hub:     hub,
-	}
+	return &Handler{service: service, storage: s, hub: hub}
 }
 
-func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
-	techID, err := utils.ParseUintParam(c, "technicianID")
-	if err != nil {
-		return 0, err
-	}
-	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
-		return 0, err
-	}
-	return techID, nil
-}
+
 
 func (h *Handler) ListBookings(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
@@ -52,7 +39,6 @@ func (h *Handler) ListBookings(c fiber.Ctx) error {
 	if err := c.Bind().Query(&q); err != nil {
 		return appErrors.BadRequest(c, "invalid query parameters")
 	}
-
 	if details, err := validation.ValidateStruct(q); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
@@ -79,6 +65,8 @@ func (h *Handler) ListBookings(c fiber.Ctx) error {
 	})
 }
 
+
+
 func (h *Handler) GetBooking(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -97,11 +85,15 @@ func (h *Handler) GetBooking(c fiber.Ctx) error {
 
 	h.hydrateBookingMediaURLs(c.Context(), bkg)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    bkg,
-	})
+	return c.JSON(fiber.Map{"success": true, "data": bkg})
 }
+
+
+
+
+
+
+
 
 func (h *Handler) UpdateBookingStatus(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
@@ -118,49 +110,46 @@ func (h *Handler) UpdateBookingStatus(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return appErrors.BadRequest(c, "invalid request body")
 	}
-
 	if details, err := validation.ValidateStruct(req); err != nil {
 		return appErrors.ValidationError(c, details)
 	}
-
 	if err := req.Validate(); err != nil {
 		return appErrors.BadRequest(c, err.Error())
 	}
 
-	var (
-		bkg     *booking.Booking
-		svcErr  error
-		message string
-	)
-
-	switch req.Action {
-	case "ACCEPT":
-		bkg, svcErr = h.service.AcceptBooking(c.Context(), techID, bookingID)
-		message = "รับงานสำเร็จ"
-	case "REJECT":
-		bkg, svcErr = h.service.RejectBooking(c.Context(), techID, bookingID, req.Reason)
-		message = "ปฏิเสธงานสำเร็จ"
-	case "START":
-		bkg, svcErr = h.service.StartJob(c.Context(), techID, bookingID)
-		message = "เริ่มปฏิบัติงาน"
-	case "COMPLETE":
-		bkg, svcErr = h.service.CompleteJob(c.Context(), techID, bookingID)
-		message = "แจ้งงานเสร็จสิ้น"
-	}
-
-	if svcErr != nil {
-		return h.handleError(c, svcErr)
+	bkg, err := h.service.UpdateStatus(c.Context(), techID, bookingID, req)
+	if err != nil {
+		return h.handleError(c, err)
 	}
 
 	h.hydrateBookingMediaURLs(c.Context(), bkg)
-	h.broadcastEvent(bkg, req.Action, req.Reason)
+	h.broadcastStatusChange(bkg, req.Status, req.Reason)
 
+	message := h.statusMessage(req.Status)
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": message,
 		"data":    bkg,
 	})
 }
+
+
+func (h *Handler) statusMessage(status string) string {
+	switch status {
+	case BookingStatusAccepted:
+		return "รับงานสำเร็จ"
+	case BookingStatusRejected:
+		return "ปฏิเสธงานสำเร็จ"
+	case BookingStatusInProgress:
+		return "เริ่มปฏิบัติงาน"
+	case BookingStatusWaitingPayment:
+		return "แจ้งงานเสร็จสิ้น"
+	default:
+		return "อัปเดตสถานะสำเร็จ"
+	}
+}
+
+
 
 func (h *Handler) handleError(c fiber.Ctx, err error) error {
 	switch {
@@ -177,7 +166,9 @@ func (h *Handler) handleError(c fiber.Ctx, err error) error {
 	}
 }
 
-func (h *Handler) broadcastEvent(bkg *booking.Booking, action string, reason string) {
+
+
+func (h *Handler) broadcastStatusChange(bkg *booking.Booking, targetStatus, reason string) {
 	if h.hub == nil || bkg == nil || bkg.CustomerID == 0 {
 		return
 	}
@@ -189,8 +180,8 @@ func (h *Handler) broadcastEvent(bkg *booking.Booking, action string, reason str
 		"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
 	}
 
-	switch action {
-	case "ACCEPT":
+	switch targetStatus {
+	case BookingStatusAccepted:
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent("BOOKING_ACCEPTED", base))
 		chatPayload := realtime.MarshalEvent("CHAT_ROOM_UPDATED", map[string]any{
 			"booking_id": bkg.ID,
@@ -199,7 +190,7 @@ func (h *Handler) broadcastEvent(bkg *booking.Booking, action string, reason str
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, chatPayload)
 		go h.hub.BroadcastToTechnician(bkg.TechnicianID, chatPayload)
 
-	case "REJECT":
+	case BookingStatusRejected:
 		payload := map[string]any{
 			"booking_id":       bkg.ID,
 			"status":           bkg.Status,
@@ -209,19 +200,17 @@ func (h *Handler) broadcastEvent(bkg *booking.Booking, action string, reason str
 		}
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent("BOOKING_REJECTED", payload))
 
-	case "START":
+	case BookingStatusInProgress:
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent("JOB_STARTED", base))
 
-	case "COMPLETE":
+	case BookingStatusWaitingPayment:
 		statusPayload := map[string]any{
-			"booking_id":       bkg.ID,
-			"status":           bkg.Status,
-			"previous_status":  "IN_PROGRESS",
-			"action":           "COMPLETED",
-			"technician_id":    bkg.TechnicianID,
-			"customer_id":      bkg.CustomerID,
-			"appointment_date": bkg.AppointmentDate.Format("2006-01-02"),
-			"can_chat":         false,
+			"booking_id":      bkg.ID,
+			"status":          bkg.Status,
+			"previous_status": "IN_PROGRESS",
+			"technician_id":   bkg.TechnicianID,
+			"customer_id":     bkg.CustomerID,
+			"can_chat":        false,
 		}
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent(realtime.EventBookingStatusChanged, statusPayload))
 		go h.hub.BroadcastToTechnician(bkg.TechnicianID, realtime.MarshalEvent(realtime.EventBookingStatusChanged, statusPayload))
@@ -234,10 +223,11 @@ func (h *Handler) broadcastEvent(bkg *booking.Booking, action string, reason str
 		}
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent(realtime.EventChatRoomLocked, lockPayload))
 		go h.hub.BroadcastToTechnician(bkg.TechnicianID, realtime.MarshalEvent(realtime.EventChatRoomLocked, lockPayload))
-
 		go h.hub.BroadcastToCustomer(bkg.CustomerID, realtime.MarshalEvent(realtime.EventJobCompleted, base))
 	}
 }
+
+
 
 func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Booking) {
 	if b == nil || h.storage == nil {
@@ -282,4 +272,17 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 			b.TechnicianService.Service.ImageURLs[i] = url
 		}
 	}
+}
+
+
+
+func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return 0, err
+	}
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return 0, err
+	}
+	return techID, nil
 }

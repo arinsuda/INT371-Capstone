@@ -2,22 +2,23 @@ package booking
 
 import (
 	address "changsure-core-service/internal/modules/customer_address"
+	bookingconst "changsure-core-service/internal/shared"
+	"context"
 	"fmt"
 	"strings"
 	"time"
 )
 
 const (
-	BookingStatusPending        = "PENDING"
-	BookingStatusAccepted       = "ACCEPTED"
-	BookingStatusInProgress     = "IN_PROGRESS"
-	BookingStatusWaitingPayment = "WAITING_PAYMENT"
-	BookingStatusCompleted      = "COMPLETED"
-	BookingStatusCancelled      = "CANCELLED"
-	BookingStatusRejected       = "REJECTED"
-	BookingStatusPaid           = "PAID"
-
-	PaymentMethodCOD = "COD"
+	BookingStatusPending        = bookingconst.StatusPending
+	BookingStatusAccepted       = bookingconst.StatusAccepted
+	BookingStatusInProgress     = bookingconst.StatusInProgress
+	BookingStatusWaitingPayment = bookingconst.StatusWaitingPayment
+	BookingStatusCompleted      = bookingconst.StatusCompleted
+	BookingStatusCancelled      = bookingconst.StatusCancelled
+	BookingStatusRejected       = bookingconst.StatusRejected
+	BookingStatusPaid           = bookingconst.StatusPaid
+	PaymentMethodCOD            = "COD"
 )
 
 var ExcludedFromAvailability = []string{
@@ -129,4 +130,40 @@ func GetValue(s *string) string {
 		return "-"
 	}
 	return *s
+}
+
+func (r *repository) hydrateTechnicians(ctx context.Context, bookings []Booking) {
+	if len(bookings) == 0 {
+		return
+	}
+	ids := make([]uint, len(bookings))
+	for i, b := range bookings {
+		ids[i] = b.TechnicianID
+	}
+
+	var snaps []TechnicianSnapshot
+	r.db.WithContext(ctx).
+		Table("technicians").
+		Select(`
+			id, first_name, last_name, phone, avatar_url,
+			COALESCE((
+				SELECT ROUND(AVG(rv.rating), 2)
+				FROM reviews rv JOIN bookings bk ON bk.id = rv.booking_id
+				WHERE bk.technician_id = technicians.id
+			), 0) AS rating_avg,
+			COALESCE((
+				SELECT COUNT(*) FROM bookings bk
+				WHERE bk.technician_id = technicians.id AND bk.status = 'COMPLETED'
+			), 0) AS total_jobs
+		`).
+		Where("id IN ?", ids).
+		Scan(&snaps)
+
+	snapMap := make(map[uint]TechnicianSnapshot, len(snaps))
+	for _, s := range snaps {
+		snapMap[s.ID] = s
+	}
+	for i := range bookings {
+		bookings[i].Technician = snapMap[bookings[i].TechnicianID]
+	}
 }

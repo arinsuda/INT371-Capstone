@@ -32,6 +32,7 @@ func NewCleaner(db *gorm.DB, tokenRepo TokenRepository, expireDuration time.Dura
 func (c *Cleaner) Run(ctx context.Context) {
 	c.cleanUnverifiedTechnicians(ctx)
 	c.cleanExpiredTokens(ctx)
+	c.cleanFailedVerificationTechnicians(ctx)
 }
 
 func (c *Cleaner) cleanUnverifiedTechnicians(ctx context.Context) {
@@ -76,6 +77,41 @@ func (c *Cleaner) cleanExpiredTokens(ctx context.Context) {
 		return
 	}
 	c.logger.Info("expired refresh tokens cleaned")
+}
+
+func (c *Cleaner) cleanFailedVerificationTechnicians(ctx context.Context) {
+	cutoff := time.Now().Add(-24 * time.Hour)
+
+	var targets []technician.Technician
+	if err := c.db.WithContext(ctx).
+		Where("verification_status = ? AND updated_at < ?", technician.StatusFailed, cutoff).
+		Select("id, email, updated_at").
+		Find(&targets).Error; err != nil {
+		c.logger.Error("query failed-verification technicians failed", "error", err)
+		return
+	}
+	if len(targets) == 0 {
+		return
+	}
+
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, t := range targets {
+			if err := tx.Delete(&technician.Technician{}, t.ID).Error; err != nil {
+				return err
+			}
+			c.logger.Info("deleted failed-verification technician",
+				"id", t.ID,
+				"email", t.Email,
+				"hours_since_failed", int(time.Since(t.UpdatedAt).Hours()),
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		c.logger.Error("failed-verification cleanup transaction failed", "error", err)
+		return
+	}
+	c.logger.Info("failed-verification technician cleanup done", "deleted", len(targets))
 }
 
 func (c *Cleaner) StartBackground(ctx context.Context, interval time.Duration) {

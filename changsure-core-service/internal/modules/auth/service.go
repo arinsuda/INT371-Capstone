@@ -327,7 +327,6 @@ func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, 
 }
 
 func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Technician, password string) (*LoginResponse, error) {
-
 	if err := bcrypt.CompareHashAndPassword([]byte(tech.PasswordHash), []byte(password)); err != nil {
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
@@ -343,6 +342,23 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 			Role:               RoleTechnician,
 			VerificationStatus: string(tech.VerificationStatus),
 		}, tech.FirstName, tech.LastName)
+	}
+
+	if tech.VerificationStatus == technician.StatusPending && s.criminalRepo != nil {
+		logs, err := s.criminalRepo.GetLogsByTechnicianID(tech.ID)
+		if err == nil && len(logs) > 0 {
+			latest := logs[0]
+
+			if latest.Status == criminalcheck.StatusPending ||
+				latest.Status == criminalcheck.StatusNameNotExtracted {
+				return s.issueTokens(ctx, JWTClaims{
+					UserID:             tech.ID,
+					Email:              *tech.Email,
+					Role:               RoleTechnician,
+					VerificationStatus: string(tech.VerificationStatus),
+				}, tech.FirstName, tech.LastName)
+			}
+		}
 	}
 
 	return nil, s.resolveVerificationError(ctx, tech.ID)
@@ -363,26 +379,18 @@ func (s *service) resolveVerificationError(ctx context.Context, techID uint) err
 
 	switch latest.Status {
 	case criminalcheck.StatusFailed:
-
 		msg := ErrTechnicianVerifyFailed.Error()
 		if latest.Note != "" {
 			msg = fmt.Sprintf("%s: %s", msg, latest.Note)
 		}
 		return appErrors.NewForbidden(msg)
 
-	case criminalcheck.StatusPending,
-		criminalcheck.StatusNameNotExtracted:
-
-		return appErrors.NewForbidden(ErrTechnicianVerifyPending.Error())
-
 	case criminalcheck.StatusOCRFailed:
-
 		return appErrors.NewForbidden(
 			"ID card verification failed — please re-upload your ID card",
 		)
 
 	default:
-
 		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
 	}
 }
