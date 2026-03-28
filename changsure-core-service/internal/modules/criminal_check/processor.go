@@ -22,19 +22,14 @@ type VerificationResult struct {
 func ProcessVerification(
 	ctx context.Context,
 	technicianID uint,
-	ocrItems []infra.OCRItem,
+	ocrResult *infra.OCRResult,
 	criminalRepo Repository,
 	techRepo technician.Repository,
 ) (*VerificationResult, error) {
 
-	var rawTexts []string
-	for _, item := range ocrItems {
-		rawTexts = append(rawTexts, item.Text)
-	}
-	rawOCRText := strings.Join(rawTexts, " ")
+	rawOCRText := strings.TrimSpace(ocrResult.IDNumber + " " + ocrResult.NameRaw)
 
-	nationalID, idCardY := extractNationalIDWithY(ocrItems)
-	if nationalID == "" {
+	if ocrResult.IDNumber == "" {
 		_ = criminalRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
@@ -49,18 +44,34 @@ func ProcessVerification(
 		}, nil
 	}
 
-	extractedName := extractThaiName(ocrItems, idCardY)
-	if extractedName == "" {
+	if !ocrResult.Valid {
 		_ = criminalRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
-			NationalID:   nationalID,
+			NationalID:   ocrResult.IDNumber,
+			Status:       StatusOCRFailed,
+			Note:         "เลข 13 หลักไม่ผ่าน checksum",
+			RawOCRText:   rawOCRText,
+		})
+		return &VerificationResult{
+			TechnicianID: technicianID,
+			NationalID:   ocrResult.IDNumber,
+			Status:       StatusOCRFailed,
+			Note:         "เลข 13 หลักไม่ผ่าน checksum",
+			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้ชัดเจนและครบถ้วน",
+		}, nil
+	}
+
+	if ocrResult.NameRaw == "" {
+		_ = criminalRepo.SaveLog(&VerificationLog{
+			TechnicianID: technicianID,
+			NationalID:   ocrResult.IDNumber,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
 		return &VerificationResult{
 			TechnicianID: technicianID,
-			NationalID:   nationalID,
+			NationalID:   ocrResult.IDNumber,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้เห็นชื่อ-นามสกุลชัดเจน",
@@ -73,24 +84,20 @@ func ProcessVerification(
 	}
 	systemName := tech.FirstName + " " + tech.LastName
 
-	record, err := criminalRepo.FindByNationalID(nationalID)
+	record, err := criminalRepo.FindByNationalID(ocrResult.IDNumber)
 	if err != nil {
 		return nil, fmt.Errorf("find criminal record: %w", err)
 	}
 
 	status, note, message, isVerified := resolveStatus(record)
 
-	if isVerified {
-		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
-	}
-
 	if status == StatusPassed {
-		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
+		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
 			status = StatusPending
 			isVerified = false
 			note = fmt.Sprintf(
 				"เลขบัตรผ่าน แต่ชื่อไม่ตรง — OCR: %q | ระบบ: %q",
-				extractedName, systemName,
+				ocrResult.NameRaw, systemName,
 			)
 			message = "ชื่อในบัตรไม่ตรงกับชื่อในระบบ กรุณารอ admin ตรวจสอบ"
 		}
@@ -98,7 +105,7 @@ func ProcessVerification(
 
 	_ = criminalRepo.SaveLog(&VerificationLog{
 		TechnicianID: technicianID,
-		NationalID:   nationalID,
+		NationalID:   ocrResult.IDNumber,
 		Status:       status,
 		Note:         note,
 		RawOCRText:   rawOCRText,
@@ -110,8 +117,8 @@ func ProcessVerification(
 
 	return &VerificationResult{
 		TechnicianID:  technicianID,
-		NationalID:    nationalID,
-		ExtractedName: extractedName,
+		NationalID:    ocrResult.IDNumber,
+		ExtractedName: ocrResult.NameRaw,
 		SystemName:    systemName,
 		Status:        status,
 		Note:          note,

@@ -20,19 +20,19 @@ func NewOCRService(client infra.OCRClient) OCRService {
 }
 
 func (s *ocrService) ProcessOCR(imageBytes []byte, filename string) (*infra.OCRResult, error) {
-    var lastErr error
+	var lastErr error
 
-    for i := 0; i < 3; i++ {
-        res, err := s.client.Scan(imageBytes, filename)
-        if err == nil {
-            return res, nil
-        }
+	for i := 0; i < 3; i++ {
+		res, err := s.client.Scan(imageBytes, filename)
+		if err == nil {
+			return res, nil
+		}
 
-        lastErr = err
-        time.Sleep(time.Duration(i+1) * 2 * time.Second)
-    }
+		lastErr = err
+		time.Sleep(time.Duration(i+1) * 2 * time.Second)
+	}
 
-    return nil, fmt.Errorf("ocr failed after retries: %w", lastErr)
+	return nil, fmt.Errorf("ocr failed after retries: %w", lastErr)
 }
 
 func (s *ocrService) Ping() (*infra.OCRHealth, error) {

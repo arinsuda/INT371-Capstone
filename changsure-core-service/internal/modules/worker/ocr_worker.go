@@ -124,10 +124,11 @@ func (w *OCRWorker) executeJob(ctx context.Context, job *backgroundjob.Backgroun
 		return
 	}
 
+	
 	result, err := criminalcheck.ProcessVerification(
 		ctx,
 		payload.TechnicianID,
-		ocrResult.Items,
+		ocrResult,
 		w.deps.CriminalRepo,
 		w.deps.TechRepo,
 	)
@@ -142,7 +143,6 @@ func (w *OCRWorker) executeJob(ctx context.Context, job *backgroundjob.Backgroun
 		criminalcheck.StatusOCRFailed,
 		criminalcheck.StatusNameNotExtracted:
 		w.notifyTechnician(ctx, payload.TechnicianID, result.Status, result.Note)
-
 	}
 
 	if err := w.deps.JobRepo.MarkDone(ctx, job.ID); err != nil {
