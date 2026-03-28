@@ -184,12 +184,11 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		return nil, fmt.Errorf("find criminal record: %w", err)
 	}
 
-	status, note, message, isVerified := resolveStatus(record)
+	status, note, message := resolveStatus(record)
 
 	if status == StatusPassed {
 		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
 			status = StatusPending
-			isVerified = false
 			note = fmt.Sprintf(
 				"เลขบัตรผ่าน แต่ชื่อไม่ตรง — OCR: %q | ระบบ: %q",
 				ocrResult.NameRaw, systemName,
@@ -205,11 +204,6 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		Note:         note,
 		RawOCRText:   rawOCRText,
 	})
-
-	if isVerified {
-		_ = s.techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
-		s.notifyVerificationResult(ctx, technicianID, StatusPassed, note)
-	}
 
 	return &VerifyIdentityResponse{
 		TechnicianID:  technicianID,

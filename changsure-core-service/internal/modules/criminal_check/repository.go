@@ -10,23 +10,20 @@ import (
 type Repository interface {
 	FindByNationalID(nationalID string) (*CriminalBlacklist, error)
 	SaveLog(log *VerificationLog) error
-
 	ListLogs(filter ListLogsFilter) ([]VerificationLog, int64, error)
 	GetLogsByTechnicianID(technicianID uint) ([]VerificationLog, error)
 	GetLogByID(logID uint) (*VerificationLog, error)
 	UpdateLogStatus(logID uint, status CheckStatus, note string) error
-
 	SaveOverrideLog(log *AdminOverrideLog) error
 	GetOverrideHistory(targetType string, targetID uint) ([]AdminOverrideLog, error)
-
 	GetStats() (*VerificationStatResponse, error)
-
 	ListCriminalRecords(page, pageSize int) ([]CriminalBlacklist, int64, error)
 	GetCriminalRecordByID(id uint) (*CriminalBlacklist, error)
 	GetCriminalRecordByNationalID(nationalID string) (*CriminalBlacklist, error)
 	CreateCriminalRecord(record *CriminalBlacklist) error
 	UpdateCriminalRecord(id uint, updates map[string]interface{}) error
 	DeleteCriminalRecord(id uint) error
+	WithTx(tx *gorm.DB) Repository
 }
 
 type repository struct {
@@ -178,4 +175,8 @@ func (r *repository) UpdateCriminalRecord(id uint, updates map[string]interface{
 
 func (r *repository) DeleteCriminalRecord(id uint) error {
 	return r.db.Delete(&CriminalBlacklist{}, id).Error
+}
+
+func (r *repository) WithTx(tx *gorm.DB) Repository {
+	return &repository{db: tx}
 }

@@ -33,9 +33,9 @@ func namesMatch(ocrName, systemFirstName, systemLastName string) bool {
 		strings.Contains(normalizedOCR, normalizedLast)
 }
 
-func resolveStatus(record *CriminalBlacklist) (CheckStatus, string, string, bool) {
+func resolveStatus(record *CriminalBlacklist) (CheckStatus, string, string) {
 	if record == nil {
-		return StatusPassed, "ไม่พบประวัติอาชญากรรม", "ผ่านการตรวจสอบประวัติอาชญากรรม", true
+		return StatusPassed, "ไม่พบประวัติอาชญากรรม", "ผ่านการตรวจสอบประวัติอาชญากรรม"
 	}
-	return StatusFailed, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม", false
+	return StatusFailed, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม"
 }

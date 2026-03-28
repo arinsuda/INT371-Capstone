@@ -41,6 +41,7 @@ func DefaultOCRWorkerConfig() OCRWorkerConfig {
 }
 
 type OCRWorkerDeps struct {
+	DB           *gorm.DB
 	JobRepo      backgroundjob.Repository
 	OCRService   ocrservice.OCRService
 	CriminalRepo criminalcheck.Repository
@@ -124,9 +125,9 @@ func (w *OCRWorker) executeJob(ctx context.Context, job *backgroundjob.Backgroun
 		return
 	}
 
-	
 	result, err := criminalcheck.ProcessVerification(
 		ctx,
+		w.deps.DB,
 		payload.TechnicianID,
 		ocrResult,
 		w.deps.CriminalRepo,

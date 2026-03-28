@@ -8,6 +8,7 @@ import (
 )
 
 type Repository interface {
+	WithTx(tx *gorm.DB) Repository
 	FindByID(ctx context.Context, id uint) (*Technician, error)
 	FindByEmail(ctx context.Context, email string) (*Technician, error)
 	FindByPhone(ctx context.Context, phone string) (*Technician, error)
@@ -307,4 +308,8 @@ func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]
 		Find(&list).Error
 
 	return list, total, err
+}
+
+func (r *repository) WithTx(tx *gorm.DB) Repository {
+	return &repository{db: tx}
 }

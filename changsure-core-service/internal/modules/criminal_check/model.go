@@ -7,6 +7,7 @@ type CheckStatus string
 const (
 	StatusPassed           CheckStatus = "PASSED"
 	StatusFailed           CheckStatus = "FAILED"
+	StatusReview           CheckStatus = "REVIEW"
 	StatusPending          CheckStatus = "PENDING"
 	StatusOCRFailed        CheckStatus = "OCR_FAILED"
 	StatusNameNotExtracted CheckStatus = "NAME_NOT_EXTRACTED"

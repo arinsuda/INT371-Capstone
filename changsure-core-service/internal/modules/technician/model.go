@@ -44,10 +44,6 @@ type Technician struct {
 	Services           []tsvc.TechnicianService               `gorm:"foreignKey:TechnicianID" json:"services,omitempty"`
 }
 
-func (t *Technician) IsVerified() bool {
-	return t.VerificationStatus == StatusPassed
-}
-
 func (Technician) TableName() string { return "technicians" }
 
 func Models() []interface{} {

@@ -40,7 +40,7 @@ func (c *Cleaner) cleanUnverifiedTechnicians(ctx context.Context) {
 
 	var targets []technician.Technician
 	if err := c.db.WithContext(ctx).
-		Where("is_verified = ? AND created_at < ?", false, cutoff).
+		Where("verification_status = ? AND created_at < ?", technician.StatusPending, cutoff).
 		Select("id, email, created_at").
 		Find(&targets).Error; err != nil {
 		c.logger.Error("query unverified technicians failed", "error", err)
