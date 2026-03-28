@@ -22,7 +22,7 @@ type ocrClient struct {
 func NewOCRClient(baseURL string) OCRClient {
 	return &ocrClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 120 * time.Second},
+		client:  &http.Client{Timeout: 20 * time.Second},
 	}
 }
 
