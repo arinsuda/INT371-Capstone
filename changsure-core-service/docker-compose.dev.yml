@@ -78,28 +78,26 @@ services:
     networks:
       - changsure-net
 
-ocr:
-  container_name: changsure-ocr-local
-  build:
-    context: ../ocr-service
-    dockerfile: Dockerfile
-    target: runtime
-  restart: unless-stopped
+  ocr:
+    container_name: changsure-ocr-local
+    build:
+      context: ../ocr-service
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
 
-  environment:
-    OCR_USE_GPU: false
-    OCR_WORKERS: 1
-    OCR_TIMEOUT_SECONDS: 20  
-    MIN_CONFIDENCE_THRESHOLD: 0.3
+    environment:
+      - OCR_USE_GPU=false
+      - OCR_WORKERS=1
+      - OCR_TIMEOUT_SECONDS=20
+      - OCR_MAX_CONCURRENT=1
+      - RATE_LIMIT_ENABLED=false
 
-  mem_limit: 2g            
-  cpus: 1.0                  
-
-  ports:
-    - "127.0.0.1:8000:8000"
-
-  networks:
-    - changsure-net
+    mem_limit: 2g            
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - changsure-net
 
 volumes:
   mysql_data:

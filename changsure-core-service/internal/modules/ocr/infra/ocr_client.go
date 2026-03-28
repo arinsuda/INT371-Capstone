@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"time"
 )
 
@@ -88,7 +89,12 @@ func (c *ocrClient) Scan(imageBytes []byte, filename string) (*OCRResult, error)
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("file", filename)
+	part, err := writer.CreatePart(
+		textproto.MIMEHeader{
+			"Content-Disposition": {fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename)},
+			"Content-Type":        {"image/jpeg"},
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create form file: %w", err)
 	}
