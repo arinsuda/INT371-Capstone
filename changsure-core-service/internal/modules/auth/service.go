@@ -173,13 +173,13 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 	phone := strings.TrimSpace(req.Phone)
 
 	if taken, err := s.isEmailTaken(ctx, email); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check email: %w", err)
 	} else if taken {
 		return nil, appErrors.NewConflict(ErrEmailAlreadyExists.Error())
 	}
 
 	if taken, err := s.isPhoneTaken(ctx, phone); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check phone: %w", err)
 	} else if taken {
 		return nil, appErrors.NewConflict(ErrPhoneAlreadyExists.Error())
 	}
@@ -210,6 +210,8 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
+
+	var preVerifiedToken string
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
@@ -246,26 +248,31 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 			return fmt.Errorf("accept terms: %w", err)
 		}
 
+		token, err := IssueAccessToken(TokenConfig{
+			Secret:    s.cfg.Secret,
+			AccessTTL: 15 * 24 * time.Hour,
+		}, JWTClaims{
+			UserID:             tech.ID,
+			Email:              email,
+			Role:               RoleTechnician,
+			VerificationStatus: string(technician.StatusPending),
+			Scope:              jwtutil.ScopePreVerified,
+		})
+		if err != nil {
+			return fmt.Errorf("issue token: %w", err)
+		}
+
+		preVerifiedToken = token
+
 		return nil
 	})
+
 	if err != nil {
+
+		if strings.Contains(err.Error(), "duplicate") {
+			return nil, appErrors.NewConflict("duplicate data")
+		}
 		return nil, err
-	}
-
-	preVerifiedCfg := TokenConfig{
-		Secret:    s.cfg.Secret,
-		AccessTTL: 15 * 24 * time.Hour,
-	}
-
-	preVerifiedToken, err := IssueAccessToken(preVerifiedCfg, JWTClaims{
-		UserID:             tech.ID,
-		Email:              email,
-		Role:               RoleTechnician,
-		VerificationStatus: string(technician.StatusPending),
-		Scope:              jwtutil.ScopePreVerified,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("issue pre_verified token: %w", err)
 	}
 
 	return &RegisterTechnicianResponse{
@@ -277,7 +284,7 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		VerificationStatus:   string(technician.StatusPending),
 		Message:              "สมัครสมาชิกสำเร็จ กรุณาอัปโหลดบัตรประชาชนเพื่อยืนยันตัวตน",
 		PreVerifiedToken:     preVerifiedToken,
-		PreVerifiedExpiresIn: preVerifiedCfg.AccessTTLSeconds(),
+		PreVerifiedExpiresIn: int64((15 * 24 * time.Hour).Seconds()),
 		NextStep: NextStepInfo{
 			Action:   "upload_id_card",
 			Endpoint: fmt.Sprintf("/api/technicians/%d/verify-identity", tech.ID),
