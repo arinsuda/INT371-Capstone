@@ -586,7 +586,7 @@ class TechnicianService {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-          '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity',
+          '${ApiConstants.baseUrl}/technicians/$technicianId/identity-verifications',
         ),
       );
 
@@ -633,7 +633,7 @@ class TechnicianService {
     String token,
   ) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity/jobs/$jobId',
+      '${ApiConstants.baseUrl}/technicians/identity-verifications/$jobId',
     );
 
     try {
