@@ -268,6 +268,35 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
               ),
             ),
 
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              decoration: BoxDecoration(
+                color: AppColors.colorWarning,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_outlined,
+                    size: 18,
+                    color: Color(0xFFAD6800),
+                  ),
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Text(
+                      "เมื่อรับงานแล้ว ไม่สามารถเปลี่ยนราคาได้ระหว่างการให้บริการ ",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFAD6800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 8),
 
             Padding(
