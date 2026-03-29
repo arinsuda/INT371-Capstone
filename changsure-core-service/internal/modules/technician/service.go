@@ -637,6 +637,8 @@ func (s *service) toProfileRes(ctx context.Context, tech *Technician) *Technicia
 		Services:           s.toServicesRes(tech.Services),
 		ServiceSummary:     s.toServiceSummary(tech.Services),
 		Badges:             s.toBadgesRes(ctx, tech.Badges),
+		CreatedAt:          tech.CreatedAt.Unix(),
+		UpdatedAt:          tech.UpdatedAt.Unix(),
 	}
 }
 

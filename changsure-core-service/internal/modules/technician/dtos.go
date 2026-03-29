@@ -99,6 +99,8 @@ type TechnicianProfileRes struct {
 	Services           []TechServiceRes             `json:"services"`
 	ServiceSummary     []TechServiceSummary         `json:"service_summary"`
 	Badges             []badges.BadgeResponse       `json:"badges"`
+	CreatedAt          int64                        `json:"created_at"`
+	UpdatedAt          int64                        `json:"updated_at"`
 }
 
 type TechnicianStatus struct {
