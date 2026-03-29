@@ -3,10 +3,7 @@ package criminalcheck
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
-
-	"gorm.io/gorm"
 
 	"changsure-core-service/internal/modules/ocr/infra"
 	"changsure-core-service/internal/modules/technician"
@@ -24,31 +21,21 @@ type VerificationResult struct {
 
 func ProcessVerification(
 	ctx context.Context,
-	db *gorm.DB,
 	technicianID uint,
-	ocrResult *infra.OCRResult,
+	ocrItems []infra.OCRItem,
 	criminalRepo Repository,
 	techRepo technician.Repository,
 ) (*VerificationResult, error) {
 
-	// guard: db nil จะทำให้ panic ใน SaveLog ภายใน transaction
-	if db == nil {
-		return nil, fmt.Errorf("ProcessVerification: db is nil — check OCRWorkerDeps.DB wiring")
+	var rawTexts []string
+	for _, item := range ocrItems {
+		rawTexts = append(rawTexts, item.Text)
 	}
+	rawOCRText := strings.Join(rawTexts, " ")
 
-	rawOCRText := strings.TrimSpace(ocrResult.IDNumber + " " + ocrResult.NameRaw)
-
-	// saveLog สำหรับ early-return ก่อนถึง transaction
-	// ใช้ criminalRepo โดยตรง (ไม่ผ่าน tx) เพราะยังไม่มี transaction เปิดอยู่
-	saveEarlyLog := func(logItem *VerificationLog) {
-		if err := criminalRepo.SaveLog(logItem); err != nil {
-			log.Printf("[WARN] save early verification log failed: %v", err)
-		}
-	}
-
-	// --- 1) OCR validations ---
-	if ocrResult.IDNumber == "" {
-		saveEarlyLog(&VerificationLog{
+	nationalID, idCardY := extractNationalIDWithY(ocrItems)
+	if nationalID == "" {
+		_ = criminalRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
 			Note:         "ไม่สามารถ extract เลขบัตรประชาชนจากรูปภาพได้",
@@ -62,116 +49,69 @@ func ProcessVerification(
 		}, nil
 	}
 
-	if !ocrResult.Valid {
-		saveEarlyLog(&VerificationLog{
+	extractedName := extractThaiName(ocrItems, idCardY)
+	if extractedName == "" {
+		_ = criminalRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
-			NationalID:   ocrResult.IDNumber,
-			Status:       StatusOCRFailed,
-			Note:         "เลข 13 หลักไม่ผ่าน checksum",
-			RawOCRText:   rawOCRText,
-		})
-		return &VerificationResult{
-			TechnicianID: technicianID,
-			NationalID:   ocrResult.IDNumber,
-			Status:       StatusOCRFailed,
-			Note:         "เลข 13 หลักไม่ผ่าน checksum",
-			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้ชัดเจนและครบถ้วน",
-		}, nil
-	}
-
-	if ocrResult.NameRaw == "" {
-		saveEarlyLog(&VerificationLog{
-			TechnicianID: technicianID,
-			NationalID:   ocrResult.IDNumber,
+			NationalID:   nationalID,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
 		return &VerificationResult{
 			TechnicianID: technicianID,
-			NationalID:   ocrResult.IDNumber,
+			NationalID:   nationalID,
 			Status:       StatusNameNotExtracted,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้เห็นชื่อ-นามสกุลชัดเจน",
 		}, nil
 	}
 
-	// --- 2) load technician ---
 	tech, err := techRepo.FindByID(ctx, technicianID)
 	if err != nil || tech == nil {
 		return nil, ErrTechNotFound
 	}
 	systemName := tech.FirstName + " " + tech.LastName
 
-	// --- 3) criminal check ---
-	record, err := criminalRepo.FindByNationalID(ocrResult.IDNumber)
+	record, err := criminalRepo.FindByNationalID(nationalID)
 	if err != nil {
 		return nil, fmt.Errorf("find criminal record: %w", err)
 	}
 
-	status, note, message := resolveStatus(record)
+	status, note, message, isVerified := resolveStatus(record)
 
-	// --- 4) name matching ---
+	if isVerified {
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
+	}
+
 	if status == StatusPassed {
-		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
-			status = StatusReview
+		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
+			status = StatusPending
+			isVerified = false
 			note = fmt.Sprintf(
 				"เลขบัตรผ่าน แต่ชื่อไม่ตรง — OCR: %q | ระบบ: %q",
-				ocrResult.NameRaw, systemName,
+				extractedName, systemName,
 			)
 			message = "ชื่อในบัตรไม่ตรงกับชื่อในระบบ กรุณารอ admin ตรวจสอบ"
 		}
 	}
 
-	// --- 5) transactional persist ---
-	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txRepo := criminalRepo.WithTx(tx)
-		txTechRepo := techRepo.WithTx(tx)
-
-		// 5.1 save log
-		if err := txRepo.SaveLog(&VerificationLog{
-			TechnicianID: technicianID,
-			NationalID:   ocrResult.IDNumber,
-			Status:       status,
-			Note:         note,
-			RawOCRText:   rawOCRText,
-		}); err != nil {
-			return fmt.Errorf("save verification log: %w", err)
-		}
-
-		// 5.2 idempotent guard
-		if technician.VerificationStatus(status) == tech.VerificationStatus {
-			return nil
-		}
-
-		// 5.3 update technician verification status
-		switch status {
-		case StatusPassed:
-			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed); err != nil {
-				return fmt.Errorf("update status PASSED: %w", err)
-			}
-		case StatusFailed:
-			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusFailed); err != nil {
-				return fmt.Errorf("update status FAILED: %w", err)
-			}
-		case StatusReview:
-			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusReview); err != nil {
-				return fmt.Errorf("update status REVIEW: %w", err)
-			}
-		}
-
-		return nil
+	_ = criminalRepo.SaveLog(&VerificationLog{
+		TechnicianID: technicianID,
+		NationalID:   nationalID,
+		Status:       status,
+		Note:         note,
+		RawOCRText:   rawOCRText,
 	})
 
-	if err != nil {
-		return nil, err
+	if isVerified {
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
 	}
 
-	// --- 6) response ---
 	return &VerificationResult{
 		TechnicianID:  technicianID,
-		NationalID:    ocrResult.IDNumber,
-		ExtractedName: ocrResult.NameRaw,
+		NationalID:    nationalID,
+		ExtractedName: extractedName,
 		SystemName:    systemName,
 		Status:        status,
 		Note:          note,

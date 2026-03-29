@@ -5,52 +5,53 @@ import cv2
 import numpy as np
 
 from app.core.config import settings
-from app.services.orientation import fix_orientation
+from app.core.exceptions import InvalidImageError, ImageTooSmallError
 
 logger = logging.getLogger(__name__)
 
 
-def _decode(image_bytes: bytes) -> np.ndarray:
+def decode_image(image_bytes: bytes) -> np.ndarray:
     arr = np.frombuffer(image_bytes, dtype=np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
-        raise ValueError("Could not decode image — corrupt or unsupported format")
+        raise InvalidImageError(
+            "Cannot decode image — unsupported format or corrupted file"
+        )
     return img
 
 
-def _resize(img: np.ndarray, target_w: int = 1280) -> np.ndarray:
+def validate_dimensions(img: np.ndarray) -> None:
+    h, w = img.shape[:2]
+    if w < settings.MIN_IMAGE_WIDTH or h < settings.MIN_IMAGE_HEIGHT:
+        raise ImageTooSmallError(
+            f"Image {w}x{h} is below minimum {settings.MIN_IMAGE_WIDTH}x{settings.MIN_IMAGE_HEIGHT}"
+        )
+
+
+def resize_for_ocr(img: np.ndarray) -> np.ndarray:
     """
-    Resize ให้ได้ target_w เสมอ
-    - ใหญ่กว่า → INTER_AREA (downscale)
-    - เล็กกว่า → INTER_CUBIC (upscale ให้ OCR อ่านชัดขึ้น)
+    Resize รูปให้อยู่ในช่วง 1200-1400px width
+    - ใหญ่กว่า 1400 → downscale (ลด RAM ที่ EasyOCR ใช้)
+    - เล็กกว่า 1200 → upscale (ให้ OCR อ่านได้ชัดขึ้น)
+    - Thai ID card จริงๆ ไม่จำเป็นต้องใหญ่กว่า 1400px
     """
     h, w = img.shape[:2]
+    target_w = 1280
+
     if w == target_w:
         return img
+
     scale = target_w / w
+    new_w = target_w
     new_h = int(h * scale)
+
     interp = cv2.INTER_AREA if w > target_w else cv2.INTER_CUBIC
-    return cv2.resize(img, (target_w, new_h), interpolation=interp)
+    img = cv2.resize(img, (new_w, new_h), interpolation=interp)
+    logger.debug(f"Resized {w}x{h} → {new_w}x{new_h} (scale={scale:.2f})")
+    return img
 
 
-def _clahe(img: np.ndarray) -> np.ndarray:
-    """
-    CLAHE บน L channel ของ LAB — ดีกว่า equalizeHist มากสำหรับภาพที่มี
-    background สีหรือแสงไม่สม่ำเสมอ (เช่น บัตรสีฟ้า/เขียว)
-    """
-    try:
-        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        return cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
-    except Exception as e:
-        logger.warning("CLAHE failed (non-fatal): %s", e)
-        return img
-
-
-def _deskew(img: np.ndarray) -> np.ndarray:
-    """Detect และ correct skew angle ไม่เกิน ±10°"""
+def deskew(img: np.ndarray) -> np.ndarray:
     try:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 50, 150, apertureSize=3)
@@ -72,74 +73,61 @@ def _deskew(img: np.ndarray) -> np.ndarray:
         if abs(median_angle) < 0.5:
             return img
 
-        logger.debug("Deskewing by %.2f°", median_angle)
+        logger.debug(f"Deskewing by {median_angle:.2f}°")
         h, w = img.shape[:2]
         M = cv2.getRotationMatrix2D((w // 2, h // 2), median_angle, 1.0)
-        return cv2.warpAffine(img, M, (w, h),
-                              flags=cv2.INTER_CUBIC,
-                              borderMode=cv2.BORDER_REPLICATE)
+        img = cv2.warpAffine(
+            img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+        )
     except Exception as e:
-        logger.warning("Deskew failed (non-fatal): %s", e)
-        return img
+        logger.warning(f"Deskew failed (non-fatal): {e}")
+    return img
 
 
-def _crop_regions(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Crop ตาม layout บัตรประชาชนไทย
-    - id_region:   แถวบน  (เลข 13 หลัก)
-    - name_region: แถวกลาง (ชื่อ-นามสกุล)
-
-    x เริ่มจาก 0.20 เพื่อตัด barcode ด้านซ้ายออก
-    """
-    h, w = img.shape[:2]
-    id_region   = img[int(h * 0.05) : int(h * 0.35), int(w * 0.20) : int(w * 0.95)]
-    name_region = img[int(h * 0.35) : int(h * 0.60), int(w * 0.20) : int(w * 0.95)]
-    return np.ascontiguousarray(id_region), np.ascontiguousarray(name_region)
+def enhance_contrast(img: np.ndarray) -> np.ndarray:
+    try:
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        l = clahe.apply(l)
+        img = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+    except Exception as e:
+        logger.warning(f"Contrast enhancement failed (non-fatal): {e}")
+    return img
 
 
-def preprocess(image_bytes: bytes) -> tuple[np.ndarray, np.ndarray, dict]:
-    """
-    Pipeline:
-      1. Decode
-      2. Resize → 1280px (upscale ถ้าเล็กกว่า, downscale ถ้าใหญ่กว่า)
-      3. CLAHE contrast enhancement (LAB colorspace)
-      4. Deskew (optional, ควบคุมด้วย SKIP_ORIENTATION_CHECK)
-      5. Crop 2 regions → ส่งเข้า EasyOCR แยกกัน (accurate กว่า full image)
-
-    Returns:
-        (id_region, name_region, orientation_meta)
-        โดย id_region และ name_region เป็น BGR image (ไม่ threshold)
-        เพราะ EasyOCR จัดการ preprocessing ภายในได้ดีกว่า
-
-    Raises:
-        ValueError — corrupt / unreadable image
-    """
-    img = _decode(image_bytes)
-
+def preprocess(image_bytes: bytes) -> tuple[np.ndarray, dict]:
+    img = decode_image(image_bytes)
     original_h, original_w = img.shape[:2]
-    logger.debug("Input image: %dx%d", original_w, original_h)
+    validate_dimensions(img)
 
-    # 1. Resize
-    img = _resize(img, target_w=1280)
+    meta = {
+        "original_width": original_w,
+        "original_height": original_h,
+        "preprocessing_steps": [],
+    }
 
-    # 2. CLAHE
-    img = _clahe(img)
+    if not settings.ENABLE_PREPROCESSING:
+        return img, meta
 
-    # 3. Orientation / deskew
-    if settings.SKIP_ORIENTATION_CHECK:
-        orientation_meta: dict = {"rotation_applied_deg": 0}
-    else:
-        img = _deskew(img)
-        orientation_meta = {"rotation_applied_deg": 0}
+    # 1. Resize ให้อยู่ที่ 1280px เสมอ — ลด RAM ที่ EasyOCR ต้องใช้
+    img = resize_for_ocr(img)
+    meta["preprocessing_steps"].append("downscale" if original_w > 1280 else "upscale")
 
-    # 4. Crop regions
-    id_region, name_region = _crop_regions(img)
-    del img
+    # 2. CLAHE contrast
+    img = enhance_contrast(img)
+    meta["preprocessing_steps"].append("clahe")
+
+    # 3. Deskew
+    if settings.ENABLE_DESKEW:
+        img = deskew(img)
+        meta["preprocessing_steps"].append("deskew")
+
+    meta["processed_width"] = img.shape[1]
+    meta["processed_height"] = img.shape[0]
 
     logger.debug(
-        "Preprocessed: %dx%d → id_region=%s name_region=%s",
-        original_w, original_h,
-        id_region.shape, name_region.shape,
+        f"Preprocess done: {original_w}x{original_h} → "
+        f"{img.shape[1]}x{img.shape[0]}, steps={meta['preprocessing_steps']}"
     )
-
-    return id_region, name_region, orientation_meta
+    return img, meta

@@ -1,37 +1,61 @@
-from pydantic_settings import BaseSettings
+from functools import lru_cache
+from typing import List
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    APP_ENV: str = "development"
-    DEBUG: bool = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
-    OCR_LANGUAGES: list[str] = ["th", "en"]
-    OCR_USE_GPU: bool = True
-    OCR_TIMEOUT_SECONDS: int = 120
-    OCR_MODEL_DIR: str = "/app/.easyocr/model"
+    # ── App ──────────────────────────────────────────────
+    APP_ENV: str = "production"
+    ENABLE_DOCS: bool = False
+    CORS_ORIGINS: List[str] = ["*"]
 
-    MAX_IMAGE_WIDTH: int = 1024
-    MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024
+    # ── OCR Engine ───────────────────────────────────────
+    OCR_LANGUAGES: List[str] = ["th", "en"]
+    OCR_USE_GPU: bool = False
+    OCR_WORKERS: int = 2  # parallel OCR workers
+    OCR_TIMEOUT_SECONDS: int = 60
 
-    BATCH_MAX_FILES: int = 10
-    BATCH_MAX_CONCURRENCY: int = 1
-
-    MIN_CONFIDENCE_THRESHOLD: float = 0.3
-
-    ALLOWED_CONTENT_TYPES: list[str] = [
+    # ── Image Validation ─────────────────────────────────
+    MAX_FILE_SIZE_MB: float = 10.0
+    ALLOWED_CONTENT_TYPES: List[str] = [
         "image/jpeg",
         "image/png",
         "image/webp",
+        "image/bmp",
+        "image/tiff",
     ]
+    MIN_IMAGE_WIDTH: int = 300
+    MIN_IMAGE_HEIGHT: int = 200
+    MAX_IMAGE_WIDTH: int = 8000
+    MAX_IMAGE_HEIGHT: int = 8000
 
-    RATE_LIMIT_REQUESTS: int = 10
-    RATE_LIMIT_WINDOW_SECONDS: int = 60
+    # ── Preprocessing ────────────────────────────────────
+    ENABLE_PREPROCESSING: bool = True
+    ENABLE_DESKEW: bool = True
+    ENABLE_DENOISE: bool = False  # ปิด — กิน RAM มากบน CPU
+    TARGET_DPI: int = 300
 
-    TRUSTED_PROXY_IPS: list[str] = ["127.0.0.1"]
+    # ── Confidence ───────────────────────────────────────
+    MIN_CONFIDENCE_THRESHOLD: float = 0.5
 
-    
-    
-    SKIP_ORIENTATION_CHECK: bool = False
+    # ── Rate Limiting ────────────────────────────────────
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    @property
+    def MAX_FILE_SIZE_BYTES(self) -> int:
+        return int(self.MAX_FILE_SIZE_MB * 1024 * 1024)
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
