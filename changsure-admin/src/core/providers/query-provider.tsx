@@ -17,9 +17,13 @@ export const QueryProviderLayout = (props: {
     () =>
       new QueryClient({
         queryCache: new QueryCache({
-          onError: (error: AxiosError<{ message?: string }>) => {
-            console.log(error.response?.data?.message || error.message);
-          },
+onError: (error) => {
+  const axiosError = error as AxiosError<{ message?: string }>;
+
+  console.log(
+    axiosError.response?.data?.message || axiosError.message
+  );
+},
         }),
         defaultOptions: {
           queries: {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -21,14 +22,18 @@ type Config struct {
 	JWT      JWTConfig
 	Redis    RedisConfig
 	Minio    MinioConfig
-	OCR      OCRConfig `mapstructure:"ocr"`
+	OCR      OCRConfig
+	Omise    OmiseConfig
+	Mailer   MailerConfig
+	Wallet   WalletConfig
 }
 
 type AppConfig struct {
-	Name        string
-	Port        string
-	Environment string
-	Debug       bool
+	Name           string
+	Port           string
+	Environment    string
+	Debug          bool
+	AllowedOrigins []string
 }
 
 type DatabaseConfig struct {
@@ -69,17 +74,36 @@ type MinioConfig struct {
 	MaxFileMB          int
 	AllowDocTypes      []string
 	AllowMIME          []string
-
-	AllowDocTypesSet map[string]struct{}
-	AllowMIMESet     map[string]struct{}
-
-	EnableVirusScan bool
-
-	PublicBaseURL string
+	AllowDocTypesSet   map[string]struct{}
+	AllowMIMESet       map[string]struct{}
+	EnableVirusScan    bool
+	PublicBaseURL      string
 }
 
 type OCRConfig struct {
-	BaseURL string `mapstructure:"base_url" json:"base_url"`
+	BaseURL string
+}
+
+type OmiseConfig struct {
+	PublicKey       string
+	SecretKey       string
+	Currency        string
+	Timeout         time.Duration
+	WebhookSecret   string
+	QRExpiryMinutes int
+}
+
+type MailerConfig struct {
+	Host     string `mapstructure:"MAILER_HOST"`
+	Port     int    `mapstructure:"MAILER_PORT"`
+	Username string `mapstructure:"MAILER_USERNAME"`
+	Password string `mapstructure:"MAILER_PASSWORD"`
+	From     string `mapstructure:"MAILER_FROM"`
+	FromName string `mapstructure:"MAILER_FROM_NAME"`
+}
+
+type WalletConfig struct {
+	PlatformFeeRate float64
 }
 
 var GlobalConfig *Config
@@ -96,10 +120,11 @@ func LoadConfig() *Config {
 
 	cfg := &Config{
 		App: AppConfig{
-			Name:        getEnv("APP_NAME"),
-			Port:        getEnv("PORT"),
-			Environment: getEnv("APP_ENV"),
-			Debug:       getEnvAsBool("APP_DEBUG"),
+			Name:           getEnv("APP_NAME"),
+			Port:           getEnv("PORT"),
+			Environment:    getEnv("APP_ENV"),
+			Debug:          getEnvAsBool("APP_DEBUG"),
+			AllowedOrigins: getEnvAsCSVOptional("ALLOWED_ORIGINS"),
 		},
 		Database: DatabaseConfig{
 			Driver:          getEnv("DB_DRIVER"),
@@ -139,10 +164,30 @@ func LoadConfig() *Config {
 			AllowDocTypesSet:   sliceToSet(allowDocTypes),
 			AllowMIMESet:       sliceToSet(allowMIME),
 			EnableVirusScan:    getEnvAsBool("ENABLE_VIRUS_SCAN"),
-			PublicBaseURL:      os.Getenv("MINIO_PUBLIC_URL"),
+			PublicBaseURL:      os.Getenv("MINIO_PUBLIC_ENDPOINT"),
 		},
 		OCR: OCRConfig{
 			BaseURL: getEnv("OCR_BASE_URL"),
+		},
+		Omise: OmiseConfig{
+			PublicKey:       os.Getenv("OMISE_PUBLIC_KEY"),
+			SecretKey:       os.Getenv("OMISE_SECRET_KEY"),
+			Currency:        os.Getenv("OMISE_CURRENCY"),
+			Timeout:         time.Duration(getEnvAsInt("OMISE_TIMEOUT_SECONDS")) * time.Second,
+			WebhookSecret:   os.Getenv("OMISE_WEBHOOK_SECRET"),
+			QRExpiryMinutes: getEnvAsInt("OMISE_QR_EXPIRY_MINUTES"),
+		},
+		Mailer: MailerConfig{
+			Host:     os.Getenv("MAILER_HOST"),
+			Port:     getEnvAsInt("MAILER_PORT"),
+			Username: os.Getenv("MAILER_USERNAME"),
+			Password: os.Getenv("MAILER_PASSWORD"),
+			From:     os.Getenv("MAILER_FROM"),
+			FromName: os.Getenv("MAILER_FROM_NAME"),
+		},
+
+		Wallet: WalletConfig{
+			PlatformFeeRate: getEnvAsFloat("PLATFORM_FEE_RATE", 0.05),
 		},
 	}
 
@@ -169,7 +214,7 @@ func (c *Config) IsStaging() bool {
 func getEnv(key string) string {
 	v, ok := os.LookupEnv(key)
 	if !ok || strings.TrimSpace(v) == "" {
-		log.Fatalf("missing required env %s", key)
+		log.Fatalf("[ERROR] missing required env: %s", key)
 	}
 	return v
 }
@@ -178,7 +223,7 @@ func getEnvAsInt(key string) int {
 	raw := getEnv(key)
 	n, err := strconv.Atoi(raw)
 	if err != nil {
-		log.Fatalf("invalid int for %s=%q", key, raw)
+		log.Fatalf("[ERROR] invalid int for %s=%q", key, raw)
 	}
 	return n
 }
@@ -187,20 +232,30 @@ func getEnvAsBool(key string) bool {
 	raw := getEnv(key)
 	b, err := strconv.ParseBool(raw)
 	if err != nil {
-		log.Fatalf("invalid bool for %s=%q (expected true/false/1/0)", key, raw)
+		log.Fatalf("[ERROR] invalid bool for %s=%q (expected true/false/1/0)", key, raw)
 	}
 	return b
 }
 
-func getEnvAsCSVOptional(key string) []string {
-	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
-		return splitCSV(v)
+func getEnvAsFloat(key string, defaultVal float64) float64 {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return defaultVal
 	}
-	return nil
+	f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	if err != nil {
+		log.Printf("[WARN] invalid float for %s=%q, using default %.4f", key, v, defaultVal)
+		return defaultVal
+	}
+	return f
 }
 
-func getEnvAsCSVStrict(key string) []string {
-	return splitCSV(getEnv(key))
+func getEnvAsCSVOptional(key string) []string {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return nil
+	}
+	return splitCSV(v)
 }
 
 func splitCSV(raw string) []string {
@@ -215,9 +270,6 @@ func splitCSV(raw string) []string {
 }
 
 func sliceToSet(items []string) map[string]struct{} {
-	if len(items) == 0 {
-		return map[string]struct{}{}
-	}
 	m := make(map[string]struct{}, len(items))
 	for _, v := range items {
 		if s := strings.TrimSpace(v); s != "" {

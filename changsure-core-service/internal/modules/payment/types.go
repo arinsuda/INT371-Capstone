@@ -1,0 +1,94 @@
+package payment
+
+import (
+	"context"
+	"time"
+
+	"github.com/omise/omise-go"
+)
+
+type BookingSummary struct {
+	ID           uint
+	CustomerID   uint
+	TechnicianID uint
+}
+
+type PaymentSource struct {
+	ID       string
+	Type     string
+	Amount   int64
+	Currency string
+
+	Status    string
+	QRCodeURI string
+	QRReady   bool
+
+	ChargeID    string
+	PaymentID   string
+	Description string
+
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+type Repository interface {
+	CreatePromptPaySource(ctx context.Context, req *CreateSourceRequest) (*PaymentSource, error)
+	GetSource(ctx context.Context, sourceID string) (*PaymentSource, error)
+}
+
+type Service interface {
+	CreatePayment(ctx context.Context, req *CreatePaymentRequest) (*CreatePaymentResponse, error)
+	GetPaymentSource(ctx context.Context, sourceID string) (*PaymentSource, error)
+
+	ConfirmPayment(ctx context.Context, bookingID uint) error
+	ConfirmPaymentFromWebhook(ctx context.Context, chargeID string, metadata map[string]interface{}, amount int64) error
+
+	GetPaymentHistory(ctx context.Context, bookingID uint) ([]*PaymentTransaction, error)
+	HasSuccessfulPayment(ctx context.Context, bookingID uint) (bool, error)
+	CancelPaymentQR(ctx context.Context, bookingID uint) error
+	HandleFailedPayment(ctx context.Context, chargeID string, metadata map[string]interface{}) error
+	GetBookingSummary(ctx context.Context, bookingID uint) (*BookingSummary, error)
+}
+
+type OmiseClient interface {
+	CreateSource(ctx context.Context, req *CreateSourceRequest) (*PaymentSource, error)
+}
+
+type CreateSourceRequest struct {
+	Amount      int64
+	Currency    string
+	Type        string
+	PaymentID   string
+	BookingID   string
+	Description string
+}
+
+func FromOmiseSource(
+	source *omise.Source,
+	chargeID string,
+	paymentID string,
+	description string,
+	expiryMinutes int,
+) *PaymentSource {
+	ps := &PaymentSource{
+		ID:          source.ID,
+		Type:        string(source.Type),
+		Amount:      source.Amount,
+		Currency:    source.Currency,
+		Status:      string(source.Flow),
+		ChargeID:    chargeID,
+		PaymentID:   paymentID,
+		Description: description,
+		CreatedAt:   source.CreatedAt,
+	}
+
+	if source.ScannableCode != nil &&
+		source.ScannableCode.Image != nil &&
+		source.ScannableCode.Image.DownloadURI != "" {
+		ps.QRCodeURI = source.ScannableCode.Image.DownloadURI
+		ps.QRReady = true
+	}
+
+	ps.ExpiresAt = source.CreatedAt.Add(time.Duration(expiryMinutes) * time.Minute)
+	return ps
+}

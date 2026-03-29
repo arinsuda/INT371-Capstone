@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   # ================================
-  # MySQL DATABASE
+  # DATABASE (MySQL)
   # ================================
   database:
     image: mysql:${MYSQL_VERSION:-8.0}
@@ -23,18 +21,15 @@ services:
     volumes:
       - mysql_dev:/var/lib/mysql
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     networks:
       - changsure-network
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mysqladmin ping -h database -p${MYSQL_ROOT_PASSWORD} --silent",
-        ]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -42,10 +37,83 @@ services:
         max-file: "3"
 
   # ================================
-  # MINIO STORAGE
+  # CACHE (Redis)
+  # ================================
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: changsure-redis-dev
+    restart: unless-stopped
+    env_file: ./.env
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_dev:/data
+    ports:
+      - "127.0.0.1:6380:6379"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: changsure-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:9121:9121"
+    networks:
+      - changsure-network
+    depends_on:
+      redis:
+        condition: service_healthy
+  admin:
+    build:
+      context: ../../changsure-admin
+      dockerfile: Dockerfile
+    image: changsure-admin:dev
+    container_name: changsure-admin-dev
+    restart: unless-stopped
+    environment:                                         
+      - NEXT_PUBLIC_BASE_PATH=/capstone25/cp25ssa1    
+    ports:
+      - "127.0.0.1:3003:3000"
+    networks:
+      - changsure-network
+    depends_on:
+      core-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # OBJECT STORAGE (MinIO)
   # ================================
   minio:
-    image: minio/minio:${MINIO_VERSION:-latest}
+    image: minio/minio:${MINIO_VERSION:-RELEASE.2024-11-07T00-52-20Z}
     container_name: changsure-minio-dev
     restart: unless-stopped
     env_file: ./.env
@@ -54,91 +122,73 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Bangkok
+      MINIO_SERVER_URL: https://bscit.sit.kmutt.ac.th/minio
+      MINIO_BROWSER_REDIRECT_URL: https://bscit.sit.kmutt.ac.th/minio-console/
     volumes:
       - minio_dev:/data
     ports:
-      - "9010:9000"
-      - "9011:9001"
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
     networks:
       - changsure-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://minio:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # ================================
-  # MINIO INITIALIZER
-  # ================================
   minio-init:
-    image: minio/mc
+    image: minio/mc:latest
     container_name: changsure-minio-init
+    restart: "no"
     depends_on:
       minio:
         condition: service_healthy
     env_file: ./.env
     entrypoint: >
       /bin/sh -c "
-      echo 'Waiting for MinIO...';
+      set -e;
+      echo 'Setting up MinIO alias...';
       mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
-
-      echo 'Creating bucket...';
+      echo 'Creating bucket if not exists...';
       mc mb -p local/${MINIO_BUCKET} || true;
-
-      echo 'Setting bucket private...';
+      echo 'Setting bucket policy to private...';
       mc anonymous set none local/${MINIO_BUCKET};
-
       echo 'MinIO Init Completed!';
-      exit 0;
       "
     networks:
       - changsure-network
 
   # ================================
-  # REDIS
-  # ================================
-  redis:
-    image: redis:${REDIS_VERSION:-7-alpine}
-    container_name: changsure-redis-dev
-    restart: unless-stopped
-    env_file: ./.env
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_dev:/data
-    ports:
-      - "6380:6379"
-    networks:
-      - changsure-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ================================
-  # OCR SERVICE
+  # OCR SERVICE (EasyOCR)
   # ================================
   ocr:
     build:
       context: ../../ocr-service
       dockerfile: Dockerfile
+      target: runtime
+    image: changsure-ocr:dev
     container_name: changsure-ocr-dev
     restart: unless-stopped
     env_file: ./.env
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     networks:
       - changsure-network
+    mem_limit: 6g
+    memswap_limit: 6g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -146,17 +196,18 @@ services:
         max-file: "3"
 
   # ================================
-  # CORE SERVICE (Golang API)
+  # CORE SERVICE (Backend API)
   # ================================
   core-service:
     build:
       context: ../../changsure-core-service
       dockerfile: Dockerfile
+    image: changsure-core-service:dev
     container_name: changsure-core-service-dev
     restart: unless-stopped
     env_file: ./.env
     ports:
-      - "8081:8080"
+      - "127.0.0.1:3001:8080"
     depends_on:
       database:
         condition: service_healthy
@@ -165,18 +216,125 @@ services:
       minio-init:
         condition: service_completed_successfully
       ocr:
-        condition: service_started
+        condition: service_healthy
     networks:
       - changsure-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-# ================================
-# NETWORKS & VOLUMES
-# ================================
+  # ================================
+  # MONITORING
+  # ================================
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: changsure-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - changsure-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: changsure-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SERVER_ROOT_URL=https://cp25ssa1.sit.kmutt.ac.th/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    ports:
+      - "127.0.0.1:3002:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - changsure-network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: changsure-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "127.0.0.1:9100:9100"
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: changsure-cadvisor
+    restart: unless-stopped
+    privileged: true
+    command:
+      - --docker_only=true
+      - --store_container_labels=true
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 networks:
   changsure-network:
     driver: bridge
@@ -185,3 +343,5 @@ volumes:
   mysql_dev:
   minio_dev:
   redis_dev:
+  grafana_data:
+  prometheus_data:

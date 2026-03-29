@@ -18,6 +18,8 @@ type Service interface {
 	DeleteProvince(ctx context.Context, id uint) error
 	ListProvinces(ctx context.Context) ([]*Province, error)
 	CountProvinces(ctx context.Context) (int64, error)
+
+	ListProvincesFiltered(ctx context.Context, districtID, subDistrictID *uint, q string, limit int) ([]*Province, error)
 }
 
 type service struct {
@@ -93,4 +95,17 @@ func (s *service) ListProvinces(ctx context.Context) ([]*Province, error) {
 
 func (s *service) CountProvinces(ctx context.Context) (int64, error) {
 	return s.repo.Count(ctx)
+}
+
+func (s *service) ListProvincesFiltered(ctx context.Context, districtID, subDistrictID *uint, q string, limit int) ([]*Province, error) {
+	if subDistrictID != nil {
+		return s.repo.GetBySubDistrictID(ctx, *subDistrictID)
+	}
+	if districtID != nil {
+		return s.repo.GetByDistrictID(ctx, *districtID)
+	}
+	if q != "" {
+		return s.repo.Search(ctx, q, limit)
+	}
+	return s.repo.GetAll(ctx)
 }

@@ -1,0 +1,20 @@
+[
+  {
+    "firstname": "Admin",
+    "lastname": "Arin",
+    "email": "admin.arin@changsure.com",
+    "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C"
+  },
+  {
+    "firstname": "Admin",
+    "lastname": "Thanachanok",
+    "email": "admin.thanachanok@changsure.com",
+    "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C"
+  },
+  {
+    "firstname": "Admin",
+    "lastname": "Natnarin",
+    "email": "admin.natnarin@changsure.com",
+    "password_hash": "$2a$12$fSimV9REQufw0SbaQtxEfeK0q80MujFNexbQrRdQjz7Ri9XYFrY4C"
+  }
+]

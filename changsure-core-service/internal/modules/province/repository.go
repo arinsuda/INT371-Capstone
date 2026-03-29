@@ -14,6 +14,10 @@ type Repository interface {
 	GetByID(ctx context.Context, id uint) (*Province, error)
 	GetAll(ctx context.Context) ([]*Province, error)
 	Count(ctx context.Context) (int64, error)
+
+	GetByDistrictID(ctx context.Context, districtID uint) ([]*Province, error)
+	GetBySubDistrictID(ctx context.Context, subDistrictID uint) ([]*Province, error)
+	Search(ctx context.Context, q string, limit int) ([]*Province, error)
 }
 
 type repository struct {
@@ -65,4 +69,42 @@ func (r *repository) Count(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+func (r *repository) GetByDistrictID(ctx context.Context, districtID uint) ([]*Province, error) {
+	var items []*Province
+	err := r.db.WithContext(ctx).
+		Table("provinces").
+		Joins("JOIN districts ON districts.province_id = provinces.id").
+		Where("districts.id = ?", districtID).
+		Distinct("provinces.*").
+		Order("provinces.id ASC").
+		Find(&items).Error
+	return items, err
+}
+
+func (r *repository) GetBySubDistrictID(ctx context.Context, subDistrictID uint) ([]*Province, error) {
+	var items []*Province
+	err := r.db.WithContext(ctx).
+		Table("provinces").
+		Joins("JOIN districts ON districts.province_id = provinces.id").
+		Joins("JOIN sub_districts ON sub_districts.district_id = districts.id").
+		Where("sub_districts.id = ?", subDistrictID).
+		Distinct("provinces.*").
+		Order("provinces.id ASC").
+		Find(&items).Error
+	return items, err
+}
+
+func (r *repository) Search(ctx context.Context, q string, limit int) ([]*Province, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	var items []*Province
+	err := r.db.WithContext(ctx).
+		Where("name_th LIKE ?", "%"+q+"%").
+		Order("id ASC").
+		Limit(limit).
+		Find(&items).Error
+	return items, err
 }

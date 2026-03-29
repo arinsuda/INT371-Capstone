@@ -5,19 +5,17 @@ import (
 )
 
 type RefreshToken struct {
-	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    uint       `gorm:"index;not null" json:"user_id"`
-	UserRole  string     `gorm:"type:varchar(50);not null;index" json:"user_role"` 
-	TokenHash string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"-"`
-	ExpiresAt time.Time  `gorm:"index;not null" json:"expires_at"`
-	RevokedAt *time.Time `gorm:"index" json:"revoked_at,omitempty"`
-	CreatedAt time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	ID        uint       `gorm:"primaryKey;autoIncrement"`
+	UserID    uint       `gorm:"index;not null"`
+	Role      string     `gorm:"size:20;not null"`
+	Token     string     `gorm:"size:512;uniqueIndex;not null"`
+	ExpiresAt time.Time  `gorm:"not null"`
+	RevokedAt *time.Time `gorm:"index"`
+	CreatedAt time.Time  `gorm:"autoCreateTime"`
 }
 
-func (RefreshToken) TableName() string { return "refresh_tokens" }
+func (RefreshToken) TableName() string { return "auth_refresh_tokens" }
 
 func Models() []interface{} {
-	return []interface{}{
-		&RefreshToken{},
-	}
+	return []interface{}{&RefreshToken{}}
 }

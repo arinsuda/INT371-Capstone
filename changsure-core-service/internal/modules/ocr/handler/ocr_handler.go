@@ -20,32 +20,61 @@ func NewOCRHandler(svc service.OCRService) *OCRHandler {
 func (h *OCRHandler) UploadAndScan(c fiber.Ctx) error {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "file required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "FILE_REQUIRED",
+			"message": "กรุณาแนบไฟล์รูปภาพ (field: file)",
 		})
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "cannot open file",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "FILE_OPEN_FAILED",
+			"message": "ไม่สามารถเปิดไฟล์ได้",
 		})
 	}
 	defer file.Close()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, file); err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": "cannot read file",
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "FILE_READ_FAILED",
+			"message": "ไม่สามารถอ่านไฟล์ได้",
 		})
 	}
 
 	res, err := h.svc.ProcessOCR(buf.Bytes(), fileHeader.Filename)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "OCR_FAILED",
+			"message": err.Error(),
 		})
 	}
 
-	return c.JSON(res)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    res,
+	})
+}
+
+func (h *OCRHandler) Ping(c fiber.Ctx) error {
+	health, err := h.svc.Ping()
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"success":   false,
+			"error":     "OCR_UNREACHABLE",
+			"message":   "ไม่สามารถเชื่อมต่อ OCR service ได้",
+			"ocr_error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "เชื่อมต่อ OCR service สำเร็จ",
+		"ocr":     health,
+	})
 }

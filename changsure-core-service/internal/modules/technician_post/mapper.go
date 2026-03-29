@@ -7,7 +7,17 @@ import (
 	"changsure-core-service/pkg/storage"
 )
 
-func ToPostResponse(post *TechnicianPost) *TechnicianPostResponse {
+const imagePresignTTL = time.Hour
+
+type Mapper struct {
+	storage storage.Storage
+}
+
+func NewMapper(s storage.Storage) *Mapper {
+	return &Mapper{storage: s}
+}
+
+func (m *Mapper) ToPostResponse(post *TechnicianPost) *TechnicianPostResponse {
 	if post == nil {
 		return nil
 	}
@@ -19,53 +29,48 @@ func ToPostResponse(post *TechnicianPost) *TechnicianPostResponse {
 		Description:  post.Description,
 		ServiceID:    post.ServiceID,
 		ProvinceID:   post.ProvinceID,
-		// เพิ่มตรงนี้: ดึง ID จาก field ใหม่โดยตรง
-		CategoryID:  post.ServiceCategoryID,
-		IsPublished: post.IsPublished,
-		CreatedAt:   post.CreatedAt.Unix(),
+		CategoryID:   post.ServiceCategoryID,
+		IsPublished:  post.IsPublished,
+		CreatedAt:    post.CreatedAt.Unix(),
 	}
 
-	// 1. Map Service Name (ถ้ามี Service)
 	if post.Service != nil {
 		resp.ServiceName = &post.Service.SerName
 	}
-
-	// 2. Map Category Name (แก้ไขใหม่: ดึงจาก ServiceCategory โดยตรง)
 	if post.Category != nil {
-		// ใช้ CatName ตามโครงสร้างเดิมที่คุณเคยใช้
-		cname := post.Category.CatName
-		resp.CategoryName = &cname
+		name := post.Category.CatName
+		resp.CategoryName = &name
 	}
-
-	// 3. Map Province Name
 	if post.Province != nil {
 		resp.ProvinceName = &post.Province.NameTH
 	}
 
-	// 4. จัดการ Images (คงเดิม)
-	resp.Images = make([]TechnicianPostImageResponse, 0)
+	resp.Images = m.mapImages(post.Images)
+	return resp
+}
 
-	for _, img := range post.Images {
-		url := img.ImageURL
-		finalURL := url
-
-		if storage.GlobalMinio != nil && url != "" {
-
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-
-			presigned, err := storage.GlobalMinio.PresignGet(ctx, url, time.Hour, false)
-			if err == nil {
-				finalURL = presigned
-			}
-			cancel()
-		}
-
-		resp.Images = append(resp.Images, TechnicianPostImageResponse{
+func (m *Mapper) mapImages(images []TechnicianPostImage) []TechnicianPostImageResponse {
+	result := make([]TechnicianPostImageResponse, 0, len(images))
+	for _, img := range images {
+		result = append(result, TechnicianPostImageResponse{
 			ID:       img.ID,
-			ImageURL: finalURL,
+			ImageURL: m.presignURL(img.ImageURL),
 			Order:    img.SortOrder,
 		})
 	}
+	return result
+}
 
-	return resp
+func (m *Mapper) presignURL(key string) string {
+	if key == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	signed, err := m.storage.PresignGet(ctx, key, imagePresignTTL, false)
+	if err != nil {
+		return key
+	}
+	return signed
 }

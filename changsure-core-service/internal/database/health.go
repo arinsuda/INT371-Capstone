@@ -23,7 +23,7 @@ func (d *Database) Health() HealthCheck {
 		return HealthCheck{
 			Status:       "unhealthy",
 			ResponseTime: time.Since(start).String(),
-			Error:        err.Error(),
+			Error:        "failed to get underlying db: " + err.Error(),
 		}
 	}
 
@@ -31,7 +31,7 @@ func (d *Database) Health() HealthCheck {
 		return HealthCheck{
 			Status:       "unhealthy",
 			ResponseTime: time.Since(start).String(),
-			Error:        err.Error(),
+			Error:        "db ping failed: " + err.Error(),
 		}
 	}
 
@@ -39,5 +39,24 @@ func (d *Database) Health() HealthCheck {
 		Status:       "healthy",
 		ResponseTime: time.Since(start).String(),
 		Stats:        d.GetStats(),
+	}
+}
+
+func (d *Database) GetStats() map[string]interface{} {
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		return map[string]interface{}{"error": err.Error()}
+	}
+
+	stats := sqlDB.Stats()
+	return map[string]interface{}{
+		"open_connections":     stats.OpenConnections,
+		"in_use":               stats.InUse,
+		"idle":                 stats.Idle,
+		"wait_count":           stats.WaitCount,
+		"wait_duration":        stats.WaitDuration.String(),
+		"max_open_connections": stats.MaxOpenConnections,
+		"max_idle_closed":      stats.MaxIdleClosed,
+		"max_lifetime_closed":  stats.MaxLifetimeClosed,
 	}
 }

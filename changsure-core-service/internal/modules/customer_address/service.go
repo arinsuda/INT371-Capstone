@@ -5,188 +5,312 @@ import (
 	"errors"
 
 	addressshared "changsure-core-service/internal/modules/address_shared"
+	"changsure-core-service/internal/modules/district"
+	subdistrict "changsure-core-service/internal/modules/sub_district"
 	"changsure-core-service/pkg/utils"
 )
 
 var (
-	ErrCannotDeletePrimary = errors.New("cannot delete primary address")
-	ErrNotFound            = errors.New("customer address not found")
+	ErrNotFound = errors.New("address not found")
 )
 
 type Service interface {
-	CreateCustomerAddress(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddress, error)
-	UpdateCustomerAddress(ctx context.Context, id uint, customerID uint, req *UpdateCustomerAddressRequest) (*CustomerAddress, error)
-	DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error
-	GetCustomerAddress(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error)
-	ListCustomerAddresses(ctx context.Context, customerID uint) ([]*CustomerAddress, error)
-	SetPrimaryCustomerAddress(ctx context.Context, id uint, customerID uint) error
-
-	SearchNearbyTechnicians(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
+	Create(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddressResponse, error)
+	Update(ctx context.Context, id uint, customerID uint, req *UpdateCustomerAddressRequest) (*CustomerAddressResponse, error)
+	Delete(ctx context.Context, id uint, customerID uint) error
+	Get(ctx context.Context, id uint, customerID uint) (*CustomerAddressResponse, error)
+	List(ctx context.Context, customerID uint) ([]CustomerAddressResponse, error)
+	SetPrimary(ctx context.Context, id uint, customerID uint) error
 }
 
 type service struct {
-	repo       Repository
-	techSearch TechnicianNearbySearcher
+	repo            Repository
+	districtRepo    district.Repository
+	subDistrictRepo subdistrict.Repository
 }
 
-type TechnicianNearbySearcher interface {
-	FindNearby(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error)
-}
-
-func NewService(repo Repository, techSearch TechnicianNearbySearcher) Service {
-	return &service{repo: repo, techSearch: techSearch}
-}
-
-func (s *service) checkOwnCustomer(ctx context.Context, customerID uint) error {
-	requesterID := utils.GetUserIDFromContext(ctx)
-	if requesterID == 0 {
-		return addressshared.ErrUnauthorized
+func NewService(
+	repo Repository,
+	districtRepo district.Repository,
+	subDistrictRepo subdistrict.Repository,
+) Service {
+	return &service{
+		repo:            repo,
+		districtRepo:    districtRepo,
+		subDistrictRepo: subDistrictRepo,
 	}
-	if requesterID != customerID {
-		return addressshared.ErrUnauthorized
-	}
-	return nil
 }
 
-func (s *service) CreateCustomerAddress(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddress, error) {
+func (s *service) normalizeLocation(
+	ctx context.Context,
+	provinceID, districtID, subDistrictID *uint,
+) (*uint, *uint, *uint, error) {
+	return addressshared.NormalizeAndValidateLocation(
+		ctx,
+		provinceID,
+		districtID,
+		subDistrictID,
+		s.districtRepo,
+		s.subDistrictRepo,
+	)
+}
 
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+func (s *service) Create(ctx context.Context, customerID uint, req *CreateCustomerAddressRequest) (*CustomerAddressResponse, error) {
+	pid, did, sdid, err := s.normalizeLocation(ctx, req.ProvinceID, req.DistrictID, req.SubDistrictID)
+	if err != nil {
 		return nil, err
 	}
+
+	existing, err := s.repo.FindAllByCustomerID(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	primary := shouldBePrimaryOnCreate(len(existing), req.IsPrimary)
 
 	addr := &CustomerAddress{
 		CustomerID: customerID,
+		AddressFields: addressshared.AddressFields{
+			Label:         req.Label,
+			PhoneNumber:   req.PhoneNumber,
+			HouseNumber:   req.HouseNumber,
+			AddressLine:   req.AddressLine,
+			Village:       req.Village,
+			Moo:           req.Moo,
+			Soi:           req.Soi,
+			Road:          req.Road,
+			ProvinceID:    pid,
+			DistrictID:    did,
+			SubDistrictID: sdid,
+			Latitude:      req.Latitude,
+			Longitude:     req.Longitude,
+			IsPrimary:     primary,
+		},
 	}
 
-	addr.HouseNumber = req.HouseNumber
-	addr.Village = req.Village
-	addr.Moo = req.Moo
-	addr.Soi = req.Soi
-	addr.Road = req.Road
-	addr.SubDistrict = req.SubDistrict
-	addr.District = req.District
-	addr.Province = req.Province
-	addr.PostalCode = req.PostalCode
-	addr.Country = req.Country
-	addr.ProvinceID = req.ProvinceID
-	addr.Latitude = req.Latitude
-	addr.Longitude = req.Longitude
-
-	if req.IsPrimary != nil && *req.IsPrimary {
-		_ = s.repo.SetPrimaryCustomerAddress(ctx, customerID)
-		addr.IsPrimary = true
-	}
-
-	if err := s.repo.CreateCustomerAddress(ctx, addr); err != nil {
+	addressshared.NormalizeAddressFields(&addr.AddressFields)
+	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
+	if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
 		return nil, err
 	}
 
-	return addr, nil
+	if err := s.repo.Transaction(ctx, func(r Repository) error {
+		if err := r.Create(ctx, addr); err != nil {
+			return err
+		}
+		if primary {
+			return r.SetPrimaryTx(ctx, customerID, addr.ID)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	_ = utils.GetUserIDFromContext(ctx)
+
+	newAddr, err := s.repo.FindByID(ctx, addr.ID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := ToResponse(newAddr, defaultPhone)
+	return &resp, nil
 }
 
-func (s *service) UpdateCustomerAddress(
-	ctx context.Context,
-	id uint,
-	customerID uint,
-	req *UpdateCustomerAddressRequest,
-) (*CustomerAddress, error) {
-
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+func (s *service) Update(ctx context.Context, id uint, customerID uint, req *UpdateCustomerAddressRequest) (*CustomerAddressResponse, error) {
+	addr, err := s.repo.FindByID(ctx, id, customerID)
+	if err != nil {
 		return nil, err
 	}
-
-	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
-	if err != nil {
+	if addr == nil {
 		return nil, ErrNotFound
 	}
 
-	addr.HouseNumber = &req.HouseNumber
-	addr.Village = &req.Village
-	addr.Moo = &req.Moo
-	addr.Soi = &req.Soi
-	addr.Road = &req.Road
+	locationChanged := s.applyUpdateFields(addr, req)
 
-	addr.SubDistrict = &req.SubDistrict
-	addr.District = &req.District
-	addr.Province = &req.Province
+	addressshared.NormalizeAddressFields(&addr.AddressFields)
+	addressshared.ParseAddressLineToStructured(&addr.AddressFields)
 
-	addr.PostalCode = &req.PostalCode
-	addr.Country = &req.Country
-
-	addr.ProvinceID = &req.ProvinceID
-	addr.Latitude = &req.Latitude
-	addr.Longitude = &req.Longitude
-
-	if req.IsPrimary {
-		_ = s.repo.SetPrimaryCustomerAddress(ctx, customerID)
-	}
-	addr.IsPrimary = req.IsPrimary
-
-	if err := s.repo.UpdateCustomerAddress(ctx, addr); err != nil {
+	if err := addressshared.ValidateAddressFields(&addr.AddressFields); err != nil {
 		return nil, err
 	}
 
-	return addr, nil
-}
-
-func (s *service) DeleteCustomerAddress(ctx context.Context, id uint, customerID uint) error {
-
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
-		return err
+	if locationChanged {
+		pid, did, sdid, err := s.normalizeLocation(ctx, addr.ProvinceID, addr.DistrictID, addr.SubDistrictID)
+		if err != nil {
+			return nil, err
+		}
+		addr.ProvinceID = pid
+		addr.DistrictID = did
+		addr.SubDistrictID = sdid
 	}
 
-	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
+	addr.Province = nil
+	addr.District = nil
+	addr.SubDistrict = nil
+
+	if err := s.repo.Transaction(ctx, func(r Repository) error {
+		if err := r.Update(ctx, addr); err != nil {
+			return err
+		}
+		if addr.IsPrimary {
+			return r.SetPrimaryTx(ctx, customerID, id)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	updatedAddr, err := s.repo.FindByID(ctx, id, customerID)
 	if err != nil {
+		return nil, err
+	}
+
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := ToResponse(updatedAddr, defaultPhone)
+	return &resp, nil
+}
+
+func (s *service) Delete(ctx context.Context, id uint, customerID uint) error {
+	addr, err := s.repo.FindByID(ctx, id, customerID)
+	if err != nil {
+		return err
+	}
+	if addr == nil {
 		return ErrNotFound
 	}
 
-	if addr.IsPrimary {
-		return ErrCannotDeletePrimary
-	}
+	return s.repo.Transaction(ctx, func(r Repository) error {
+		if err := r.DeleteTx(ctx, id, customerID); err != nil {
+			return err
+		}
 
-	return s.repo.DeleteCustomerAddress(ctx, id, customerID)
+		if addr.IsPrimary {
+			next, err := r.FindNextPrimaryCandidateTx(ctx, customerID, id)
+			if err != nil {
+				return err
+			}
+			if next != nil {
+				return r.SetPrimaryTx(ctx, customerID, next.ID)
+			}
+		}
+
+		return nil
+	})
 }
 
-func (s *service) GetCustomerAddress(ctx context.Context, id uint, customerID uint) (*CustomerAddress, error) {
-
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+func (s *service) Get(ctx context.Context, id uint, customerID uint) (*CustomerAddressResponse, error) {
+	addr, err := s.repo.FindByID(ctx, id, customerID)
+	if err != nil {
 		return nil, err
 	}
-
-	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
-	if err != nil {
+	if addr == nil {
 		return nil, ErrNotFound
 	}
 
-	return addr, nil
-}
-
-func (s *service) ListCustomerAddresses(ctx context.Context, customerID uint) ([]*CustomerAddress, error) {
-
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
+	if err != nil {
 		return nil, err
 	}
 
-	return s.repo.FindCustomerAddresses(ctx, customerID)
+	resp := ToResponse(addr, defaultPhone)
+	return &resp, nil
 }
 
-func (s *service) SetPrimaryCustomerAddress(ctx context.Context, id uint, customerID uint) error {
-
-	if err := s.checkOwnCustomer(ctx, customerID); err != nil {
-		return err
+func (s *service) List(ctx context.Context, customerID uint) ([]CustomerAddressResponse, error) {
+	addrs, err := s.repo.FindAllByCustomerID(ctx, customerID)
+	if err != nil {
+		return nil, err
 	}
 
-	addr, err := s.repo.FindCustomerAddressByID(ctx, id, customerID)
+	defaultPhone, err := s.repo.GetCustomerPhone(ctx, customerID)
 	if err != nil {
+		return nil, err
+	}
+
+	return ToResponseList(addrs, defaultPhone), nil
+}
+
+func (s *service) SetPrimary(ctx context.Context, id uint, customerID uint) error {
+	addr, err := s.repo.FindByID(ctx, id, customerID)
+	if err != nil {
+		return err
+	}
+	if addr == nil {
 		return ErrNotFound
 	}
 
-	_ = s.repo.SetPrimaryCustomerAddress(ctx, customerID)
-	addr.IsPrimary = true
-
-	return s.repo.UpdateCustomerAddress(ctx, addr)
+	return s.repo.SetPrimary(ctx, customerID, id)
 }
 
-func (s *service) SearchNearbyTechnicians(ctx context.Context, q addressshared.NearbyQuery) ([]addressshared.NearbyTechnicianResult, error) {
-	return s.techSearch.FindNearby(ctx, q)
+func shouldBePrimaryOnCreate(existingCount int, reqPrimary *bool) bool {
+	if existingCount == 0 {
+		return true
+	}
+	return reqPrimary != nil && *reqPrimary
+}
+
+func (s *service) applyUpdateFields(addr *CustomerAddress, req *UpdateCustomerAddressRequest) (locationChanged bool) {
+	if req.Label != nil {
+		addr.Label = req.Label
+	}
+	if req.PhoneNumber != nil {
+		addr.PhoneNumber = req.PhoneNumber
+	}
+	if req.AddressLine != nil {
+		addr.AddressLine = req.AddressLine
+
+		addr.HouseNumber = req.HouseNumber
+		addr.Moo = req.Moo
+		addr.Soi = req.Soi
+		addr.Road = req.Road
+		addr.Village = req.Village
+	} else {
+		if req.HouseNumber != nil {
+			addr.HouseNumber = req.HouseNumber
+		}
+		if req.Village != nil {
+			addr.Village = req.Village
+		}
+		if req.Moo != nil {
+			addr.Moo = req.Moo
+		}
+		if req.Soi != nil {
+			addr.Soi = req.Soi
+		}
+		if req.Road != nil {
+			addr.Road = req.Road
+		}
+	}
+	if req.Latitude != nil {
+		addr.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		addr.Longitude = req.Longitude
+	}
+	if req.IsPrimary != nil {
+		addr.IsPrimary = *req.IsPrimary
+	}
+	if req.ProvinceID != nil {
+		addr.ProvinceID = req.ProvinceID
+		locationChanged = true
+	}
+	if req.DistrictID != nil {
+		addr.DistrictID = req.DistrictID
+		locationChanged = true
+	}
+	if req.SubDistrictID != nil {
+		addr.SubDistrictID = req.SubDistrictID
+		locationChanged = true
+	}
+	return locationChanged
 }

@@ -12,7 +12,7 @@ func MapTechnicianToListItem(
 	targetServiceID *uint,
 ) TechnicianListItem {
 
-	min, max := ExtractPriceRange(*t)
+	min, max := ExtractPriceRange(*t, targetServiceID)
 	rating := ExtractRating(*t)
 
 	var avatarResult *string
