@@ -4,7 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../data/models/payment/payment_model.dart';
 
 class QRDisplayView extends StatelessWidget {
-  final CreateQRResponse qrData;
+  final CreatePaymentResponse qrData;
   final Duration remaining;
   final String bookingNumber;
   final WebViewController? webViewController;

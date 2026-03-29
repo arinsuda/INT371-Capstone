@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:changsure/data/models/payment/payment_model.dart';
 import 'package:changsure/data/services/payment_service.dart';
 import 'package:changsure/state/booking_provider.dart';
@@ -21,7 +22,7 @@ enum QRPaymentStatus {
 
 class QRPaymentState {
   final QRPaymentStatus status;
-  final CreateQRResponse? qrData;
+  final CreatePaymentResponse? qrData;
   final String? errorMessage;
 
   const QRPaymentState({
@@ -32,7 +33,7 @@ class QRPaymentState {
 
   QRPaymentState copyWith({
     QRPaymentStatus? status,
-    CreateQRResponse? qrData,
+    CreatePaymentResponse? qrData,
     String? errorMessage,
   }) {
     return QRPaymentState(
@@ -46,6 +47,7 @@ class QRPaymentState {
 class QRPaymentNotifier extends StateNotifier<QRPaymentState> {
   final PaymentService _service;
   final Ref _ref;
+  Timer? _pollTimer;
 
   QRPaymentNotifier(this._service, this._ref) : super(const QRPaymentState());
 
@@ -55,18 +57,21 @@ class QRPaymentNotifier extends StateNotifier<QRPaymentState> {
     return token;
   }
 
-  Future<void> createQR({
+  Future<void> createPayment({
     required int bookingId,
     required double amount,
+    String method = 'promptpay',
   }) async {
     state = state.copyWith(status: QRPaymentStatus.loading);
     try {
-      final qrData = await _service.createQR(
+      final data = await _service.createPayment(
         token: _getToken(),
         bookingId: bookingId,
         amount: amount,
+        method: method,
       );
-      state = state.copyWith(status: QRPaymentStatus.ready, qrData: qrData);
+      state = state.copyWith(status: QRPaymentStatus.ready, qrData: data);
+      _startPolling(bookingId: bookingId, expiresAt: data.expiresAt);
     } catch (e) {
       state = state.copyWith(
         status: QRPaymentStatus.error,
@@ -75,27 +80,63 @@ class QRPaymentNotifier extends StateNotifier<QRPaymentState> {
     }
   }
 
-  Future<void> cancelQR({required int bookingId}) async {
+  void _startPolling({required int bookingId, required DateTime expiresAt}) {
+    _pollTimer?.cancel();
+    state = state.copyWith(status: QRPaymentStatus.polling);
+
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (DateTime.now().isAfter(expiresAt)) {
+        markExpired();
+        return;
+      }
+      try {
+        final result = await _service.checkPaymentStatus(
+          token: _getToken(),
+          bookingId: bookingId,
+        );
+        if (result.hasPaid) {
+          markSuccess();
+        }
+      } catch (_) {}
+    });
+  }
+
+  Future<void> cancelPayment({required int bookingId}) async {
+    _pollTimer?.cancel();
     try {
-      await _service.cancelQR(token: _getToken(), bookingId: bookingId);
+      await _service.cancelPendingPayment(
+        token: _getToken(),
+        bookingId: bookingId,
+      );
     } catch (_) {}
+    state = const QRPaymentState();
   }
 
   void markExpired() {
+    _pollTimer?.cancel();
     state = state.copyWith(status: QRPaymentStatus.expired);
   }
 
   void markFailed() {
+    _pollTimer?.cancel();
     state = state.copyWith(status: QRPaymentStatus.failed);
   }
 
   void markSuccess() {
+    _pollTimer?.cancel();
     state = state.copyWith(status: QRPaymentStatus.success);
     _ref.invalidate(myBookingsProvider);
   }
 
   void reset() {
+    _pollTimer?.cancel();
     state = const QRPaymentState();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 }
 

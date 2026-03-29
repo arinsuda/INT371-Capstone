@@ -59,7 +59,7 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
   void _generateQR(double amount) {
     ref
         .read(qrPaymentProvider.notifier)
-        .createQR(bookingId: widget.booking.id, amount: amount);
+        .createPayment(bookingId: widget.booking.id, amount: amount);
   }
 
   Future<void> _fetchQRImage(String url) async {
@@ -121,7 +121,7 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
 
     ref
         .read(qrPaymentProvider.notifier)
-        .cancelQR(bookingId: widget.booking.id)
+        .cancelPayment(bookingId: widget.booking.id)
         .ignore();
 
     return true;
@@ -134,8 +134,9 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
     ref.listen<QRPaymentState>(qrPaymentProvider, (_, next) {
       if (next.status == QRPaymentStatus.ready && next.qrData != null) {
         _startCountdown(next.qrData!.expiresAt);
-        if (next.qrData?.qrCodeUri != null) {
-          _fetchQRImage(next.qrData!.qrCodeUri!);
+        final qrUri = next.qrData!.qr?.qrCodeUri;
+        if (qrUri != null) {
+          _fetchQRImage(qrUri);
         }
       }
     });
@@ -148,9 +149,14 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
         final type = event['type'] as String?;
         final currentStatus = ref.read(qrPaymentProvider).status;
 
-        if (currentStatus != QRPaymentStatus.ready &&
-            currentStatus != QRPaymentStatus.polling)
-          return;
+        // ✅ เพิ่ม loading และ idle เข้าไปด้วย เผื่อ event มาเร็ว
+        final activeStatuses = {
+          QRPaymentStatus.ready,
+          QRPaymentStatus.polling,
+          QRPaymentStatus.loading,
+        };
+
+        if (!activeStatuses.contains(currentStatus)) return;
 
         switch (type) {
           case RealtimeEvents.paymentSuccess:
@@ -215,10 +221,8 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
       final isFixed = widget.booking.pricingType == 'FIXED';
 
       if (isFixed) {
-        // ✅ FIXED → ไม่ต้องกรอก → ยิง QR เลย
         final fixedPrice = widget.booking.quotedPriceFixed ?? 0;
 
-        // ยิงครั้งเดียว (กันยิงซ้ำ)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (state.status == QRPaymentStatus.idle) {
             _generateQR(fixedPrice);
@@ -228,7 +232,6 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
         return const Center(child: CircularProgressIndicator());
       }
 
-      // ✅ RANGE → ให้กรอกเหมือนเดิม
       return InputPriceView(
         booking: widget.booking,
         isLoading: state.status == QRPaymentStatus.loading,
@@ -254,18 +257,9 @@ class _QRPaymentPageState extends ConsumerState<QRPaymentPage> {
         actionLabel: 'ลองใหม่',
         onAction: () => ref.read(qrPaymentProvider.notifier).reset(),
       ),
-      QRPaymentStatus.failed => FailedView(
-        onRetry: () => ref.read(qrPaymentProvider.notifier).reset(),
-      ),
-
       QRPaymentStatus.error => FailedView(
         errorMessage: state.errorMessage,
         onRetry: () => ref.read(qrPaymentProvider.notifier).reset(),
-      ),
-      QRPaymentStatus.error => _StatusMessage(
-        icon: Icons.error_outline,
-        message: state.errorMessage ?? 'เกิดข้อผิดพลาด',
-        color: Colors.red,
       ),
       _ => const SizedBox.shrink(),
     };

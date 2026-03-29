@@ -30,9 +30,29 @@ class BookingSnapshot {
   }
 }
 
-class CreateQRResponse {
+class QRPaymentDetail {
   final String sourceId;
   final String? qrCodeUri;
+  final bool qrReady;
+
+  const QRPaymentDetail({
+    required this.sourceId,
+    this.qrCodeUri,
+    required this.qrReady,
+  });
+
+  factory QRPaymentDetail.fromJson(Map<String, dynamic> json) {
+    return QRPaymentDetail(
+      sourceId: json['source_id'] as String,
+      qrCodeUri: json['qr_code_uri'] as String?,
+      qrReady: json['qr_ready'] as bool,
+    );
+  }
+}
+
+class CreatePaymentResponse {
+  final String paymentId;
+  final String method;
   final double amount;
   final String currency;
   final DateTime expiresAt;
@@ -40,11 +60,11 @@ class CreateQRResponse {
   final int bookingId;
   final BookingSnapshot booking;
   final String? description;
-  final bool qrCodeReady;
+  final QRPaymentDetail? qr;
 
-  const CreateQRResponse({
-    required this.sourceId,
-    this.qrCodeUri,
+  const CreatePaymentResponse({
+    required this.paymentId,
+    required this.method,
     required this.amount,
     required this.currency,
     required this.expiresAt,
@@ -52,13 +72,13 @@ class CreateQRResponse {
     required this.bookingId,
     required this.booking,
     this.description,
-    required this.qrCodeReady,
+    this.qr,
   });
 
-  factory CreateQRResponse.fromJson(Map<String, dynamic> json) {
-    return CreateQRResponse(
-      sourceId: json['source_id'] as String,
-      qrCodeUri: json['qr_code_uri'] as String?,
+  factory CreatePaymentResponse.fromJson(Map<String, dynamic> json) {
+    return CreatePaymentResponse(
+      paymentId: json['payment_id'] as String,
+      method: json['method'] as String,
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String,
       expiresAt: DateTime.parse(json['expires_at'] as String),
@@ -68,7 +88,9 @@ class CreateQRResponse {
         json['booking'] as Map<String, dynamic>,
       ),
       description: json['description'] as String?,
-      qrCodeReady: json['qr_code_ready'] as bool,
+      qr: json['qr'] != null
+          ? QRPaymentDetail.fromJson(json['qr'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

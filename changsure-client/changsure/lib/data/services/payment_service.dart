@@ -25,31 +25,35 @@ class PaymentService {
     }
 
     String errorMessage = "Something went wrong";
-    if (json.containsKey('error')) {
-      if (json['error'] is Map) {
-        errorMessage = json['error']['message'] ?? errorMessage;
-      } else if (json['error'] is String) {
-        errorMessage = json['error'];
-      }
-    } else if (json.containsKey('message')) {
+    if (json.containsKey('message')) {
       errorMessage = json['message'];
+    } else if (json.containsKey('code')) {
+      errorMessage = json['code'];
     }
 
     throw Exception(errorMessage);
   }
 
-  Future<CreateQRResponse> createQR({
+  Future<CreatePaymentResponse> createPayment({
     required String token,
     required int bookingId,
     required double amount,
+    String method = 'promptpay',
   }) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}/payments/qr');
+    final uri = Uri.parse('${ApiConstants.baseUrl}/payments');
     final response = await http.post(
       uri,
       headers: _authHeader(token),
-      body: jsonEncode({'booking_id': bookingId, 'amount': amount}),
+      body: jsonEncode({
+        'booking_id': bookingId,
+        'amount': amount,
+        'method': method,
+      }),
     );
-    return _handleResponse(response, (json) => CreateQRResponse.fromJson(json));
+    return _handleResponse(
+      response,
+      (json) => CreatePaymentResponse.fromJson(json['data']),
+    );
   }
 
   Future<PaymentStatusResponse> checkPaymentStatus({
@@ -57,7 +61,7 @@ class PaymentService {
     required int bookingId,
   }) async {
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/payments/bookings/$bookingId/status',
+      '${ApiConstants.baseUrl}/bookings/$bookingId/payments/status',
     );
     final response = await http.get(uri, headers: _authHeader(token));
     return _handleResponse(
@@ -66,11 +70,16 @@ class PaymentService {
     );
   }
 
-  Future<void> cancelQR({required String token, required int bookingId}) async {
+  Future<void> cancelPendingPayment({
+    required String token,
+    required int bookingId,
+  }) async {
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/payments/bookings/$bookingId/qr',
+      '${ApiConstants.baseUrl}/bookings/$bookingId/payments/pending',
     );
     final response = await http.delete(uri, headers: _authHeader(token));
-    _handleResponse(response, (_) => null);
+    if (response.statusCode != 204) {
+      _handleResponse(response, (_) => null);
+    }
   }
 }
