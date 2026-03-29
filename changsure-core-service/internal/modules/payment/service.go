@@ -128,6 +128,7 @@ func (s *service) CreatePayment(ctx context.Context, req *CreatePaymentRequest) 
 	txn := &PaymentTransaction{
 		BookingID:      bkg.ID,
 		SourceID:       &source.ID,
+		ChargeID:       &chargeID,
 		Amount:         resolved,
 		Currency:       "THB",
 		PaymentMethod:  req.Method,
