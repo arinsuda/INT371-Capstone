@@ -79,11 +79,12 @@ func (r *Router) setupPublicRoutes() {
 
 func (r *Router) setupProtectedRoutes() {
 	v1 := r.app.Group("/api", middleware.AuthMiddleware(r.cfg))
-
 	r.setupSharedRoutes(v1)
 	r.setupTechnicianRoutes(v1)
 	r.setupCustomerRoutes(v1)
-	r.setupAdminRoutes(v1)
+
+	admin := v1.Group("/admin").Use(middleware.AdminOnly())
+	r.setupAdminRoutes(admin)
 }
 
 func (r *Router) setupSharedRoutes(api fiber.Router) {
@@ -97,16 +98,11 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
-func (r *Router) setupAdminRoutes(api fiber.Router) {
-	admin := api.Group("/admins").Use(middleware.AdminOnly())
+func (r *Router) setupAdminRoutes(admin fiber.Router) {
+	r.container.DashboardHandler.RegisterAdminRoutes(admin)
+	r.container.TechnicianHandler.RegisterAdminRoutes(admin.Group("/technicians"))
+	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin.Group("/verification"))
 	r.container.AdminHandler.RegisterRoutes(admin)
-
-	criminal := api.Group("/verification").Use(middleware.AdminOnly())
-	r.container.CriminalCheckHandler.RegisterAdminRoutes(criminal)
-
-	technician := api.Group("/admins/:adminID/technicians").Use(middleware.AdminOnly())
-	r.container.TechnicianHandler.RegisterAdminRoutes(technician)
-	r.container.TechnicianPostHandler.RegisterAdminRoutes(technician)
 }
 
 func (r *Router) startBackgroundJobs() {

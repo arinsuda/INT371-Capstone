@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	appErrors "changsure-core-service/internal/errors"
-	"changsure-core-service/internal/middleware"
 	"changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
@@ -13,10 +12,6 @@ type Handler struct{ svc Service }
 func NewHandler(svc Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) GetDashboard(c fiber.Ctx) error {
-	if err := middleware.CheckAdmin(c); err != nil {
-		return err
-	}
-
 	var q DashboardQuery
 	if err := c.Bind().Query(&q); err != nil {
 		return appErrors.BadRequest(c, "invalid query")
@@ -31,9 +26,6 @@ func (h *Handler) GetDashboard(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetPendingVerifications(c fiber.Ctx) error {
-	if err := middleware.CheckAdmin(c); err != nil {
-		return err
-	}
 
 	var q PendingVerificationQuery
 	if err := c.Bind().Query(&q); err != nil {
@@ -49,10 +41,6 @@ func (h *Handler) GetPendingVerifications(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetServicesByCategory(c fiber.Ctx) error {
-	if err := middleware.CheckAdmin(c); err != nil {
-		return err
-	}
-
 	categoryID, err := utils.ParseUintParam(c, "categoryID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid category id")
@@ -66,10 +54,6 @@ func (h *Handler) GetServicesByCategory(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetTechniciansByService(c fiber.Ctx) error {
-	if err := middleware.CheckAdmin(c); err != nil {
-		return err
-	}
-
 	serviceID, err := utils.ParseUintParam(c, "serviceID")
 	if err != nil {
 		return appErrors.BadRequest(c, "invalid service id")

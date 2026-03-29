@@ -195,7 +195,7 @@ func (r *repository) GetPendingVerifications(ctx context.Context, page, pageSize
 		Select("DATE(created_at) AS date, COUNT(*) AS count").
 		Where("deleted_at IS NULL AND verification_status = 'PENDING'").
 		Group("DATE(created_at)").
-		Order("created_at DESC").
+		Order("date DESC").
 		Scan(&rows).Error
 	if err != nil {
 		return nil, 0, err
@@ -338,10 +338,19 @@ func (r *repository) GetTechniciansByService(ctx context.Context, serviceID uint
 	var rows []row
 	err := r.db.WithContext(ctx).
 		Table("technician_services ts").
-		Select("t.id, t.first_name, t.last_name, t.avatar_url, t.rating_avg, t.total_jobs, t.is_available").
+		Select(`
+        t.id, 
+        t.first_name, 
+        t.last_name, 
+        t.avatar_url, 
+        COALESCE(ts2.rating_avg, 0) AS rating_avg,
+        COALESCE(ts2.total_jobs, 0) AS total_jobs,
+        t.is_available
+    `).
 		Joins("JOIN technicians t ON t.id = ts.technician_id").
+		Joins("LEFT JOIN technician_stats ts2 ON ts2.technician_id = t.id").
 		Where("ts.service_id = ? AND ts.is_active = TRUE AND t.deleted_at IS NULL", serviceID).
-		Order("t.rating_avg DESC").
+		Order("rating_avg DESC").
 		Limit(pageSize).
 		Offset((page - 1) * pageSize).
 		Scan(&rows).Error
