@@ -15,20 +15,61 @@ import {
   ChevronDown
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-
+import {
+  useGetTechnicianById,
+  useGetTechnicianPostById,
+  useGetTechnicianReportTypes,
+  useReportTechnicianPost
+} from "@/data/api/technicians.hook"
+import { useSearchParams } from "next/navigation"
+import { useGetAdminProfile } from "@/data/api/login.hook"
 const images = [1, 2, 3, 4, 5] // mock
 
 export const ReportTech = ({ id }: { id: number }) => {
-  const [text, setText] = useState("ผลงานนี้ครับ 😂 ลูกค้าชอบมาก...")
+  const [page, setPage] = useState(1)
+  const perPage = 4
+  const searchParams = useSearchParams()
+  const postId = searchParams.get("postId")
+  const postIdNumber = postId ? Number(postId) : null
+  const { data: activityData } = useGetTechnicianPostById(id, postIdNumber || 0)
+  const { data: technician } = useGetTechnicianById(id)
+  const { data: reportTypes } = useGetTechnicianReportTypes(id)
+  const { data: admin } = useGetAdminProfile()
   const [currentPage, setCurrentPage] = useState(1)
   const router = useRouter()
+  const { mutate } = useReportTechnicianPost(id, postIdNumber || 0)
+  const [reportType, setReportType] = useState(reportTypes?.[0] || "")
+  const [reason, setReason] = useState("")
+  const [severity, setSeverity] = useState<"WARNING" | "BLACKLIST">("WARNING")
+  const [deletePost, setDeletePost] = useState(true)
 
-  const pageSize = 4
-  const totalPages = Math.ceil(images.length / pageSize)
-  const currentImages = images.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  const handleSubmit = () => {
+    mutate({
+      report_type: reportType,
+      severity: severity,
+      ...(reason ? { reason } : {}),
+      ...(deletePost !== undefined ? { delete_post: deletePost } : {})
+    })
+  }
+
+  const images = Array.isArray(activityData?.images) ? activityData.images : []
+
+  const start = (page - 1) * perPage
+  const currentImages = images.slice(start, start + perPage)
+  const totalPages = Math.ceil(images.length / perPage)
+
+  console.log("postId", postId)
+  console.log("activityData", activityData)
+
+  const formatDateTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000)
+
+    const day = String(date.getDate()).padStart(2, "0")
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const year = date.getFullYear()
+
+    return `${day}/${month}/${year}`
+  }
 
   const [warnStatus, setWarnStatus] = useState<"warning" | "blacklist">(
     "warning"
@@ -78,7 +119,11 @@ export const ReportTech = ({ id }: { id: number }) => {
             <input
               className="w-full border border-colorStroke rounded-lg px-3 py-2 text-[16px] text-primaryBorder"
               placeholder="ชื่อเจ้าของผลงาน"
-              defaultValue="สมชาย ใจดี"
+              defaultValue={
+                technician?.firstname && technician?.lastname
+                  ? `${technician.firstname} ${technician.lastname}`
+                  : "นายสมชาย ใจดี"
+              }
               disabled
             />
           </div>
@@ -89,7 +134,7 @@ export const ReportTech = ({ id }: { id: number }) => {
               <input
                 className="border rounded-lg border-colorStroke px-3 py-2 text-[16px] text-primaryBorder"
                 placeholder="ประเภทงาน"
-                defaultValue="ทาสี"
+                defaultValue={activityData?.category_name || ""}
                 disabled
               />
             </div>
@@ -98,7 +143,11 @@ export const ReportTech = ({ id }: { id: number }) => {
               <input
                 className="border rounded-lg border-colorStroke px-3 py-2 text-[16px] text-primaryBorder"
                 placeholder="วันที่โพสต์"
-                defaultValue="12/02/69"
+                defaultValue={
+                  activityData?.created_at
+                    ? formatDateTime(activityData.created_at)
+                    : ""
+                }
                 disabled
               />
             </div>
@@ -111,19 +160,17 @@ export const ReportTech = ({ id }: { id: number }) => {
 
             <div className="relative">
               <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
+                value={activityData?.description}
                 maxLength={500}
                 disabled
                 className="w-full border rounded-lg px-3 py-2 text-[16px] h-30 
                      text-primaryBorder border-colorStroke
                      resize-none overflow-y-auto pr-16"
-                placeholder="รายละเอียดเพิ่มเติม"
               />
 
               {/* Counter */}
               <span className="absolute bottom-3 right-3 text-xs text-black/40">
-                {text.length}/500
+                {activityData?.description.length}/500
               </span>
             </div>
           </div>
@@ -137,16 +184,30 @@ export const ReportTech = ({ id }: { id: number }) => {
           </div>
 
           <div className="grid grid-cols-4 gap-3 px-5">
-            {currentImages.map((i) => (
-              <div key={i} className="relative w-full h-40">
-                <Image
-                  src="https://picsum.photos/200/200"
-                  alt="work"
-                  fill
-                  className="object-cover rounded-md"
-                />
+            {currentImages.length > 0 ? (
+              currentImages.map((img) => {
+                const imageUrl =
+                  typeof img.image_url === "string" &&
+                  img.image_url.trim() !== ""
+                    ? img.image_url
+                    : "/images/no_image.png"
+
+                return (
+                  <div key={img.id} className="w-full h-35 relative">
+                    <Image
+                      src={imageUrl}
+                      alt="work"
+                      fill
+                      className="rounded-lg object-cover"
+                    />
+                  </div>
+                )
+              })
+            ) : (
+              <div className="col-span-4 text-center text-gray-400 text-sm">
+                ไม่มีรูปภาพ
               </div>
-            ))}
+            )}
           </div>
 
           <div className="flex justify-between px-5 pb-4 items-center">
@@ -213,9 +274,16 @@ export const ReportTech = ({ id }: { id: number }) => {
           <div className="flex flex-col gap-1">
             <p className="text-colorTertiaryText">ประเภทการรายงาน</p>
             <div className="relative w-2/5">
-              <select className="w-full appearance-none border border-colorStroke rounded-lg px-3 pr-10 py-2 text-[16px] focus:outline-none focus:border-primaryBorderHover focus:ring-1 focus:ring-primaryBorderHover">
-                <option>รูปผลงานไม่เหมาะสม</option>
-                <option>เนื้อหาไม่เหมาะสม</option>
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                className="w-full appearance-none border border-colorStroke rounded-lg px-3 pr-10 py-2 text-[16px] focus:outline-none focus:border-primaryBorderHover focus:ring-1 focus:ring-primaryBorderHover"
+              >
+                {reportTypes?.map((type, i) => (
+                  <option key={i} value={type}>
+                    {type}
+                  </option>
+                ))}
               </select>
 
               {/* custom arrow */}
@@ -230,6 +298,8 @@ export const ReportTech = ({ id }: { id: number }) => {
               รายละเอียดเพิ่มเติม (ถ้ามี)
             </p>
             <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
               className="w-2/5 resize-none border border-colorStroke rounded-lg px-3 py-2 text-[16px] h-28 focus:outline-none focus:border-primaryBorderHover focus:ring-1 focus:ring-primaryBorderHover"
               placeholder=""
             />
@@ -255,8 +325,8 @@ export const ReportTech = ({ id }: { id: number }) => {
 
                   <input
                     type="checkbox"
-                    checked={warnStatus === "warning"}
-                    onChange={() => setWarnStatus("warning")}
+                    checked={severity === "WARNING"}
+                    onChange={() => setSeverity("WARNING")}
                     className="w-4 h-4 accent-secondary"
                   />
                 </div>
@@ -276,8 +346,8 @@ export const ReportTech = ({ id }: { id: number }) => {
 
                   <input
                     type="checkbox"
-                    checked={warnStatus === "blacklist"}
-                    onChange={() => setWarnStatus("blacklist")}
+                    checked={severity === "BLACKLIST"}
+                    onChange={() => setSeverity("BLACKLIST")}
                     className="w-4 h-4 accent-secondary"
                   />
                 </div>
@@ -292,8 +362,9 @@ export const ReportTech = ({ id }: { id: number }) => {
           <label className="flex items-center gap-2 text-[16px]">
             <input
               type="checkbox"
-              defaultChecked
               className="w-4 h-4 accent-secondary"
+              checked={deletePost}
+              onChange={(e) => setDeletePost(e.target.checked)}
             />
             ลบผลงานนี้ออกจากระบบ
           </label>
@@ -305,7 +376,9 @@ export const ReportTech = ({ id }: { id: number }) => {
             </p>
             <input
               className="w-2/5 border border-colorStroke rounded-lg px-3 py-2 text-[16px] text-colorTertiaryText"
-              defaultValue="วิชาญ จงกล"
+              defaultValue={
+                admin ? `${admin.first_name} ${admin.last_name}` : ""
+              }
               disabled
             />
           </div>
@@ -319,7 +392,10 @@ export const ReportTech = ({ id }: { id: number }) => {
           >
             ยกเลิก
           </button>
-          <button className="px-20 py-1 rounded-lg bg-primary text-white cursor-pointer">
+          <button
+            onClick={handleSubmit}
+            className="px-20 py-1 rounded-lg bg-primary text-white cursor-pointer"
+          >
             ยืนยัน
           </button>
         </div>

@@ -1,11 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   /* config options here */
   turbopack: {},
   images: {
-    domains: ["i.pravatar.cc", "picsum.photos"],
-  },
+    domains: ["i.pravatar.cc", "picsum.photos", "bscit.sit.kmutt.ac.th"]
+  }
 }
 
-export default nextConfig;
+export default nextConfig
