@@ -7,11 +7,11 @@ import (
 )
 
 func (h *Handler) RegisterRoutes(r fiber.Router, secretKey string) {
-	r.Post("/:technicianID/verify-identity",
+	r.Post("/:technicianID/identity-verifications",
 		middleware.PreVerifiedAuth(secretKey),
 		h.VerifyIdentity,
 	)
-	r.Get("/:technicianID/verify-identity/jobs/:jobID",
+	r.Get("/identity-verifications/:jobID",
 		h.GetJobStatus,
 	)
 }
