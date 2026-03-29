@@ -213,7 +213,7 @@ class BookingService {
     );
 
     final body = {
-      "action": action.value,
+      "status": action.value,
       if (reason != null && reason.isNotEmpty) "reason": reason,
     };
 
