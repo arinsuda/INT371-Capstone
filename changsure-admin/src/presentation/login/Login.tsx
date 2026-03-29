@@ -24,7 +24,7 @@ export const LoginPage = () => {
       localStorage.setItem("token", payload.access_token)
       localStorage.setItem("adminId", String(payload.user.id))
 
-      router.replace("/manage-technicians")
+      router.replace(`${process.env.NEXT_PUBLIC_BASE_PATH}/manage-technicians`)
     },
     onError: (err: Error) => {
       console.log("login error", err)

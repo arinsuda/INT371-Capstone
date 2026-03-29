@@ -25,7 +25,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
+# 🔥 สำคัญ: copy config ด้วย
+COPY --from=builder /app/next.config.* ./
+COPY --from=builder /app/package.json ./
+
+# assets
 COPY --from=builder /app/public ./public
+
+# standalone
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
