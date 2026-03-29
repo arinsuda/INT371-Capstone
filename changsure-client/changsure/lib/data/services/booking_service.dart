@@ -12,13 +12,13 @@ extension BookingActionExtension on BookingAction {
   String get value {
     switch (this) {
       case BookingAction.accept:
-        return "ACCEPT";
+        return "ACCEPTED";
       case BookingAction.reject:
-        return "REJECT";
+        return "REJECTED";
       case BookingAction.start:
-        return "START";
+        return "IN_PROGRESS";
       case BookingAction.complete:
-        return "COMPLETE";
+        return "COMPLETED";
     }
   }
 }
