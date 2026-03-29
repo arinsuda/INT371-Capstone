@@ -371,6 +371,7 @@ func (c *Container) initTechnicianModule() {
 		c.TechnicianServiceRepo,
 		c.DocumentRepo,
 		c.Storage,
+		c.TechnicianAddressRepo,
 		c.Logger,
 	)
 	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)

@@ -3,6 +3,7 @@ package technician
 import (
 	badges "changsure-core-service/internal/modules/badge"
 	provinces "changsure-core-service/internal/modules/province"
+	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	"time"
 )
@@ -81,26 +82,27 @@ type TechServiceMutationResult struct {
 }
 
 type TechnicianProfileRes struct {
-	ID                 uint                         `json:"id"`
-	FirstName          string                       `json:"firstname"`
-	LastName           string                       `json:"lastname"`
-	Bio                *string                      `json:"bio,omitempty"`
-	Phone              *string                      `json:"phone,omitempty"`
-	Email              *string                      `json:"email,omitempty"`
-	AvatarURL          *string                      `json:"avatar_url,omitempty"`
-	RatingAvg          float64                      `json:"rating_avg,omitempty"`
-	RatingCount        int64                        `json:"rating_count"`
-	TotalJobs          int64                        `json:"total_jobs"`
-	IsAvailable        bool                         `json:"is_available"`
-	VerificationStatus string                       `json:"verification_status"`
-	TermsAccepted      bool                         `json:"terms_accepted"`
-	PrivacyAccepted    bool                         `json:"privacy_accepted"`
-	Provinces          []provinces.ProvinceResponse `json:"provinces"`
-	Services           []TechServiceRes             `json:"services"`
-	ServiceSummary     []TechServiceSummary         `json:"service_summary"`
-	Badges             []badges.BadgeResponse       `json:"badges"`
-	CreatedAt          int64                        `json:"created_at"`
-	UpdatedAt          int64                        `json:"updated_at"`
+	ID                 uint                                         `json:"id"`
+	FirstName          string                                       `json:"firstname"`
+	LastName           string                                       `json:"lastname"`
+	Bio                *string                                      `json:"bio,omitempty"`
+	Phone              *string                                      `json:"phone,omitempty"`
+	Email              *string                                      `json:"email,omitempty"`
+	AvatarURL          *string                                      `json:"avatar_url,omitempty"`
+	RatingAvg          float64                                      `json:"rating_avg,omitempty"`
+	RatingCount        int64                                        `json:"rating_count"`
+	TotalJobs          int64                                        `json:"total_jobs"`
+	IsAvailable        bool                                         `json:"is_available"`
+	VerificationStatus string                                       `json:"verification_status"`
+	TermsAccepted      bool                                         `json:"terms_accepted"`
+	PrivacyAccepted    bool                                         `json:"privacy_accepted"`
+	Provinces          []provinces.ProvinceResponse                 `json:"provinces"`
+	Services           []TechServiceRes                             `json:"services"`
+	ServiceSummary     []TechServiceSummary                         `json:"service_summary"`
+	Badges             []badges.BadgeResponse                       `json:"badges"`
+	CreatedAt          int64                                        `json:"created_at"`
+	UpdatedAt          int64                                        `json:"updated_at"`
+	PrimaryAddress     *technicianaddress.TechnicianAddressResponse `json:"primary_address,omitempty"`
 }
 
 type TechnicianStatus struct {
