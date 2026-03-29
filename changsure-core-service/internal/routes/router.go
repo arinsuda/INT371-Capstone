@@ -83,7 +83,7 @@ func (r *Router) setupProtectedRoutes() {
 	r.setupTechnicianRoutes(v1)
 	r.setupCustomerRoutes(v1)
 
-	admin := v1.Group("/admin").Use(middleware.AdminOnly())
+	admin := v1.Group("/admins").Use(middleware.AdminOnly())
 	r.setupAdminRoutes(admin)
 }
 
