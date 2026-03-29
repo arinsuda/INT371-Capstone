@@ -25,28 +25,52 @@ router = APIRouter()
 
 def _get_client_ip(request: Request) -> str:
     peer = request.client.host if request.client else None
-
     if peer in settings.TRUSTED_PROXY_IPS:
-
         forwarded = request.headers.get("X-Forwarded-For", "")
         if forwarded:
             return forwarded.split(",")[0].strip()
-
     return peer or "unknown"
 
 
-async def _process_single(
-    raw: bytes,
-    content_type: str | None,
-) -> dict:
+def _bbox_center_y(bbox: list) -> float:
+    """คำนวณ center y จาก bounding box ของ EasyOCR [[x,y], [x,y], [x,y], [x,y]]"""
+    ys = [pt[1] for pt in bbox]
+    return (min(ys) + max(ys)) / 2
+
+
+def _bbox_center_x(bbox: list) -> float:
+    xs = [pt[0] for pt in bbox]
+    return (min(xs) + max(xs)) / 2
+
+
+def _items_in_region(
+    items: list[dict], region: tuple[int, int, int, int]
+) -> list[dict]:
+    """
+    Filter OCR items ที่มี center point อยู่ใน region (y0, y1, x0, x1)
+    ใช้แทนการ crop image ก่อน inference
+    """
+    y0, y1, x0, x1 = region
+    result = []
+    for item in items:
+        cy = _bbox_center_y(item["bbox"])
+        cx = _bbox_center_x(item["bbox"])
+        if y0 <= cy <= y1 and x0 <= cx <= x1:
+            result.append(item)
+    return result
+
+
+async def _process_single(raw: bytes, content_type: str | None) -> dict:
     validate_upload(raw, content_type)
 
-    id_region, name_region, orientation_meta = preprocess(raw)
+    full_img, region_coords, orientation_meta = preprocess(raw)
     del raw
 
-    id_texts = await ocr_engine.read(id_region)
-    name_texts = await ocr_engine.read(name_region)
-    del id_region, name_region
+    all_texts = await ocr_engine.read(full_img)
+    del full_img
+
+    id_texts = _items_in_region(all_texts, region_coords["id"])
+    name_texts = _items_in_region(all_texts, region_coords["name"])
 
     thai_id = extract_thai_id(id_texts)
     valid = validate_thai_id(thai_id) if thai_id else False
@@ -79,7 +103,7 @@ async def ocr(request: Request, file: UploadFile = File(...)):
             content={
                 "success": False,
                 "error": "FileTooLarge",
-                "message": f"File exceeds {settings.MAX_FILE_SIZE_BYTES // (1024*1024)} MB limit",
+                "message": f"File exceeds {settings.MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB limit",
                 "request_id": request_id,
             },
         )
@@ -161,9 +185,7 @@ async def ocr_batch(request: Request, files: list[UploadFile] = File(...)):
                 )
 
     results = await asyncio.gather(*(_process_item(i, f) for i, f in enumerate(files)))
-
     results = sorted(results, key=lambda r: r.index)
-
     succeeded = sum(1 for r in results if r.success)
 
     return {
