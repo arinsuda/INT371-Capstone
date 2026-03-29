@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024
 
     BATCH_MAX_FILES: int = 10
-
     BATCH_MAX_CONCURRENCY: int = 1
 
     MIN_CONFIDENCE_THRESHOLD: float = 0.3
@@ -29,6 +28,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     TRUSTED_PROXY_IPS: list[str] = ["127.0.0.1"]
+
+    
+    
+    SKIP_ORIENTATION_CHECK: bool = False
 
 
 settings = Settings()

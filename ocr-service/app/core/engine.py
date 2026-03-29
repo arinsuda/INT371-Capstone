@@ -1,90 +1,71 @@
-import asyncio
-import time
-import logging
-from concurrent.futures import ThreadPoolExecutor
-from app.core.exceptions import OCRTimeoutError
-from typing import Any
+import cv2
 import numpy as np
-import easyocr
 
 from app.core.config import settings
+from app.services.orientation import fix_orientation
 
-logger = logging.getLogger(__name__)
 
+def preprocess(image_bytes: bytes) -> tuple[np.ndarray, dict, dict]:
+    """
+    Decode, resize, fix orientation, enhance, and threshold the image.
 
-def _build_reader() -> easyocr.Reader:
-    """Instantiate the EasyOCR reader (runs in executor thread)."""
-    return easyocr.Reader(
-        settings.OCR_LANGUAGES,
-        gpu=settings.OCR_USE_GPU,
-        model_storage_directory=settings.OCR_MODEL_DIR,
-        download_enabled=False,
-        verbose=False,
+    Returns:
+        (full_thresh, region_coords, orientation_meta)
+
+        full_thresh   — full preprocessed image สำหรับส่งเข้า OCR engine ครั้งเดียว
+        region_coords — { "id": (y0,y1,x0,x1), "name": (y0,y1,x0,x1) }
+                        ใช้ filter ผล OCR ตาม bounding box ภายหลัง
+        orientation_meta — { "rotation_applied_deg": int }
+
+    Raises ValueError for corrupt / unreadable images.
+
+    เปลี่ยนจากเดิมที่ crop ก่อนแล้ว return 2 regions แยก
+    → return full image เพื่อให้ engine.read() ทำแค่ครั้งเดียว
+      แล้วค่อย filter ผลด้วย _items_in_region() ใน routes.py
+    """
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    del arr
+
+    if img is None:
+        raise ValueError("Could not decode image — corrupt or unsupported format")
+
+    h, w = img.shape[:2]
+    if w > settings.MAX_IMAGE_WIDTH:
+        scale = settings.MAX_IMAGE_WIDTH / w
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        del img
+        img = resized
+        del resized
+        h, w = new_h, new_w
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    del img
+
+    if settings.SKIP_ORIENTATION_CHECK:
+        orientation_meta: dict = {"rotation_applied_deg": 0}
+    else:
+        gray, orientation_meta = fix_orientation(gray)
+
+    cv2.equalizeHist(gray, dst=gray)
+    cv2.GaussianBlur(gray, (3, 3), 0, dst=gray)
+
+    thresh = cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        blockSize=31,
+        C=2,
     )
+    del gray
 
+    th, tw = thresh.shape[:2]
+    region_coords = {
+        "id": (int(th * 0.15), int(th * 0.35), int(tw * 0.05), int(tw * 0.70)),
+        "name": (int(th * 0.35), int(th * 0.60), int(tw * 0.05), int(tw * 0.90)),
+    }
 
-def _run_readtext(reader: easyocr.Reader, image: Any) -> list:
-    return reader.readtext(
-        image,
-        detail=1,
-        paragraph=False,
-        contrast_ths=0.1,
-        adjust_contrast=0.5,
-        batch_size=1,
-        workers=0,
-    )
-
-
-class OCREngine:
-    def __init__(self) -> None:
-        self._reader = None
-        self._executor = ThreadPoolExecutor(max_workers=1)
-        self._semaphore = asyncio.Semaphore(1)
-        self._ready = False
-
-    @property
-    def is_ready(self) -> bool:
-        return self._ready
-
-    async def initialize(self) -> None:
-        loop = asyncio.get_running_loop()
-
-        self._reader = await loop.run_in_executor(self._executor, _build_reader)
-
-        self._ready = True
-
-    async def read(self, image):
-        if not self._ready:
-            raise RuntimeError("OCR not ready")
-
-        loop = asyncio.get_running_loop()
-
-        async with self._semaphore:
-            try:
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        self._executor,
-                        _run_readtext,
-                        self._reader,
-                        image,
-                    ),
-                    timeout=settings.OCR_TIMEOUT_SECONDS,
-                )
-            except asyncio.TimeoutError:
-                raise OCRTimeoutError()
-
-        return [
-            {
-                "text": text,
-                "confidence": float(conf),
-                "bbox": bbox,
-            }
-            for bbox, text, conf in result
-            if conf >= settings.MIN_CONFIDENCE_THRESHOLD
-        ]
-
-    async def shutdown(self):
-        self._executor.shutdown(wait=True)
-
-
-ocr_engine = OCREngine()
+    return np.ascontiguousarray(thresh), region_coords, orientation_meta
