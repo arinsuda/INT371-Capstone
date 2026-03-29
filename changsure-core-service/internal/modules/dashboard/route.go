@@ -10,6 +10,7 @@ func (h *Handler) RegisterAdminRoutes(r fiber.Router) {
 	dash := r.Group("/dashboard").Use(middleware.AdminOnly())
 	dash.Get("/", h.GetDashboard)
 	dash.Get("/pending-verifications", h.GetPendingVerifications)
+	dash.Get("/action-items", h.GetActionItems)
 	dash.Get("/categories/:categoryID/services", h.GetServicesByCategory)
 	dash.Get("/services/:serviceID/technicians", h.GetTechniciansByService)
 }

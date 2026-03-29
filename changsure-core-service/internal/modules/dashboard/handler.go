@@ -26,7 +26,6 @@ func (h *Handler) GetDashboard(c fiber.Ctx) error {
 }
 
 func (h *Handler) GetPendingVerifications(c fiber.Ctx) error {
-
 	var q PendingVerificationQuery
 	if err := c.Bind().Query(&q); err != nil {
 		return appErrors.BadRequest(c, "invalid query")
@@ -70,4 +69,12 @@ func (h *Handler) GetTechniciansByService(c fiber.Ctx) error {
 		return appErrors.InternalError(c, "failed to get technicians", err)
 	}
 	return c.JSON(fiber.Map{"success": true, "data": resp})
+}
+
+func (h *Handler) GetActionItems(c fiber.Ctx) error {
+	items, err := h.svc.GetActionItems(c.Context())
+	if err != nil {
+		return appErrors.InternalError(c, "failed to get action items", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": items})
 }

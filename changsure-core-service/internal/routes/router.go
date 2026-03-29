@@ -95,6 +95,7 @@ func (r *Router) setupSharedRoutes(api fiber.Router) {
 	r.container.PaymentHandler.RegisterRoutes(api)
 	r.container.DocumentHandler.RegisterAdminRoute(api)
 	r.container.DashboardHandler.RegisterAdminRoutes(api)
+	r.container.TechnicianPostHandler.RegisterPublicRoutes(api)
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
@@ -103,6 +104,7 @@ func (r *Router) setupAdminRoutes(admin fiber.Router) {
 	r.container.TechnicianHandler.RegisterAdminRoutes(admin.Group("/technicians"))
 	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin.Group("/verification"))
 	r.container.AdminHandler.RegisterRoutes(admin)
+	r.container.TechnicianPostHandler.RegisterAdminRoutes(admin.Group("/technicians"))
 }
 
 func (r *Router) startBackgroundJobs() {

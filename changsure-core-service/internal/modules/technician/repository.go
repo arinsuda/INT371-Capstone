@@ -275,6 +275,31 @@ func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]
 		`)
 	}
 
+	switch PostWarningStatus(q.PostWarningStatus) {
+	case PostWarningBanned:
+		base = base.Where("technicians.banned_at IS NOT NULL OR technicians.is_available = FALSE")
+
+	case PostWarningWarned:
+		base = base.Where(`
+        technicians.banned_at IS NULL
+        AND technicians.is_available = TRUE
+        AND (
+            SELECT COUNT(*) FROM technician_post_reports
+            WHERE technician_id = technicians.id AND severity = 'WARNING'
+        ) >= 1
+    `)
+
+	case PostWarningNormal:
+		base = base.Where(`
+        technicians.banned_at IS NULL
+        AND technicians.is_available = TRUE
+        AND (
+            SELECT COUNT(*) FROM technician_post_reports
+            WHERE technician_id = technicians.id AND severity = 'WARNING'
+        ) = 0
+    `)
+	}
+
 	if q.HasWarning != nil {
 		if *q.HasWarning {
 			base = base.Where(`(
@@ -302,11 +327,15 @@ func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]
 
 	var list []TechnicianWithVerification
 	err := base.
+		Preload("ServiceAreas", "is_active = ?", true).
+		Preload("ServiceAreas.Province").
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
+		Preload("Services.Service.Category").
 		Order("technicians.created_at DESC").
 		Limit(q.PageSize).
 		Offset(offset).
 		Find(&list).Error
-
 	return list, total, err
 }
 
