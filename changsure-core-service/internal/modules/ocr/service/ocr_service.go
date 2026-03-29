@@ -1,10 +1,6 @@
 package service
 
-import (
-	"changsure-core-service/internal/modules/ocr/infra"
-	"fmt"
-	"time"
-)
+import "changsure-core-service/internal/modules/ocr/infra"
 
 type OCRService interface {
 	ProcessOCR(imageBytes []byte, filename string) (*infra.OCRResult, error)
@@ -20,19 +16,7 @@ func NewOCRService(client infra.OCRClient) OCRService {
 }
 
 func (s *ocrService) ProcessOCR(imageBytes []byte, filename string) (*infra.OCRResult, error) {
-	var lastErr error
-
-	for i := 0; i < 3; i++ {
-		res, err := s.client.Scan(imageBytes, filename)
-		if err == nil {
-			return res, nil
-		}
-
-		lastErr = err
-		time.Sleep(time.Duration(i+1) * 2 * time.Second)
-	}
-
-	return nil, fmt.Errorf("ocr failed after retries: %w", lastErr)
+	return s.client.Scan(imageBytes, filename)
 }
 
 func (s *ocrService) Ping() (*infra.OCRHealth, error) {
