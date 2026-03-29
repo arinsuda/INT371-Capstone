@@ -7,5 +7,5 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	group.Get("/", h.ListBookings)
 	group.Get("/:bookingID", h.GetBooking)
-	group.Patch("/:bookingID/status", h.UpdateBookingStatus)
+	group.Patch("/:bookingID", h.UpdateBookingStatus)
 }
