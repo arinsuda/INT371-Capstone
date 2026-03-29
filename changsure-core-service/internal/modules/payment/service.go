@@ -124,7 +124,7 @@ func (s *service) CreatePayment(ctx context.Context, req *CreatePaymentRequest) 
 	if err != nil {
 		return nil, err
 	}
-
+	chargeID := source.ChargeID
 	txn := &PaymentTransaction{
 		BookingID:      bkg.ID,
 		SourceID:       &source.ID,
