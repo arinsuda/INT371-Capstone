@@ -32,57 +32,29 @@ def _get_client_ip(request: Request) -> str:
     return peer or "unknown"
 
 
-def _bbox_center_y(bbox: list) -> float:
-    """คำนวณ center y จาก bounding box ของ EasyOCR [[x,y], [x,y], [x,y], [x,y]]"""
-    ys = [pt[1] for pt in bbox]
-    return (min(ys) + max(ys)) / 2
-
-
-def _bbox_center_x(bbox: list) -> float:
-    xs = [pt[0] for pt in bbox]
-    return (min(xs) + max(xs)) / 2
-
-
-def _items_in_region(
-    items: list[dict], region: tuple[int, int, int, int]
-) -> list[dict]:
-    """
-    Filter OCR items ที่มี center point อยู่ใน region (y0, y1, x0, x1)
-    ใช้แทนการ crop image ก่อน inference
-    """
-    y0, y1, x0, x1 = region
-    result = []
-    for item in items:
-        cy = _bbox_center_y(item["bbox"])
-        cx = _bbox_center_x(item["bbox"])
-        if y0 <= cy <= y1 and x0 <= cx <= x1:
-            result.append(item)
-    return result
-
-
 async def _process_single(raw: bytes, content_type: str | None) -> dict:
     validate_upload(raw, content_type)
 
-    full_img, region_coords, orientation_meta = preprocess(raw)
+    # preprocess คืน 2 regions แยก (crop-before-inference)
+    id_region, name_region, orientation_meta = preprocess(raw)
     del raw
 
-    all_texts = await ocr_engine.read(full_img)
-    del full_img
+    # inference 2 ครั้งบน region เล็กๆ — accurate กว่า full image
+    id_texts   = await ocr_engine.read(id_region)
+    name_texts = await ocr_engine.read(name_region)
+    del id_region, name_region
 
-    id_texts = _items_in_region(all_texts, region_coords["id"])
-    name_texts = _items_in_region(all_texts, region_coords["name"])
-
-    thai_id = extract_thai_id(id_texts)
-    valid = validate_thai_id(thai_id) if thai_id else False
+    thai_id  = extract_thai_id(id_texts)
+    valid    = validate_thai_id(thai_id) if thai_id else False
     name_raw = normalize_name_from_ocr_items(name_texts)
 
     return {
-        "id_number": thai_id,
-        "valid": valid,
-        "name_raw": name_raw,
+        "id_number":        thai_id,
+        "valid":            valid,
+        "name_raw":         name_raw,
         "orientation_meta": orientation_meta,
-        "id_texts": id_texts,
-        "name_texts": name_texts,
+        "id_texts":         id_texts,
+        "name_texts":       name_texts,
     }
 
 
@@ -119,16 +91,16 @@ async def ocr(request: Request, file: UploadFile = File(...)):
         )
 
     response: dict = {
-        "request_id": request_id,
-        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
-        "id_number": result["id_number"],
-        "valid": result["valid"],
-        "name_raw": result["name_raw"],
+        "request_id":  request_id,
+        "elapsed_ms":  round((time.perf_counter() - t0) * 1000, 2),
+        "id_number":   result["id_number"],
+        "valid":       result["valid"],
+        "name_raw":    result["name_raw"],
         "orientation": OrientationMeta(**result["orientation_meta"]),
     }
     if settings.DEBUG:
         response["debug"] = {
-            "id_texts": result["id_texts"],
+            "id_texts":   result["id_texts"],
             "name_texts": result["name_texts"],
         }
 
@@ -191,10 +163,10 @@ async def ocr_batch(request: Request, files: list[UploadFile] = File(...)):
     return {
         "request_id": request_id,
         "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
-        "total": len(results),
-        "succeeded": succeeded,
-        "failed": len(results) - succeeded,
-        "results": results,
+        "total":      len(results),
+        "succeeded":  succeeded,
+        "failed":     len(results) - succeeded,
+        "results":    results,
     }
 
 

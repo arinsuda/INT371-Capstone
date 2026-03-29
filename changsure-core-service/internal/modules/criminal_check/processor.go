@@ -24,25 +24,31 @@ type VerificationResult struct {
 
 func ProcessVerification(
 	ctx context.Context,
-	db *gorm.DB, 
+	db *gorm.DB,
 	technicianID uint,
 	ocrResult *infra.OCRResult,
 	criminalRepo Repository,
 	techRepo technician.Repository,
 ) (*VerificationResult, error) {
 
+	// guard: db nil จะทำให้ panic ใน SaveLog ภายใน transaction
+	if db == nil {
+		return nil, fmt.Errorf("ProcessVerification: db is nil — check OCRWorkerDeps.DB wiring")
+	}
+
 	rawOCRText := strings.TrimSpace(ocrResult.IDNumber + " " + ocrResult.NameRaw)
 
-	// --- helper: save log (non-fatal) ---
-	saveLog := func(tx *gorm.DB, logItem *VerificationLog) {
-		if err := criminalRepo.WithTx(tx).SaveLog(logItem); err != nil {
-			log.Printf("[WARN] save verification log failed: %v", err)
+	// saveLog สำหรับ early-return ก่อนถึง transaction
+	// ใช้ criminalRepo โดยตรง (ไม่ผ่าน tx) เพราะยังไม่มี transaction เปิดอยู่
+	saveEarlyLog := func(logItem *VerificationLog) {
+		if err := criminalRepo.SaveLog(logItem); err != nil {
+			log.Printf("[WARN] save early verification log failed: %v", err)
 		}
 	}
 
 	// --- 1) OCR validations ---
 	if ocrResult.IDNumber == "" {
-		saveLog(db, &VerificationLog{
+		saveEarlyLog(&VerificationLog{
 			TechnicianID: technicianID,
 			Status:       StatusOCRFailed,
 			Note:         "ไม่สามารถ extract เลขบัตรประชาชนจากรูปภาพได้",
@@ -57,7 +63,7 @@ func ProcessVerification(
 	}
 
 	if !ocrResult.Valid {
-		saveLog(db, &VerificationLog{
+		saveEarlyLog(&VerificationLog{
 			TechnicianID: technicianID,
 			NationalID:   ocrResult.IDNumber,
 			Status:       StatusOCRFailed,
@@ -74,7 +80,7 @@ func ProcessVerification(
 	}
 
 	if ocrResult.NameRaw == "" {
-		saveLog(db, &VerificationLog{
+		saveEarlyLog(&VerificationLog{
 			TechnicianID: technicianID,
 			NationalID:   ocrResult.IDNumber,
 			Status:       StatusNameNotExtracted,
@@ -108,7 +114,7 @@ func ProcessVerification(
 	// --- 4) name matching ---
 	if status == StatusPassed {
 		if !namesMatch(ocrResult.NameRaw, tech.FirstName, tech.LastName) {
-			status = StatusReview // ✅ ใช้ REVIEW แทน PENDING
+			status = StatusReview
 			note = fmt.Sprintf(
 				"เลขบัตรผ่าน แต่ชื่อไม่ตรง — OCR: %q | ระบบ: %q",
 				ocrResult.NameRaw, systemName,
@@ -119,9 +125,11 @@ func ProcessVerification(
 
 	// --- 5) transactional persist ---
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := criminalRepo.WithTx(tx)
+		txTechRepo := techRepo.WithTx(tx)
 
 		// 5.1 save log
-		if err := criminalRepo.WithTx(tx).SaveLog(&VerificationLog{
+		if err := txRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			NationalID:   ocrResult.IDNumber,
 			Status:       status,
@@ -131,29 +139,23 @@ func ProcessVerification(
 			return fmt.Errorf("save verification log: %w", err)
 		}
 
-		// 5.2 idempotent guard (กัน update ซ้ำ)
-		// ถ้า status เดิมเหมือนใหม่ → ไม่ต้อง update
+		// 5.2 idempotent guard
 		if technician.VerificationStatus(status) == tech.VerificationStatus {
 			return nil
 		}
 
-		// 5.3 update technician status
+		// 5.3 update technician verification status
 		switch status {
 		case StatusPassed:
-			if err := techRepo.WithTx(tx).
-				UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed); err != nil {
+			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed); err != nil {
 				return fmt.Errorf("update status PASSED: %w", err)
 			}
-
 		case StatusFailed:
-			if err := techRepo.WithTx(tx).
-				UpdateVerificationStatus(ctx, technicianID, technician.StatusFailed); err != nil {
+			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusFailed); err != nil {
 				return fmt.Errorf("update status FAILED: %w", err)
 			}
-
 		case StatusReview:
-			if err := techRepo.WithTx(tx).
-				UpdateVerificationStatus(ctx, technicianID, technician.StatusReview); err != nil {
+			if err := txTechRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusReview); err != nil {
 				return fmt.Errorf("update status REVIEW: %w", err)
 			}
 		}
