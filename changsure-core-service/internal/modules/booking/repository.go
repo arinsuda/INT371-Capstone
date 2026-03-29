@@ -124,7 +124,6 @@ func (r *repository) FindByIDForUpdate(ctx context.Context, id uint) (*Booking, 
 	var b Booking
 	err := r.db.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Preload("Technician").
 		Preload("TechnicianService.Service").
 		Where("id = ?", id).
 		First(&b).Error
