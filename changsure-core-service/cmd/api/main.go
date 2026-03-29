@@ -175,7 +175,6 @@ func startWorkerPool(
 	}
 
 	ocrWorker := worker.NewOCRWorker(worker.OCRWorkerDeps{
-		DB:           db,
 		JobRepo:      jobRepo,
 		OCRService:   ocrSvc,
 		CriminalRepo: crimRepo,
