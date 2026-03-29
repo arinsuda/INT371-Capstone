@@ -18,7 +18,7 @@ extension BookingActionExtension on BookingAction {
       case BookingAction.start:
         return "IN_PROGRESS";
       case BookingAction.complete:
-        return "COMPLETED";
+        return "WAITING_PAYMENT";
     }
   }
 }
