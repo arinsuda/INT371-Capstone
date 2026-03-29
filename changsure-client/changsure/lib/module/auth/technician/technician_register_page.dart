@@ -1,4 +1,5 @@
 import 'package:changsure/core/header.dart';
+import 'package:changsure/data/models/users/users_model.dart';
 import 'package:changsure/module/auth/technician/setup_technician_profile.dart';
 import 'package:changsure/module/auth/technician/technician_register_step_provider.dart';
 import 'package:changsure/module/auth/technician/verify_page.dart';
@@ -9,7 +10,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 
 class TechnicianRegisterPage extends ConsumerStatefulWidget {
-  const TechnicianRegisterPage({super.key});
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final List<String>? consents;
+  final RegisterAddressModel address;
+
+  const TechnicianRegisterPage({
+    super.key,
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.address,
+    required this.consents,
+  });
 
   @override
   ConsumerState<TechnicianRegisterPage> createState() =>
@@ -23,6 +37,16 @@ class _TechnicianRegisterPageState
     super.initState();
 
     Future.microtask(() {
+      ref
+          .read(technicianRegisterDataProvider.notifier)
+          .state = TechnicianRegisterData(
+        email: widget.email,
+        password: widget.password,
+        confirmPassword: widget.confirmPassword,
+        address: widget.address,
+        consents: widget.consents,
+      );
+
       ref.read(technicianRegisterStepProvider.notifier).state = 1;
     });
   }
@@ -98,16 +122,35 @@ class _TechnicianRegisterPageState
   Widget _buildStepContent(int step) {
     switch (step) {
       case 1:
-        return const SetupTechnicianProfile();
+        return SetupTechnicianProfile(
+          email: widget.email,
+          password: widget.password,
+          confirmPassword: widget.confirmPassword,
+          address: widget.address,
+          consents: widget.consents,
+        );
 
       case 2:
-        return const WorkTypeListPage();
+        return WorkTypeListPage(
+          email: widget.email,
+          password: widget.password,
+          confirmPassword: widget.confirmPassword,
+          address: widget.address,
+          consents: widget.consents,
+        );
 
       case 3:
-        return const VerifyPage();
+        return VerifyPage(  email: widget.email,
+          password: widget.password,);
 
       default:
-        return const SetupTechnicianProfile();
+        return SetupTechnicianProfile(
+          email: widget.email,
+          password: widget.password,
+          confirmPassword: widget.confirmPassword,
+          address: widget.address,
+          consents: widget.consents,
+        );
     }
   }
 

@@ -202,20 +202,16 @@ class MasterDataService {
   // ─── Service Categories (with services merged) ────────────────────────────────
   // BE: GET /service-categories → { "success": true, "data": [...] }
   // BE: GET /services/all       → { "success": true, "total": N, "data": [...] }
-  Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices(
-    String? token,
-  ) async {
+  Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices() async {
     try {
-      final headers = _getHeaders(token);
-
       final results = await Future.wait([
         _client.get(
           Uri.parse('${ApiConstants.baseUrl}/service-categories'),
-          headers: headers,
+          headers: {'Content-Type': 'application/json'},
         ),
         _client.get(
           Uri.parse('${ApiConstants.baseUrl}/services/all'),
-          headers: headers,
+          headers: {'Content-Type': 'application/json'},
         ),
       ]);
 
@@ -300,9 +296,19 @@ class MasterDataService {
   }
 
   // ─── Register ────────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>?> register(RegisterModel model) async {
-    return _post<Map<String, dynamic>?>(
-      endpoint: '/register',
+  Future<Map<String, dynamic>?> registerCustomer(CustomerRegisterModel model) {
+    return _post(
+      endpoint: '/auth/customer/register',
+      body: model.toJson(),
+      parser: (data) => data,
+    );
+  }
+
+  Future<Map<String, dynamic>?> registerTechnician(
+    TechnicianRegisterModel model,
+  ) {
+    return _post(
+      endpoint: '/auth/technician/register',
       body: model.toJson(),
       parser: (data) => data,
     );
@@ -312,10 +318,9 @@ class MasterDataService {
     _client.close();
   }
 
-  Future<DocumentTermResponse> getDocumentService(String token) {
+  Future<DocumentTermResponse> getDocumentService() {
     return _get(
       endpoint: '/documents/changsure-terms',
-      token: token,
       queryParams: {'locale': 'th'},
       parser: (body) => DocumentTermResponse.fromJson(body),
     );
@@ -341,10 +346,7 @@ class MasterDataService {
       return DocumentAcceptanceResponse.fromJson(json);
     }
 
-    throw ApiException(
-      'Failed to accept document',
-      response.statusCode,
-    );
+    throw ApiException('Failed to accept document', response.statusCode);
   }
 }
 
@@ -365,15 +367,15 @@ final provincesProvider = FutureProvider<List<ProvinceModel>>((ref) async {
   return ref.read(masterDataServiceProvider).getProvinces(token);
 });
 
-class RegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
+class CustomerRegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
   @override
   Future<Map<String, dynamic>?> build() async => null;
 
-  Future<void> register(RegisterModel model) async {
+  Future<void> register(CustomerRegisterModel model) async {
     state = const AsyncLoading();
     try {
       final service = ref.read(masterDataServiceProvider);
-      final result = await service.register(model);
+      final result = await service.registerCustomer(model);
       state = AsyncData(result);
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -381,9 +383,33 @@ class RegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
   }
 }
 
-final registerProvider =
-    AsyncNotifierProvider<RegisterNotifier, Map<String, dynamic>?>(
-      RegisterNotifier.new,
+final customerRegisterProvider =
+    AsyncNotifierProvider<CustomerRegisterNotifier, Map<String, dynamic>?>(
+      CustomerRegisterNotifier.new,
+    );
+
+class TechnicianRegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
+  @override
+  Future<Map<String, dynamic>?> build() async => null;
+
+  Future<Map<String, dynamic>?> register(TechnicianRegisterModel model) async {
+    state = const AsyncLoading();
+    try {
+      final service = ref.read(masterDataServiceProvider);
+      final result = await service.registerTechnician(model);
+
+      state = AsyncData(result);
+      return result;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow; // ✅ ต้องมี
+    }
+  }
+}
+
+final technicianRegisterProvider =
+    AsyncNotifierProvider<TechnicianRegisterNotifier, Map<String, dynamic>?>(
+      TechnicianRegisterNotifier.new,
     );
 
 final districtsProvider = FutureProvider.family<List<DistrictModel>, int>((
@@ -414,11 +440,7 @@ final allServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
 final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
 ) async {
-  final token = ref.watch(tokenProvider);
-  if (token == null || token.isEmpty) return [];
-  return ref
-      .read(masterDataServiceProvider)
-      .getServiceCategoriesWithServices(token);
+  return ref.read(masterDataServiceProvider).getServiceCategoriesWithServices();
 });
 
 final servicesByCategoryProvider =
@@ -519,11 +541,7 @@ final documentProvider = FutureProvider<DocumentTermResponse>((ref) async {
   final user = ref.read(userProvider);
   final service = ref.read(masterDataServiceProvider);
 
-  if (user == null || user.token == null) {
-    throw ApiException("Token not found");
-  }
-
-  return service.getDocumentService(user.token!);
+  return service.getDocumentService();
 });
 
 final documentAcceptanceProvider =

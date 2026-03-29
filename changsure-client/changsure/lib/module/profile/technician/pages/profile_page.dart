@@ -71,7 +71,7 @@ class _ProfileState extends ConsumerState<TechnicianProfile> {
               },
             ),
 
-            if (tech?.isVerified == false) ...[
+            if (tech?.verificationStatus == "PENDING") ...[
               Padding(
                 padding: EdgeInsetsGeometry.symmetric(horizontal: 18, vertical: 16),
                 child: Container(
@@ -108,7 +108,43 @@ class _ProfileState extends ConsumerState<TechnicianProfile> {
                 ),
               ),
             ],
+            if (tech?.verificationStatus == "PENDING") ...[
+              Padding(
+                padding: EdgeInsetsGeometry.symmetric(horizontal: 18, vertical: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.colorWarning,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_outlined,
+                        size: 18,
+                        color: Color(0xFFAD6800),
+                      ),
+                      const SizedBox(width: 12),
 
+                      Expanded(
+                        child: Text(
+                          "กรุณารอการตรวจสอบการยืนยันตัวตน 7-15 วันทำการ "
+                              "ผ่านทางระบบ การแจ้งเตือน คุณถึงจะสามารถรับงานจากลูกค้าได้",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFAD6800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             ActionButtonSection(),
             RecommendedServiceSection(),
             const SizedBox(height: 12),

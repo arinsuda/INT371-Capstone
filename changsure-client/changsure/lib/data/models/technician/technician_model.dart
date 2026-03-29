@@ -16,7 +16,7 @@ class TechnicianModel {
   final int totalJobs;
   final bool isAvailable;
   final bool isVerified;
-
+  final String verificationStatus;
   final List<ProvinceModel> provinces;
   final List<TechnicianService> services;
   final List<BadgeModel> badges;
@@ -41,6 +41,7 @@ class TechnicianModel {
     this.badges = const [],
     this.addresses = const [],
     this.serviceSummary = const [],
+    this.verificationStatus = "",
   });
 
   String get fullName => '$firstName $lastName';
@@ -58,6 +59,7 @@ class TechnicianModel {
     int? totalJobs,
     bool? isAvailable,
     bool? isVerified,
+    String? verificationStatus,
     List<ProvinceModel>? provinces,
     List<TechnicianService>? services,
     List<BadgeModel>? badges,
@@ -82,6 +84,7 @@ class TechnicianModel {
       badges: badges ?? this.badges,
       addresses: addresses ?? this.addresses,
       serviceSummary: serviceSummary ?? this.serviceSummary,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
     );
   }
 
@@ -101,7 +104,7 @@ class TechnicianModel {
       totalJobs: json['total_jobs'] ?? 0,
       isAvailable: json['is_available'] ?? true,
       isVerified: json['is_verified'] ?? false,
-
+      verificationStatus: json['verification_status'] ?? "",
       // แปลง Array ของข้อมูลย่อย
       provinces:
           (json['provinces'] as List<dynamic>?)
@@ -253,14 +256,10 @@ class VerifyTechnician {
 class ReviewImage {
   final String imageUrl;
 
-  ReviewImage({
-    required this.imageUrl,
-  });
+  ReviewImage({required this.imageUrl});
 
   factory ReviewImage.fromJson(Map<String, dynamic> json) {
-    return ReviewImage(
-      imageUrl: json['image_url'] ?? '',
-    );
+    return ReviewImage(imageUrl: json['image_url'] ?? '');
   }
 }
 
@@ -269,11 +268,7 @@ class Customer {
   final String name;
   final String avatar;
 
-  Customer({
-    required this.id,
-    required this.name,
-    required this.avatar,
-  });
+  Customer({required this.id, required this.name, required this.avatar});
 
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
@@ -372,18 +367,10 @@ class Meta {
   final int page;
   final int total;
 
-  Meta({
-    required this.limit,
-    required this.page,
-    required this.total,
-  });
+  Meta({required this.limit, required this.page, required this.total});
 
   factory Meta.fromJson(Map<String, dynamic> json) {
-    return Meta(
-      limit: json['limit'],
-      page: json['page'],
-      total: json['total'],
-    );
+    return Meta(limit: json['limit'], page: json['page'], total: json['total']);
   }
 }
 
@@ -391,10 +378,7 @@ class ReviewData {
   final List<Review> reviews;
   final ReviewSummary summary;
 
-  ReviewData({
-    required this.reviews,
-    required this.summary,
-  });
+  ReviewData({required this.reviews, required this.summary});
 
   factory ReviewData.fromJson(Map<String, dynamic> json) {
     return ReviewData(

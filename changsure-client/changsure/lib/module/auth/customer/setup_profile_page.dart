@@ -14,7 +14,15 @@ import '../../../state/user_provider.dart';
 
 class SetupProfilePage extends ConsumerStatefulWidget {
   final String email;
-  const SetupProfilePage({super.key, required this.email});
+  final String password;
+  final String confirmPassword;
+
+  const SetupProfilePage({
+    super.key,
+    required this.email,
+    required this.confirmPassword,
+    required this.password,
+  });
 
   @override
   ConsumerState<SetupProfilePage> createState() => _SetupProfilePageState();
@@ -35,7 +43,6 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
   String? avatarUrl;
   dynamic originalCustomer;
   File? selectedImage;
-
 
   @override
   void initState() {
@@ -106,74 +113,25 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
   Future<void> _saveProfile() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final user = ref.read(userProvider);
-
-    if (user == null || user.token == null || originalCustomer == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('กรุณาเข้าสู่ระบบใหม่')));
-      return;
-    }
-
-    final Map<String, dynamic> updates = {};
-
-    final currentFirstName = nameController.text.trim();
-    final currentLastName = lastNameController.text.trim();
-    final currentEmail = emailController.text.trim();
-    final currentPhone = phoneController.text.replaceAll('-', '');
-
-    if (currentFirstName != (_originalFirstName ?? '')) {
-      updates['firstname'] = currentFirstName;
-    }
-
-    if (currentLastName != (_originalLastName ?? '')) {
-      updates['lastname'] = currentLastName;
-    }
-
-    if (currentEmail != (_originalEmail ?? '')) {
-      updates['email'] = currentEmail;
-    }
-
-    final originalPhone = (_originalPhone ?? '').replaceAll('-', '');
-    if (currentPhone != originalPhone) {
-      updates['phone'] = currentPhone;
-    }
-
-    if (updates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่มีการเปลี่ยนแปลงข้อมูล')),
-      );
-      return;
-    }
-
     try {
-      final success = await CustomerService().updateCustomer(
-        user.token!,
-        user.id,
-        user.role,
-        updates,
-      );
+      final firstname = nameController.text.trim();
+      final lastname = lastNameController.text.trim();
+      final email = emailController.text.trim();
+      final phone = phoneController.text.replaceAll('-', '');
 
-      if (success) {
-        await ref.read(userProvider.notifier).refreshUser();
-
-        if (!mounted) return;
-
-        Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (context) => SetupAddress(
-              onSave: (data) async {
-                final result = await ref
-                    .read(addressProvider.notifier)
-                    .createCustomerAddress(data);
-                return result;
-              },
-            ),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SetupAddress(
+            email: widget.email,
+            password: widget.password,
+            confirmPassword: widget.confirmPassword,
+            firstname: firstname,
+            lastname: lastname,
+            phone: phone,
           ),
-        );
-
-      }
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -242,7 +200,7 @@ class _SetupProfilePageState extends ConsumerState<SetupProfilePage> {
                       backgroundImage: selectedImage != null
                           ? FileImage(selectedImage!)
                           : const AssetImage('assets/image/Technician.png')
-                      as ImageProvider,
+                                as ImageProvider,
                     ),
 
                     Positioned(

@@ -8,6 +8,7 @@ import '../../../core/profile/editProfile/phone_formatter.dart';
 import '../../../core/profile/editProfile/text_field.dart';
 import '../../../core/theme.dart';
 import '../../../data/models/master_data_models.dart';
+import '../../../data/models/users/users_model.dart';
 import '../../../state/bottom_nav_provider.dart';
 import '../../../state/master_data_provider.dart';
 import '../../../state/user_provider.dart';
@@ -15,18 +16,32 @@ import '../../profile/technician/editProfile/province_checkbox_list.dart';
 import '../../profile/technician/editProfile/search_bar.dart';
 
 class TechnicianRegisterData {
+  String? email;
+  String? password;
+  String? confirmPassword;
   String? firstName;
   String? lastName;
   String? phone;
   List<int>? provinceIds;
-  List<Map<String, dynamic>>? servicesData;
+  List<TechnicianServiceModel>? servicesData;
+  List<String>? consents;
+  RegisterAddressModel? address;
+  String? preVerifiedToken;
+  int? technicianId;
 
   TechnicianRegisterData({
+    this.email,
+    this.password,
+    this.confirmPassword,
     this.firstName,
     this.lastName,
     this.phone,
     this.provinceIds,
-    this.servicesData
+    this.servicesData,
+    this.consents,
+    this.address,
+    this.preVerifiedToken,
+    this.technicianId
   });
 }
 
@@ -36,7 +51,20 @@ StateProvider<TechnicianRegisterData>((ref) {
 });
 
 class SetupTechnicianProfile extends ConsumerStatefulWidget {
-  const SetupTechnicianProfile({super.key});
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final List<String>? consents;
+  final RegisterAddressModel address;
+
+  const SetupTechnicianProfile({
+    super.key,
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    required this.address,
+    this.consents,
+  });
 
   @override
   ConsumerState<SetupTechnicianProfile> createState() =>
@@ -59,6 +87,12 @@ class _SetupTechnicianProfileState
   bool _isInitialized = false;
   List<ProvinceModel> allProvinces = [];
 
+  String _formatPhone(String rawPhone) {
+    if (rawPhone.length == 10 && !rawPhone.contains('-')) {
+      return "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
+    }
+    return rawPhone;
+  }
 
   @override
   void initState() {
@@ -66,7 +100,7 @@ class _SetupTechnicianProfileState
 
     nameController = TextEditingController();
     lastNameController = TextEditingController();
-    emailController = TextEditingController();
+    emailController = TextEditingController(text: widget.email);
     phoneController = TextEditingController();
   }
 
@@ -77,6 +111,8 @@ class _SetupTechnicianProfileState
     emailController.dispose();
     phoneController.dispose();
     _searchController.dispose();
+
+    super.dispose();
   }
 
   void _initializeData(List<ProvinceModel> provinces) {
@@ -94,25 +130,53 @@ class _SetupTechnicianProfileState
       if (parts.length > 1) lastName = parts.sublist(1).join(' ');
     }
 
-    nameController.text = tech?.firstName ?? firstName;
-    lastNameController.text = tech?.lastName ?? lastName;
-    emailController.text = tech?.email ?? '';
+    final registerData = ref.read(technicianRegisterDataProvider);
 
-    String rawPhone = tech?.phone ?? '';
+    nameController.text =
+        registerData.firstName ??
+            tech?.firstName ??
+            firstName;
+
+    lastNameController.text =
+        registerData.lastName ??
+            tech?.lastName ??
+            lastName;
+
+    phoneController.text =
+    registerData.phone != null
+        ? _formatPhone(registerData.phone!)
+        : (tech?.phone ?? '');
+
+    /// email ใช้ widget.email เป็นหลัก
+    emailController.text =
+    widget.email.isNotEmpty
+        ? widget.email
+        : (tech?.email ?? '');
+
+    String rawPhone =
+        registerData.phone ??
+            tech?.phone ??
+            '';
+
     if (rawPhone.isNotEmpty &&
         rawPhone.length == 10 &&
         !rawPhone.contains('-')) {
       phoneController.text =
-          "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
+      "${rawPhone.substring(0, 3)}-${rawPhone.substring(3, 6)}-${rawPhone.substring(6)}";
     } else {
       phoneController.text = rawPhone;
     }
 
     _selectedProvinces = {for (var p in provinces) p.id: false};
-    if (tech?.provinces != null) {
+
+    if (registerData.provinceIds != null) {
+      for (var id in registerData.provinceIds!) {
+        _selectedProvinces[id] = true;
+      }
+    } else if (tech?.provinces != null) {
       for (var userProv in tech!.provinces) {
         final match = provinces.firstWhere(
-          (p) => p.nameTh == userProv.nameTh,
+              (p) => p.nameTh == userProv.nameTh,
           orElse: () => ProvinceModel(id: -1, nameTh: ''),
         );
         if (match.id != -1) {
@@ -137,40 +201,25 @@ class _SetupTechnicianProfileState
         .map((e) => e.key)
         .toList();
 
-    List<Map<String, dynamic>> servicesData = [];
+    /// ✅ เก็บข้อมูลทั้งหมดลง provider
+    ref.read(technicianRegisterDataProvider.notifier).update((state) {
+      return TechnicianRegisterData(
+        email: state.email,
+        password: state.password,
+        confirmPassword: state.confirmPassword,
+        address: state.address,
+        consents: state.consents,
 
+        firstName: nameController.text,
+        lastName: lastNameController.text,
+        phone: phoneController.text.replaceAll('-', ''),
+        provinceIds: provinceIds,
+        servicesData: state.servicesData,
+      );
+    });
 
-    final success = await ref
-        .read(userProvider.notifier)
-        .saveTechnicianProfile(
-          firstName: nameController.text,
-          lastName: lastNameController.text,
-          phone: phoneController.text.replaceAll('-', ''),
-          provinceIds: provinceIds,
-          services: servicesData,
-        );
-
-    ref.read(technicianRegisterDataProvider).firstName = nameController.text;
-    ref.read(technicianRegisterDataProvider).lastName = lastNameController.text;
-    ref.read(technicianRegisterDataProvider).phone =
-        phoneController.text.replaceAll('-', '');
-    ref.read(technicianRegisterDataProvider).provinceIds = provinceIds;
-
-    if (success) {
-      ref.read(technicianRegisterStepProvider.notifier).state = 2;
-    }
-    // if (mounted) {
-    //   if (success) {
-    //     ScaffoldMessenger.of(
-    //       context,
-    //     ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')));
-    //     ref.read(bottomSubPageProvider.notifier).state = null;
-    //   } else {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       const SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึก')),
-    //     );
-    //   }
-    // }
+    /// ✅ ไป step 2
+    ref.read(technicianRegisterStepProvider.notifier).state = 2;
   }
 
   bool _validateAll() {

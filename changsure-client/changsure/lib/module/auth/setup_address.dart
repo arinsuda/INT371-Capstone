@@ -7,7 +7,10 @@ import '../../core/button/primary_button.dart';
 import '../../core/header.dart';
 import '../../core/profile/controllers/address_form_controller.dart';
 import '../../core/profile/widgets/address_form_fields.dart';
+import '../../data/models/address_model.dart';
 import '../../data/models/users/users_model.dart';
+import '../../data/services/auth_service.dart';
+import '../../state/master_data_provider.dart';
 import '../../state/user_provider.dart';
 
 class SetupAddress extends ConsumerStatefulWidget {
@@ -26,7 +29,13 @@ class SetupAddress extends ConsumerStatefulWidget {
   final double? initialLat;
   final double? initialLng;
 
-  final Future<bool> Function(Map<String, dynamic> data) onSave;
+  final String email;
+  final String password;
+  final String confirmPassword;
+  final String? firstname;
+  final String? lastname;
+  final String? phone;
+  final List<String>? consents;
 
   const SetupAddress({
     super.key,
@@ -42,7 +51,13 @@ class SetupAddress extends ConsumerStatefulWidget {
     this.subDistrictId,
     this.initialLat,
     this.initialLng,
-    required this.onSave,
+    required this.email,
+    required this.password,
+    required this.confirmPassword,
+    this.firstname,
+    this.lastname,
+    this.phone,
+    this.consents,
   });
 
   @override
@@ -153,85 +168,133 @@ class _SetupAddressState extends ConsumerState<SetupAddress> {
 
     final canSubmit =
         isValidForm &&
-        formState.selectedProvinceId != null &&
-        formState.selectedDistrictId != null &&
-        formState.selectedSubDistrictId != null &&
-        addressLineCtrl.text.trim().isNotEmpty &&
-        formState.selectedCoordinates != null;
+            formState.selectedProvinceId != null &&
+            formState.selectedDistrictId != null &&
+            formState.selectedSubDistrictId != null &&
+            addressLineCtrl.text.trim().isNotEmpty &&
+            formState.selectedCoordinates != null;
 
     if (!canSubmit) {
-      String missing = '';
-
-      if (addressLineCtrl.text.trim().isEmpty) {
-        missing = 'บ้านเลขที่';
-      } else if (formState.selectedProvinceId == null) {
-        missing = 'จังหวัด';
-      } else if (formState.selectedDistrictId == null) {
-        missing = 'เขต/อำเภอ';
-      } else if (formState.selectedSubDistrictId == null) {
-        missing = 'แขวง/ตำบล';
-      } else if (formState.selectedCoordinates == null) {
-        missing = 'พิกัดแผนที่';
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('กรุณาระบุ$missingให้ครบถ้วน')));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบ')),
+      );
       return;
     }
 
+    /// ✅ สร้าง address model (ใช้ทั้ง 2 flow)
+    final address = RegisterAddressModel(
+      label: labelCtrl.text.trim().isEmpty ? 'บ้าน' : labelCtrl.text.trim(),
+      phoneNumber: phoneCtrl.text.trim().isEmpty
+          ? widget.phone ?? ""
+          : phoneCtrl.text.trim(),
+      addressLine: addressLineCtrl.text.trim(),
+      subDistrictId: formState.selectedSubDistrictId!,
+      districtId: formState.selectedDistrictId!,
+      provinceId: formState.selectedProvinceId!,
+      latitude: formState.selectedCoordinates!.latitude,
+      longitude: formState.selectedCoordinates!.longitude,
+      isPrimary: true,
+    );
+
+    final hasConsents = widget.consents?.isNotEmpty ?? false;
+    print("hasConsents: $hasConsents");
+
+    /// 🟨 ================== TECHNICIAN FLOW ==================
+    if (hasConsents) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TechnicianRegisterPage(
+            email: widget.email,
+            password: widget.password,
+            confirmPassword: widget.confirmPassword,
+            consents: widget.consents,
+            address: address, // ✅ ส่ง address ไป
+          ),
+        ),
+      );
+
+      return; // 🔥 สำคัญมาก
+    }
+
+    /// 🟦 ================== USER FLOW ==================
     ref.read(addressFormProvider.notifier).setLoading(true);
 
     try {
-      final payload = <String, dynamic>{
-        if (labelCtrl.text.trim().isNotEmpty) 'label': labelCtrl.text.trim(),
-        if (_phoneTouched)
-          'phone_number': phoneCtrl.text.trim().isEmpty
-              ? null
-              : phoneCtrl.text.trim(),
-        'address_line': addressLineCtrl.text.trim(),
-        'province_id': formState.selectedProvinceId,
-        'district_id': formState.selectedDistrictId,
-        'sub_district_id': formState.selectedSubDistrictId,
-        'latitude': formState.selectedCoordinates!.latitude,
-        'longitude': formState.selectedCoordinates!.longitude,
-        if (postCodeCtrl.text.trim().isNotEmpty)
-          'postal_code': postCodeCtrl.text.trim(),
-      };
+      /// 1️⃣ REGISTER
+      final model = CustomerRegisterModel(
+        email: widget.email,
+        password: widget.password,
+        confirmPassword: widget.confirmPassword,
+        firstname: widget.firstname ?? "",
+        lastname: widget.lastname ?? "",
+        phone: widget.phone ?? "",
+        address: address,
+      );
 
-      final ok = await widget.onSave(payload);
+      await ref.read(customerRegisterProvider.notifier).register(model);
+
+      final registerState = ref.read(customerRegisterProvider);
+
+      if (registerState.hasError) {
+        throw registerState.error!;
+      }
+
+      if (!(registerState.hasValue && registerState.value != null)) {
+        throw Exception('สมัครสมาชิกไม่สำเร็จ');
+      }
+
+      /// 2️⃣ LOGIN
+      final authService = AuthService();
+
+      final result = await authService.login(
+        widget.email,
+        widget.password,
+      );
+
+      if (result == null) {
+        throw Exception('Login ไม่สำเร็จ');
+      }
+
+      final token = result['access_token'] as String;
+      final userId = result['user_id'] as int;
+      final refreshToken = result['refresh_token'] as String;
+
+      /// 3️⃣ GET PROFILE
+      final profile = await authService.getCustomerProfile(
+        token,
+        userId,
+      );
+
+      /// 4️⃣ SAVE USER
+      final user = UserModel(
+        id: userId,
+        email: widget.email,
+        token: token,
+        role: UserRole.customer,
+        customerProfile: profile,
+      );
+
+      await ref.read(userProvider.notifier).login(
+        user,
+        refreshToken,
+      );
+
+      /// 5️⃣ NAVIGATE
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const StartPage()),
+            (route) => false,
+      );
+    } catch (e, st) {
+      debugPrint("ERROR: $e");
+      debugPrintStack(stackTrace: st);
 
       if (!mounted) return;
-      print("SAVE RESULT = $ok");
 
-      if (ok == true) {
-        if (ok == true) {
-          final user = ref.read(userProvider);
-
-          if (user?.role == UserRole.customer) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const StartPage()),
-              (route) => false,
-            );
-          } else if (user?.role == UserRole.technician) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TechnicianRegisterPage()),
-            );
-          }
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('บันทึกข้อมูลล้มเหลว กรุณาลองใหม่')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
     } finally {
       if (mounted) {
         ref.read(addressFormProvider.notifier).setLoading(false);

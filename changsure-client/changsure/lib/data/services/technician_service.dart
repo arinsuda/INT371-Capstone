@@ -578,26 +578,21 @@ class TechnicianService {
   }
 
   Future<int?> verifyTechnician(
-      int technicianId,
-      String token,
-      File file,
-      ) async {
+    int technicianId,
+    String token,
+    File file,
+  ) async {
     try {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-          '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity',
+          '${ApiConstants.baseUrl}/technicians/$technicianId/identity-verifications',
         ),
       );
 
       request.headers['Authorization'] = 'Bearer $token';
 
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-        ),
-      );
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       final response = await request.send();
       final body = await response.stream.bytesToString();
@@ -605,36 +600,47 @@ class TechnicianService {
       print("📥 STATUS: ${response.statusCode}");
       print("📥 RESPONSE: $body");
 
-      if (response.statusCode == 200 || response.statusCode == 201||
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
           response.statusCode == 202) {
         final json = jsonDecode(body);
 
-        final jobId = json['data']?['job_id'];
+        final jobId = (json['data']['job_id'] as num?)?.toInt();
+
+        print("✅ Parsed jobId: $jobId");
+
+        if (jobId == null) {
+          throw Exception("job_id is null");
+        }
 
         return jobId;
+      } else {
+        print("❌ VERIFY FAILED STATUS: ${response.statusCode}");
+        print("❌ BODY: $body");
+        throw Exception("Verify failed");
       }
 
       // throw Exception('Verify failed (${response.statusCode})');
     } catch (e) {
       print('❌ Verify Error: $e');
-
     }
     return null;
   }
 
   Future<VerifyTechnician?> getVerifyDetail(
-      int technicianId,
-      int jobId,
-      String token,
-      ) async {
+    int technicianId,
+    int jobId,
+    String token,
+  ) async {
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/technicians/$technicianId/verify-identity/jobs/$jobId',
+      '${ApiConstants.baseUrl}/technicians/identity-verifications/$jobId',
     );
 
     try {
       print("📤 GET VERIFY DETAIL");
       print("URL: $url");
-      final response = await http.get( //
+      final response = await http.get(
+        //
         url,
         headers: {
           'Authorization': 'Bearer $token',
@@ -661,9 +667,9 @@ class TechnicianService {
   }
 
   Future<ReviewResponse> getTechnicianReviews(
-      int technicianId,
-      String token,
-      ) async {
+    int technicianId,
+    String token,
+  ) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/technicians/$technicianId/reviews',
     );

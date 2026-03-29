@@ -49,16 +49,19 @@ export const fetcher = async <T>({
 export const useFetch = <T>(
   url: string,
   queryKey?: string[],
+  params?: Record<string, any>, // ✅ เพิ่มตรงนี้
   initialData?: T,
   headers?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: queryKey || [url],
+    queryKey: queryKey || [url, params], // ✅ include params กัน cache เพี้ยน
     queryFn: async () => {
       const response = await appAxios(
         headers ? { headers: new AxiosHeaders(headers) } : undefined
-      ).get(url)
-      // Handle both wrapped and raw responses
+      ).get(url, {
+        params // ✅ ส่งเข้า axios
+      })
+
       return (response.data?.data || response.data) as T
     },
     initialData,
@@ -140,10 +143,15 @@ export const usePut = <TData = unknown, TVariables = unknown>(
 //
 export const usePatch = <TData = unknown, TVariables = unknown>(
   url: string,
-  config?: UseMutationOptions<TData, AxiosError<ApiError>, TVariables>
+  config?: UseMutationOptions<TData, AxiosError<ApiError>, TVariables> & {
+    headers?: Record<string, string>
+  }
 ) => {
   return useGenericMutation<TData, TVariables>(
-    (data) => appAxios().patch<TData>(url, data),
+    (data) =>
+      appAxios().patch<TData>(url, data, {
+        headers: config?.headers
+      }),
     config
   )
 }

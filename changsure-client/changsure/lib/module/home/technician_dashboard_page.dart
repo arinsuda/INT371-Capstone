@@ -67,10 +67,10 @@ class _TechnicianDashboardPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 24),
-                          _buildWalletHeader(),
-                          const SizedBox(height: 16),
-                          _buildWalletCards(walletAsync),
+                          // const SizedBox(height: 24),
+                          // _buildWalletHeader(),
+                          // const SizedBox(height: 16),
+                          // _buildWalletCards(walletAsync),
                           const SizedBox(height: 24),
                           _buildStatsHeader(),
                           const SizedBox(height: 12),
@@ -139,6 +139,20 @@ class _TechnicianDashboardPageState
                 fontWeight: FontWeight.bold,
               ),
             ),
+            SizedBox(height: 8),
+
+            IntrinsicWidth(
+              child: PrimaryButton(
+                text: "ถอนเงิน",
+                onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => WithdrawPage()));
+                },
+                borderRadius: 14,
+                padding: EdgeInsetsGeometry.symmetric(vertical: 6, horizontal: 32),
+              ),
+            ),
+
           ],
         );
       },
@@ -276,13 +290,28 @@ class _TechnicianDashboardPageState
   Widget _buildStatsGrid(AsyncValue<WalletSummary> walletAsync) {
     return walletAsync.when(
       data: (wallet) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+
+            int crossAxisCount = 2;
+            double spacing = 12;
+
+            // คำนวณความกว้างต่อ item
+            final itemWidth =
+                (width - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+
+            // กำหนดความสูงที่อยากได้ (ปรับได้)
+            final itemHeight = 100;
+
+            final aspectRatio = itemWidth / itemHeight;
         return GridView.count(
-          crossAxisCount: 2,
+          crossAxisCount: crossAxisCount,
           shrinkWrap: true,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: spacing,
+          mainAxisSpacing: spacing,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.8,
+          childAspectRatio: aspectRatio,
           children: [
             _statCard(
               "จำนวนงานทั้งหมด",
@@ -315,7 +344,9 @@ class _TechnicianDashboardPageState
             ),
           ],
         );
-      },
+      },);
+            },
+
       loading: () => const CircularProgressIndicator(),
       error: (e, _) => Text("Error: $e"),
     );

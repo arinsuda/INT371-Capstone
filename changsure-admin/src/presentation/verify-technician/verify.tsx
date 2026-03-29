@@ -2,7 +2,6 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { technicians } from "@/data/mock/technicians"
 import Link from "next/link"
 import EmailIcon from "@mui/icons-material/Email"
 import LocalPhoneRoundedIcon from "@mui/icons-material/LocalPhoneRounded"
@@ -13,21 +12,65 @@ import VerifiedUserIcon from "@mui/icons-material/VerifiedUser"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import { FileText } from "lucide-react"
 import { useState } from "react"
+import {
+  useGetTechnicianById,
+  useGetVerificationDetail,
+  useVerifyTechnician
+} from "@/data/api/technicians.hook"
 
 export const Verify = ({ id }: { id: number }) => {
-  const technician = technicians.find((t) => t.id === id)
+  const [crimeStatus, setCrimeStatus] = useState<"clean" | "crime">("clean")
+  const { data: technician, isLoading } = useGetTechnicianById(id)
+  const verifyTechnician = useVerifyTechnician(id)
+  const { data: verificationDetail } = useGetVerificationDetail(id)
+
+  console.log("verificationDetail", verificationDetail)
+
   const router = useRouter()
 
   if (!technician) {
     return <div>Technician not found</div>
   }
 
-  const [crimeStatus, setCrimeStatus] = useState<"clean" | "crime">("clean")
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "PASSED":
+        return "bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]"
+      case "PENDING":
+        return "bg-[#FFFBE6] text-[#FFAD14] border border-[#FFE58F]"
+      case "FAILED":
+        return "bg-[#FFF1F0] text-[#F5222D] border border-[#FFA39E]"
+      default:
+        return "bg-gray-100 text-gray-600"
+    }
+  }
+
+  const mapStatus = (status: string) => {
+    switch (status) {
+      case "PASSED":
+        return "ผ่านการตรวจสอบ"
+      case "PENDING":
+        return "รอการตรวจสอบ"
+      case "FAILED":
+        return "ไม่ผ่านการตรวจสอบ"
+      default:
+        return "ผ่านการตรวจสอบ"
+    }
+  }
+  const formatDateTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000)
+
+    const day = String(date.getDate()).padStart(2, "0")
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const year = date.getFullYear()
+
+    return `${day}/${month}/${year}`
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div className="text-sm text-black/60 flex items-center gap-1">
-        <Link href="/verify-technicians" className="underline">
+        <Link href="/verify-technician" className="underline">
           รายชื่อผู้สมัครช่าง
         </Link>
         <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
@@ -61,9 +104,13 @@ export const Verify = ({ id }: { id: number }) => {
           {/* Info */}
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold">{technician.name}</h2>
-              <span className="px-2 py-px text-xs rounded-md bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]">
-                {technician.status}
+              <h2 className="text-xl font-semibold">
+                {technician.firstname} {technician.lastname}
+              </h2>
+              <span
+                className={`px-2 py-px text-xs rounded-md ${statusColor(technician.verification_status)}`}
+              >
+                {mapStatus(technician.verification_status)}
               </span>
             </div>
 
@@ -82,7 +129,11 @@ export const Verify = ({ id }: { id: number }) => {
 
             <div className="flex items-center gap-2 text-sm text-black/70 pt-1">
               <FmdGoodIcon sx={{ fontSize: 16, color: "#9B9B9B" }} />
-              {technician.area}
+              {technician.primary_address?.address_line} แขวง
+              {technician.primary_address?.sub_district_name}{" "}
+              {technician.primary_address?.district_name}{" "}
+              {technician.primary_address?.province_name}{" "}
+              {technician.primary_address?.postal_code}
             </div>
           </div>
         </div>
@@ -96,7 +147,11 @@ export const Verify = ({ id }: { id: number }) => {
             <span className="text-colorTertiaryText text-[14px]">
               ประเภทงาน
             </span>
-            <span className="ml-5">การไฟฟ้า / ทาสี</span>
+            <span className="ml-5">
+              {technician.service_summary
+                .map((service) => service.service_category_name)
+                .join("/")}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -104,7 +159,9 @@ export const Verify = ({ id }: { id: number }) => {
             <span className="text-colorTertiaryText text-[14px]">
               พื้นที่ให้บริการ
             </span>
-            <span className="ml-5">กรุงเทพมหานคร</span>
+            <span className="ml-5">
+              {technician.provinces.map((p) => p.name_th).join(", ")}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -112,7 +169,9 @@ export const Verify = ({ id }: { id: number }) => {
             <span className="text-colorTertiaryText text-[14px]">
               วันที่สมัคร
             </span>
-            <span className="ml-5">12/02/69</span>
+            <span className="ml-5">
+              {formatDateTime(technician.created_at)}
+            </span>
           </div>
         </div>
 
@@ -131,7 +190,7 @@ export const Verify = ({ id }: { id: number }) => {
                 <input
                   type="text"
                   className="border border-colorStroke w-full rounded-lg text-[16px] px-4 py-2 disabled:text-primaryBorder"
-                  defaultValue={12392323824982}
+                  defaultValue={verificationDetail?.national_id || "-"}
                   disabled
                 />
               </div>
@@ -142,7 +201,11 @@ export const Verify = ({ id }: { id: number }) => {
               <input
                 type="text"
                 className="border border-colorStroke w-full rounded-lg text-[16px] px-4 py-2 disabled:text-primaryBorder"
-                defaultValue="วิชาญ จงกล"
+                defaultValue={
+                  verificationDetail?.first_name +
+                    " " +
+                    verificationDetail?.last_name || "-"
+                }
                 disabled
               />
             </div>
@@ -150,8 +213,17 @@ export const Verify = ({ id }: { id: number }) => {
 
           <div className="flex flex-col gap-1 w-full">
             <p className="text-colorTertiaryText">รูปถ่ายบัตรประชาชน</p>
-            <div className="relative w-2/5">
-              <img src="/images/ID_Card.png" alt="รูปถ่ายบัตรประชาชน" />
+
+            <div className="relative w-2/5 aspect-16/10">
+              <Image
+                src={
+                  verificationDetail?.id_card_image_url || "/images/ID_Card.png"
+                }
+                alt="รูปถ่ายบัตรประชาชน"
+                fill
+                className="object-contain rounded-lg"
+                unoptimized
+              />
             </div>
           </div>
 
@@ -219,7 +291,19 @@ export const Verify = ({ id }: { id: number }) => {
           >
             ยกเลิก
           </button>
-          <button className="px-20 py-1 rounded-lg bg-primary text-white cursor-pointer">
+          <button
+            onClick={() => {
+              const isClean = crimeStatus === "clean"
+
+              verifyTechnician.mutate({
+                status: isClean ? "PASSED" : "FAILED",
+                reason: isClean ? "ไม่พบประวัติอาชญากรรม" : "พบประวัติอาชญากรรม"
+              })
+
+              router.push("/verify-technician")
+            }}
+            className="px-20 py-1 rounded-lg bg-primary text-white cursor-pointer"
+          >
             ยืนยัน
           </button>
         </div>

@@ -207,66 +207,66 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
-                    Row(
-                      children: const [
-                        Expanded(
-                          child: Divider(
-                            color: Color(0xFFE8E8E8),
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'หรือ',
-                            style: TextStyle(
-                              color: AppColors.colorTertiaryText,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Color(0xFFE8E8E8),
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: _signInWithGoogle,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        side: const BorderSide(
-                          color: AppColors.colorStroke,
-                          width: 1,
-                        ),
-                        backgroundColor: googleButtonColor,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/image/Google_Logo.png',
-                            width: 18,
-                            height: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'เข้าสู่ระบบด้วย Google',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // const SizedBox(height: 24),
+                    // Row(
+                    //   children: const [
+                    //     Expanded(
+                    //       child: Divider(
+                    //         color: Color(0xFFE8E8E8),
+                    //         thickness: 1,
+                    //       ),
+                    //     ),
+                    //     Padding(
+                    //       padding: EdgeInsets.symmetric(horizontal: 10),
+                    //       child: Text(
+                    //         'หรือ',
+                    //         style: TextStyle(
+                    //           color: AppColors.colorTertiaryText,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     Expanded(
+                    //       child: Divider(
+                    //         color: Color(0xFFE8E8E8),
+                    //         thickness: 1,
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
+                    // const SizedBox(height: 16),
+                    // OutlinedButton(
+                    //   onPressed: _signInWithGoogle,
+                    //   style: OutlinedButton.styleFrom(
+                    //     minimumSize: const Size(double.infinity, 48),
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(10),
+                    //     ),
+                    //     side: const BorderSide(
+                    //       color: AppColors.colorStroke,
+                    //       width: 1,
+                    //     ),
+                    //     backgroundColor: googleButtonColor,
+                    //   ),
+                    //   child: Row(
+                    //     mainAxisAlignment: MainAxisAlignment.center,
+                    //     children: [
+                    //       Image.asset(
+                    //         'assets/image/Google_Logo.png',
+                    //         width: 18,
+                    //         height: 18,
+                    //       ),
+                    //       const SizedBox(width: 10),
+                    //       const Text(
+                    //         'เข้าสู่ระบบด้วย Google',
+                    //         style: TextStyle(
+                    //           fontSize: 14,
+                    //           fontWeight: FontWeight.w500,
+                    //           color: Colors.black,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                     const SizedBox(height: 32),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
