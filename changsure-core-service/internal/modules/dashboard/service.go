@@ -13,6 +13,7 @@ type Service interface {
 	GetPendingVerifications(ctx context.Context, q PendingVerificationQuery) (*PendingVerificationResponse, error)
 	GetServicesByCategory(ctx context.Context, categoryID uint) (*CategoryServiceResponse, error)
 	GetTechniciansByService(ctx context.Context, serviceID uint, q ServiceTechQuery) (*ServiceTechnicianResponse, error)
+	GetActionItems(ctx context.Context) ([]ActionItem, error)
 }
 
 type service struct {
@@ -93,4 +94,12 @@ func (s *service) GetTechniciansByService(ctx context.Context, serviceID uint, q
 	}
 
 	return resp, nil
+}
+
+func (s *service) GetActionItems(ctx context.Context) ([]ActionItem, error) {
+	items, err := s.repo.GetActionItems(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("action items: %w", err)
+	}
+	return items, nil
 }

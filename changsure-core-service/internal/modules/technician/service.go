@@ -605,6 +605,9 @@ func (s *service) toAdminListItem(ctx context.Context, t *TechnicianWithVerifica
 		PostWarningStatus:  postWarning,
 		WarningCount:       t.WarningCount,
 		RegisteredAt:       t.CreatedAt.Unix(),
+		Provinces:          s.toProvincesRes(t.ServiceAreas),
+		Services:           s.toServicesRes(t.Services),
+		ServiceSummary:     s.toServiceSummary(t.Services),
 	}
 }
 

@@ -184,6 +184,7 @@ type AdminListQuery struct {
 	HasWarning         *bool  `query:"has_warning"`
 	MinWarning         int    `query:"min_warning"`
 	Search             string `query:"search"`
+	PostWarningStatus  string `query:"post_warning_status"` // NORMAL | WARNED | BANNED
 }
 
 func (q *AdminListQuery) SetDefaults() {
@@ -204,25 +205,24 @@ const (
 )
 
 type AdminTechnicianListItem struct {
-	ID        uint    `json:"id"`
-	FirstName string  `json:"firstname"`
-	LastName  string  `json:"lastname"`
-	Email     *string `json:"email,omitempty"`
-	Phone     *string `json:"phone,omitempty"`
-	AvatarURL *string `json:"avatar_url,omitempty"`
+	ID                 uint              `json:"id"`
+	FirstName          string            `json:"firstname"`
+	LastName           string            `json:"lastname"`
+	Email              *string           `json:"email,omitempty"`
+	Phone              *string           `json:"phone,omitempty"`
+	AvatarURL          *string           `json:"avatar_url,omitempty"`
+	VerificationStatus string            `json:"verification_status"`
+	IsAvailable        bool              `json:"is_available"`
+	AccountStatus      string            `json:"account_status"`
+	BannedAt           *time.Time        `json:"banned_at,omitempty"`
+	ClearDeadline      *time.Time        `json:"clear_deadline,omitempty"`
+	PostWarningStatus  PostWarningStatus `json:"post_warning_status"`
+	WarningCount       int64             `json:"warning_count"`
+	RegisteredAt       int64             `json:"registered_at"`
 
-	VerificationStatus string `json:"verification_status"`
-	IsAvailable        bool   `json:"is_available"`
-
-	AccountStatus string     `json:"account_status"`
-	BannedAt      *time.Time `json:"banned_at,omitempty"`
-
-	ClearDeadline *time.Time `json:"clear_deadline,omitempty"`
-
-	PostWarningStatus PostWarningStatus `json:"post_warning_status"`
-	WarningCount      int64             `json:"warning_count"`
-
-	RegisteredAt int64 `json:"registered_at"`
+	Provinces      []provinces.ProvinceResponse `json:"provinces"`
+	Services       []TechServiceRes             `json:"services"`
+	ServiceSummary []TechServiceSummary         `json:"service_summary"`
 }
 
 type AdminListResponse struct {

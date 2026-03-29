@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -16,6 +17,8 @@ type Repository interface {
 	GetPendingVerifications(ctx context.Context, page, pageSize int) ([]PendingVerificationItem, int64, error)
 	GetServicesByCategory(ctx context.Context, categoryID uint) (*CategoryServiceResponse, error)
 	GetTechniciansByService(ctx context.Context, serviceID uint, page, pageSize int) (*ServiceTechnicianResponse, error)
+	GetPendingOverview(ctx context.Context) ([]PendingOverview, error)
+	GetActionItems(ctx context.Context) ([]ActionItem, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -339,10 +342,10 @@ func (r *repository) GetTechniciansByService(ctx context.Context, serviceID uint
 	err := r.db.WithContext(ctx).
 		Table("technician_services ts").
 		Select(`
-        t.id, 
-        t.first_name, 
-        t.last_name, 
-        t.avatar_url, 
+        t.id,
+        t.first_name,
+        t.last_name,
+        t.avatar_url,
         COALESCE(ts2.rating_avg, 0) AS rating_avg,
         COALESCE(ts2.total_jobs, 0) AS total_jobs,
         t.is_available
@@ -379,4 +382,50 @@ func (r *repository) GetTechniciansByService(ctx context.Context, serviceID uint
 		Page:        page,
 		PageSize:    pageSize,
 	}, nil
+}
+
+func (r *repository) GetPendingOverview(ctx context.Context) ([]PendingOverview, error) {
+	var rows []PendingOverview
+
+	err := r.db.WithContext(ctx).
+		Table("technicians").
+		Select("DATE(created_at) as date, COUNT(*) as count").
+		Where("verification_status = 'PENDING' AND deleted_at IS NULL").
+		Group("DATE(created_at)").
+		Order("date DESC").
+		Limit(7).
+		Scan(&rows).Error
+
+	return rows, err
+}
+
+func (r *repository) GetActionItems(ctx context.Context) ([]ActionItem, error) {
+	type row struct {
+		Date  string `gorm:"column:date"`
+		Count int64  `gorm:"column:count"`
+	}
+	var rows []row
+
+	err := r.db.WithContext(ctx).
+		Table("technicians").
+		Select("DATE(created_at) AS date, COUNT(*) AS count").
+		Where("verification_status = 'PENDING' AND deleted_at IS NULL").
+		Group("DATE(created_at)").
+		Order("date DESC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]ActionItem, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, ActionItem{
+			Type:      "verification",
+			Title:     fmt.Sprintf("ช่างรอตรวจสอบ %d ราย", r.Count),
+			ActionURL: "/admin/verifications",
+			Date:      r.Date,
+		})
+	}
+
+	return items, nil
 }

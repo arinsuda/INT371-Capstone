@@ -125,6 +125,18 @@ type PendingVerificationQuery struct {
 	PageSize int `query:"page_size"`
 }
 
+type ActionItem struct {
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	ActionURL string `json:"action_url"`
+	Date      string `json:"date,omitempty"`
+}
+
+type PendingOverview struct {
+	Date  string `json:"date"  gorm:"column:date"`
+	Count int64  `json:"count" gorm:"column:count"`
+}
+
 func (q *PendingVerificationQuery) SetDefaults() {
 	if q.Page < 1 {
 		q.Page = 1
