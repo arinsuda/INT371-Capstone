@@ -1,10 +1,14 @@
-package customers
+package customer
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"time"
 
+	customer_addresses "changsure-core-service/internal/modules/customer_address"
+	"changsure-core-service/pkg/storage"
 	"changsure-core-service/pkg/utils"
 )
 
@@ -12,149 +16,42 @@ var (
 	ErrCustomerNotFound   = errors.New("customer not found")
 	ErrPhoneAlreadyExists = errors.New("phone number already exists")
 	ErrEmailAlreadyExists = errors.New("email already exists")
-	ErrInvalidInput       = errors.New("invalid input")
-	ErrUnauthorizedOwner  = errors.New("forbidden: not owner of this resource")
-	ErrAccessDenied	  = errors.New("access denied")
 )
 
 type Service interface {
-	GetProfile(ctx context.Context, customerID uint) (*Customer, error)
-	UpdateProfile(ctx context.Context, customerID uint, req *UpdateCustomerRequest) (*Customer, error)
-
-	GetCustomer(ctx context.Context, id uint) (*Customer, error)
-	UpdateCustomer(ctx context.Context, id uint, req *UpdateCustomerRequest) (*Customer, error)
-	DeleteCustomer(ctx context.Context, id uint) error
-	ListCustomers(ctx context.Context, page, pageSize int) ([]*Customer, error)
-
-	FindNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64) ([]*Customer, error)
+	GetByID(ctx context.Context, id uint) (*CustomerResponse, error)
+	List(ctx context.Context, page, pageSize int) ([]*CustomerResponse, error)
+	Update(ctx context.Context, id uint, req *UpdateCustomerRequest) (*CustomerResponse, error)
+	Delete(ctx context.Context, id uint) error
+	Count(ctx context.Context) (int64, error)
 }
 
 type service struct {
-	repo Repository
+	repo    Repository
+	storage storage.Storage
+	logger  *slog.Logger
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, s storage.Storage, logger *slog.Logger) Service {
+	return &service{repo: repo, storage: s, logger: logger}
 }
 
-func (s *service) checkOwner(ctx context.Context, targetID uint) error {
-	requesterID := utils.GetUserIDFromContext(ctx)
-	if requesterID == 0 {
-		return ErrUnauthorizedOwner
-	}
-	if requesterID != targetID {
-		return ErrUnauthorizedOwner
-	}
-	return nil
+func (s *service) Count(ctx context.Context) (int64, error) {
+	return s.repo.CountCustomer(ctx)
 }
 
-func (s *service) GetProfile(ctx context.Context, customerID uint) (*Customer, error) {
-
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
-	return s.GetCustomer(ctx, customerID)
-}
-
-func (s *service) UpdateProfile(ctx context.Context, customerID uint, req *UpdateCustomerRequest) (*Customer, error) {
-
-	if err := s.checkOwner(ctx, customerID); err != nil {
-		return nil, err
-	}
-
-	return s.UpdateCustomer(ctx, customerID, req)
-}
-
-func (s *service) GetCustomer(ctx context.Context, id uint) (*Customer, error) {
-	customer, err := s.repo.GetByID(ctx, id)
+func (s *service) GetByID(ctx context.Context, id uint) (*CustomerResponse, error) {
+	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FindByID: %w", err)
 	}
-	if customer == nil {
+	if c == nil {
 		return nil, ErrCustomerNotFound
 	}
-	return customer, nil
+	return s.mapToResponse(ctx, c), nil
 }
 
-func (s *service) UpdateCustomer(ctx context.Context, id uint, req *UpdateCustomerRequest) (*Customer, error) {
-
-	if err := s.checkOwner(ctx, id); err != nil {
-		return nil, err
-	}
-
-	customer, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if customer == nil {
-		return nil, ErrCustomerNotFound
-	}
-
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
-	}
-
-	if req.Phone != nil && (customer.Phone == nil || *customer.Phone != *req.Phone) {
-		existing, err := s.repo.GetByPhone(ctx, *req.Phone)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil && existing.ID != id {
-			return nil, ErrPhoneAlreadyExists
-		}
-	}
-
-	if req.Email != nil && (customer.Email == nil || *customer.Email != *req.Email) {
-		existing, err := s.repo.GetByEmail(ctx, *req.Email)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil && existing.ID != id {
-			return nil, ErrEmailAlreadyExists
-		}
-	}
-
-	if req.FirstName != nil {
-		customer.FirstName = *req.FirstName
-	}
-	if req.LastName != nil {
-		customer.LastName = *req.LastName
-	}
-	if req.Email != nil {
-		customer.Email = req.Email
-	}
-	if req.Phone != nil {
-		customer.Phone = req.Phone
-	}
-	if req.AvatarURL != nil {
-		customer.AvatarURL = req.AvatarURL
-	}
-
-	if err := s.repo.Update(ctx, customer); err != nil {
-		return nil, fmt.Errorf("failed to update customer: %w", err)
-	}
-
-	return s.repo.GetByID(ctx, id)
-}
-
-func (s *service) DeleteCustomer(ctx context.Context, id uint) error {
-
-	if err := s.checkOwner(ctx, id); err != nil {
-		return err
-	}
-
-	exists, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-	if exists == nil {
-		return ErrCustomerNotFound
-	}
-	return s.repo.Delete(ctx, id)
-}
-
-func (s *service) ListCustomers(ctx context.Context, page, pageSize int) ([]*Customer, error) {
+func (s *service) List(ctx context.Context, page, pageSize int) ([]*CustomerResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -162,12 +59,108 @@ func (s *service) ListCustomers(ctx context.Context, page, pageSize int) ([]*Cus
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
-	return s.repo.GetAll(ctx, pageSize, offset)
+
+	customers, err := s.repo.GetAll(ctx, pageSize, offset)
+	if err != nil {
+		return nil, fmt.Errorf("GetAll: %w", err)
+	}
+
+	out := make([]*CustomerResponse, len(customers))
+	for i, c := range customers {
+		out[i] = s.mapToResponse(ctx, c)
+	}
+	return out, nil
 }
 
-func (s *service) FindNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64) ([]*Customer, error) {
-	if radiusKm <= 0 || radiusKm > 100 {
-		return nil, fmt.Errorf("%w: radius must be between 0 and 100 km", ErrInvalidInput)
+func (s *service) Update(ctx context.Context, id uint, req *UpdateCustomerRequest) (*CustomerResponse, error) {
+	c, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("FindByID: %w", err)
 	}
-	return s.repo.SearchNearbyAddresses(ctx, lat, lon, radiusKm, 50)
+	if c == nil {
+		return nil, ErrCustomerNotFound
+	}
+
+	if req.Phone != nil && (c.Phone == nil || *c.Phone != *req.Phone) {
+		exist, err := s.repo.FindByPhone(ctx, *req.Phone)
+		if err != nil {
+			return nil, fmt.Errorf("FindByPhone: %w", err)
+		}
+		if exist != nil && exist.ID != id {
+			return nil, ErrPhoneAlreadyExists
+		}
+		c.Phone = req.Phone
+	}
+
+	if req.Email != nil && (c.Email == nil || *c.Email != *req.Email) {
+		exist, err := s.repo.FindByEmail(ctx, *req.Email)
+		if err != nil {
+			return nil, fmt.Errorf("FindByEmail: %w", err)
+		}
+		if exist != nil && exist.ID != id {
+			return nil, ErrEmailAlreadyExists
+		}
+		c.Email = req.Email
+	}
+
+	if req.FirstName != nil {
+		c.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		c.LastName = *req.LastName
+	}
+	if req.AvatarURL != nil {
+		c.AvatarURL = req.AvatarURL
+	}
+
+	if err := s.repo.Update(ctx, c); err != nil {
+		return nil, fmt.Errorf("Update: %w", err)
+	}
+
+	callerID := utils.GetUserIDFromContext(ctx)
+	s.logger.Info("customer updated", "customer_id", id, "updated_by", callerID)
+
+	return s.mapToResponse(ctx, c), nil
+}
+
+func (s *service) Delete(ctx context.Context, id uint) error {
+	exists, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("FindByID: %w", err)
+	}
+	if exists == nil {
+		return ErrCustomerNotFound
+	}
+	return s.repo.Delete(ctx, id)
+}
+
+func (s *service) mapToResponse(ctx context.Context, c *Customer) *CustomerResponse {
+	resp := &CustomerResponse{
+		ID:        c.ID,
+		FirstName: c.FirstName,
+		LastName:  c.LastName,
+		Email:     c.Email,
+		Phone:     c.Phone,
+		CreatedAt: c.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if c.AvatarURL != nil && *c.AvatarURL != "" && s.storage != nil {
+		url, err := s.storage.PresignGet(ctx, *c.AvatarURL, time.Hour, false)
+		if err != nil {
+			s.logger.Warn("failed to presign avatar url", "customer_id", c.ID, "error", err)
+			resp.AvatarURL = c.AvatarURL
+		} else {
+			resp.AvatarURL = &url
+		}
+	}
+
+	if len(c.Addresses) > 0 {
+		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
+		for _, a := range c.Addresses {
+			resp.Addresses = append(resp.Addresses, customer_addresses.ToResponse(&a, c.Phone))
+		}
+	}
+
+	return resp
 }

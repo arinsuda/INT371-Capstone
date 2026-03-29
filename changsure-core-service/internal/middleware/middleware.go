@@ -12,25 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
-func SetupMiddleware(app *fiber.App, cfg *config.Config) {
+type contextKey string
 
+const (
+	localRequestID      = "request_id"
+	localRequestContext = "requestContext"
+	localAPIKey         = "api_key"
+	requestIDHeader     = "X-Request-ID"
+)
+
+func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 	app.Use(Helmet())
 	app.Use(SecurityExtras())
 	app.Use(Recover())
-
 	app.Use(RequestID())
 	app.Use(ContextMiddleware())
 
-	if cfg.App.Environment == "production" {
-		app.Use(CORSProduction([]string{
-			"https://yourdomain.com",
-			"https://www.yourdomain.com",
-		}))
+	if cfg.IsProduction() {
+		app.Use(CORSProduction(cfg.App.AllowedOrigins))
 	} else {
 		app.Use(CORS())
 	}
 
-	if cfg.App.Environment == "production" {
+	if cfg.IsProduction() {
 		app.Use(LoggerProduction())
 	} else {
 		app.Use(Logger())
@@ -38,7 +42,7 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 
 	app.Use(Compress())
 
-	if cfg.App.Environment == "production" {
+	if cfg.IsProduction() {
 		app.Use(StrictRateLimit())
 	} else {
 		app.Use(RateLimit())
@@ -47,53 +51,51 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 
 func ContextMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
-
 		ctx := context.Background()
-
-		if reqID, ok := c.Locals("request_id").(string); ok {
-			ctx = context.WithValue(ctx, "request_id", reqID)
+		if reqID, ok := c.Locals(localRequestID).(string); ok && reqID != "" {
+			ctx = context.WithValue(ctx, contextKey(localRequestID), reqID)
 		}
-
-		c.Locals("requestContext", ctx)
-
+		c.Locals(localRequestContext, ctx)
 		return c.Next()
 	}
 }
 
 func GetContext(c fiber.Ctx) context.Context {
-	if ctx, ok := c.Locals("requestContext").(context.Context); ok {
+	if ctx, ok := c.Locals(localRequestContext).(context.Context); ok {
 		return ctx
 	}
-
 	return context.Background()
 }
 
-func APIKeyAuth(validAPIKeys []string) fiber.Handler {
+func RequestID() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		if key := c.Get("X-API-Key"); key != "" {
-			for _, k := range validAPIKeys {
-				if key == k {
-					c.Locals("api_key", key)
-					return c.Next()
-				}
+		id := c.Get(requestIDHeader)
+		if id == "" {
+			id = uuid.NewString()
+		}
+		c.Locals(localRequestID, id)
+		c.Set(requestIDHeader, id)
+		return c.Next()
+	}
+}
+
+func APIKeyAuth(validAPIKeys []string) fiber.Handler {
+	keySet := make(map[string]struct{}, len(validAPIKeys))
+	for _, k := range validAPIKeys {
+		keySet[k] = struct{}{}
+	}
+	return func(c fiber.Ctx) error {
+		key := c.Get("X-API-Key")
+		if key != "" {
+			if _, ok := keySet[key]; ok {
+				c.Locals(localAPIKey, key)
+				return c.Next()
 			}
 		}
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"message": "Invalid or missing API Key",
 		})
-	}
-}
-
-func RequestID() fiber.Handler {
-	return func(c fiber.Ctx) error {
-		id := c.Get("X-Request-ID")
-		if id == "" {
-			id = uuid.NewString()
-		}
-		c.Locals("request_id", id)
-		c.Set("X-Request-ID", id)
-		return c.Next()
 	}
 }
 
@@ -105,7 +107,7 @@ func Timeout(d time.Duration) fiber.Handler {
 			OnTimeout: func(c fiber.Ctx) error {
 				return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
 					"success": false,
-					"message": "request timed out",
+					"message": "Request timed out",
 				})
 			},
 		},
@@ -114,7 +116,8 @@ func Timeout(d time.Duration) fiber.Handler {
 
 func ContentTypeJSON() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		if m := c.Method(); m == fiber.MethodPost || m == fiber.MethodPut || m == fiber.MethodPatch {
+		switch c.Method() {
+		case fiber.MethodPost, fiber.MethodPut, fiber.MethodPatch:
 			ct := strings.ToLower(c.Get("Content-Type"))
 			if ct == "" || !strings.HasPrefix(ct, "application/json") {
 				return c.Status(fiber.StatusUnsupportedMediaType).JSON(fiber.Map{

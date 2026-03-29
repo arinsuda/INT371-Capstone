@@ -2,7 +2,7 @@ package badge
 
 type CreateBadgeDTO struct {
 	Name        string  `json:"name" validate:"required,min=2,max=100"`
-	IconURL     *string `json:"icon_url" validate:"omitempty,url"`
+	IconURL     *string `json:"icon_url"`
 	Level       *uint   `json:"level" validate:"omitempty,gte=0"`
 	IsActive    *bool   `json:"is_active" validate:"omitempty"`
 	Description *string `json:"description" validate:"omitempty,max=2000"`
@@ -10,7 +10,7 @@ type CreateBadgeDTO struct {
 
 type UpdateBadgeDTO struct {
 	Name        *string `json:"name" validate:"omitempty,min=2,max=100"`
-	IconURL     *string `json:"icon_url" validate:"omitempty,url"`
+	IconURL     *string `json:"icon_url"`
 	Level       *uint   `json:"level" validate:"omitempty,gte=0"`
 	IsActive    *bool   `json:"is_active" validate:"omitempty"`
 	Description *string `json:"description" validate:"omitempty,max=2000"`

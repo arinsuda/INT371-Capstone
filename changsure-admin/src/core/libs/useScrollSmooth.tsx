@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import Lenis from "@studio-freight/lenis";
-import { gsap } from "gsap-trial";
+import { gsap } from "gsap";
 import { usePathname } from "next/navigation";
 
 type LenisOptions = {

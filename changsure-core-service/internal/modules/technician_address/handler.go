@@ -2,15 +2,14 @@ package technicianaddress
 
 import (
 	"errors"
-	"strconv"
 
-	customErr "changsure-core-service/internal/errors"
+	appErrors "changsure-core-service/internal/errors"
+	"changsure-core-service/internal/middleware"
 	addressshared "changsure-core-service/internal/modules/address_shared"
 	"changsure-core-service/internal/validation"
+	"changsure-core-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v3"
-
-	"changsure-core-service/pkg/utils"
 )
 
 type Handler struct {
@@ -21,220 +20,200 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-func (h *Handler) CreateAddress(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
+func (h *Handler) mustUintParam(c fiber.Ctx, name string) (uint, error) {
+	id, err := utils.ParseUintParam(c, name)
+	if err != nil || id == 0 {
+		return 0, appErrors.BadRequest(c, "invalid "+name)
+	}
+	return id, nil
+}
+
+func (h *Handler) bindAndValidate(c fiber.Ctx, dst any) error {
+	if err := c.Bind().Body(dst); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
+	}
+	if details, err := validation.ValidateStruct(dst); err != nil {
+		return appErrors.ValidationError(c, details)
+	}
+	return nil
+}
+
+func (h *Handler) mapServiceError(c fiber.Ctx, action string, err error) error {
+	if errors.Is(err, addressshared.ErrInvalidLocation) {
+		return appErrors.BadRequest(c, err.Error())
+	}
+	if errors.Is(err, ErrAddressNotFound) {
+		return appErrors.NotFound(c, "address not found")
+	}
+	return appErrors.InternalError(c, "failed to "+action, err)
+}
+
+func (h *Handler) Create(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
+	if err != nil {
+		return err
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
 	var req CreateTechnicianAddressRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return customErr.BadRequest(c, "invalid request body")
+	if err := h.bindAndValidate(c, &req); err != nil {
+		return err
 	}
 
-	if details, err := validation.ValidateStruct(req); err != nil {
-		return customErr.ValidationError(c, details)
-	}
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
 
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	addr, err := h.service.Create(ctx, techID, &req)
+	resp, err := h.service.Create(ctx, techID, &req)
 	if err != nil {
-		return customErr.InternalError(c, "failed to create address", err)
+		return h.mapServiceError(c, "create address", err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponse(addr),
-	})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) ListAddresses(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
-	}
-
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	list, err := h.service.List(ctx, techID)
+func (h *Handler) List(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
 	if err != nil {
-		return customErr.InternalError(c, "failed to fetch addresses", err)
+		return err
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponseList(list),
-	})
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	list, err := h.service.List(c.Context(), techID)
+	if err != nil {
+		return h.mapServiceError(c, "fetch addresses", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": list})
 }
 
-func (h *Handler) GetAddress(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
-	}
-
-	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || addrID == 0 {
-		return customErr.BadRequest(c, "invalid address id")
-	}
-
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	addr, err := h.service.Get(ctx, uint(addrID), techID)
+func (h *Handler) Get(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
 	if err != nil {
-		if errors.Is(err, addressshared.ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to get address", err)
+		return err
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponse(addr),
-	})
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	addressID, err := h.mustUintParam(c, "addressID")
+	if err != nil {
+		return err
+	}
+
+	resp, err := h.service.Get(c.Context(), addressID, techID)
+	if err != nil {
+		return h.mapServiceError(c, "get address", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) UpdateAddress(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
+func (h *Handler) Update(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
+	if err != nil {
+		return err
 	}
 
-	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || addrID == 0 {
-		return customErr.BadRequest(c, "invalid address id")
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	addressID, err := h.mustUintParam(c, "addressID")
+	if err != nil {
+		return err
 	}
 
 	var req UpdateTechnicianAddressRequest
-	if err := c.Bind().Body(&req); err != nil {
-		return customErr.BadRequest(c, "invalid request body")
+	if err := h.bindAndValidate(c, &req); err != nil {
+		return err
 	}
 
-	if details, err := validation.ValidateStruct(req); err != nil {
-		return customErr.ValidationError(c, details)
-	}
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
 
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	addr, err := h.service.Update(ctx, uint(addrID), techID, &req)
+	resp, err := h.service.Update(ctx, addressID, techID, &req)
 	if err != nil {
-		if errors.Is(err, addressshared.ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to update address", err)
+		return h.mapServiceError(c, "update address", err)
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   ToResponse(addr),
-	})
+	return c.JSON(fiber.Map{"success": true, "data": resp})
 }
 
-func (h *Handler) DeleteAddress(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
-	}
-
-	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || addrID == 0 {
-		return customErr.BadRequest(c, "invalid address id")
-	}
-
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	if err := h.service.Delete(ctx, uint(addrID), techID); err != nil {
-		switch {
-		case errors.Is(err, ErrAddressNotFound):
-			return customErr.NotFound(c, "address not found")
-
-		case errors.Is(err, ErrCannotDeletePrimary):
-			return customErr.BadRequest(c, "cannot delete primary address")
-
-		default:
-			return customErr.InternalError(c, "failed to delete address", err)
-		}
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "address deleted",
-	})
-}
-
-func (h *Handler) SetPrimaryAddress(c fiber.Ctx) error {
-	techID, ok := c.Locals("userID").(uint)
-	if !ok || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician token")
-	}
-
-	addrID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || addrID == 0 {
-		return customErr.BadRequest(c, "invalid address id")
-	}
-
-	ctx := utils.InjectUserIDIntoContext(c.Context(), techID)
-
-	if err := h.service.SetPrimary(ctx, uint(addrID), techID); err != nil {
-		if errors.Is(err, addressshared.ErrAddressNotFound) {
-			return customErr.NotFound(c, "address not found")
-		}
-		return customErr.InternalError(c, "failed to set primary address", err)
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "primary address updated",
-	})
-}
-
-func (h *Handler) ListPublicAddresses(c fiber.Ctx) error {
-	techID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil || techID == 0 {
-		return customErr.BadRequest(c, "invalid technician id")
-	}
-
-	list, err := h.service.List(c.Context(), uint(techID))
+func (h *Handler) Delete(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
 	if err != nil {
-		return customErr.InternalError(c, "failed to fetch addresses", err)
+		return err
 	}
 
-	public := make([]fiber.Map, 0, len(list))
-	for _, a := range list {
-		public = append(public, fiber.Map{
-			"province":     a.Province,
-			"district":     a.District,
-			"sub_district": a.SubDistrict,
-		})
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   public,
-	})
+	addressID, err := h.mustUintParam(c, "addressID")
+	if err != nil {
+		return err
+	}
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	if err := h.service.Delete(ctx, addressID, techID); err != nil {
+		return h.mapServiceError(c, "delete address", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "address deleted"})
+}
+
+func (h *Handler) SetPrimary(c fiber.Ctx) error {
+	techID, err := h.mustUintParam(c, "technicianID")
+	if err != nil {
+		return err
+	}
+
+	if err := middleware.CheckOwnerOrAdmin(c, techID); err != nil {
+		return appErrors.HandleError(c, err)
+	}
+
+	addressID, err := h.mustUintParam(c, "addressID")
+	if err != nil {
+		return err
+	}
+
+	var req UpdatePrimaryRequest
+	if err := h.bindAndValidate(c, &req); err != nil {
+		return err
+	}
+
+	callerID, _ := middleware.GetUserID(c)
+	ctx := utils.InjectUserIDIntoContext(c.Context(), callerID)
+
+	if err := h.service.SetPrimary(ctx, addressID, techID, req.IsPrimary); err != nil {
+		return h.mapServiceError(c, "update primary", err)
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "primary address updated"})
 }
 
 func (h *Handler) SearchNearby(c fiber.Ctx) error {
 	var req addressshared.NearbyQuery
-	if err := c.Bind().JSON(&req); err != nil {
-		return customErr.BadRequest(c, "invalid request body")
+	if err := c.Bind().Body(&req); err != nil {
+		return appErrors.BadRequest(c, "invalid request body")
 	}
-
-	if req.KM <= 0 || req.KM > 100 {
-		req.KM = 30
-	}
-	if req.Limit <= 0 {
-		req.Limit = 50
+	if details, err := validation.ValidateStruct(req); err != nil {
+		return appErrors.ValidationError(c, details)
 	}
 
 	results, err := h.service.FindNearby(c.Context(), req)
 	if err != nil {
-		return customErr.InternalError(c, "failed to search nearby technicians", err)
+		return appErrors.InternalError(c, "failed to search nearby technicians", err)
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   results,
-	})
+	return c.JSON(fiber.Map{"success": true, "data": results})
 }

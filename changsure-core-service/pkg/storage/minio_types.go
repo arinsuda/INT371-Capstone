@@ -1,16 +1,12 @@
 package storage
 
-// ==============================
-// Minio Option Structs
-// ==============================
-
 type MinioOptions struct {
-	Endpoint     string
-	AccessKey    string
-	SecretKey    string
-	UseSSL       bool
-	Region       string
-	Bucket       string
+	Endpoint      string
+	AccessKey     string
+	SecretKey     string
+	UseSSL        bool
+	Region        string
+	Bucket        string
 	PublicBaseURL string
 }
 

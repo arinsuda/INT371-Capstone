@@ -154,3 +154,55 @@ func notFound(c fiber.Ctx, msg string) error {
 func internalErr(c fiber.Ctx, msg string, _ error) error {
 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": msg})
 }
+
+func (h *Handler) ListProvincesFiltered(c fiber.Ctx) error {
+	ctx := middleware.GetContext(c)
+
+	var (
+		districtID    *uint
+		subDistrictID *uint
+		q             = c.Query("q")
+		limitStr      = c.Query("limit")
+	)
+
+	if v := c.Query("district_id"); v != "" {
+		id64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			return badRequest(c, "Invalid district_id")
+		}
+		tmp := uint(id64)
+		districtID = &tmp
+	}
+	if v := c.Query("sub_district_id"); v != "" {
+		id64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			return badRequest(c, "Invalid sub_district_id")
+		}
+		tmp := uint(id64)
+		subDistrictID = &tmp
+	}
+
+	limit := 200
+	if limitStr != "" {
+		n, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return badRequest(c, "Invalid limit")
+		}
+		limit = n
+	}
+
+	items, err := h.service.ListProvincesFiltered(ctx, districtID, subDistrictID, q, limit)
+	if err != nil {
+		return internalErr(c, "Failed to list provinces", err)
+	}
+
+	out := make([]fiber.Map, 0, len(items))
+	for _, p := range items {
+		out = append(out, fiber.Map{"id": p.ID, "name_th": p.NameTH})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   out,
+	})
+}

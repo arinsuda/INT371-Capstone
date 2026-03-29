@@ -3,6 +3,8 @@ package technicianservice
 import "github.com/gofiber/fiber/v3"
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Post("/technician/pricing", h.PostPricing)
-	router.Get("/technicians", h.SearchTechnicians)
+
+	router.Post("/pricing", h.UpsertPricing)
+
+	router.Get("/search", h.SearchTechnicians)
 }

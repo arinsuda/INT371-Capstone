@@ -1,60 +1,58 @@
 package routes
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
+	"changsure-core-service/internal/config"
+	"changsure-core-service/internal/jwtutil"
+	"changsure-core-service/internal/middleware"
+	"changsure-core-service/internal/modules/jobs"
+	ocrroutes "changsure-core-service/internal/modules/ocr/routes"
+	"changsure-core-service/internal/realtime"
+	"changsure-core-service/internal/registry"
+
+	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
-
-	"changsure-core-service/internal/config"
-	"changsure-core-service/internal/middleware"
-	ocrroutes "changsure-core-service/internal/modules/ocr/routes"
-	"changsure-core-service/internal/registry"
 )
 
-// Router manages application route setup
 type Router struct {
 	app       *fiber.App
 	cfg       *config.Config
 	db        *gorm.DB
 	container *registry.Container
+	hub       *realtime.Hub
 }
 
-// NewRouter creates a new router instance
 func NewRouter(app *fiber.App, cfg *config.Config, db *gorm.DB) (*Router, error) {
-	container, err := registry.NewContainer(db, cfg)
+	hub := realtime.NewHub()
+	container, err := registry.NewContainer(db, cfg, hub)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container: %w", err)
+		return nil, fmt.Errorf("failed to create DI container: %w", err)
 	}
-
-	return &Router{
-		app:       app,
-		cfg:       cfg,
-		db:        db,
-		container: container,
-	}, nil
+	return &Router{app: app, cfg: cfg, db: db, container: container, hub: hub}, nil
 }
 
-// Setup configures all application routes
 func (r *Router) Setup() {
-	// Setup middleware
 	middleware.SetupMiddleware(r.app, r.cfg)
 
-	// Setup routes in order
 	r.setupHealthRoutes()
+	r.setupWebSocketRoutes()
 	r.setupPublicRoutes()
 	r.setupProtectedRoutes()
-	r.setup404Handler()
 
-	// Log routes in development
-	if r.cfg.App.Environment == "development" {
+	if r.cfg.IsDevelopment() {
+		r.setupDevelopmentTools()
 		r.logRegisteredRoutes()
 	}
+
+	r.setup404Handler()
+	r.startBackgroundJobs()
 }
 
-// setupHealthRoutes configures health check endpoints
 func (r *Router) setupHealthRoutes() {
 	r.app.Get("/", r.handleRoot)
 	r.app.Get("/health", r.handleHealth)
@@ -63,160 +61,170 @@ func (r *Router) setupHealthRoutes() {
 	r.app.Get("/alive", r.handleLiveness)
 }
 
-// setupPublicRoutes configures public API endpoints
 func (r *Router) setupPublicRoutes() {
-	v1 := r.app.Group("/api/v1")
-
-	// Authentication routes (no auth required)
-	auth := v1.Group("/auth")
-	r.container.AuthHandler.RegisterRoutes(auth)
-
-	// Development tools
-	if r.cfg.App.Environment == "development" {
-		r.setupDevelopmentTools()
-	}
-}
-
-// setupProtectedRoutes configures authenticated API endpoints
-func (r *Router) setupProtectedRoutes() {
-	v1 := r.app.Group("/api/v1", middleware.AuthMiddleware(r.cfg))
-
-	// Shared resources
-	r.setupSharedResources(v1)
-
-	// Domain-specific resources
-	r.setupTechnicianRoutes(v1)
-	// r.setupCustomerRoutes(v1)
-	r.setupCustomerMeRoutes(v1)
-	r.setupTechnicianMeRoutes(v1)
-}
-
-// setupSharedResources configures resources available to all authenticated users
-func (r *Router) setupSharedResources(api fiber.Router) {
+	api := r.app.Group("/api")
+	r.container.AuthHandler.RegisterRoutes(api)
+	r.container.PaymentHandler.RegisterWebhookRoutes(api)
+	r.container.ResetPasswordHandler.RegisterRoutes(api)
 	r.container.ProvinceHandler.RegisterRoutes(api)
+	r.container.DistrictHandler.RegisterRoutes(api)
+	r.container.SubDistrictHandler.RegisterRoutes(api)
 	r.container.ServiceCategoryHandler.RegisterRoutes(api)
 	r.container.ServiceHandler.RegisterRoutes(api)
-	r.container.BadgeHandler.RegisterRoutes(api)
+	r.container.DocumentHandler.RegisterRoutes(api)
 
-	// OCR functionality
+	publicTech := api.Group("/technicians")
+	r.container.CriminalCheckHandler.RegisterRoutes(publicTech, r.cfg.JWT.Secret)
+}
+
+func (r *Router) setupProtectedRoutes() {
+	v1 := r.app.Group("/api", middleware.AuthMiddleware(r.cfg))
+	r.setupSharedRoutes(v1)
+	r.setupTechnicianRoutes(v1)
+	r.setupCustomerRoutes(v1)
+
+	admin := v1.Group("/admins").Use(middleware.AdminOnly())
+	r.setupAdminRoutes(admin)
+}
+
+func (r *Router) setupSharedRoutes(api fiber.Router) {
+	r.container.NotificationHandler.RegisterRoutes(api)
+	r.container.BadgeHandler.RegisterRoutes(api)
+	r.container.TimeSlotHandler.RegisterRoutes(api)
+	r.container.ChatHandler.RegisterRoutes(api)
+	r.container.PaymentHandler.RegisterRoutes(api)
+	r.container.DocumentHandler.RegisterAdminRoute(api)
+	r.container.DashboardHandler.RegisterAdminRoutes(api)
+	r.container.TechnicianPostHandler.RegisterPublicRoutes(api)
 	ocrroutes.RegisterOCRRoutes(api, r.container.OCRHandler)
 }
 
-// func (r *Router) setupCustomerRoutes(api fiber.Router) {
-// 	customers := api.Group("/customers")
-// }
+func (r *Router) setupAdminRoutes(admin fiber.Router) {
+	r.container.DashboardHandler.RegisterAdminRoutes(admin)
+	r.container.TechnicianHandler.RegisterAdminRoutes(admin.Group("/technicians"))
+	r.container.CriminalCheckHandler.RegisterAdminRoutes(admin.Group("/verification"))
+	r.container.AdminHandler.RegisterRoutes(admin)
+	r.container.TechnicianPostHandler.RegisterAdminRoutes(admin.Group("/technicians"))
+}
+
+func (r *Router) startBackgroundJobs() {
+	cleaner := jobs.NewCleanupJob(r.db, nil)
+	go cleaner.Start(context.Background())
+	slog.Info("background jobs started", "job", "cleanup_expired_qr")
+}
 
 func (r *Router) setupTechnicianRoutes(api fiber.Router) {
 	technicians := api.Group("/technicians")
 
-	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
+	r.container.TechnicianHandler.RegisterRoutes(technicians)
+	r.container.TechnicianPostHandler.RegisterRoutes(technicians)
 	r.container.TechnicianBadgeHandler.RegisterRoutes(technicians)
+	r.container.TechnicianServiceHandler.RegisterRoutes(technicians)
 	r.container.TechnicianMatchingHandler.RegisterRoutes(technicians)
+	r.container.TechnicianCalendarHandler.RegisterRoutes(technicians)
+	r.container.TechnicianBookingHandler.RegisterRoutes(technicians)
+	r.container.TechnicianAddressHandler.RegisterRoutes(technicians)
+	r.container.WalletHandler.RegisterRoutes(technicians)
+	r.container.TechnicianReviewHandler.RegisterRoutes(technicians)
 }
 
-func (r *Router) setupCustomerMeRoutes(api fiber.Router) {
-	me := api.Group("/customers/me", middleware.CustomerOnly())
+func (r *Router) setupCustomerRoutes(api fiber.Router) {
+	customers := api.Group("/customers")
 
-	r.container.CustomerAddressHandler.RegisterRoutes(me, r.cfg)
-	r.container.CustomerHandler.RegisterRoutes(me)
+	r.container.CustomerHandler.RegisterRoutes(customers)
+	r.container.CustomerBookingHandler.RegisterRoutes(customers)
+	r.container.CustomerAddressHandler.RegisterRoutes(customers, r.cfg)
+	r.container.CustomerReviewHandler.RegisterRoutes(customers)
 }
 
-func (r *Router) setupTechnicianMeRoutes(api fiber.Router) {
-	me := api.Group("/technicians/me", middleware.TechnicianOnly())
+func (r *Router) setupWebSocketRoutes() {
+	verifyToken := r.buildWSTokenVerifier()
+	wsHandler := realtime.NewWSHandler(r.hub, verifyToken)
 
-	r.container.TechnicianHandler.RegisterRoutes(me)
-	r.container.TechnicianAddressHandler.RegisterRoutes(me, r.cfg)
-	r.container.TechnicianPostHandler.RegisterRoutes(me)
+	upgradeOnly := func(c fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	}
+
+	r.app.Get("/ws/technicians", upgradeOnly, websocket.New(wsHandler.TechnicianWS))
+	r.app.Get("/ws/customers", upgradeOnly, websocket.New(wsHandler.CustomerWS))
 }
 
-// setupDevelopmentTools configures development-only endpoints
-func (r *Router) setupDevelopmentTools() {
-	r.app.Get("/dev/ocr/test", r.handleOCRTestPage)
+func (r *Router) buildWSTokenVerifier() func(token string) (uint, string, bool) {
+	allowedRoles := map[string]struct{}{
+		jwtutil.RoleTechnician: {},
+		jwtutil.RoleCustomer:   {},
+	}
+	return func(token string) (uint, string, bool) {
+		token = strings.TrimSpace(strings.TrimPrefix(token, "Bearer "))
+		if token == "" {
+			return 0, "", false
+		}
+		claims, err := jwtutil.ParseString(r.cfg.JWT.Secret, token)
+		if err != nil || claims == nil || claims.UserID == 0 {
+			return 0, "", false
+		}
+		if _, ok := allowedRoles[claims.Role]; !ok {
+			return 0, "", false
+		}
+		return claims.UserID, claims.Role, true
+	}
 }
-
-// Health check handlers
 
 func (r *Router) handleRoot(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"service": "changsure-core-service",
-		"version": "1.0.0",
-		"status":  "operational",
-	})
+	return c.JSON(fiber.Map{"service": "changsure-core-service", "version": "1.0.0", "status": "operational"})
 }
 
 func (r *Router) handleHealth(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"status": "ok",
-	})
+	return c.JSON(fiber.Map{"status": "ok"})
 }
 
 func (r *Router) handleDetailedHealth(c fiber.Ctx) error {
-	dbHealth := r.checkDatabaseHealth()
-
+	db := r.checkDatabaseHealth()
 	status := fiber.StatusOK
-	if dbHealth.Status != "healthy" {
+	overall := "healthy"
+	if db.status != "healthy" {
 		status = fiber.StatusServiceUnavailable
+		overall = db.status
 	}
-
 	return c.Status(status).JSON(fiber.Map{
-		"status": map[string]string{
-			"overall":  dbHealth.Status,
-			"database": dbHealth.Status,
-		},
+		"status": fiber.Map{"overall": overall, "database": db.status},
 	})
 }
 
 func (r *Router) handleReadiness(c fiber.Ctx) error {
-	dbHealth := r.checkDatabaseHealth()
-
-	if dbHealth.Status != "healthy" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-			"ready":  false,
-			"reason": dbHealth.Error,
-		})
+	db := r.checkDatabaseHealth()
+	if db.status != "healthy" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"ready": false, "reason": db.errMsg})
 	}
-
-	return c.JSON(fiber.Map{
-		"ready": true,
-	})
+	return c.JSON(fiber.Map{"ready": true})
 }
 
 func (r *Router) handleLiveness(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"alive": true,
-	})
+	return c.JSON(fiber.Map{"alive": true})
 }
 
-// Database health check
-
-type HealthStatus struct {
-	Status string
-	Error  string
+type dbHealth struct {
+	status string
+	errMsg string
 }
 
-func (r *Router) checkDatabaseHealth() HealthStatus {
+func (r *Router) checkDatabaseHealth() dbHealth {
 	sqlDB, err := r.db.DB()
 	if err != nil {
-		return HealthStatus{
-			Status: "unhealthy",
-			Error:  "failed to get database instance",
-		}
+		return dbHealth{status: "unhealthy", errMsg: "failed to get database instance"}
 	}
-
 	if err := sqlDB.Ping(); err != nil {
-		return HealthStatus{
-			Status: "unhealthy",
-			Error:  "database ping failed",
-		}
+		return dbHealth{status: "unhealthy", errMsg: "database ping failed"}
 	}
-
-	return HealthStatus{
-		Status: "healthy",
-		Error:  "",
-	}
+	return dbHealth{status: "healthy"}
 }
 
-// Development tools
+func (r *Router) setupDevelopmentTools() {
+	r.app.Get("/dev/ocr/test", r.handleOCRTestPage)
+}
 
 func (r *Router) handleOCRTestPage(c fiber.Ctx) error {
 	c.Set("Content-Security-Policy", buildCSP())
@@ -224,7 +232,7 @@ func (r *Router) handleOCRTestPage(c fiber.Ctx) error {
 }
 
 func buildCSP() string {
-	policies := []string{
+	return strings.Join([]string{
 		"default-src 'self'",
 		"img-src 'self' data: blob:",
 		"connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 ws: wss:",
@@ -236,47 +244,39 @@ func buildCSP() string {
 		"base-uri 'self'",
 		"frame-ancestors 'none'",
 		"form-action 'self'",
-	}
-	return strings.Join(policies, "; ")
+	}, "; ")
 }
-
-// 404 handler
 
 func (r *Router) setup404Handler() {
-	r.app.Use(r.handle404)
-}
-
-func (r *Router) handle404(c fiber.Ctx) error {
-	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"error": fiber.Map{
-			"code":    "ROUTE_NOT_FOUND",
-			"message": "The requested endpoint does not exist",
-			"path":    c.Path(),
-			"method":  c.Method(),
-		},
+	r.app.Use(func(c fiber.Ctx) error {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    "ROUTE_NOT_FOUND",
+				"message": "The requested endpoint does not exist",
+				"path":    c.Path(),
+				"method":  c.Method(),
+			},
+		})
 	})
 }
 
-// Utility functions
-
 func (r *Router) logRegisteredRoutes() {
-	log.Println("\n=== Registered Routes ===")
-
 	routes := r.app.GetRoutes()
+	slog.Info("registered routes", "total", len(routes))
 	for _, route := range routes {
-		log.Printf("%-7s %s", route.Method, route.Path)
+		slog.Debug("route", "method", route.Method, "path", route.Path)
 	}
-
-	log.Printf("\nTotal routes: %d\n", len(routes))
-	log.Println("========================\n")
 }
 
-// Setup is a convenience function for backward compatibility
-func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) {
+func Setup(app *fiber.App, cfg *config.Config, db *gorm.DB) *Router {
 	router, err := NewRouter(app, cfg, db)
 	if err != nil {
-		panic(fmt.Errorf("failed to setup routes: %w", err))
+		panic(fmt.Errorf("failed to initialise router: %w", err))
 	}
-
 	router.Setup()
+	return router
+}
+
+func (r *Router) Hub() *realtime.Hub {
+	return r.hub
 }

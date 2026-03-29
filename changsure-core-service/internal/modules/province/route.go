@@ -7,6 +7,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	g.Post("/", h.CreateProvince)
 	g.Get("/", h.ListProvinces)
+	
+	g.Get("/filter", h.ListProvincesFiltered)
+
 	g.Get("/:id", h.GetProvince)
 	g.Patch("/:id", h.UpdateProvince)
 	g.Delete("/:id", h.DeleteProvince)

@@ -8,23 +8,70 @@ import (
 )
 
 type Repository interface {
+	WithTx(tx *gorm.DB) Repository
 	FindByID(ctx context.Context, id uint) (*Technician, error)
 	FindByEmail(ctx context.Context, email string) (*Technician, error)
 	FindByPhone(ctx context.Context, phone string) (*Technician, error)
 	Create(ctx context.Context, m *Technician) error
 	Update(ctx context.Context, m *Technician) error
-
 	ExistsByID(ctx context.Context, id uint) (bool, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	GetAll(ctx context.Context, limit, offset int) ([]TechnicianWithVerification, error)
+	Count(ctx context.Context) (int64, error)
+	GetSummaryStats(ctx context.Context) (*TechnicianSummaryStats, error)
+	GetStats(ctx context.Context, techID uint) (*TechnicianStats, error)
+	UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error
+	UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error
+	GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]TechnicianWithVerification, int64, error)
 }
 
 type repository struct{ db *gorm.DB }
 
 func NewRepository(db *gorm.DB) Repository { return &repository{db: db} }
 
+func (r *repository) GetStats(ctx context.Context, techID uint) (*TechnicianStats, error) {
+	var stats TechnicianStats
+	err := r.db.WithContext(ctx).
+		Table("technician_stats").
+		Where("technician_id = ?", techID).
+		Scan(&stats).Error
+	return &stats, err
+}
+
+func (r *repository) UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error {
+	return r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("id = ?", techID).
+		Update("id_card_image_url", imageKey).Error
+}
+
+func (r *repository) UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error {
+	updates := map[string]any{
+		"verification_status": status,
+	}
+	if status == StatusPassed {
+		updates["verified_at"] = gorm.Expr("NOW()")
+	} else {
+		updates["verified_at"] = nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("id = ?", techID).
+		Updates(updates).Error
+}
+
 func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error) {
 	var m Technician
-	if err := r.db.WithContext(ctx).First(&m, id).Error; err != nil {
+	err := r.db.WithContext(ctx).
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
+		Preload("ServiceAreas", "is_active = ?", true).
+		Preload("ServiceAreas.Province").
+		First(&m, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -33,6 +80,9 @@ func (r *repository) FindByID(ctx context.Context, id uint) (*Technician, error)
 func (r *repository) FindByEmail(ctx context.Context, email string) (*Technician, error) {
 	var m Technician
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -41,6 +91,9 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*Technician
 func (r *repository) FindByPhone(ctx context.Context, phone string) (*Technician, error) {
 	var m Technician
 	if err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -59,7 +112,6 @@ func (r *repository) ExistsByID(ctx context.Context, id uint) (bool, error) {
 	if err := r.db.WithContext(ctx).
 		Select("id").
 		First(&m, id).Error; err != nil {
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
@@ -74,11 +126,219 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
 		Select("id").
 		Where("email = ?", email).
 		First(&m).Error; err != nil {
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
 	return true, nil
+}
+
+type TechnicianWithVerification struct {
+	Technician
+	WarningCount int64 `gorm:"column:warning_count"`
+}
+
+func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]TechnicianWithVerification, error) {
+	var list []TechnicianWithVerification
+	err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Select(`technicians.*,
+            COALESCE(
+                (SELECT COUNT(*) FROM technician_post_reports
+                 WHERE technician_id = technicians.id AND severity = 'WARNING'),
+            0) AS warning_count`).
+		Where("technicians.deleted_at IS NULL").
+		Preload("ServiceAreas", "is_active = ?", true).
+		Preload("ServiceAreas.Province").
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
+		Preload("Services.Service.Category").
+		Order("technicians.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&list).Error
+	return list, err
+}
+
+func (r *repository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("deleted_at IS NULL").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *repository) SyncStats(ctx context.Context, techID uint) error {
+	return r.db.WithContext(ctx).Exec(`
+		UPDATE technicians t
+		SET
+			total_jobs = (
+				SELECT COUNT(*) FROM bookings
+				WHERE technician_id = ? AND status = 'COMPLETED'
+			),
+			rating_count = (
+				SELECT COUNT(*) FROM reviews rv
+				JOIN bookings b ON b.id = rv.booking_id
+				WHERE b.technician_id = ?
+			),
+			rating_avg = (
+				SELECT COALESCE(ROUND(AVG(rv.rating), 2), 0.00)
+				FROM reviews rv
+				JOIN bookings b ON b.id = rv.booking_id
+				WHERE b.technician_id = ?
+			)
+		WHERE t.id = ?
+	`, techID, techID, techID, techID).Error
+}
+
+func (r *repository) GetSummaryStats(ctx context.Context) (*TechnicianSummaryStats, error) {
+	var stats TechnicianSummaryStats
+
+	if err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("deleted_at IS NULL").
+		Count(&stats.Total).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("deleted_at IS NULL AND verification_status = ?", StatusPassed).
+		Count(&stats.VerifiedCount).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("verification_status IN ?", []VerificationStatus{
+			StatusPending,
+			StatusReview,
+		}).
+		Count(&stats.PendingCount).Error; err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]TechnicianWithVerification, int64, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 || q.PageSize > 100 {
+		q.PageSize = 20
+	}
+	offset := (q.Page - 1) * q.PageSize
+
+	base := r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Select(`technicians.*,
+			COALESCE((
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			), 0) AS warning_count`).
+		Where("technicians.deleted_at IS NULL")
+
+	if q.Search != "" {
+		kw := "%" + q.Search + "%"
+		base = base.Where(
+			"technicians.first_name LIKE ? OR technicians.last_name LIKE ? OR technicians.email LIKE ? OR technicians.phone LIKE ?",
+			kw, kw, kw, kw,
+		)
+	}
+
+	if q.VerificationStatus != "" {
+		base = base.Where("technicians.verification_status = ?", q.VerificationStatus)
+	}
+
+	switch q.AccountStatus {
+	case "BANNED":
+		base = base.Where("technicians.banned_at IS NOT NULL OR technicians.is_available = FALSE")
+	case "WARNING":
+
+		base = base.Where(`
+			technicians.banned_at IS NULL AND technicians.is_available = TRUE
+			AND (
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) >= 1
+		`)
+	case "ACTIVE":
+		base = base.Where(`
+			technicians.banned_at IS NULL AND technicians.is_available = TRUE
+			AND (
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) = 0
+		`)
+	}
+
+	switch PostWarningStatus(q.PostWarningStatus) {
+	case PostWarningBanned:
+		base = base.Where("technicians.banned_at IS NOT NULL OR technicians.is_available = FALSE")
+
+	case PostWarningWarned:
+		base = base.Where(`
+        technicians.banned_at IS NULL
+        AND technicians.is_available = TRUE
+        AND (
+            SELECT COUNT(*) FROM technician_post_reports
+            WHERE technician_id = technicians.id AND severity = 'WARNING'
+        ) >= 1
+    `)
+
+	case PostWarningNormal:
+		base = base.Where(`
+        technicians.banned_at IS NULL
+        AND technicians.is_available = TRUE
+        AND (
+            SELECT COUNT(*) FROM technician_post_reports
+            WHERE technician_id = technicians.id AND severity = 'WARNING'
+        ) = 0
+    `)
+	}
+
+	if q.HasWarning != nil {
+		if *q.HasWarning {
+			base = base.Where(`(
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) >= 1`)
+		} else {
+			base = base.Where(`(
+				SELECT COUNT(*) FROM technician_post_reports
+				WHERE technician_id = technicians.id AND severity = 'WARNING'
+			) = 0`)
+		}
+	}
+	if q.MinWarning > 0 {
+		base = base.Where(`(
+			SELECT COUNT(*) FROM technician_post_reports
+			WHERE technician_id = technicians.id AND severity = 'WARNING'
+		) >= ?`, q.MinWarning)
+	}
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var list []TechnicianWithVerification
+	err := base.
+		Preload("ServiceAreas", "is_active = ?", true).
+		Preload("ServiceAreas.Province").
+		Preload("Services", "is_active = ?", true).
+		Preload("Services.Service").
+		Preload("Services.Service.Category").
+		Order("technicians.created_at DESC").
+		Limit(q.PageSize).
+		Offset(offset).
+		Find(&list).Error
+	return list, total, err
+}
+
+func (r *repository) WithTx(tx *gorm.DB) Repository {
+	return &repository{db: tx}
 }

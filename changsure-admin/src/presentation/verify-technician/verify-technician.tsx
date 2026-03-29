@@ -1,13 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded"
-import { Users, Clock } from "lucide-react"
-import { technicians } from "@/data/mock/technicians"
 import Link from "next/link"
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos"
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos"
-import { useGetTechnicianStats } from "@/data/api/technicians.hook"
+import { useGetTechnicianResponse } from "@/data/api/technicians.hook"
 
 const statusColor = (verify: string) => {
   switch (verify) {
@@ -25,22 +22,21 @@ const statusColor = (verify: string) => {
 export const VerifyTechnicianPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const { data: statsData } = useGetTechnicianStats()
-
-  const mappedStats = [
-    {
-      title: "ช่างรอตรวจสอบ",
-      value: statsData?.pending ?? 0,
-      icon: <Clock className="text-[#FFC53D]" />,
-      bg: "bg-[#FFEEC5]"
-    },
-    {
-      title: "ช่างที่ผ่านการรับรองแล้ว",
-      value: statsData?.passed ?? 0,
-      icon: <VerifiedRoundedIcon className="text-[#1677FF]" />,
-      bg: "bg-[#CEE2FF]"
+  const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด")
+  const mapStatusToAPI = (status: string) => {
+    switch (status) {
+      case "รอการตรวจสอบ":
+        return "PENDING"
+      case "ไม่ผ่าน":
+        return "FAILED"
+      default:
+        return undefined // 👈 "ทั้งหมด" = ไม่ส่ง
     }
-  ]
+  }
+  const { data: technicianResponseData } = useGetTechnicianResponse(undefined, {
+    verification_status: mapStatusToAPI(selectedStatus)
+  })
+  const statusTabs = ["ทั้งหมด", "รอการตรวจสอบ", "ไม่ผ่าน"]
 
   const verifyOrder: Record<string, number> = {
     ผ่านการตรวจสอบ: 1,
@@ -48,16 +44,33 @@ export const VerifyTechnicianPage = () => {
     ไม่ผ่าน: 3
   }
 
-  // sort ก่อน pagination
-  const sortedTechnicians = [...technicians].sort(
-    (a, b) => verifyOrder[a.verify] - verifyOrder[b.verify]
+  const mapStatus = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "รอการตรวจสอบ"
+      case "FAILED":
+        return "ไม่ผ่าน"
+      default:
+        return "ผ่านการตรวจสอบ"
+    }
+  }
+
+  const technicians = technicianResponseData?.technicians || []
+
+  const sortedTechnicians = [...technicians].sort((a, b) => {
+    return (
+      verifyOrder[mapStatus(a.verification_status)] -
+      verifyOrder[mapStatus(b.verification_status)]
+    )
+  })
+
+  const filteredTechnicians = sortedTechnicians.filter(
+    (tech) => mapStatus(tech.verification_status) !== "ผ่านการตรวจสอบ"
   )
 
-  const total = sortedTechnicians.length
-  const totalPages = Math.ceil(total / pageSize)
-
-  const startIndex = (currentPage - 1) * pageSize
-  const currentData = sortedTechnicians.slice(startIndex, startIndex + pageSize)
+  const currentData = filteredTechnicians
+  const total = currentData.length
+  const totalPages = technicianResponseData?.total_pages || 1
 
   const visiblePages = 3
 
@@ -78,24 +91,22 @@ export const VerifyTechnicianPage = () => {
     <div className="p-6 space-y-6">
       <h1 className="text-lg font-bold">รายชื่อผู้สมัครช่าง</h1>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {mappedStats.map((item, index) => (
-          <div
-            key={index}
-            className="flex items-center justify-between p-6 bg-white rounded-[20px]"
+      <div className="flex gap-2">
+        {statusTabs.map((status) => (
+          <button
+            key={status}
+            onClick={() => {
+              setSelectedStatus(status)
+              setCurrentPage(1)
+            }}
+            className={`px-4 py-1 rounded-md text-sm border cursor-pointer ${
+              selectedStatus === status
+                ? "bg-[#EDF9FF] text-primary border-primary"
+                : "bg-white text-black border-gray-300"
+            }`}
           >
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-primary/70">{item.title}</p>
-              <p className="text-2xl font-bold">
-                {item.value}{" "}
-                <span className="text-lg text-colorTertiaryText font-medium">
-                  คน
-                </span>
-              </p>
-            </div>
-            <div className={`p-3 rounded-2xl ${item.bg}`}>{item.icon}</div>
-          </div>
+            {status}
+          </button>
         ))}
       </div>
 
@@ -137,22 +148,28 @@ export const VerifyTechnicianPage = () => {
                     href={`/verify-technician/${tech.id}`}
                     className="block"
                   >
-                    {tech.name}
+                    {tech.firstname} {tech.lastname}
                   </Link>
                 </td>
 
                 <td className="px-2 py-3">{tech.email}</td>
                 <td className="px-4 py-3">{tech.phone}</td>
-                <td className="px-4 py-3">{tech.type}</td>
-                <td className="px-4 py-3">{tech.area}</td>
-                <td className="px-4 py-3">{tech.date}</td>
+                <td className="px-4 py-3 max-w-40 truncate">
+                  {tech.service_summary
+                    ?.map((s) => s.service_category_name)
+                    .join(" / ")}
+                </td>
+                <td className="px-4 py-3">
+                  {tech.provinces?.map((p) => p.name_th).join(", ") || "-"}
+                </td>
+                <td className="px-4 py-3">12</td>
                 <td className="px-4 py-3">
                   <span
                     className={`px-2 py-px rounded-md text-[12px] font-medium ${statusColor(
-                      tech.verify
+                      mapStatus(tech.verification_status)
                     )}`}
                   >
-                    {tech.verify}
+                    {mapStatus(tech.verification_status)}
                   </span>
                 </td>
               </tr>

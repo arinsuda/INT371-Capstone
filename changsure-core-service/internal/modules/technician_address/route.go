@@ -1,28 +1,16 @@
 package technicianaddress
 
-import (
-	"changsure-core-service/internal/config"
-	"changsure-core-service/internal/middleware"
-	"github.com/gofiber/fiber/v3"
-)
+import "github.com/gofiber/fiber/v3"
 
-func (h *Handler) RegisterRoutes(r fiber.Router, cfg *config.Config) {
+func (h *Handler) RegisterRoutes(api fiber.Router) {
+	api.Post("/nearby", h.SearchNearby)
 
-	me := r.Group("/addresses",
-		middleware.AuthMiddleware(cfg),
-		middleware.TechnicianOnly(),
-	)
+	tech_address := api.Group("/:technicianID/addresses")
 
-	me.Post("", h.CreateAddress)
-	me.Get("", h.ListAddresses)
-	me.Get("/:id", h.GetAddress)
-	me.Put("/:id", h.UpdateAddress)
-	me.Delete("/:id", h.DeleteAddress)
-
-	me.Patch("/:id/primary", h.SetPrimaryAddress)
-}
-
-func (h *Handler) RegisterRoutesPublic(r fiber.Router, cfg *config.Config) {
-	r.Get("/technicians/:id/addresses", h.ListPublicAddresses)
-	r.Post("/technicians/nearby", h.SearchNearby)
+	tech_address.Post("/", h.Create)
+	tech_address.Get("/", h.List)
+	tech_address.Get("/:addressID", h.Get)
+	tech_address.Put("/:addressID", h.Update)
+	tech_address.Delete("/:addressID", h.Delete)
+	tech_address.Patch("/:addressID", h.SetPrimary)
 }

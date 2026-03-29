@@ -7,7 +7,6 @@ import ReportIcon from "@mui/icons-material/Report"
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos"
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos"
 import Link from "next/link"
-import { technicians } from "@/data/mock/technicians"
 import {
   useGetTechnicianResponse,
   useGetTechnicianStats
@@ -29,69 +28,58 @@ const statusColor = (status: string) => {
 export const ManageTechnician = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const { data: statsData } = useGetTechnicianStats()
-  const { data: technicianResponseData } = useGetTechnicianResponse()
-
-  const mappedStats = [
-    {
-      title: "จำนวนช่างทั้งหมด",
-      value: statsData?.total ?? 0,
-      icon: <Users className="text-[#9254DE]" />,
-      bg: "bg-[#E8DBF8]"
-    },
-    {
-      title: "ช่างรอตรวจสอบ",
-      value: statsData?.pending ?? 0,
-      icon: <Clock className="text-[#FFC53D]" />,
-      bg: "bg-[#FFEEC5]"
-    },
-    {
-      title: "ช่างที่ผ่านการรับรองแล้ว",
-      value: statsData?.passed ?? 0,
-      icon: <VerifiedRoundedIcon className="text-[#1677FF]" />,
-      bg: "bg-[#CEE2FF]"
-    },
-    {
-      title: "ช่างถูกรายงาน",
-      value: statsData?.failed ?? 0,
-      icon: <ReportIcon className="text-colorError" />,
-      bg: "bg-[#FFCACA]"
+  const [selectedStatus, setSelectedStatus] = useState<string>("ทั้งหมด")
+  const mapStatusToAPI = (status: string) => {
+    switch (status) {
+      case "ปกติ":
+        return "NORMAL"
+      case "ตักเตือน":
+        return "WARNED"
+      case "แบนถาวร":
+        return "BANNED"
+      default:
+        return undefined // 👈 "ทั้งหมด" = ไม่ส่ง
     }
-  ]
-
+  }
+  const { data: technicianResponseData } = useGetTechnicianResponse(
+    { page: currentPage, pageSize: pageSize },
+    { post_warning_status: mapStatusToAPI(selectedStatus) }
+  )
+  const statusTabs = ["ทั้งหมด", "ปกติ", "ตักเตือน", "แบนถาวร"]
   const statusOrder: Record<string, number> = {
     ปกติ: 1,
     ตักเตือน: 2,
     แบนถาวร: 3
   }
 
+  console.log("technicianResponseData", technicianResponseData)
+
   const mapStatus = (status: string) => {
     switch (status) {
-      case "PASSED":
+      case "NORMAL":
         return "ปกติ"
-      case "PENDING":
+      case "WARNED":
         return "ตักเตือน"
-      case "FAILED":
+      case "BANNED":
         return "แบนถาวร"
       default:
         return "ปกติ"
     }
   }
 
-  const sortedTechnicians = [
-    ...(technicianResponseData?.technicians || [])
-  ].sort((a, b) => {
+  const total = technicianResponseData?.total || 0
+  const totalPages = technicianResponseData?.total_pages || 1
+
+  const technicians = technicianResponseData?.technicians || []
+
+  const sortedTechnicians = [...technicians].sort((a, b) => {
     return (
-      statusOrder[mapStatus(a.verification_status)] -
-      statusOrder[mapStatus(b.verification_status)]
+      statusOrder[mapStatus(a.post_warning_status)] -
+      statusOrder[mapStatus(b.post_warning_status)]
     )
   })
 
-  const total = sortedTechnicians.length
-  const totalPages = Math.ceil(total / pageSize)
-
-  const startIndex = (currentPage - 1) * pageSize
-  const currentData = sortedTechnicians.slice(startIndex, startIndex + pageSize)
+  const currentData = sortedTechnicians
 
   const visiblePages = 3
 
@@ -112,24 +100,22 @@ export const ManageTechnician = () => {
     <div className="p-6 space-y-6">
       <h1 className="text-lg font-bold">จัดการข้อมูลช่าง</h1>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {mappedStats.map((item, index) => (
-          <div
-            key={index}
-            className="flex items-center justify-between p-6 bg-white rounded-[20px]"
+      <div className="flex gap-2">
+        {statusTabs.map((status) => (
+          <button
+            key={status}
+            onClick={() => {
+              setSelectedStatus(status)
+              setCurrentPage(1) // ✅ reset หน้า
+            }}
+            className={`px-4 py-1 rounded-md text-sm border transition cursor-pointer ${
+              selectedStatus === status
+                ? "bg-[#EDF9FF] text-primary border-primary"
+                : "bg-white text-black border-gray-300"
+            }`}
           >
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-primary/70">{item.title}</p>
-              <p className="text-2xl font-bold">
-                {item.value}{" "}
-                <span className="text-lg text-colorTertiaryText font-medium">
-                  คน
-                </span>
-              </p>
-            </div>
-            <div className={`p-3 rounded-2xl ${item.bg}`}>{item.icon}</div>
-          </div>
+            {status}
+          </button>
         ))}
       </div>
 
@@ -174,12 +160,10 @@ export const ManageTechnician = () => {
 
                 <td className="px-2 py-3">{tech.email}</td>
                 <td className="px-4 py-3">{tech.phone || "-"}</td>
-                <td className="px-4 py-3">
-                  {tech.service_summary?.map((s) => (
-                    <span key={s.service_category_id} className="block">
-                      {s.service_category_name}
-                    </span>
-                  ))}
+                <td className="px-4 py-3 max-w-40 truncate">
+                  {tech.service_summary
+                    ?.map((s) => s.service_category_name)
+                    .join(" / ")}
                 </td>
                 <td className="px-4 py-3">
                   {tech.provinces?.map((p) => p.name_th).join(", ") || "-"}
@@ -187,10 +171,10 @@ export const ManageTechnician = () => {
                 <td className="px-4 py-3">
                   <span
                     className={`px-2 py-px rounded-md text-[12px] font-medium ${statusColor(
-                      mapStatus(tech.verification_status)
+                      mapStatus(tech.post_warning_status)
                     )}`}
                   >
-                    {mapStatus(tech.verification_status)}
+                    {mapStatus(tech.post_warning_status)}
                   </span>
                 </td>
               </tr>

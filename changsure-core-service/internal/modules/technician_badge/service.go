@@ -9,6 +9,7 @@ import (
 var (
 	ErrBadgeAlreadyAssigned = errors.New("technician already has this badge")
 	ErrTechnicianNotFound   = errors.New("technician not found")
+	ErrBadgeNotAssigned     = errors.New("badge not assigned to technician")
 )
 
 type TechnicianReader interface {
@@ -75,5 +76,17 @@ func (s *service) GetBadgesByTechnician(ctx context.Context, techID uint) ([]Tec
 }
 
 func (s *service) RemoveBadge(ctx context.Context, techID, badgeID uint) error {
+	if err := s.ensureTechExists(ctx, techID); err != nil {
+		return err
+	}
+
+	exists, err := s.repo.CheckBadgeExists(ctx, techID, badgeID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrBadgeNotAssigned
+	}
+
 	return s.repo.DeleteByTechAndBadge(ctx, techID, badgeID)
 }

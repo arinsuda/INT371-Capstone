@@ -29,6 +29,7 @@ export function useGetAdminProfile() {
     `${URL_API}/admins/${adminId}/profile`, // ✅ url
     undefined, // ✅ params (ไม่มี = undefined)
     undefined, // config
+    undefined, // initialData
     {
       Authorization: `Bearer ${token}`
     }
