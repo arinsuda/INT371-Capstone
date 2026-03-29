@@ -14,6 +14,7 @@ import (
 	"changsure-core-service/internal/modules/badge"
 	docrepo "changsure-core-service/internal/modules/document"
 	"changsure-core-service/internal/modules/province"
+	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	tb "changsure-core-service/internal/modules/technician_badge"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
@@ -48,6 +49,7 @@ type service struct {
 	serviceRepo tsvc.Repository
 	docRepo     docrepo.Repository
 	storage     storage.Storage
+	addressRepo technicianaddress.Repository
 	logger      *slog.Logger
 }
 
@@ -58,6 +60,7 @@ func NewService(
 	svcRepo tsvc.Repository,
 	docRepo docrepo.Repository,
 	store storage.Storage,
+	addressRepo technicianaddress.Repository,
 	logger *slog.Logger,
 ) Service {
 	if logger == nil {
@@ -70,6 +73,7 @@ func NewService(
 		serviceRepo: svcRepo,
 		docRepo:     docRepo,
 		storage:     store,
+		addressRepo: addressRepo,
 		logger:      logger.With("module", "technician"),
 	}
 }
@@ -92,6 +96,24 @@ func (s *service) GetProfile(ctx context.Context, techID uint) (*TechnicianProfi
 		return nil, err
 	}
 	return s.toProfileRes(ctx, tech), nil
+}
+
+func (s *service) getPrimaryAddress(ctx context.Context, techID uint) *technicianaddress.TechnicianAddressResponse {
+	if s.addressRepo == nil {
+		return nil
+	}
+
+	list, err := s.addressRepo.ListByTechnician(ctx, techID)
+	if err != nil || len(list) == 0 {
+		return nil
+	}
+
+	primary := list[0]
+
+	phone, _ := s.addressRepo.GetTechnicianPhone(ctx, techID)
+	res := technicianaddress.ToResponse(primary, phone)
+
+	return &res
 }
 
 func (s *service) UpsertProfile(ctx context.Context, techID uint, req TechnicianProfileReq) (uint, error) {
@@ -639,6 +661,7 @@ func (s *service) toProfileRes(ctx context.Context, tech *Technician) *Technicia
 		Badges:             s.toBadgesRes(ctx, tech.Badges),
 		CreatedAt:          tech.CreatedAt.Unix(),
 		UpdatedAt:          tech.UpdatedAt.Unix(),
+		PrimaryAddress:     s.getPrimaryAddress(ctx, tech.ID),
 	}
 }
 
