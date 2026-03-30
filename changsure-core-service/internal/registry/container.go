@@ -209,6 +209,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initProvinceModule()
 	c.initDistrictModule()
 	c.initSubDistrictModule()
+	c.initTechnicianWorkModule()
 	c.initTechnicianServiceModule()
 	c.initTechnicianAddressModule()
 	c.initTechnicianModule()
@@ -222,7 +223,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initServiceModule()
 	c.initBadgeModule()
 	c.initTechnicianBadgeModule()
-	c.initTechnicianWorkModule()
 	c.initTechnicianMatchingModule()
 	c.initTimeSlotModule()
 	c.initBookingCoreModule()
@@ -282,6 +282,7 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		c.TechnicianServiceAreaRepo,
 		c.CriminalCheckRepo,
 		c.DocumentService,
+		c.NotificationService,
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)

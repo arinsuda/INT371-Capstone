@@ -116,3 +116,12 @@ func (q *ListPostReportsQuery) SetDefaults() {
 		q.PerPage = 20
 	}
 }
+
+type TechnicianBannedInfo struct {
+	TechnicianID     uint  `json:"technician_id"`
+	BannedAt         int64 `json:"banned_at"`
+	ExpiresAt        int64 `json:"expires_at"`
+	RemainingDays    int   `json:"remaining_days"`
+	RemainingHours   int   `json:"remaining_hours"`
+	RemainingMinutes int   `json:"remaining_minutes"`
+}

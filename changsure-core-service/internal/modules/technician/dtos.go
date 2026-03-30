@@ -103,6 +103,10 @@ type TechnicianProfileRes struct {
 	CreatedAt          int64                                        `json:"created_at"`
 	UpdatedAt          int64                                        `json:"updated_at"`
 	PrimaryAddress     *technicianaddress.TechnicianAddressResponse `json:"primary_address,omitempty"`
+
+	AccountStatus string   `json:"account_status"`
+	WarningCount  int64    `json:"warning_count"`
+	BanInfo       *BanInfo `json:"ban_info,omitempty"`
 }
 
 type TechnicianStatus struct {
@@ -240,4 +244,12 @@ type AdminListResponse struct {
 	PendingCount  int64 `json:"pending_count"`
 	BannedCount   int64 `json:"banned_count"`
 	WarningCount  int64 `json:"warning_count"`
+}
+
+type BanInfo struct {
+	BannedAt         int64 `json:"banned_at"`
+	ExpiresAt        int64 `json:"expires_at"`
+	RemainingDays    int   `json:"remaining_days"`
+	RemainingHours   int   `json:"remaining_hours"`
+	RemainingMinutes int   `json:"remaining_minutes"`
 }

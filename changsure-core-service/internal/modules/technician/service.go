@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,10 +15,12 @@ import (
 	"changsure-core-service/internal/modules/province"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
 	tb "changsure-core-service/internal/modules/technician_badge"
+	technicianpost "changsure-core-service/internal/modules/technician_post"
 	tsvc "changsure-core-service/internal/modules/technician_service"
 	tsvca "changsure-core-service/internal/modules/technician_service_area"
 	bookingconst "changsure-core-service/internal/shared"
 	"changsure-core-service/pkg/storage"
+	"math"
 )
 
 type ctxKey string
@@ -370,11 +371,11 @@ func (s *service) List(ctx context.Context, page, pageSize int) ([]*TechnicianRe
 }
 
 func resolveAccountStatus(t *Technician, warningCount int64) string {
-	if !t.IsAvailable {
-		return "BANNED"
-	}
 	if t.BannedAt != nil {
-		return "BANNED"
+		expiresAt := t.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
+		if time.Now().Before(expiresAt) {
+			return "BANNED"
+		}
 	}
 	if !t.IsAvailable {
 		return "INACTIVE"
@@ -640,6 +641,14 @@ func (s *service) toProfileRes(ctx context.Context, tech *Technician) *Technicia
 		privacyAccepted, _ = s.docRepo.HasAccepted(ctx, tech.ID, "technician", "privacy-policy")
 	}
 
+	var warningCount int64
+	s.db.WithContext(ctx).
+		Table("technician_post_reports").
+		Where("technician_id = ? AND severity = ?", tech.ID, "WARNING").
+		Count(&warningCount)
+
+	accountStatus := resolveAccountStatus(tech, warningCount)
+
 	return &TechnicianProfileRes{
 		ID:                 tech.ID,
 		FirstName:          tech.FirstName,
@@ -662,6 +671,9 @@ func (s *service) toProfileRes(ctx context.Context, tech *Technician) *Technicia
 		CreatedAt:          tech.CreatedAt.Unix(),
 		UpdatedAt:          tech.UpdatedAt.Unix(),
 		PrimaryAddress:     s.getPrimaryAddress(ctx, tech.ID),
+		AccountStatus:      accountStatus,
+		WarningCount:       warningCount,
+		BanInfo:            resolveBanInfo(tech.BannedAt),
 	}
 }
 
@@ -847,4 +859,24 @@ func isProfileIncomplete(t *Technician) bool {
 	}
 
 	return false
+}
+
+func resolveBanInfo(bannedAt *time.Time) *BanInfo {
+	if bannedAt == nil {
+		return nil
+	}
+	expiresAt := bannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
+	now := time.Now()
+	if now.After(expiresAt) {
+		return nil
+	}
+	remaining := expiresAt.Sub(now)
+	totalHours := remaining.Hours()
+	return &BanInfo{
+		BannedAt:         bannedAt.Unix(),
+		ExpiresAt:        expiresAt.Unix(),
+		RemainingDays:    int(math.Floor(totalHours / 24)),
+		RemainingHours:   int(math.Floor(totalHours)) % 24,
+		RemainingMinutes: int(remaining.Minutes()) % 60,
+	}
 }

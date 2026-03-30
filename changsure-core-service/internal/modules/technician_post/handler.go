@@ -1,6 +1,7 @@
 package technicianposts
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -182,6 +183,24 @@ func (h *Handler) ReportPost(c fiber.Ctx) error {
 
 	res, err := h.svc.ReportPost(c.Context(), techID, postID, adminID, req)
 	if err != nil {
+		
+		
+		var bannedErr *BannedError
+		if errors.As(err, &bannedErr) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"success": false,
+				"message": "ช่างคนนี้อยู่ในสถานะ Blacklist แล้ว ไม่สามารถ report ซ้ำได้",
+				"data": fiber.Map{
+					"blacklisted":       true,
+					"technician_id":     bannedErr.Info.TechnicianID,
+					"banned_at":         bannedErr.Info.BannedAt,
+					"expires_at":        bannedErr.Info.ExpiresAt,
+					"remaining_days":    bannedErr.Info.RemainingDays,
+					"remaining_hours":   bannedErr.Info.RemainingHours,
+					"remaining_minutes": bannedErr.Info.RemainingMinutes,
+				},
+			})
+		}
 		return appErrors.HandleError(c, err)
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": res})

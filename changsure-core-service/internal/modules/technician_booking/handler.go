@@ -27,8 +27,6 @@ func NewHandler(service Service, s storage.Storage, hub *realtime.Hub) *Handler 
 	return &Handler{service: service, storage: s, hub: hub}
 }
 
-
-
 func (h *Handler) ListBookings(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -65,8 +63,6 @@ func (h *Handler) ListBookings(c fiber.Ctx) error {
 	})
 }
 
-
-
 func (h *Handler) GetBooking(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -87,13 +83,6 @@ func (h *Handler) GetBooking(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"success": true, "data": bkg})
 }
-
-
-
-
-
-
-
 
 func (h *Handler) UpdateBookingStatus(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
@@ -133,7 +122,6 @@ func (h *Handler) UpdateBookingStatus(c fiber.Ctx) error {
 	})
 }
 
-
 func (h *Handler) statusMessage(status string) string {
 	switch status {
 	case BookingStatusAccepted:
@@ -149,8 +137,6 @@ func (h *Handler) statusMessage(status string) string {
 	}
 }
 
-
-
 func (h *Handler) handleError(c fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, ErrTechnicianNotFound):
@@ -161,12 +147,12 @@ func (h *Handler) handleError(c fiber.Ctx, err error) error {
 		return appErrors.Forbidden(c, "forbidden")
 	case errors.Is(err, ErrInvalidBookingStatus):
 		return appErrors.Conflict(c, "invalid booking status transition")
+	case errors.Is(err, ErrTechnicianBanned):
+		return appErrors.Forbidden(c, "technician is currently restricted from accepting new bookings")
 	default:
 		return appErrors.InternalError(c, "failed to process request", err)
 	}
 }
-
-
 
 func (h *Handler) broadcastStatusChange(bkg *booking.Booking, targetStatus, reason string) {
 	if h.hub == nil || bkg == nil || bkg.CustomerID == 0 {
@@ -227,8 +213,6 @@ func (h *Handler) broadcastStatusChange(bkg *booking.Booking, targetStatus, reas
 	}
 }
 
-
-
 func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Booking) {
 	if b == nil || h.storage == nil {
 		return
@@ -273,8 +257,6 @@ func (h *Handler) hydrateBookingMediaURLs(ctx context.Context, b *booking.Bookin
 		}
 	}
 }
-
-
 
 func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
 	techID, err := utils.ParseUintParam(c, "technicianID")

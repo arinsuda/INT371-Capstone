@@ -252,6 +252,8 @@ func (h *Handler) mapBookingError(c fiber.Ctx, err error) error {
 		return appErrors.Forbidden(c, "คุณไม่มีสิทธิ์เข้าถึงรายการนี้")
 	case errors.Is(err, ErrBookingIsStartedOrCompleted):
 		return appErrors.Conflict(c, "ไม่สามารถยกเลิกรายการที่กำลังดำเนินการหรือเสร็จสิ้นแล้ว")
+	case errors.Is(err, ErrTechnicianBanned):
+		return appErrors.Forbidden(c, "ช่างคนนี้ถูกระงับการใช้งานชั่วคราว ไม่สามารถจองได้")
 	default:
 		return appErrors.InternalError(c, "ไม่สามารถทำรายการได้", err)
 	}
