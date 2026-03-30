@@ -18,6 +18,7 @@ var (
 	ErrForbiddenBooking     = errors.New("forbidden booking")
 	ErrInvalidBookingStatus = errors.New("invalid booking status transition")
 	ErrTechnicianNotFound   = errors.New("technician not found")
+	ErrTechnicianBanned     = errors.New("technician is currently restricted from accepting new bookings")
 )
 
 type Service interface {
@@ -49,6 +50,12 @@ func (s *service) UpdateStatus(
 ) (*booking.Booking, error) {
 	if err := s.verifyTechnicianExists(ctx, technicianID); err != nil {
 		return nil, err
+	}
+
+	if req.Status == BookingStatusAccepted {
+		if err := s.checkTechnicianBanStatus(ctx, technicianID); err != nil {
+			return nil, err
+		}
 	}
 
 	var updated *booking.Booking
@@ -132,7 +139,6 @@ func (s *service) sendStatusNotification(ctx context.Context, b *booking.Booking
 		message = "ช่างได้ยืนยันรับงานบริการของคุณแล้ว กรุณาตรวจสอบรายละเอียดวัน–เวลา"
 
 	case BookingStatusRejected:
-
 		notifType = "BOOKING_REJECTED"
 		title = "ช่างปฏิเสธงาน"
 		message = "ช่างปฏิเสธการจองของคุณ"
@@ -225,6 +231,33 @@ func (s *service) verifyTechnicianExists(ctx context.Context, technicianID uint)
 	if count == 0 {
 		return ErrTechnicianNotFound
 	}
+	return nil
+}
+
+func (s *service) checkTechnicianBanStatus(ctx context.Context, technicianID uint) error {
+	var tech struct {
+		BannedAt *time.Time `gorm:"column:banned_at"`
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("technicians").
+		Select("banned_at").
+		Where("id = ?", technicianID).
+		First(&tech).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTechnicianNotFound
+		}
+		return err
+	}
+
+	if tech.BannedAt != nil {
+		expiry := tech.BannedAt.Add(30 * 24 * time.Hour)
+		if time.Now().Before(expiry) {
+			return ErrTechnicianBanned
+		}
+	}
+
 	return nil
 }
 

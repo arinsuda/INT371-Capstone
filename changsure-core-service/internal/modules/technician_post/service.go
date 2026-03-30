@@ -245,7 +245,6 @@ func (s *service) handleWarningReport(
 	}
 
 	newWarningCount := warningCount + 1
-
 	shouldRestrict := newWarningCount >= WarningThresholdRestrict
 
 	report := &TechnicianPostReport{
@@ -272,8 +271,11 @@ func (s *service) handleWarningReport(
 			now := time.Now()
 
 			if err := tx.Table("technicians").
-				Where("id = ? AND banned_at IS NULL", techID).
-				Update("banned_at", now).Error; err != nil {
+				Where("id = ?", techID).
+				Updates(map[string]any{
+					"banned_at":    now,
+					"is_available": false,
+				}).Error; err != nil {
 				return fmt.Errorf("restrict technician: %w", err)
 			}
 		}
@@ -398,7 +400,6 @@ func (s *service) sendReportNotification(
 		)
 
 	default:
-
 		notifType = "POST_BLACKLISTED"
 		title = "บัญชีของคุณถูกระงับการใช้งาน 🚫"
 		message = fmt.Sprintf(
