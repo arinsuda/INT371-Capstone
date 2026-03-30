@@ -33,7 +33,7 @@ export const ReportTech = ({ id }: { id: number }) => {
   const postIdNumber = postId ? Number(postId) : null
   const { data: activityData } = useGetTechnicianPostById(id, postIdNumber || 0)
   const { data: technician } = useGetTechnicianById(id)
-  const { data: reportTypes } = useGetTechnicianReportTypes(id)
+  const { data: reportTypes } = useGetTechnicianReportTypes()
   const { data: admin } = useGetAdminProfile()
   const [currentPage, setCurrentPage] = useState(1)
   const router = useRouter()
@@ -50,6 +50,8 @@ export const ReportTech = ({ id }: { id: number }) => {
       ...(reason ? { reason } : {}),
       ...(deletePost !== undefined ? { delete_post: deletePost } : {})
     })
+
+    router.replace(`/manage-technicians/${id}`) // กลับไปหน้ารายงานผลงานหลัง submit
   }
 
   const images = Array.isArray(activityData?.images) ? activityData.images : []

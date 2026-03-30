@@ -135,7 +135,7 @@ export const DashboardLayoutUI = ({
                   className="flex items-center gap-3 px-2 py-1 rounded-lg transition"
                 >
                   <img
-                    src={admin?.avatar_url || "/images/default-profile.png"}
+                    src={admin?.avatar_url || `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/images/default-profile.png`}
                     className="w-12 h-9 md:w-10 md:h-10 rounded-full object-cover"
                   />
 

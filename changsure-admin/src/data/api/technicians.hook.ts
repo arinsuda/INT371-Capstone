@@ -151,16 +151,13 @@ export function useGetTechnicianPostById(technicianId: number, postId: number) {
   )
 }
 
-export function useGetTechnicianReportTypes(technicianId: number) {
+export function useGetTechnicianReportTypes() {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null
 
-  const adminID =
-    typeof window !== "undefined" ? localStorage.getItem("adminID") : null
-
   return useFetch<string[]>(
-    `${URL_API}/admins/${adminID}/technicians/${technicianId}/posts/report-types`,
-    ["technician-report-types", String(adminID), String(technicianId)],
+    `${URL_API}/report-types`,
+    ["technician-report-types"],
     undefined,
     undefined,
     {

@@ -217,7 +217,7 @@ export const Verify = ({ id }: { id: number }) => {
             <div className="relative w-2/5 aspect-16/10">
               <Image
                 src={
-                  verificationDetail?.id_card_image_url || "/images/ID_Card.png"
+                  verificationDetail?.id_card_image_url || "/capstone25/cp25ssa1/images/ID_Card.png"
                 }
                 alt="รูปถ่ายบัตรประชาชน"
                 fill

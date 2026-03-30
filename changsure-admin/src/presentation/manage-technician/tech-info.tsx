@@ -135,7 +135,7 @@ export const TechInfo = ({ id }: { id: number }) => {
                     technician?.avatar_url &&
                     technician.avatar_url.trim() !== ""
                       ? technician.avatar_url
-                      : "/images/no_image.png" // fallback ถ้าไม่มี avatar
+                      : "/capstone25/cp25ssa1/images/no_image.png" // fallback ถ้าไม่มี avatar
                   }
                   alt="avatar"
                   width={112}
@@ -396,7 +396,7 @@ export const TechInfo = ({ id }: { id: number }) => {
         (reports.length === 0 ? (
           <div className="p-6 flex flex-col items-center">
             <img
-              src="/images/no_report.png"
+              src="/capstone25/cp25ssa1/images/no_report.png"
               alt="No Reports"
               className="w-75 mb-4"
             />

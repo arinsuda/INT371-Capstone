@@ -1,5 +1,5 @@
 "use client"
-import { DashboardLayoutUI } from "../../core/component/navbar"
+import { DashboardLayoutUI } from "@/core/component/navbar"
 import { ReactNode } from "react"
 
 
