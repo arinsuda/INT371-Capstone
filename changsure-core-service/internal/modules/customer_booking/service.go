@@ -11,6 +11,7 @@ import (
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/notification"
 	techniciancalendar "changsure-core-service/internal/modules/technician_calendar"
+	technicianpost "changsure-core-service/internal/modules/technician_post"
 	timeslot "changsure-core-service/internal/modules/time_slot"
 	"changsure-core-service/pkg/utils"
 
@@ -29,6 +30,7 @@ var (
 	ErrBookingNotFound              = errors.New("ไม่พบข้อมูลการจอง")
 	ErrForbiddenBooking             = errors.New("คุณไม่มีสิทธิ์เข้าถึงรายการนี้")
 	ErrBookingIsStartedOrCompleted  = errors.New("ไม่สามารถยกเลิกรายการที่กำลังดำเนินการหรือเสร็จสิ้นแล้ว")
+	ErrTechnicianBanned             = errors.New("ช่างคนนี้ถูกระงับการใช้งานชั่วคราว ไม่สามารถจองได้")
 )
 
 type Service interface {
@@ -177,6 +179,10 @@ func (s *service) CreateBooking(ctx context.Context, customerID uint, req Create
 			slog.String("date", req.AppointmentDate),
 		)
 		return nil, errors.New("ไม่สามารถจองย้อนหลังได้")
+	}
+
+	if err := s.checkTechnicianBanStatus(ctx, req.TechnicianID); err != nil {
+		return nil, err
 	}
 
 	dateStr := booking.FormatDate(appointDate)
@@ -488,4 +494,28 @@ func (s *service) sendBookingNotification(ctx context.Context, b *booking.Bookin
 		EntityID:      b.ID,
 		Data:          data,
 	})
+}
+
+func (s *service) checkTechnicianBanStatus(ctx context.Context, technicianID uint) error {
+	var tech struct {
+		BannedAt *time.Time `gorm:"column:banned_at"`
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("technicians").
+		Select("banned_at").
+		Where("id = ?", technicianID).
+		First(&tech).Error
+	if err != nil {
+		return nil
+	}
+
+	if tech.BannedAt != nil {
+		expiry := tech.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
+		if time.Now().Before(expiry) {
+			return ErrTechnicianBanned
+		}
+	}
+
+	return nil
 }

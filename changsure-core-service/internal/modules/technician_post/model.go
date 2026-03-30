@@ -54,8 +54,8 @@ const (
 )
 
 const (
-	WarningThresholdRestrict = 4 
-	RestrictGracePeriodDays  = 30
+	WarningThresholdBlacklist = 3
+	RestrictGracePeriodDays   = 30
 )
 
 const (

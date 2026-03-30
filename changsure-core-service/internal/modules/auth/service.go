@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -17,8 +18,10 @@ import (
 	"changsure-core-service/internal/modules/customer"
 	customeraddress "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/document"
+	"changsure-core-service/internal/modules/notification"
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
+	technicianpost "changsure-core-service/internal/modules/technician_post"
 	technicianservice "changsure-core-service/internal/modules/technician_service"
 	technicianarea "changsure-core-service/internal/modules/technician_service_area"
 )
@@ -44,6 +47,7 @@ type service struct {
 	techAreaRepo    technicianarea.Repository
 	criminalRepo    criminalcheck.Repository
 	documentService document.Service
+	notif           notification.Service
 }
 
 func NewService(
@@ -59,6 +63,7 @@ func NewService(
 	techAreaRepo technicianarea.Repository,
 	criminalRepo criminalcheck.Repository,
 	documentService document.Service,
+	notif notification.Service,
 ) Service {
 	return &service{
 		db:              db,
@@ -73,6 +78,7 @@ func NewService(
 		techAreaRepo:    techAreaRepo,
 		criminalRepo:    criminalRepo,
 		documentService: documentService,
+		notif:           notif,
 	}
 }
 
@@ -318,7 +324,7 @@ func (s *service) loginAsAdmin(ctx context.Context, a *admin.Admin, password str
 		Email:              a.Email,
 		Role:               RoleAdmin,
 		VerificationStatus: string(technician.StatusPassed),
-	}, a.FirstName, a.LastName)
+	}, a.FirstName, a.LastName, nil)
 }
 
 func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, password string) (*LoginResponse, error) {
@@ -330,7 +336,7 @@ func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, 
 		Email:              *cust.Email,
 		Role:               RoleCustomer,
 		VerificationStatus: string(technician.StatusPassed),
-	}, cust.FirstName, cust.LastName)
+	}, cust.FirstName, cust.LastName, nil)
 }
 
 func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Technician, password string) (*LoginResponse, error) {
@@ -338,8 +344,29 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 
-	if !tech.IsAvailable && tech.BannedAt != nil {
-		return nil, appErrors.NewForbidden(ErrTechnicianBanned.Error())
+	if tech.BannedAt != nil && s.notif != nil {
+		expiresAt := tech.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
+		if time.Now().Before(expiresAt) {
+			remaining := expiresAt.Sub(time.Now())
+			totalHours := remaining.Hours()
+			days := int(math.Floor(totalHours / 24))
+			go s.notif.Create(ctx, notification.CreateNotificationInput{
+				RecipientRole: notification.RoleTechnician,
+				RecipientID:   tech.ID,
+				Type:          "ACCOUNT_BANNED",
+				Title:         "บัญชีของคุณถูกระงับการรับงาน ⚠️",
+				Message: fmt.Sprintf(
+					"บัญชีของคุณถูกระงับการรับงานชั่วคราว เหลืออีก %d วัน (%s) กรุณาติดต่อทีมงานหากมีข้อสงสัย",
+					days,
+					expiresAt.In(time.FixedZone("ICT", 7*60*60)).Format("02 Jan 2006 15:04"),
+				),
+				Data: map[string]any{
+					"banned_at":      tech.BannedAt.Unix(),
+					"expires_at":     expiresAt.Unix(),
+					"remaining_days": days,
+				},
+			})
+		}
 	}
 
 	if tech.VerificationStatus == technician.StatusPassed {
@@ -348,14 +375,22 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 			Email:              *tech.Email,
 			Role:               RoleTechnician,
 			VerificationStatus: string(tech.VerificationStatus),
-		}, tech.FirstName, tech.LastName)
+		}, tech.FirstName, tech.LastName, tech.BannedAt)
+	}
+
+	if tech.VerificationStatus == technician.StatusPassed {
+		return s.issueTokens(ctx, JWTClaims{
+			UserID:             tech.ID,
+			Email:              *tech.Email,
+			Role:               RoleTechnician,
+			VerificationStatus: string(tech.VerificationStatus),
+		}, tech.FirstName, tech.LastName, tech.BannedAt)
 	}
 
 	if tech.VerificationStatus == technician.StatusPending && s.criminalRepo != nil {
 		logs, err := s.criminalRepo.GetLogsByTechnicianID(tech.ID)
 		if err == nil && len(logs) > 0 {
 			latest := logs[0]
-
 			if latest.Status == criminalcheck.StatusPending ||
 				latest.Status == criminalcheck.StatusNameNotExtracted {
 				return s.issueTokens(ctx, JWTClaims{
@@ -363,7 +398,7 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 					Email:              *tech.Email,
 					Role:               RoleTechnician,
 					VerificationStatus: string(tech.VerificationStatus),
-				}, tech.FirstName, tech.LastName)
+				}, tech.FirstName, tech.LastName, tech.BannedAt)
 			}
 		}
 	}
@@ -402,7 +437,7 @@ func (s *service) resolveVerificationError(ctx context.Context, techID uint) err
 	}
 }
 
-func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, lastName string) (*LoginResponse, error) {
+func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, lastName string, bannedAt *time.Time) (*LoginResponse, error) {
 	accessToken, refreshToken, err := IssueTokenPair(s.cfg, claims)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens: %w", err)
@@ -417,6 +452,24 @@ func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, 
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
+	var banInfo *BanInfo
+	if bannedAt != nil {
+		expiresAt := bannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
+		now := time.Now()
+		if now.Before(expiresAt) {
+			remaining := expiresAt.Sub(now)
+			totalHours := remaining.Hours()
+			banInfo = &BanInfo{
+				BannedAt:         bannedAt.Unix(),
+				ExpiresAt:        expiresAt.Unix(),
+				RemainingDays:    int(math.Floor(totalHours / 24)),
+				RemainingHours:   int(math.Floor(totalHours)) % 24,
+				RemainingMinutes: int(remaining.Minutes()) % 60,
+				Message:          "บัญชีของคุณถูกระงับการรับงานชั่วคราว กรุณาติดต่อทีมงานหากมีข้อสงสัย",
+			}
+		}
+	}
+
 	return &LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -429,6 +482,7 @@ func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, 
 			LastName:           lastName,
 			Role:               claims.Role,
 			VerificationStatus: claims.VerificationStatus,
+			BanInfo:            banInfo,
 		},
 	}, nil
 }

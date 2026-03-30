@@ -2,8 +2,10 @@ package technicianposts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"mime/multipart"
 	"time"
 
@@ -13,6 +15,17 @@ import (
 
 	"gorm.io/gorm"
 )
+
+var ErrTechnicianAlreadyBanned = errors.New("technician is already blacklisted")
+
+type BannedError struct {
+	Info TechnicianBannedInfo
+}
+
+func (e *BannedError) Error() string { return ErrTechnicianAlreadyBanned.Error() }
+func (e *BannedError) Is(target error) bool {
+	return target == ErrTechnicianAlreadyBanned
+}
 
 type Service interface {
 	Create(ctx context.Context, techID uint, req CreateTechnicianPostDTO) (*TechnicianPostResponse, error)
@@ -161,6 +174,11 @@ func (s *service) Delete(ctx context.Context, techID, postID uint, hard bool) er
 }
 
 func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, req CreatePostReportDTO) (*PostReportResponse, error) {
+
+	if bannedErr := s.checkAlreadyBanned(ctx, techID); bannedErr != nil {
+		return nil, bannedErr
+	}
+
 	post, err := s.repo.GetPost(ctx, postID, techID)
 	if err != nil {
 		return nil, appErrors.NewNotFound("post not found")
@@ -179,6 +197,51 @@ func (s *service) ReportPost(ctx context.Context, techID, postID, adminID uint, 
 	}
 
 	return s.handleWarningReport(ctx, techID, postID, adminID, post.Title, req)
+}
+
+func (s *service) checkAlreadyBanned(ctx context.Context, techID uint) error {
+	var tech struct {
+		BannedAt *time.Time `gorm:"column:banned_at"`
+	}
+
+	err := s.repo.DB().WithContext(ctx).
+		Table("technicians").
+		Select("banned_at").
+		Where("id = ?", techID).
+		First(&tech).Error
+	if err != nil {
+		return nil
+	}
+
+	if tech.BannedAt == nil {
+		return nil
+	}
+
+	bannedAt := *tech.BannedAt
+	expiresAt := bannedAt.Add(time.Duration(RestrictGracePeriodDays) * 24 * time.Hour)
+	now := time.Now()
+
+	if now.After(expiresAt) {
+		return nil
+	}
+
+	remaining := expiresAt.Sub(now)
+
+	totalHours := remaining.Hours()
+	days := int(math.Floor(totalHours / 24))
+	hours := int(math.Floor(totalHours)) % 24
+	minutes := int(remaining.Minutes()) % 60
+
+	return &BannedError{
+		Info: TechnicianBannedInfo{
+			TechnicianID:     techID,
+			BannedAt:         bannedAt.Unix(),
+			ExpiresAt:        expiresAt.Unix(),
+			RemainingDays:    days,
+			RemainingHours:   hours,
+			RemainingMinutes: minutes,
+		},
+	}
 }
 
 func (s *service) handleBlacklistReport(
@@ -207,12 +270,10 @@ func (s *service) handleBlacklistReport(
 				return fmt.Errorf("delete post: %w", err)
 			}
 		}
-
 		now := time.Now()
 		if err := tx.Table("technicians").
 			Where("id = ?", techID).
 			Updates(map[string]any{
-				"is_available": false,
 				"banned_at":    now,
 			}).Error; err != nil {
 			return fmt.Errorf("blacklist technician: %w", err)
@@ -227,9 +288,7 @@ func (s *service) handleBlacklistReport(
 		go s.sendBlacklistNotification(context.Background(), techID, postID, postTitle, req)
 	}
 
-	if err := s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error; err != nil {
-		return s.toReportResponse(ctx, report, true), nil
-	}
+	_ = s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error
 	return s.toReportResponse(ctx, report, true), nil
 }
 
@@ -245,7 +304,7 @@ func (s *service) handleWarningReport(
 	}
 
 	newWarningCount := warningCount + 1
-	shouldRestrict := newWarningCount >= WarningThresholdRestrict
+	shouldBlacklist := newWarningCount >= int64(WarningThresholdBlacklist)
 
 	report := &TechnicianPostReport{
 		PostID:       postID,
@@ -267,16 +326,14 @@ func (s *service) handleWarningReport(
 				return fmt.Errorf("delete post: %w", err)
 			}
 		}
-		if shouldRestrict {
+		if shouldBlacklist {
 			now := time.Now()
-
 			if err := tx.Table("technicians").
 				Where("id = ?", techID).
 				Updates(map[string]any{
 					"banned_at":    now,
-					"is_available": false,
 				}).Error; err != nil {
-				return fmt.Errorf("restrict technician: %w", err)
+				return fmt.Errorf("blacklist technician after warnings: %w", err)
 			}
 		}
 		return nil
@@ -286,12 +343,10 @@ func (s *service) handleWarningReport(
 	}
 
 	if s.notif != nil {
-		go s.sendWarningNotification(context.Background(), techID, postID, postTitle, req, newWarningCount, shouldRestrict)
+		go s.sendWarningNotification(context.Background(), techID, postID, postTitle, req, newWarningCount, shouldBlacklist)
 	}
 
-	if err := s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error; err != nil {
-		return s.toReportResponse(ctx, report, true), nil
-	}
+	_ = s.repo.DB().WithContext(ctx).Preload("Admin").First(report, report.ID).Error
 	return s.toReportResponse(ctx, report, true), nil
 }
 
@@ -330,24 +385,24 @@ func (s *service) sendWarningNotification(
 	postTitle string,
 	req CreatePostReportDTO,
 	warningCount int64,
-	shouldRestrict bool,
+	autoBlacklisted bool,
 ) {
 	var title, message, notifType string
 
 	switch {
-	case shouldRestrict:
-		notifType = "POST_RESTRICTED"
-		title = fmt.Sprintf("คำเตือนครั้งที่ %d — บัญชีถูกจำกัดการใช้งาน ⛔", warningCount)
+	case autoBlacklisted:
+		notifType = "POST_AUTO_BLACKLISTED"
+		title = fmt.Sprintf("คำเตือนครั้งที่ %d — บัญชีถูกระงับการใช้งาน 🚫", warningCount)
 		message = fmt.Sprintf(
-			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s คุณได้รับคำเตือนครั้งที่ %d บัญชีของคุณถูกจำกัดการรับงานใหม่ และจะถูกปิดใช้งานภายใน %d วัน หากไม่มีการแก้ไข",
-			postTitle, req.ReportType, warningCount, RestrictGracePeriodDays,
+			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s คุณได้รับคำเตือนครบ %d ครั้ง บัญชีของคุณถูกระงับการรับงานใหม่ กรุณาติดต่อทีมงาน",
+			postTitle, req.ReportType, warningCount,
 		)
 	default:
 		notifType = "POST_WARNING"
 		title = fmt.Sprintf("คำเตือนครั้งที่ %d ⚠️", warningCount)
 		message = fmt.Sprintf(
-			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s (คำเตือน %d/3 ครั้ง หากถึง 4 ครั้งบัญชีจะถูกจำกัดและปิดใช้งานภายใน %d วัน)",
-			postTitle, req.ReportType, warningCount, RestrictGracePeriodDays,
+			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s (คำเตือน %d/%d ครั้ง หากครบ %d ครั้งบัญชีจะถูกระงับการใช้งาน)",
+			postTitle, req.ReportType, warningCount, WarningThresholdBlacklist, WarningThresholdBlacklist,
 		)
 	}
 
@@ -360,76 +415,15 @@ func (s *service) sendWarningNotification(
 		EntityType:    "post",
 		EntityID:      postID,
 		Data: map[string]any{
-			"post_id":       postID,
-			"report_type":   req.ReportType,
-			"severity":      req.Severity,
-			"warning_count": warningCount,
-			"restricted":    shouldRestrict,
+			"post_id":          postID,
+			"report_type":      req.ReportType,
+			"severity":         req.Severity,
+			"warning_count":    warningCount,
+			"auto_blacklisted": autoBlacklisted,
 		},
 	})
 	if err != nil {
 		slog.Warn("failed to send warning notification", "technician_id", techID, "error", err)
-	}
-}
-
-func (s *service) sendReportNotification(
-	ctx context.Context,
-	techID, postID uint,
-	postTitle string,
-	req CreatePostReportDTO,
-	warningCount int64,
-	banned bool,
-) {
-	var title, message, notifType string
-
-	switch {
-	case banned:
-		notifType = "POST_BANNED"
-		title = "บัญชีของคุณถูกระงับการใช้งาน 🚫"
-		message = fmt.Sprintf(
-			"ผลงาน \"%s\" ถูกรายงาน และบัญชีของคุณถูกระงับการใช้งานเนื่องจากได้รับการตักเตือนครบ 3 ครั้ง กรุณาติดต่อทีมงาน",
-			postTitle,
-		)
-
-	case req.Severity == ReportSeverityWarning:
-		notifType = "POST_WARNING"
-		title = fmt.Sprintf("คำเตือนครั้งที่ %d ⚠️", warningCount)
-		message = fmt.Sprintf(
-			"ผลงาน \"%s\" ถูกรายงานในประเภท: %s (คำเตือน %d/3 ครั้ง หากครบ 3 ครั้งบัญชีจะถูกระงับ)",
-			postTitle, req.ReportType, warningCount,
-		)
-
-	default:
-		notifType = "POST_BLACKLISTED"
-		title = "บัญชีของคุณถูกระงับการใช้งาน 🚫"
-		message = fmt.Sprintf(
-			"ผลงาน \"%s\" ถูกรายงานประเภท: %s และบัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อทีมงาน",
-			postTitle, req.ReportType,
-		)
-	}
-
-	_, err := s.notif.Create(ctx, notification.CreateNotificationInput{
-		RecipientRole: notification.RoleTechnician,
-		RecipientID:   techID,
-		Type:          notifType,
-		Title:         title,
-		Message:       message,
-		EntityType:    "post",
-		EntityID:      postID,
-		Data: map[string]any{
-			"post_id":       postID,
-			"report_type":   req.ReportType,
-			"severity":      req.Severity,
-			"warning_count": warningCount,
-			"banned":        banned,
-		},
-	})
-	if err != nil {
-		slog.Warn("failed to send report notification",
-			"technician_id", techID,
-			"post_id", postID,
-			"error", err,
-		)
 	}
 }
 

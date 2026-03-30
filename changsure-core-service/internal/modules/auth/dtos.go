@@ -71,15 +71,6 @@ type LoginResponse struct {
 	User         UserInfo `json:"user"`
 }
 
-type UserInfo struct {
-	ID                 uint   `json:"id"`
-	Email              string `json:"email"`
-	FirstName          string `json:"firstname"`
-	LastName           string `json:"lastname"`
-	Role               string `json:"role"`
-	VerificationStatus string `json:"verification_status"`
-}
-
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
@@ -92,4 +83,23 @@ type RefreshTokenResponse struct {
 
 type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type UserInfo struct {
+	ID                 uint     `json:"id"`
+	Email              string   `json:"email"`
+	FirstName          string   `json:"firstname"`
+	LastName           string   `json:"lastname"`
+	Role               string   `json:"role"`
+	VerificationStatus string   `json:"verification_status"`
+	BanInfo            *BanInfo `json:"ban_info,omitempty"`
+}
+
+type BanInfo struct {
+	BannedAt         int64  `json:"banned_at"`
+	ExpiresAt        int64  `json:"expires_at"`
+	RemainingDays    int    `json:"remaining_days"`
+	RemainingHours   int    `json:"remaining_hours"`
+	RemainingMinutes int    `json:"remaining_minutes"`
+	Message          string `json:"message"`
 }

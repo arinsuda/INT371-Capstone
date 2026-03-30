@@ -9,6 +9,7 @@ import (
 	"changsure-core-service/internal/modules/booking"
 	"changsure-core-service/internal/modules/notification"
 	"changsure-core-service/internal/modules/technician"
+	technicianpost "changsure-core-service/internal/modules/technician_post"
 
 	"gorm.io/gorm"
 )
@@ -252,12 +253,12 @@ func (s *service) checkTechnicianBanStatus(ctx context.Context, technicianID uin
 	}
 
 	if tech.BannedAt != nil {
-		expiry := tech.BannedAt.Add(30 * 24 * time.Hour)
+		expiry := tech.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
 		if time.Now().Before(expiry) {
 			return ErrTechnicianBanned
 		}
 	}
-
+	
 	return nil
 }
 
