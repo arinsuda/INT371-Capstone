@@ -334,6 +334,65 @@ services:
       options:
         max-size: "5m"
         max-file: "3"
+  mysql-backup:
+    image: fradelg/mysql-cron-backup
+    container_name: changsure-mysql-backup
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: database
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASS: ${MYSQL_PASSWORD}
+      MYSQL_DB: ${MYSQL_DATABASE}
+      MAX_BACKUPS: 7
+      INIT_BACKUP: 1
+      CRON_TIME: "0 2 * * *"
+      GZIP_LEVEL: 9
+    volumes:
+      - mysql_backup_dev:/backup
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+  minio-backup:
+    image: minio/mc:latest
+    container_name: changsure-minio-backup
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file: ./.env
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      echo 'Starting backup loop...';
+      while true; do
+        TIMESTAMP=\$$(date +%Y%m%d_%H%M%S);
+        BACKUP_DIR=/backup/\$$TIMESTAMP;
+        mkdir -p \$$BACKUP_DIR;
+        echo \"[\$$TIMESTAMP] Starting MinIO backup...\";
+        mc mirror --overwrite local/$${MINIO_BUCKET} \$$BACKUP_DIR;
+        echo \"[\$$TIMESTAMP] Backup done.\";
+        find /backup -maxdepth 1 -mindepth 1 -type d | sort | head -n -7 | xargs -r rm -rf;
+        echo \"[\$$TIMESTAMP] Old backups cleaned.\";
+        sleep 86400;
+      done
+      "
+    volumes:
+      - minio_backup_dev:/backup
+    networks:
+      - changsure-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
 
 networks:
   changsure-network:
@@ -345,3 +404,5 @@ volumes:
   redis_dev:
   grafana_data:
   prometheus_data:
+  mysql_backup_dev:
+  minio_backup_dev: 
