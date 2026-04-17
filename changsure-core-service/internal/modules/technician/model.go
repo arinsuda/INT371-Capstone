@@ -12,10 +12,11 @@ import (
 type VerificationStatus string
 
 const (
-	StatusPending VerificationStatus = "PENDING" // รอ OCR / อยู่ใน queue
-	StatusReview  VerificationStatus = "REVIEW"  // OCR แล้ว แต่ต้องให้ admin ตรวจ
-	StatusPassed  VerificationStatus = "PASSED"  // ผ่าน
-	StatusFailed  VerificationStatus = "FAILED"  // ไม่ผ่าน
+	StatusUnverified VerificationStatus = "UNVERIFIED" // ยังไม่เคยส่งบัตร (default)
+	StatusPending    VerificationStatus = "PENDING"    // ส่งแล้ว รออยู่ใน queue
+	StatusInReview   VerificationStatus = "IN_REVIEW"  // รอ admin ตรวจสอบ
+	StatusApproved   VerificationStatus = "APPROVED"   // ผ่านการตรวจสอบ
+	StatusRejected   VerificationStatus = "REJECTED"   // ไม่ผ่านการตรวจสอบ
 )
 
 type Technician struct {
@@ -29,6 +30,7 @@ type Technician struct {
 	PasswordHash       string                                 `gorm:"type:varchar(255);not null" json:"-"`
 	IsAvailable        bool                                   `gorm:"default:true" json:"is_available"`
 	VerificationStatus VerificationStatus                     `gorm:"type:varchar(20);index" json:"verification_status"`
+	EmailVerifiedAt    *time.Time                             `gorm:"index" json:"email_verified_at,omitempty"`
 	VerifiedAt         *time.Time                             `json:"verified_at,omitempty"`
 	IDCardImageURL     *string                                `gorm:"type:varchar(500)" json:"-"`
 	CreatedAt          time.Time                              `gorm:"autoCreateTime" json:"created_at"`

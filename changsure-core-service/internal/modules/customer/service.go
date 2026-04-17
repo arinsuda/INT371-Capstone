@@ -18,6 +18,11 @@ var (
 	ErrEmailAlreadyExists = errors.New("email already exists")
 )
 
+type CrossChecker interface {
+	IsEmailTaken(ctx context.Context, email string, excludeRole string, excludeID uint) (bool, error)
+	IsPhoneTaken(ctx context.Context, phone string, excludeRole string, excludeID uint) (bool, error)
+}
+
 type Service interface {
 	GetByID(ctx context.Context, id uint) (*CustomerResponse, error)
 	List(ctx context.Context, page, pageSize int) ([]*CustomerResponse, error)
@@ -27,13 +32,19 @@ type Service interface {
 }
 
 type service struct {
-	repo    Repository
-	storage storage.Storage
-	logger  *slog.Logger
+	repo         Repository
+	storage      storage.Storage
+	logger       *slog.Logger
+	crossChecker CrossChecker
 }
 
-func NewService(repo Repository, s storage.Storage, logger *slog.Logger) Service {
-	return &service{repo: repo, storage: s, logger: logger}
+func NewService(repo Repository, s storage.Storage, logger *slog.Logger, crossChecker CrossChecker) Service {
+	return &service{
+		repo:         repo,
+		storage:      s,
+		logger:       logger,
+		crossChecker: crossChecker,
+	}
 }
 
 func (s *service) Count(ctx context.Context) (int64, error) {
@@ -59,12 +70,10 @@ func (s *service) List(ctx context.Context, page, pageSize int) ([]*CustomerResp
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
-
 	customers, err := s.repo.GetAll(ctx, pageSize, offset)
 	if err != nil {
 		return nil, fmt.Errorf("GetAll: %w", err)
 	}
-
 	out := make([]*CustomerResponse, len(customers))
 	for i, c := range customers {
 		out[i] = s.mapToResponse(ctx, c)
@@ -82,23 +91,45 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCustomerReques
 	}
 
 	if req.Phone != nil && (c.Phone == nil || *c.Phone != *req.Phone) {
-		exist, err := s.repo.FindByPhone(ctx, *req.Phone)
-		if err != nil {
-			return nil, fmt.Errorf("FindByPhone: %w", err)
-		}
-		if exist != nil && exist.ID != id {
-			return nil, ErrPhoneAlreadyExists
+		if s.crossChecker != nil {
+			taken, err := s.crossChecker.IsPhoneTaken(ctx, *req.Phone, "customer", id)
+			if err != nil {
+				return nil, fmt.Errorf("IsPhoneTaken: %w", err)
+			}
+			if taken {
+				return nil, ErrPhoneAlreadyExists
+			}
+		} else {
+
+			exist, err := s.repo.FindByPhone(ctx, *req.Phone)
+			if err != nil {
+				return nil, fmt.Errorf("FindByPhone: %w", err)
+			}
+			if exist != nil && exist.ID != id {
+				return nil, ErrPhoneAlreadyExists
+			}
 		}
 		c.Phone = req.Phone
 	}
 
 	if req.Email != nil && (c.Email == nil || *c.Email != *req.Email) {
-		exist, err := s.repo.FindByEmail(ctx, *req.Email)
-		if err != nil {
-			return nil, fmt.Errorf("FindByEmail: %w", err)
-		}
-		if exist != nil && exist.ID != id {
-			return nil, ErrEmailAlreadyExists
+		if s.crossChecker != nil {
+			taken, err := s.crossChecker.IsEmailTaken(ctx, *req.Email, "customer", id)
+			if err != nil {
+				return nil, fmt.Errorf("IsEmailTaken: %w", err)
+			}
+			if taken {
+				return nil, ErrEmailAlreadyExists
+			}
+		} else {
+
+			exist, err := s.repo.FindByEmail(ctx, *req.Email)
+			if err != nil {
+				return nil, fmt.Errorf("FindByEmail: %w", err)
+			}
+			if exist != nil && exist.ID != id {
+				return nil, ErrEmailAlreadyExists
+			}
 		}
 		c.Email = req.Email
 	}
@@ -144,7 +175,6 @@ func (s *service) mapToResponse(ctx context.Context, c *Customer) *CustomerRespo
 		CreatedAt: c.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
-
 	if c.AvatarURL != nil && *c.AvatarURL != "" && s.storage != nil {
 		url, err := s.storage.PresignGet(ctx, *c.AvatarURL, time.Hour, false)
 		if err != nil {
@@ -154,13 +184,11 @@ func (s *service) mapToResponse(ctx context.Context, c *Customer) *CustomerRespo
 			resp.AvatarURL = &url
 		}
 	}
-
 	if len(c.Addresses) > 0 {
 		resp.Addresses = make([]customer_addresses.CustomerAddressResponse, 0, len(c.Addresses))
 		for _, a := range c.Addresses {
 			resp.Addresses = append(resp.Addresses, customer_addresses.ToResponse(&a, c.Phone))
 		}
 	}
-
 	return resp
 }

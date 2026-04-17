@@ -85,7 +85,6 @@ type CriminalRecordResponse struct {
 	ID         uint        `json:"id"`
 	NationalID string      `json:"national_id"`
 	FullName   string      `json:"full_name"`
-	Status     CheckStatus `json:"status"`
 	Note       string      `json:"note"`
 	CreatedAt  time.Time   `json:"created_at"`
 	UpdatedAt  time.Time   `json:"updated_at"`

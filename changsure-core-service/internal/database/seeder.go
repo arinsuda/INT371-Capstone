@@ -313,12 +313,14 @@ func (s *Seeder) seedTechnicians() error {
 	}
 
 	type TechnicianSeed struct {
-		Firstname          string `json:"firstname"`
-		Lastname           string `json:"lastname"`
-		Email              string `json:"email"`
-		PasswordHash       string `json:"password_hash"`
-		IsAvailable        bool   `json:"is_available"`
-		VerificationStatus string `json:"verification_status"`
+		AvatarURL          *string `json:"avatar_url"`
+		Firstname          string  `json:"firstname"`
+		Lastname           string  `json:"lastname"`
+		Email              string  `json:"email"`
+		PasswordHash       string  `json:"password_hash"`
+		IsAvailable        bool    `json:"is_available"`
+		VerificationStatus string  `json:"verification_status"`
+		EmailVerifiedAt    *string `json:"email_verified_at"`
 	}
 
 	items, err := loadSeedFile[TechnicianSeed]("technicians/technician.json")
@@ -340,26 +342,37 @@ func (s *Seeder) seedTechnicians() error {
 		status := technician.StatusPending
 
 		switch strings.ToUpper(strings.TrimSpace(item.VerificationStatus)) {
-		case string(technician.StatusPassed):
-			status = technician.StatusPassed
+		case string(technician.StatusApproved):
+			status = technician.StatusApproved
 		case string(technician.StatusPending):
 			status = technician.StatusPending
-		case string(technician.StatusReview):
-			status = technician.StatusReview
-		case string(technician.StatusFailed):
-			status = technician.StatusFailed
+		case string(technician.StatusInReview):
+			status = technician.StatusInReview
+		case string(technician.StatusRejected):
+			status = technician.StatusRejected
 		default:
 
 			status = technician.StatusPending
 		}
 
 		var verifiedAt *time.Time
-		if status == technician.StatusPassed {
+		if status == technician.StatusApproved {
 			now := time.Now().UTC()
 			verifiedAt = &now
 		}
 
+		var emailVerifiedAt *time.Time
+		if item.EmailVerifiedAt != nil && *item.EmailVerifiedAt != "" {
+			t, err := time.Parse(time.RFC3339, *item.EmailVerifiedAt)
+			if err != nil {
+				log.Printf("⚠️ Skip email_verified_at #%d: invalid format: %v", i, err)
+			} else {
+				emailVerifiedAt = &t
+			}
+		}
+
 		technicians = append(technicians, technician.Technician{
+			AvatarURL:          item.AvatarURL,
 			FirstName:          item.Firstname,
 			LastName:           item.Lastname,
 			Email:              &email,
@@ -367,6 +380,7 @@ func (s *Seeder) seedTechnicians() error {
 			IsAvailable:        item.IsAvailable,
 			VerificationStatus: status,
 			VerifiedAt:         verifiedAt,
+			EmailVerifiedAt:    emailVerifiedAt,
 		})
 	}
 

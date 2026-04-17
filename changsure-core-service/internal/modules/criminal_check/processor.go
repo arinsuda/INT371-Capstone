@@ -54,14 +54,14 @@ func ProcessVerification(
 		_ = criminalRepo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
-			Status:       StatusNameNotExtracted,
+			Status:       StatusNameMismatch,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
 		return &VerificationResult{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
-			Status:       StatusNameNotExtracted,
+			Status:       StatusNameMismatch,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้เห็นชื่อ-นามสกุลชัดเจน",
 		}, nil
@@ -79,10 +79,6 @@ func ProcessVerification(
 	}
 
 	status, note, message, isVerified := resolveStatus(record)
-
-	if isVerified {
-		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
-	}
 
 	if status == StatusPassed {
 		if !namesMatch(extractedName, tech.FirstName, tech.LastName) {
@@ -104,8 +100,13 @@ func ProcessVerification(
 		RawOCRText:   rawOCRText,
 	})
 
-	if isVerified {
-		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
+	switch {
+	case isVerified:
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusApproved)
+	case status == StatusRejected:
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusRejected)
+	default: // PENDING, NAME_MISMATCH, OCR_FAILED
+		_ = techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusInReview)
 	}
 
 	return &VerificationResult{

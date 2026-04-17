@@ -43,7 +43,7 @@ func resolveStatus(record *CriminalBlacklist) (CheckStatus, string, string, bool
 	if record == nil {
 		return StatusPassed, "ไม่พบประวัติอาชญากรรม", "ผ่านการตรวจสอบประวัติอาชญากรรม", true
 	}
-	return StatusFailed, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม", false
+	return StatusRejected, record.Note, "ไม่ผ่านการตรวจสอบประวัติอาชญากรรม", false
 }
 
 func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {

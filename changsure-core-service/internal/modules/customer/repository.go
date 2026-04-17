@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -11,14 +12,13 @@ type Repository interface {
 	Create(ctx context.Context, customer *Customer) error
 	Update(ctx context.Context, customer *Customer) error
 	Delete(ctx context.Context, id uint) error
-
 	FindByID(ctx context.Context, id uint) (*Customer, error)
 	FindByEmail(ctx context.Context, email string) (*Customer, error)
 	FindByPhone(ctx context.Context, phone string) (*Customer, error)
-
 	GetAll(ctx context.Context, limit, offset int) ([]*Customer, error)
 	SearchNearbyAddresses(ctx context.Context, lat, lon, radiusKm float64, limit int) ([]*Customer, error)
 	CountCustomer(ctx context.Context) (int64, error)
+	MarkEmailVerified(ctx context.Context, email string) error
 }
 
 type repository struct {
@@ -136,4 +136,12 @@ func (r *repository) SearchNearbyAddresses(ctx context.Context, lat, lon, radius
 		Find(&customers).Error
 
 	return customers, err
+}
+
+func (r *repository) MarkEmailVerified(ctx context.Context, email string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).
+		Model(&Customer{}).
+		Where("email = ?", email).
+		Update("email_verified_at", now).Error
 }

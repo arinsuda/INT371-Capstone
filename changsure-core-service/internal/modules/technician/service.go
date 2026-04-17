@@ -43,15 +43,21 @@ type Service interface {
 	ListWithFilter(ctx context.Context, q AdminListQuery) (*AdminListResponse, error)
 }
 
+type CrossChecker interface {
+	IsEmailTaken(ctx context.Context, email string, excludeRole string, excludeID uint) (bool, error)
+	IsPhoneTaken(ctx context.Context, phone string, excludeRole string, excludeID uint) (bool, error)
+}
+
 type service struct {
-	db          *gorm.DB
-	repo        Repository
-	areaRepo    tsvca.Repository
-	serviceRepo tsvc.Repository
-	docRepo     docrepo.Repository
-	storage     storage.Storage
-	addressRepo technicianaddress.Repository
-	logger      *slog.Logger
+	db           *gorm.DB
+	repo         Repository
+	areaRepo     tsvca.Repository
+	serviceRepo  tsvc.Repository
+	docRepo      docrepo.Repository
+	storage      storage.Storage
+	addressRepo  technicianaddress.Repository
+	logger       *slog.Logger
+	crossChecker CrossChecker
 }
 
 func NewService(
@@ -63,19 +69,21 @@ func NewService(
 	store storage.Storage,
 	addressRepo technicianaddress.Repository,
 	logger *slog.Logger,
+	crossChecker CrossChecker,
 ) Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &service{
-		db:          db,
-		repo:        repo,
-		areaRepo:    areaRepo,
-		serviceRepo: svcRepo,
-		docRepo:     docRepo,
-		storage:     store,
-		addressRepo: addressRepo,
-		logger:      logger.With("module", "technician"),
+		db:           db,
+		repo:         repo,
+		areaRepo:     areaRepo,
+		serviceRepo:  svcRepo,
+		docRepo:      docRepo,
+		storage:      store,
+		addressRepo:  addressRepo,
+		logger:       logger.With("module", "technician"),
+		crossChecker: crossChecker,
 	}
 }
 
@@ -129,6 +137,30 @@ func (s *service) UpsertProfile(ctx context.Context, techID uint, req Technician
 	if len(req.Services) > 0 {
 		if err := validateServices(req.Services); err != nil {
 			return 0, err
+		}
+	}
+
+	if req.Phone != nil && (tech.Phone == nil || *tech.Phone != *req.Phone) {
+		if s.crossChecker != nil {
+			taken, err := s.crossChecker.IsPhoneTaken(ctx, *req.Phone, "technician", techID)
+			if err != nil {
+				return 0, fmt.Errorf("IsPhoneTaken: %w", err)
+			}
+			if taken {
+				return 0, appErrors.NewConflict("phone number already in use")
+			}
+		}
+	}
+
+	if req.Email != nil && (tech.Email == nil || *tech.Email != *req.Email) {
+		if s.crossChecker != nil {
+			taken, err := s.crossChecker.IsEmailTaken(ctx, *req.Email, "technician", techID)
+			if err != nil {
+				return 0, fmt.Errorf("IsEmailTaken: %w", err)
+			}
+			if taken {
+				return 0, appErrors.NewConflict("email already in use")
+			}
 		}
 	}
 
@@ -357,7 +389,7 @@ func (s *service) List(ctx context.Context, page, pageSize int) ([]*TechnicianRe
 		res := s.toDashboardRes(ctx, &t)
 		out = append(out, res)
 
-		if res.TechnicianStatus.VerificationStatus == string(StatusPassed) {
+		if res.TechnicianStatus.VerificationStatus == string(StatusApproved) {
 			verifiedCount++
 		} else {
 			pendingCount++

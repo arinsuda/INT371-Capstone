@@ -63,7 +63,7 @@ func (r *Router) setupHealthRoutes() {
 
 func (r *Router) setupPublicRoutes() {
 	api := r.app.Group("/api")
-	r.container.AuthHandler.RegisterRoutes(api)
+	r.container.AuthHandler.RegisterRoutes(api, r.cfg, r.container.EmailVerificationHandler)
 	r.container.PaymentHandler.RegisterWebhookRoutes(api)
 	r.container.ResetPasswordHandler.RegisterRoutes(api)
 	r.container.ProvinceHandler.RegisterRoutes(api)

@@ -16,8 +16,7 @@ type Document struct {
 	Slug      string    `gorm:"size:120;uniqueIndex;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-
-	Versions []DocumentVersion `gorm:"foreignKey:DocumentID"`
+	Versions  []DocumentVersion `gorm:"foreignKey:DocumentID"`
 }
 
 func (d *Document) BeforeCreate(tx *gorm.DB) error {
@@ -49,13 +48,18 @@ func hashJSON(j datatypes.JSON) string {
 }
 
 type DocumentAcceptance struct {
-	ID         uuid.UUID `gorm:"type:char(36);primaryKey"`
-	UserID     uint      `gorm:"index"`
-	UserRole   string    `gorm:"size:20;index"`
-	DocumentID uuid.UUID `gorm:"type:char(36);index"`
-	Version    int
+	ID         uuid.UUID      `gorm:"type:char(36);primaryKey"`
+	UserID     uint           `gorm:"index:idx_doc_accept,unique,priority:1"`
+	UserRole   string         `gorm:"size:20;index:idx_doc_accept,unique,priority:2"`
+	DocumentID uuid.UUID      `gorm:"type:char(36);index:idx_doc_accept,unique,priority:3"`
+	Version    int            `gorm:"index:idx_doc_accept,unique,priority:4"`
 	Consents   datatypes.JSON `gorm:"type:json"`
 	AcceptedAt time.Time
+}
+
+func (a *DocumentAcceptance) BeforeCreate(tx *gorm.DB) error {
+	a.ID = uuid.New()
+	return nil
 }
 
 func Models() []interface{} {
