@@ -445,9 +445,8 @@ final verifyDetailProvider =
 
       final service = tech.TechnicianService();
       return await service.getVerifyDetail(
-        registerData.technicianId!,
         jobId,
-        token, 
+        token,
       );
     });
 

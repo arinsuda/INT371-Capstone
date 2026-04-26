@@ -117,9 +117,8 @@ class TechnicianCard extends ConsumerWidget {
           ],
         );
       }
-      final screenHeight = MediaQuery.of(context).size.height;
+      int displayCount = images.length > 3 ? 3 : images.length;
       int extraCount = images.length - 3;
-
 
       return Row(
         children: [
@@ -142,10 +141,10 @@ class TechnicianCard extends ConsumerWidget {
           Expanded(
             flex: 1,
             child: SizedBox(
-              height: screenHeight * 0.3,
+              height: imageHeight* 1.2,
               child: Column(
                 children: List.generate(
-                  images.length - 1 > 2 ? 2 : images.length - 1,
+                  displayCount - 1,
                   (index) {
                     bool isLastWithExtra = index == 1 && extraCount > 0;
                     return Expanded(
