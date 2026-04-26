@@ -29,12 +29,6 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
   Timer? _notificationTimer;
   bool _showBanner = false;
 
-  @override
-  void dispose() {
-    _notificationTimer?.cancel();
-    super.dispose();
-  }
-
   void _showNotificationBanner(NotificationModel notification) {
     _notificationTimer?.cancel();
 
@@ -49,6 +43,34 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
           _showBanner = false;
         });
       }
+    });
+  }
+
+  late PageController _pageController;
+  int _currentBannerIndex = 0;
+
+  final List<String> _banners = [
+    "assets/image/changsure_banner.png",
+    "assets/image/banner.png",
+  ];
+
+  Timer? _bannerTimer;
+
+  void _startBannerAutoSlide() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!_pageController.hasClients) return;
+
+      int nextPage = _currentBannerIndex + 1;
+
+      if (nextPage >= _banners.length) {
+        nextPage = 0;
+      }
+
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
@@ -125,6 +147,23 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    _pageController = PageController();
+
+    _startBannerAutoSlide();
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    _bannerTimer?.cancel();
+    _pageController.dispose(); // 👈 สำคัญ
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen<NotificationState>(notificationProvider, (previous, next) {
       if (previous != null && next.items.length > previous.items.length) {
@@ -142,13 +181,26 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
         clipBehavior: Clip.none,
         children: [
           // Banner + gradient
-          Container(
+          SizedBox(
             height: 270,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/image/banner.png"),
-                fit: BoxFit.cover,
-              ),
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _banners.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentBannerIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(_banners[index]),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           Container(
@@ -164,6 +216,29 @@ class _HomeBannerState extends ConsumerState<HomeBanner> {
                   const Color(0xFF020927).withOpacity(0.5),
                 ],
               ),
+            ),
+          ),
+
+          Positioned(
+            bottom: 100,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_banners.length, (index) {
+                bool isActive = index == _currentBannerIndex;
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: isActive ? 10 : 6,
+                  height: isActive ? 10 : 6,
+                  decoration: BoxDecoration(
+                    color: isActive ? Colors.white : Colors.white54,
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
             ),
           ),
 
