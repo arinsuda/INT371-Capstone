@@ -18,7 +18,7 @@ import (
 	"changsure-core-service/internal/modules/customer"
 	customeraddress "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/document"
-	emailverification "changsure-core-service/internal/modules/email_verification"
+	// emailverification "changsure-core-service/internal/modules/email_verification"
 	"changsure-core-service/internal/modules/notification"
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
@@ -51,7 +51,7 @@ type service struct {
 	notif           notification.Service
 	emailChecker    EmailChecker
 	phoneChecker    PhoneChecker
-	otpService      emailverification.Service
+	// otpService      emailverification.Service
 }
 
 func NewService(
@@ -68,7 +68,7 @@ func NewService(
 	criminalRepo criminalcheck.Repository,
 	documentService document.Service,
 	notif notification.Service,
-	otpService emailverification.Service,
+	// otpService emailverification.Service,
 ) Service {
 	return &service{
 		db:              db,
@@ -86,7 +86,7 @@ func NewService(
 		notif:           notif,
 		emailChecker:    NewEmailChecker(adminRepo, customerRepo, techRepo),
 		phoneChecker:    NewPhoneChecker(customerRepo, techRepo),
-		otpService:      otpService,
+		// otpService:      otpService,
 	}
 }
 
@@ -124,7 +124,7 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 		PasswordHash: string(hash),
 	}
 
-	var otpResult *emailverification.SendOTPResponse
+	// var otpResult *emailverification.SendOTPResponse
 
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(cust).Error; err != nil {
@@ -137,13 +137,13 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 			}
 		}
 
-		if s.otpService != nil {
-			resp, err := s.otpService.IssueOTP(ctx, cust.ID, req.Email, RoleCustomer)
-			if err != nil {
-				return fmt.Errorf("send OTP: %w", err)
-			}
-			otpResult = resp
-		}
+		// if s.otpService != nil {
+		// 	resp, err := s.otpService.IssueOTP(ctx, cust.ID, req.Email, RoleCustomer)
+		// 	if err != nil {
+		// 		return fmt.Errorf("send OTP: %w", err)
+		// 	}
+		// 	otpResult = resp
+		// }
 
 		return nil
 	}); err != nil {
@@ -159,9 +159,9 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 		Message:    "สมัครสมาชิกสำเร็จ กรุณายืนยัน email ก่อน login",
 	}
 
-	if otpResult != nil && otpResult.OTP != nil {
-		resp.OTP = otpResult.OTP
-	}
+	// if otpResult != nil && otpResult.OTP != nil {
+	// 	resp.OTP = otpResult.OTP
+	// }
 
 	return resp, nil
 }
@@ -210,7 +210,7 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 
 	var (
 		preVerifiedToken string
-		otpResult        *emailverification.SendOTPResponse
+		// otpResult        *emailverification.SendOTPResponse
 	)
 
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -252,13 +252,13 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		}
 		preVerifiedToken = token
 
-		if s.otpService != nil {
-			resp, err := s.otpService.IssueOTP(ctx, tech.ID, email, RoleTechnician)
-			if err != nil {
-				return fmt.Errorf("send OTP: %w", err)
-			}
-			otpResult = resp
-		}
+		// if s.otpService != nil {
+		// 	resp, err := s.otpService.IssueOTP(ctx, tech.ID, email, RoleTechnician)
+		// 	if err != nil {
+		// 		return fmt.Errorf("send OTP: %w", err)
+		// 	}
+		// 	otpResult = resp
+		// }
 
 		return nil
 	}); err != nil {
@@ -285,9 +285,9 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		},
 	}
 
-	if otpResult != nil && otpResult.OTP != nil {
-		resp.OTP = otpResult.OTP
-	}
+	// if otpResult != nil && otpResult.OTP != nil {
+	// 	resp.OTP = otpResult.OTP
+	// }
 
 	return resp, nil
 }

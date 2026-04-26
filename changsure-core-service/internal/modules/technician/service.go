@@ -41,6 +41,7 @@ type Service interface {
 	List(ctx context.Context, page, pageSize int) ([]*TechnicianResponseDashboard, int64, *TechnicianSummaryStats, error)
 	GetDetail(ctx context.Context, techID uint, callerRole string) (*TechnicianDetailRes, error)
 	ListWithFilter(ctx context.Context, q AdminListQuery) (*AdminListResponse, error)
+	GetDashboardStats(ctx context.Context, techID uint) (*TechnicianDashboardStatsRes, error)
 }
 
 type CrossChecker interface {
@@ -522,6 +523,22 @@ func (s *service) GetDetail(ctx context.Context, techID uint, callerRole string)
 	}
 
 	return res, nil
+}
+
+func (s *service) GetDashboardStats(ctx context.Context, techID uint) (*TechnicianDashboardStatsRes, error) {
+	jobStats := s.getJobStats(ctx, techID)
+
+	stats, err := s.repo.GetStats(ctx, techID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TechnicianDashboardStatsRes{
+		TotalJobs:     jobStats.TotalJobs,
+		CompletedJobs: jobStats.CompletedJobs,
+		CancelledJobs: jobStats.CancelledJobs,
+		RatingAvg:     stats.RatingAvg,
+	}, nil
 }
 
 func (s *service) getJobStats(ctx context.Context, techID uint) *JobStatsRes {
