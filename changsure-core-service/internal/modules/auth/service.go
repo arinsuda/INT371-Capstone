@@ -278,11 +278,11 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		Message:              "สมัครสมาชิกสำเร็จ กรุณายืนยัน email ก่อน login",
 		PreVerifiedToken:     preVerifiedToken,
 		PreVerifiedExpiresIn: int64((15 * 24 * time.Hour).Seconds()),
-		NextStep: NextStepInfo{
-			Action:   "verify_email",
-			Endpoint: "/api/auth/verify-email",
-			Method:   "POST",
-		},
+		// NextStep: NextStepInfo{
+		// 	Action:   "verify_email",
+		// 	Endpoint: "/api/auth/verify-email",
+		// 	Method:   "POST",
+		// },
 	}
 
 	// if otpResult != nil && otpResult.OTP != nil {
@@ -327,9 +327,9 @@ func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, 
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 
-	if cust.EmailVerifiedAt == nil {
-		return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
-	}
+	// if cust.EmailVerifiedAt == nil {
+	// 	return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
+	// }
 
 	return s.issueTokens(ctx, JWTClaims{
 		UserID:             cust.ID,
@@ -344,9 +344,9 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 
-	if tech.EmailVerifiedAt == nil {
-		return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
-	}
+	// if tech.EmailVerifiedAt == nil {
+	// 	return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
+	// }
 
 	if tech.BannedAt != nil && s.notif != nil {
 		expiresAt := tech.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)

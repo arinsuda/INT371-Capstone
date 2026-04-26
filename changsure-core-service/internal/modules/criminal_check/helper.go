@@ -116,6 +116,7 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 	type textItem struct {
 		text string
 		y    float64
+		x    float64 // เพิ่ม x สำหรับ sort
 	}
 
 	var thaiItems []textItem
@@ -129,6 +130,7 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 		thaiItems = append(thaiItems, textItem{
 			text: item.Text,
 			y:    item.BBox.TopLeft[1],
+			x:    item.BBox.TopLeft[0],
 		})
 	}
 
@@ -136,7 +138,11 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 		return ""
 	}
 
+	// sort by Y ก่อน แล้ว X
 	sort.Slice(thaiItems, func(i, j int) bool {
+		if math.Abs(thaiItems[i].y-thaiItems[j].y) <= 50 {
+			return thaiItems[i].x < thaiItems[j].x
+		}
 		return thaiItems[i].y < thaiItems[j].y
 	})
 
@@ -144,7 +150,6 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 	var baseY float64 = -1
 
 	for _, item := range thaiItems {
-
 		if item.y <= idCardY {
 			continue
 		}
@@ -152,7 +157,8 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 			baseY = item.y
 		}
 
-		if math.Abs(item.y-baseY) <= 30 {
+		// เพิ่ม tolerance จาก 30 → 120 รองรับ bbox ที่ต่างกัน
+		if math.Abs(item.y-baseY) <= 120 {
 			nameParts = append(nameParts, strings.TrimSpace(item.text))
 		}
 	}
