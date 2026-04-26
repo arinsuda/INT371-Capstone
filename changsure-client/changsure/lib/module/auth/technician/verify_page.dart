@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:changsure/core/button/primary_button.dart';
+import 'package:changsure/data/models/technician/technician_model.dart';
 import 'package:changsure/module/auth/technician/passed_verify.dart';
+import 'package:changsure/module/auth/technician/setup_technician_profile.dart';
 import 'package:changsure/module/auth/technician/technician_register_step_provider.dart';
 import 'package:changsure/module/auth/technician/unverify_page.dart';
 import 'package:changsure/module/auth/technician/widget/id_card_camera_page.dart';
@@ -51,6 +53,35 @@ class _VerifyPageState extends ConsumerState<VerifyPage> {
         idCardImage = File(image.path);
       });
     }
+  }
+
+  Future<VerifyTechnician?> _pollJobStatus(int jobId, String token) async {
+    const maxAttempts = 40;
+    const interval = Duration(seconds: 3);
+
+    for (int i = 0; i < maxAttempts; i++) {
+      await Future.delayed(interval);
+
+      ref.invalidate(verifyDetailProvider((jobId, token)));
+
+      final status = await ref.read(
+        verifyDetailProvider((jobId, token)).future,
+      );
+
+      if (status == null) continue;
+      if (status.verifyStatus == null || status.verifyStatus!.isEmpty) continue;
+
+      final vs = status.verifyStatus!.toUpperCase();
+      if (vs == 'PASSED' ||
+          vs == 'FAILED' ||
+          vs == 'PENDING' ||
+          vs == 'OCR_FAILED' ||
+          vs == 'NAME_MISMATCH' ||
+          vs == 'REJECTED') {
+        return status;
+      }
+    }
+    return null;
   }
 
   void _showSelectImageSource() {
@@ -279,113 +310,110 @@ class _VerifyPageState extends ConsumerState<VerifyPage> {
                       onPressed: (verifyState.isLoading || isChecking)
                           ? null
                           : () async {
-                        if (idCardImage == null) return;
+                              if (idCardImage == null) return;
+                              setState(() => isChecking = true);
 
-                        try {
-                          setState(() {
-                            isChecking = true;
-                          });
+                              try {
+                                // STEP 1: upload + enqueue
+                                final jobId = await ref
+                                    .read(verifyProvider.notifier)
+                                    .verify(idCardImage!);
 
-                          /// ✅ STEP 1: VERIFY
-                          final jobId = await ref
-                              .read(verifyProvider.notifier)
-                              .verify(idCardImage!);
+                                if (jobId == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('อัปโหลดบัตรไม่สำเร็จ'),
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          print("Job id $jobId");
-                          if (jobId == null) {
-                            print("❌ verify failed");
+                                // STEP 2: auto login
+                                final authService = AuthService();
+                                final result = await authService.login(
+                                  widget.email,
+                                  widget.password,
+                                );
+                                if (result == null)
+                                  throw Exception("Auto login failed");
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('อัปโหลดบัตรไม่สำเร็จ'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                                final roleStr = (result['role'] as String)
+                                    .toUpperCase();
+                                final user = UserModel(
+                                  id: result['user_id'] as int,
+                                  token: result['access_token'] as String,
+                                  role: roleStr == 'TECHNICIAN'
+                                      ? UserRole.technician
+                                      : UserRole.customer,
+                                );
+                                await ref
+                                    .read(userProvider.notifier)
+                                    .login(
+                                      user,
+                                      result['refresh_token'] as String,
+                                    );
 
-                            setState(() => isChecking = false);
-                            return;
-                          }
+                                final preToken = ref
+                                    .read(technicianRegisterDataProvider)
+                                    .preVerifiedToken!;
 
-                          print("JobId $jobId");
-                          await Future.delayed(const Duration(seconds: 15));
-                          /// 🔥 STEP 2: AUTO LOGIN (ใช้ flow เดียวกับหน้า login)
-                          final authService = AuthService();
-                          final result = await authService.login(
-                            widget.email,
-                            widget.password,
-                          );
+                                // STEP 3: poll จนกว่าจะได้ผล (real-time)
+                                final verifyResult = await _pollJobStatus(
+                                  jobId,
+                                  preToken,
+                                );
 
-                          if (result == null) {
-                            throw Exception("Auto login failed");
-                          }
+                                if (verifyResult == null) {
+                                  // timeout → ถือว่า PENDING
+                                  setState(() {
+                                    isSubmitted = true;
+                                    idCardImage = null;
+                                  });
+                                  return;
+                                }
 
-                          final roleStr = (result['role'] as String).toUpperCase();
+                                // STEP 4: route ตาม status
+                                final vs =
+                                    verifyResult.verifyStatus?.toUpperCase() ??
+                                    '';
 
-                          final user = UserModel(
-                            id: result['user_id'] as int,
-                            token: result['access_token'] as String,
-                            role: roleStr == 'TECHNICIAN'
-                                ? UserRole.technician
-                                : UserRole.customer,
-                          );
+                                if (vs == 'FAILED' || vs == 'REJECTED') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const UnverifyPage(),
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          final refreshToken = result['refresh_token'] as String;
+                                if (vs == 'PASSED') {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const PassedVerify(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                  return;
+                                }
 
-                          await ref.read(userProvider.notifier).login(user, refreshToken);
-
-                          print("Auto login success");
-
-                          /// ✅ STEP 3: GET VERIFY RESULT
-                          final verifyResult = await ref.read(
-                            verifyDetailProvider(jobId).future,
-                          );
-
-                          print("Verify status = ${verifyResult?.verifyStatus}");
-
-                          /// ✅ STEP 4: ROUTE
-                          if (verifyResult == null) {
-                            throw Exception("No verify result");
-                          }
-
-                          if (verifyResult.verifyStatus == "FAILED") {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const UnverifyPage(),
-                              ),
-                            );
-                            return;
-                          }
-
-                          if (verifyResult.verifyStatus == "PASSED") {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => const PassedVerify()),
-                                  (route) => false,
-                            );
-                            return;
-                          }
-
-                          /// 👉 PENDING
-                          setState(() {
-                            isSubmitted = true;
-                            idCardImage = null;
-                          });
-
-                        } catch (e) {
-                          print("ERROR: $e");
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        } finally {
-                          setState(() {
-                            isChecking = false;
-                          });
-                        }
-                      },
+                                // PENDING / OCR_FAILED / NAME_MISMATCH
+                                setState(() {
+                                  isSubmitted = true;
+                                  idCardImage = null;
+                                });
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'เกิดข้อผิดพลาด กรุณาลองใหม่',
+                                    ),
+                                  ),
+                                );
+                              } finally {
+                                setState(() => isChecking = false);
+                              }
+                            },
                     ),
                   ),
                 ],

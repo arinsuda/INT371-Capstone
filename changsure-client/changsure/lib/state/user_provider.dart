@@ -438,18 +438,18 @@ class VerifyNotifier extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final verifyDetailProvider = FutureProvider.family<VerifyTechnician?, int>((
-  ref,
-  jobId,
-) async {
-  final user = ref.read(userProvider);
+final verifyDetailProvider =
+    FutureProvider.family<VerifyTechnician?, (int, String)>((ref, args) async {
+      final (jobId, token) = args;
+      final registerData = ref.read(technicianRegisterDataProvider);
 
-  if (user == null || user.token == null) return null;
-
-  final service = tech.TechnicianService();
-
-  return await service.getVerifyDetail(user.id, jobId, user.token!);
-});
+      final service = tech.TechnicianService();
+      return await service.getVerifyDetail(
+        registerData.technicianId!,
+        jobId,
+        token, 
+      );
+    });
 
 final passwordResetServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
