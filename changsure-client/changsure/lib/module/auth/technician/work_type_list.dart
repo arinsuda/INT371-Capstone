@@ -45,6 +45,51 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
 
   List<ServiceCategoryModel> allCategories = [];
 
+
+  void _handlePriceChange(int serviceId) {
+    if (_priceType[serviceId] == "range") {
+      final minText = _minPriceControllers[serviceId]?.text.trim() ?? '';
+      final maxText = _maxPriceControllers[serviceId]?.text.trim() ?? '';
+
+      if (minText.isEmpty || maxText.isEmpty) {
+        setState(() {
+          _priceErrors[serviceId] = "กรุณากรอกราคาให้ครบ";
+        });
+        return;
+      }
+
+      final minVal = double.tryParse(minText);
+      final maxVal = double.tryParse(maxText);
+
+      if (minVal == null || maxVal == null) {
+        setState(() {
+          _priceErrors[serviceId] = "รูปแบบราคาไม่ถูกต้อง";
+        });
+        return;
+      }
+
+      if (maxVal <= minVal) {
+        setState(() {
+          _priceErrors[serviceId] = "Max ต้องมากกว่า Min";
+        });
+        return;
+      }
+    } else {
+      final fix = _fixPriceControllers[serviceId]?.text.trim() ?? '';
+      if (fix.isEmpty) {
+        setState(() {
+          _priceErrors[serviceId] = "กรุณากรอกราคา";
+        });
+        return;
+      }
+    }
+
+    // ✅ ผ่าน
+    setState(() {
+      _priceErrors[serviceId] = null;
+    });
+  }
+
   bool get canSubmit {
     if (!_selectedServices.values.any((v) => v)) return false;
 
@@ -198,12 +243,12 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
         );
       });
 
-// ✅ success
+      // ✅ success
       ref.read(technicianRegisterStepProvider.notifier).state = 3;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("สมัครไม่สำเร็จ: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("สมัครไม่สำเร็จ: $e")));
     }
   }
 
@@ -222,7 +267,7 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
             final minVal = double.tryParse(min) ?? 0;
             final maxVal = double.tryParse(max) ?? 0;
 
-            if (maxVal < minVal) {
+            if (maxVal <= minVal) {
               newPriceErrors[sId] = "Max ต้องมากกว่า Min";
             }
           }
@@ -267,8 +312,9 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
                 ),
               ),
             ),
-
+            SizedBox(height: 8),
             Container(
+              margin: EdgeInsets.symmetric(horizontal: 10),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               decoration: BoxDecoration(
                 color: AppColors.colorWarning,
@@ -333,7 +379,7 @@ class _WorkTypeListPageState extends ConsumerState<WorkTypeListPage> {
                       });
                     },
 
-                    onPriceChange: () {},
+                    onPriceChange: _handlePriceChange,
                   );
                 }).toList(),
               ),

@@ -60,6 +60,56 @@ class _EditProfileState extends ConsumerState<EditProfile> {
   List<ProvinceModel> allProvinces = [];
   List<ServiceCategoryModel> allCategories = [];
 
+  void _handlePriceChange(int serviceId) {
+    if (_priceType[serviceId] == "range") {
+      final minText = _minPriceControllers[serviceId]?.text.trim() ?? '';
+      final maxText = _maxPriceControllers[serviceId]?.text.trim() ?? '';
+
+      if (minText.isEmpty || maxText.isEmpty) {
+        setState(() {
+          _priceErrors[serviceId] = "กรุณากรอกราคาให้ครบ";
+        });
+        return;
+      }
+
+      final minVal = double.tryParse(minText);
+      final maxVal = double.tryParse(maxText);
+
+      if (minVal == null || maxVal == null) {
+        setState(() {
+          _priceErrors[serviceId] = "รูปแบบราคาไม่ถูกต้อง";
+        });
+        return;
+      }
+
+      if (maxVal <= minVal) {
+        setState(() {
+          _priceErrors[serviceId] = "Max ต้องมากกว่า Min";
+        });
+        return;
+      }
+    } else {
+      final fix = _fixPriceControllers[serviceId]?.text.trim() ?? '';
+      if (fix.isEmpty) {
+        setState(() {
+          _priceErrors[serviceId] = "กรุณากรอกราคา";
+        });
+        return;
+      }
+    }
+
+    // ✅ ผ่าน validation
+    setState(() {
+      _priceErrors[serviceId] = null;
+    });
+
+    _checkChanged();
+  }
+
+  bool _hasPriceError() {
+    return _priceErrors.values.any((e) => e != null);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -320,6 +370,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
 
   void _checkChanged() {
     if (!mounted) return;
+    _validateAll();
     final changed = _hasProfileChanged();
     if (hasChanged != changed) {
       setState(() => hasChanged = changed);
@@ -433,7 +484,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
             final double minVal = double.tryParse(min) ?? 0;
             final double maxVal = double.tryParse(max) ?? 0;
 
-            if (maxVal < minVal) {
+            if (maxVal <= minVal) {
               newPriceErrors[sId] = "Max ต้องมากกว่า Min";
             }
           }
@@ -685,9 +736,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                         });
                         _checkChanged();
                       },
-                      onPriceChange: () {
-                        _checkChanged();
-                      },
+                      onPriceChange: _handlePriceChange,
                     );
                   }).toList(),
                 ),
@@ -710,7 +759,7 @@ class _EditProfileState extends ConsumerState<EditProfile> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: PrimaryButton(
                   text: "บันทึกการแก้ไข",
-                  onPressed: hasChanged ? _saveProfile : null,
+                  onPressed: (hasChanged && !_hasPriceError()) ? _saveProfile : null,
                 ),
               ),
               const SizedBox(height: 24),

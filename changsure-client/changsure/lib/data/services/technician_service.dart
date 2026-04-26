@@ -628,7 +628,6 @@ class TechnicianService {
   }
 
   Future<VerifyTechnician?> getVerifyDetail(
-    int technicianId,
     int jobId,
     String token,
   ) async {

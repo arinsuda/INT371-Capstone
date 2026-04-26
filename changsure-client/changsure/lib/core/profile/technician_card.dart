@@ -56,9 +56,10 @@ class TechnicianCard extends ConsumerWidget {
         };
 
     Widget buildImages() {
+      double imageHeight = MediaQuery.of(context).size.height * 0.1;
       if (images.isEmpty) {
         return Container(
-          height: 120,
+          height: imageHeight * 1.2,
           width: double.infinity,
           color: Colors.grey.shade200,
           child: const Center(
@@ -70,7 +71,7 @@ class TechnicianCard extends ConsumerWidget {
       if (images.length == 1) {
         return Image.network(
           images[0],
-          height: 120,
+          height: imageHeight * 1.2,
           width: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => Container(
@@ -116,8 +117,10 @@ class TechnicianCard extends ConsumerWidget {
           ],
         );
       }
-
+      final screenHeight = MediaQuery.of(context).size.height;
       int extraCount = images.length - 3;
+
+
       return Row(
         children: [
           Expanded(
@@ -128,7 +131,7 @@ class TechnicianCard extends ConsumerWidget {
               ),
               child: Image.network(
                 images[0],
-                height: 120,
+                height: imageHeight * 1.2,
                 fit: BoxFit.cover,
                 errorBuilder: (c, e, s) =>
                     Container(color: Colors.grey.shade200),
@@ -139,7 +142,7 @@ class TechnicianCard extends ConsumerWidget {
           Expanded(
             flex: 1,
             child: SizedBox(
-              height: 120,
+              height: screenHeight * 0.3,
               child: Column(
                 children: List.generate(
                   images.length - 1 > 2 ? 2 : images.length - 1,
@@ -248,7 +251,7 @@ class TechnicianCard extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: SizedBox(
-                height: 50,
+                height: 40,
                 child: Text(
                   description,
                   maxLines: 2,

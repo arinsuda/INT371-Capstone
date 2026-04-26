@@ -14,7 +14,7 @@ class ServiceCategory extends StatelessWidget {
 
   final Function(int serviceId) onServiceToggle;
   final Function(int serviceId, String type) onPriceTypeChanged;
-  final VoidCallback onPriceChange;
+  final Function(int) onPriceChange;
 
   final bool isFirst;
   final bool isLast;
@@ -78,7 +78,7 @@ class ServiceCategory extends StatelessWidget {
 
               (String name) => onServiceToggle(sId),
               (String name, String newType) => onPriceTypeChanged(sId, newType),
-              onPriceChange,
+              () => onPriceChange(sId),
             );
           }).toList(),
         ),
