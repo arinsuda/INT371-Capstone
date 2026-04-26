@@ -77,6 +77,9 @@ func validatePricingFields(req UpsertPricingReq) error {
 		if *req.PriceMin > *req.PriceMax {
 			return fmt.Errorf("price_min must not exceed price_max")
 		}
+		if *req.PriceMin == *req.PriceMax {
+			return fmt.Errorf("price_min and price_max must not be equal for RANGE pricing, use FIXED pricing instead")
+		}
 	}
 	return nil
 }

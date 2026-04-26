@@ -29,6 +29,9 @@ func (r *repository) Upsert(ctx context.Context, p *TechnicianService) error {
 		if *p.PriceMin > *p.PriceMax {
 			return errors.New("price_min must not exceed price_max")
 		}
+		if *p.PriceMin == *p.PriceMax {
+			return errors.New("price_min and price_max must not be equal, use FIXED pricing instead")
+		}
 	}
 	return r.db.WithContext(ctx).Save(p).Error
 }
