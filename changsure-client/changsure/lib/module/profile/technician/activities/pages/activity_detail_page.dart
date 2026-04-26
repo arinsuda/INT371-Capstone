@@ -1,3 +1,4 @@
+import 'package:changsure/state/post_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,14 +13,15 @@ import '../widgets/activity_image_gallery.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 
 final activityDetailProvider = FutureProvider.autoDispose
-    .family<PostModel?, int>((ref, postId) async {
+    .family<PostModel?, (int, int)>((ref, args) async {
+      final (technicianId, postId) = args;
       final user = ref.read(userProvider);
       if (user?.token == null) return null;
 
       final service = TechnicianService();
       return service.getPostById(
         token: user!.token!,
-        technicianId: user.id,
+        technicianId: technicianId,
         postId: postId,
       );
     });
@@ -38,8 +40,13 @@ class ActivityDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activityAsync = ref.watch(activityDetailProvider(postId));
+    final resolvedTechnicianId = isOwner
+        ? ref.watch(userProvider)?.id ?? 0
+        : technicianId!;
 
+    final activityAsync = ref.watch(
+      activityDetailProvider((resolvedTechnicianId, postId)),
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: activityAsync.when(
@@ -147,6 +154,10 @@ class ActivityDetailPage extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (success) {
+      ref.invalidate(myPostsProvider);
+      ref.invalidate(
+        technicianPostsProvider(PostsParams(technicianId: user.id)),
+      );
       _navigateBack(ref);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

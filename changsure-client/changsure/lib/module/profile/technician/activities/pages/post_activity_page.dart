@@ -1,6 +1,8 @@
 import 'package:changsure/module/profile/technician/activities/shared/widgets/activirt_text_area.dart';
 import 'package:changsure/module/profile/technician/activities/shared/widgets/activity_image_uploader.dart';
 import 'package:changsure/module/profile/technician/activities/shared/widgets/activity_profile_header.dart';
+import 'package:changsure/state/post_provider.dart';
+import 'package:changsure/state/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,6 +27,7 @@ class PostActivityPage extends ConsumerWidget {
     final provider = activityEditorProvider(0);
     final state = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
+    final user = ref.watch(userProvider);
 
     final isFormValid =
         state.currentDescription.isNotEmpty &&
@@ -77,6 +80,14 @@ class PostActivityPage extends ConsumerWidget {
 
                               if (context.mounted) {
                                 if (success) {
+                                  ref.invalidate(myPostsProvider);
+                                  if (user != null) {
+                                    ref.invalidate(
+                                      technicianPostsProvider(
+                                        PostsParams(technicianId: user.id),
+                                      ),
+                                    );
+                                  }
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('สร้างผลงานสำเร็จ'),

@@ -141,45 +141,42 @@ class TechnicianCard extends ConsumerWidget {
           Expanded(
             flex: 1,
             child: SizedBox(
-              height: imageHeight* 1.2,
+              height: imageHeight * 1.2,
               child: Column(
-                children: List.generate(
-                  displayCount - 1,
-                  (index) {
-                    bool isLastWithExtra = index == 1 && extraCount > 0;
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: index == 0 ? 4.0 : 0),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Positioned.fill(
-                              child: Image.network(
-                                images[index + 1],
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) =>
-                                    Container(color: Colors.grey.shade200),
-                              ),
+                children: List.generate(displayCount - 1, (index) {
+                  bool isLastWithExtra = index == 1 && extraCount > 0;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: index == 0 ? 4.0 : 0),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Positioned.fill(
+                            child: Image.network(
+                              images[index + 1],
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) =>
+                                  Container(color: Colors.grey.shade200),
                             ),
-                            if (isLastWithExtra)
-                              Container(
-                                color: Colors.black.withOpacity(0.5),
-                                child: Center(
-                                  child: Text(
-                                    '+$extraCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                          ),
+                          if (isLastWithExtra)
+                            Container(
+                              color: Colors.black.withOpacity(0.5),
+                              child: Center(
+                                child: Text(
+                                  '+$extraCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                }),
               ),
             ),
           ),
@@ -193,8 +190,11 @@ class TechnicianCard extends ConsumerWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  ActivityDetailPage(postId: id, technicianId: technicianId!),
+              builder: (_) => ActivityDetailPage(
+                postId: id,
+                technicianId: technicianId!,
+                isOwner: false,
+              ),
             ),
           );
         } else {

@@ -44,6 +44,7 @@ class TrackingCard extends ConsumerWidget {
                   action: BookingAction.reject,
                   reason: "ติดงานอื่น",
                 );
+            ref.invalidate(walletSummaryProvider);
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(
@@ -162,6 +163,7 @@ class TrackingCard extends ConsumerWidget {
                           bookingId: booking.id,
                           action: BookingAction.accept,
                         );
+                    ref.invalidate(walletSummaryProvider);
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(
@@ -219,6 +221,7 @@ class TrackingCard extends ConsumerWidget {
                         bookingId: booking.id,
                         action: BookingAction.start,
                       );
+                  ref.invalidate(walletSummaryProvider);
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(
@@ -409,6 +412,7 @@ class TrackingCard extends ConsumerWidget {
                                   bookingId: booking.id,
                                   action: BookingAction.complete,
                                 );
+                            ref.invalidate(walletSummaryProvider);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(

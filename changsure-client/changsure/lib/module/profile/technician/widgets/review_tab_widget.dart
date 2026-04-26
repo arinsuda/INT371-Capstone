@@ -9,7 +9,9 @@ import '../../../../state/post_provider.dart';
 import '../../../../state/user_provider.dart';
 
 class ReviewContent extends ConsumerStatefulWidget {
-  const ReviewContent({super.key});
+  final int technicianId;
+
+  const ReviewContent({super.key, required this.technicianId});
 
   @override
   ConsumerState<ReviewContent> createState() => _ReviewContentState();
@@ -142,7 +144,10 @@ class _ReviewContentState extends ConsumerState<ReviewContent> {
             items: [
               const DropdownMenuItem<int?>(
                 value: -1, // ใช้ -1 แทน null
-                child: Text("ทั้งหมด", style: TextStyle(color: Color(0xFF737373)) ),
+                child: Text(
+                  "ทั้งหมด",
+                  style: TextStyle(color: Color(0xFF737373)),
+                ),
               ),
               ...categories.map(
                 (cat) => DropdownMenuItem<int>(
@@ -158,7 +163,10 @@ class _ReviewContentState extends ConsumerState<ReviewContent> {
               ref.read(selectedCategoryFilterProvider.notifier).state = value;
             },
             selectedItemBuilder: (_) => [
-              const Text("ประเภทงาน", style: TextStyle(color: AppColors.primary)),
+              const Text(
+                "ประเภทงาน",
+                style: TextStyle(color: AppColors.primary),
+              ),
               ...categories.map(
                 (e) => Text(
                   e.catName,
@@ -201,7 +209,9 @@ class _ReviewContentState extends ConsumerState<ReviewContent> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final reviewsAsync = ref.watch(technicianReviewsProvider(user.id));
+    final reviewsAsync = ref.watch(
+      technicianReviewsProvider(widget.technicianId),
+    );
 
     return reviewsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -225,7 +235,8 @@ class _ReviewContentState extends ConsumerState<ReviewContent> {
           }
 
           // 🧰 filter ประเภทงาน (category)
-          if (selectedCategoryId != null && selectedCategoryId != -1 &&
+          if (selectedCategoryId != null &&
+              selectedCategoryId != -1 &&
               review.service.categoryId != selectedCategoryId) {
             return false;
           }

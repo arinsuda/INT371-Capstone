@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:changsure/state/post_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:changsure/core/button/primary_button.dart';
@@ -228,6 +229,12 @@ class EditActivityPage extends ConsumerWidget {
                           ? () async {
                               final success = await notifier.savePost();
                               if (success && context.mounted) {
+                                ref.invalidate(myPostsProvider);
+                                ref.invalidate(
+                                  technicianPostsProvider(
+                                    PostsParams(technicianId: user!.id),
+                                  ),
+                                );
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:changsure/core/header.dart';
 import 'package:changsure/core/theme.dart';
-
 import '../widgets/technician_content.dart';
 import '../widgets/review_tab_widget.dart';
+import '../../../../state/user_provider.dart';
 
 class TechnicianProfilePage extends ConsumerWidget {
   final bool isOwner;
@@ -22,6 +21,13 @@ class TechnicianProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+    final resolvedTechnicianId = isOwner ? user?.id : technicianId!;
+
+    if (resolvedTechnicianId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     if (!isOwner) {
       return DefaultTabController(
         length: 2,
@@ -45,7 +51,7 @@ class TechnicianProfilePage extends ConsumerWidget {
                         isOwner: false,
                         technicianId: technicianId,
                       ),
-                      ReviewContent(),
+                      ReviewContent(technicianId: resolvedTechnicianId),
                     ],
                   ),
                 ),
@@ -72,7 +78,7 @@ class TechnicianProfilePage extends ConsumerWidget {
                 child: TabBarView(
                   children: [
                     TechnicianContentWidget(isOwner: true),
-                    ReviewContent(),
+                    ReviewContent(technicianId: resolvedTechnicianId),
                   ],
                 ),
               ),
