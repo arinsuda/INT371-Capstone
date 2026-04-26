@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"changsure-core-service/internal/modules/customer"
 	"changsure-core-service/internal/modules/technician"
 )
 
@@ -33,6 +34,59 @@ func (c *Cleaner) Run(ctx context.Context) {
 	c.cleanUnverifiedTechnicians(ctx)
 	c.cleanExpiredTokens(ctx)
 	c.cleanFailedVerificationTechnicians(ctx)
+	c.cleanUnverifiedUsers(ctx)
+}
+
+func (c *Cleaner) cleanUnverifiedUsers(ctx context.Context) {
+
+	cutoff := time.Now().Add(-24 * time.Hour)
+
+	var customers []customer.Customer
+	if err := c.db.WithContext(ctx).
+		Where("email_verified_at IS NULL AND created_at < ?", cutoff).
+		Find(&customers).Error; err != nil {
+		c.logger.Error("query unverified customers failed", "error", err)
+		return
+	}
+
+	for _, cu := range customers {
+		if err := c.db.WithContext(ctx).
+			Unscoped().Delete(&customer.Customer{}, cu.ID).Error; err != nil {
+			c.logger.Error("delete unverified customer failed", "id", cu.ID, "error", err)
+			continue
+		}
+		c.logger.Info("deleted unverified customer",
+			"id", cu.ID,
+			"email", cu.Email,
+			"age_hours", int(time.Since(cu.CreatedAt).Hours()),
+		)
+	}
+
+	var technicians []technician.Technician
+	if err := c.db.WithContext(ctx).
+		Where("email_verified_at IS NULL AND created_at < ?", cutoff).
+		Find(&technicians).Error; err != nil {
+		c.logger.Error("query unverified technicians failed", "error", err)
+		return
+	}
+
+	for _, t := range technicians {
+		if err := c.db.WithContext(ctx).
+			Unscoped().Delete(&technician.Technician{}, t.ID).Error; err != nil {
+			c.logger.Error("delete unverified technician failed", "id", t.ID, "error", err)
+			continue
+		}
+		c.logger.Info("deleted unverified technician",
+			"id", t.ID,
+			"email", t.Email,
+			"age_hours", int(time.Since(t.CreatedAt).Hours()),
+		)
+	}
+
+	c.logger.Info("unverified users cleanup done",
+		"customers", len(customers),
+		"technicians", len(technicians),
+	)
 }
 
 func (c *Cleaner) cleanUnverifiedTechnicians(ctx context.Context) {
@@ -84,7 +138,7 @@ func (c *Cleaner) cleanFailedVerificationTechnicians(ctx context.Context) {
 
 	var targets []technician.Technician
 	if err := c.db.WithContext(ctx).
-		Where("verification_status = ? AND updated_at < ?", technician.StatusFailed, cutoff).
+		Where("verification_status = ? AND updated_at < ?", technician.StatusRejected, cutoff).
 		Select("id, email, updated_at").
 		Find(&targets).Error; err != nil {
 		c.logger.Error("query failed-verification technicians failed", "error", err)

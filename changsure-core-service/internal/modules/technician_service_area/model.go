@@ -7,14 +7,13 @@ import (
 )
 
 type TechnicianServiceArea struct {
-	ID           uint
-	TechnicianID uint
-	ProvinceID   uint
-	IsActive     bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-
-	Province pv.Province `gorm:"foreignKey:ProvinceID" json:"province,omitempty"`
+	ID           uint        `gorm:"primaryKey;autoIncrement"`
+	TechnicianID uint        `gorm:"not null;index"`
+	ProvinceID   uint        `gorm:"not null;index"`
+	IsActive     bool        `gorm:"default:true"`
+	CreatedAt    time.Time   `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time   `gorm:"autoUpdateTime"`
+	Province     pv.Province `gorm:"foreignKey:ProvinceID" json:"province,omitempty"`
 }
 
 func (TechnicianServiceArea) TableName() string { return "technician_service_areas" }

@@ -244,6 +244,42 @@ func (h *Handler) ListTechnicians(c fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) GetDetail(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	callerRole, ok := middleware.GetRole(c)
+	if !ok {
+		return appErrors.Unauthorized(c, "unauthorized")
+	}
+
+	res, err := h.svc.GetDetail(c.Context(), techID, callerRole)
+	if err != nil {
+		return appErrors.HandleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": res})
+}
+
+func (h *Handler) ListWithFilter(c fiber.Ctx) error {
+	if err := middleware.CheckAdmin(c); err != nil {
+		return err
+	}
+
+	var q AdminListQuery
+	if err := c.Bind().Query(&q); err != nil {
+		return appErrors.BadRequest(c, "invalid query params")
+	}
+	q.SetDefaults()
+
+	res, err := h.svc.ListWithFilter(c.Context(), q)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to list technicians", err)
+	}
+	return c.JSON(fiber.Map{"success": true, "data": res})
+}
+
 func (h *Handler) bindProfileReq(c fiber.Ctx, techID uint) (TechnicianProfileReq, error) {
 	var req TechnicianProfileReq
 
@@ -325,6 +361,23 @@ func (h *Handler) processAndUploadAvatar(c fiber.Ctx, techID uint, fh *multipart
 		return "", appErrors.InternalError(c, "failed to upload avatar", err)
 	}
 	return key, nil
+}
+
+func (h *Handler) GetDashboardStats(c fiber.Ctx) error {
+	techID, err := utils.ParseUintParam(c, "technicianID")
+	if err != nil {
+		return appErrors.BadRequest(c, "invalid technician id")
+	}
+
+	res, err := h.svc.GetDashboardStats(c.Context(), techID)
+	if err != nil {
+		return appErrors.InternalError(c, "failed to get stats", err)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    res,
+	})
 }
 
 func parsePagination(c fiber.Ctx) (page, pageSize int) {

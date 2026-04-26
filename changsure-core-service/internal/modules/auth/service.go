@@ -18,6 +18,7 @@ import (
 	"changsure-core-service/internal/modules/customer"
 	customeraddress "changsure-core-service/internal/modules/customer_address"
 	"changsure-core-service/internal/modules/document"
+	// emailverification "changsure-core-service/internal/modules/email_verification"
 	"changsure-core-service/internal/modules/notification"
 	"changsure-core-service/internal/modules/technician"
 	technicianaddress "changsure-core-service/internal/modules/technician_address"
@@ -48,6 +49,9 @@ type service struct {
 	criminalRepo    criminalcheck.Repository
 	documentService document.Service
 	notif           notification.Service
+	emailChecker    EmailChecker
+	phoneChecker    PhoneChecker
+	// otpService      emailverification.Service
 }
 
 func NewService(
@@ -64,6 +68,7 @@ func NewService(
 	criminalRepo criminalcheck.Repository,
 	documentService document.Service,
 	notif notification.Service,
+	// otpService emailverification.Service,
 ) Service {
 	return &service{
 		db:              db,
@@ -79,46 +84,18 @@ func NewService(
 		criminalRepo:    criminalRepo,
 		documentService: documentService,
 		notif:           notif,
+		emailChecker:    NewEmailChecker(adminRepo, customerRepo, techRepo),
+		phoneChecker:    NewPhoneChecker(customerRepo, techRepo),
+		// otpService:      otpService,
 	}
 }
 
 func (s *service) isEmailTaken(ctx context.Context, email string) (bool, error) {
-	if a, err := s.adminRepo.FindByEmail(ctx, email); err != nil {
-		return false, fmt.Errorf("check admin email: %w", err)
-	} else if a != nil {
-		return true, nil
-	}
-
-	if c, err := s.customerRepo.FindByEmail(ctx, email); err != nil {
-		return false, fmt.Errorf("check customer email: %w", err)
-	} else if c != nil {
-		return true, nil
-	}
-
-	if t, err := s.techRepo.FindByEmail(ctx, email); err != nil {
-		return false, fmt.Errorf("check technician email: %w", err)
-	} else if t != nil {
-		return true, nil
-	}
-
-	return false, nil
+	return s.emailChecker.IsTaken(ctx, email, "", 0)
 }
 
 func (s *service) isPhoneTaken(ctx context.Context, phone string) (bool, error) {
-
-	if c, err := s.customerRepo.FindByPhone(ctx, phone); err != nil {
-		return false, fmt.Errorf("check customer phone: %w", err)
-	} else if c != nil {
-		return true, nil
-	}
-
-	if t, err := s.techRepo.FindByPhone(ctx, phone); err != nil {
-		return false, fmt.Errorf("check technician phone: %w", err)
-	} else if t != nil {
-		return true, nil
-	}
-
-	return false, nil
+	return s.phoneChecker.IsTaken(ctx, phone, "", 0)
 }
 
 func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequest) (*RegisterCustomerResponse, error) {
@@ -147,7 +124,9 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 		PasswordHash: string(hash),
 	}
 
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	// var otpResult *emailverification.SendOTPResponse
+
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(cust).Error; err != nil {
 			return fmt.Errorf("create customer: %w", err)
 		}
@@ -157,24 +136,37 @@ func (s *service) RegisterCustomer(ctx context.Context, req RegisterCustomerRequ
 				return fmt.Errorf("create address: %w", err)
 			}
 		}
+
+		// if s.otpService != nil {
+		// 	resp, err := s.otpService.IssueOTP(ctx, cust.ID, req.Email, RoleCustomer)
+		// 	if err != nil {
+		// 		return fmt.Errorf("send OTP: %w", err)
+		// 	}
+		// 	otpResult = resp
+		// }
+
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
-	return &RegisterCustomerResponse{
+	resp := &RegisterCustomerResponse{
 		CustomerID: cust.ID,
 		Email:      req.Email,
 		FirstName:  req.FirstName,
 		LastName:   req.LastName,
 		Role:       RoleCustomer,
-		Message:    "สมัครสมาชิกสำเร็จ",
-	}, nil
+		Message:    "สมัครสมาชิกสำเร็จ กรุณายืนยัน email ก่อน login",
+	}
+
+	// if otpResult != nil && otpResult.OTP != nil {
+	// 	resp.OTP = otpResult.OTP
+	// }
+
+	return resp, nil
 }
 
 func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnicianRequest) (*RegisterTechnicianResponse, error) {
-
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	phone := strings.TrimSpace(req.Phone)
 
@@ -204,7 +196,6 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 	}
 
 	now := time.Now().UTC()
-
 	tech := &technician.Technician{
 		FirstName:          req.FirstName,
 		LastName:           req.LastName,
@@ -217,40 +208,32 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 		UpdatedAt:          now,
 	}
 
-	var preVerifiedToken string
+	var (
+		preVerifiedToken string
+		// otpResult        *emailverification.SendOTPResponse
+	)
 
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(tech).Error; err != nil {
 			return fmt.Errorf("create technician: %w", err)
 		}
-
 		if req.Address != nil {
 			addr := buildTechnicianAddress(tech.ID, *req.Address, true)
 			if err := tx.Create(addr).Error; err != nil {
 				return fmt.Errorf("create address: %w", err)
 			}
 		}
-
 		if len(req.Services) > 0 {
 			if err := s.techServiceRepo.ReplaceAll(ctx, tx, tech.ID, req.Services); err != nil {
 				return fmt.Errorf("create services: %w", err)
 			}
 		}
-
 		if len(req.ProvinceIDs) > 0 {
 			if err := s.techAreaRepo.ReplaceForTech(tx, tech.ID, req.ProvinceIDs); err != nil {
 				return fmt.Errorf("create service areas: %w", err)
 			}
 		}
-
-		if _, err := s.documentService.Accept(
-			"changsure-terms",
-			tech.ID,
-			RoleTechnician,
-			"th",
-			req.Consents,
-		); err != nil {
+		if _, err := s.documentService.Accept("changsure-terms", tech.ID, RoleTechnician, "th", req.Consents); err != nil {
 			return fmt.Errorf("accept terms: %w", err)
 		}
 
@@ -265,41 +248,52 @@ func (s *service) RegisterTechnician(ctx context.Context, req RegisterTechnician
 			Scope:              jwtutil.ScopePreVerified,
 		})
 		if err != nil {
-			return fmt.Errorf("issue token: %w", err)
+			return fmt.Errorf("issue pre_verified_token: %w", err)
 		}
-
 		preVerifiedToken = token
 
+		// if s.otpService != nil {
+		// 	resp, err := s.otpService.IssueOTP(ctx, tech.ID, email, RoleTechnician)
+		// 	if err != nil {
+		// 		return fmt.Errorf("send OTP: %w", err)
+		// 	}
+		// 	otpResult = resp
+		// }
+
 		return nil
-	})
-
-	if err != nil {
-
+	}); err != nil {
 		if strings.Contains(err.Error(), "duplicate") {
 			return nil, appErrors.NewConflict("duplicate data")
 		}
 		return nil, err
 	}
 
-	return &RegisterTechnicianResponse{
+	resp := &RegisterTechnicianResponse{
 		TechnicianID:         tech.ID,
 		Email:                email,
 		FirstName:            req.FirstName,
 		LastName:             req.LastName,
 		Role:                 RoleTechnician,
 		VerificationStatus:   string(technician.StatusPending),
-		Message:              "สมัครสมาชิกสำเร็จ กรุณาอัปโหลดบัตรประชาชนเพื่อยืนยันตัวตน",
+		Message:              "สมัครสมาชิกสำเร็จ กรุณายืนยัน email ก่อน login",
 		PreVerifiedToken:     preVerifiedToken,
 		PreVerifiedExpiresIn: int64((15 * 24 * time.Hour).Seconds()),
-		NextStep: NextStepInfo{
-			Action:   "upload_id_card",
-			Endpoint: fmt.Sprintf("/api/technicians/%d/verify-identity", tech.ID),
-			Method:   "POST",
-		},
-	}, nil
+		// NextStep: NextStepInfo{
+		// 	Action:   "verify_email",
+		// 	Endpoint: "/api/auth/verify-email",
+		// 	Method:   "POST",
+		// },
+	}
+
+	// if otpResult != nil && otpResult.OTP != nil {
+	// 	resp.OTP = otpResult.OTP
+	// }
+
+	return resp, nil
 }
 
 func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
+
 	if a, err := s.adminRepo.FindByEmail(ctx, req.Email); err == nil && a != nil {
 		return s.loginAsAdmin(ctx, a, req.Password)
 	}
@@ -323,19 +317,25 @@ func (s *service) loginAsAdmin(ctx context.Context, a *admin.Admin, password str
 		UserID:             a.ID,
 		Email:              a.Email,
 		Role:               RoleAdmin,
-		VerificationStatus: string(technician.StatusPassed),
+		VerificationStatus: string(technician.StatusApproved),
 	}, a.FirstName, a.LastName, nil)
 }
 
 func (s *service) loginAsCustomer(ctx context.Context, cust *customer.Customer, password string) (*LoginResponse, error) {
+
 	if err := bcrypt.CompareHashAndPassword([]byte(cust.PasswordHash), []byte(password)); err != nil {
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
+
+	// if cust.EmailVerifiedAt == nil {
+	// 	return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
+	// }
+
 	return s.issueTokens(ctx, JWTClaims{
 		UserID:             cust.ID,
 		Email:              *cust.Email,
 		Role:               RoleCustomer,
-		VerificationStatus: string(technician.StatusPassed),
+		VerificationStatus: string(technician.StatusApproved),
 	}, cust.FirstName, cust.LastName, nil)
 }
 
@@ -344,12 +344,15 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		return nil, appErrors.NewUnauthorized(ErrInvalidCredentials.Error())
 	}
 
+	// if tech.EmailVerifiedAt == nil {
+	// 	return nil, appErrors.NewForbidden("กรุณายืนยัน email ก่อน login")
+	// }
+
 	if tech.BannedAt != nil && s.notif != nil {
 		expiresAt := tech.BannedAt.Add(time.Duration(technicianpost.RestrictGracePeriodDays) * 24 * time.Hour)
 		if time.Now().Before(expiresAt) {
 			remaining := expiresAt.Sub(time.Now())
-			totalHours := remaining.Hours()
-			days := int(math.Floor(totalHours / 24))
+			days := int(math.Floor(remaining.Hours() / 24))
 			go s.notif.Create(ctx, notification.CreateNotificationInput{
 				RecipientRole: notification.RoleTechnician,
 				RecipientID:   tech.ID,
@@ -369,16 +372,7 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		}
 	}
 
-	if tech.VerificationStatus == technician.StatusPassed {
-		return s.issueTokens(ctx, JWTClaims{
-			UserID:             tech.ID,
-			Email:              *tech.Email,
-			Role:               RoleTechnician,
-			VerificationStatus: string(tech.VerificationStatus),
-		}, tech.FirstName, tech.LastName, tech.BannedAt)
-	}
-
-	if tech.VerificationStatus == technician.StatusPassed {
+	if tech.VerificationStatus == technician.StatusApproved {
 		return s.issueTokens(ctx, JWTClaims{
 			UserID:             tech.ID,
 			Email:              *tech.Email,
@@ -392,7 +386,7 @@ func (s *service) loginAsTechnician(ctx context.Context, tech *technician.Techni
 		if err == nil && len(logs) > 0 {
 			latest := logs[0]
 			if latest.Status == criminalcheck.StatusPending ||
-				latest.Status == criminalcheck.StatusNameNotExtracted {
+				latest.Status == criminalcheck.StatusNameMismatch {
 				return s.issueTokens(ctx, JWTClaims{
 					UserID:             tech.ID,
 					Email:              *tech.Email,
@@ -410,28 +404,20 @@ func (s *service) resolveVerificationError(ctx context.Context, techID uint) err
 	if s.criminalRepo == nil {
 		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
 	}
-
 	logs, err := s.criminalRepo.GetLogsByTechnicianID(techID)
 	if err != nil || len(logs) == 0 {
-
 		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
 	}
-
 	latest := logs[0]
-
 	switch latest.Status {
-	case criminalcheck.StatusFailed:
+	case criminalcheck.StatusRejected:
 		msg := ErrTechnicianVerifyFailed.Error()
 		if latest.Note != "" {
 			msg = fmt.Sprintf("%s: %s", msg, latest.Note)
 		}
 		return appErrors.NewForbidden(msg)
-
 	case criminalcheck.StatusOCRFailed:
-		return appErrors.NewForbidden(
-			"ID card verification failed — please re-upload your ID card",
-		)
-
+		return appErrors.NewForbidden("ID card verification failed — please re-upload your ID card")
 	default:
 		return appErrors.NewForbidden(ErrTechnicianNotVerified.Error())
 	}
@@ -442,7 +428,6 @@ func (s *service) issueTokens(ctx context.Context, claims JWTClaims, firstName, 
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens: %w", err)
 	}
-
 	if err := s.tokenRepo.Save(ctx, &RefreshToken{
 		UserID:    claims.UserID,
 		Role:      claims.Role,
@@ -495,7 +480,6 @@ func (s *service) RefreshToken(ctx context.Context, req RefreshTokenRequest) (*R
 		}
 		return nil, fmt.Errorf("find refresh token: %w", err)
 	}
-
 	parsed, err := jwtutil.Parse(s.cfg.Secret, req.RefreshToken)
 	if err != nil {
 		return nil, appErrors.NewUnauthorized("refresh token is invalid or expired")
@@ -503,17 +487,14 @@ func (s *service) RefreshToken(ctx context.Context, req RefreshTokenRequest) (*R
 	if parsed.TokenType != TokenTypeRefresh {
 		return nil, appErrors.NewUnauthorized("token type must be refresh")
 	}
-
 	updatedClaims, err := s.syncUserClaims(ctx, stored.UserID, stored.Role)
 	if err != nil {
 		return nil, fmt.Errorf("sync user claims: %w", err)
 	}
-
 	newAccessToken, err := IssueAccessToken(s.cfg, *updatedClaims)
 	if err != nil {
 		return nil, fmt.Errorf("issue access token: %w", err)
 	}
-
 	return &RefreshTokenResponse{
 		AccessToken: newAccessToken,
 		TokenType:   "Bearer",
@@ -523,7 +504,6 @@ func (s *service) RefreshToken(ctx context.Context, req RefreshTokenRequest) (*R
 
 func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) (*JWTClaims, error) {
 	switch role {
-
 	case RoleAdmin:
 		a, err := s.adminRepo.FindByID(ctx, userID)
 		if err != nil || a == nil {
@@ -533,9 +513,8 @@ func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) 
 			UserID:             a.ID,
 			Email:              a.Email,
 			Role:               RoleAdmin,
-			VerificationStatus: string(technician.StatusPassed),
+			VerificationStatus: string(technician.StatusApproved),
 		}, nil
-
 	case RoleCustomer:
 		cust, err := s.customerRepo.FindByID(ctx, userID)
 		if err != nil || cust == nil {
@@ -545,9 +524,8 @@ func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) 
 			UserID:             cust.ID,
 			Email:              *cust.Email,
 			Role:               RoleCustomer,
-			VerificationStatus: string(technician.StatusPassed),
+			VerificationStatus: string(technician.StatusApproved),
 		}, nil
-
 	case RoleTechnician:
 		tech, err := s.techRepo.FindByID(ctx, userID)
 		if err != nil || tech == nil {
@@ -559,7 +537,6 @@ func (s *service) syncUserClaims(ctx context.Context, userID uint, role string) 
 			Role:               RoleTechnician,
 			VerificationStatus: string(tech.VerificationStatus),
 		}, nil
-
 	default:
 		return nil, appErrors.NewUnauthorized(ErrInvalidRole.Error())
 	}

@@ -148,14 +148,14 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 		_ = s.repo.SaveLog(&VerificationLog{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
-			Status:       StatusNameNotExtracted,
+			Status:       StatusNameMismatch,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			RawOCRText:   rawOCRText,
 		})
 		return &VerifyIdentityResponse{
 			TechnicianID: technicianID,
 			NationalID:   nationalID,
-			Status:       StatusNameNotExtracted,
+			Status:       StatusNameMismatch,
 			Note:         "อ่านเลขบัตรได้ แต่ไม่สามารถ extract ชื่อจากรูปภาพได้",
 			Message:      "กรุณาถ่ายรูปบัตรประชาชนให้เห็นชื่อ-นามสกุลชัดเจน",
 		}, nil
@@ -195,7 +195,7 @@ func (s *service) VerifyIdentity(ctx context.Context, technicianID uint, imageBy
 	})
 
 	if isVerified {
-		_ = s.techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusPassed)
+		_ = s.techRepo.UpdateVerificationStatus(ctx, technicianID, technician.StatusApproved)
 		s.notifyVerificationResult(ctx, technicianID, StatusPassed, note)
 	}
 
@@ -262,7 +262,7 @@ func (s *service) ApproveJob(ctx context.Context, adminID uint, jobID uint, reas
 		return fmt.Errorf("mark done: %w", err)
 	}
 
-	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusPassed)
+	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusApproved)
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
@@ -291,7 +291,7 @@ func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reaso
 
 	_, _ = s.jobRepo.MarkFailed(ctx, jobID, fmt.Sprintf("rejected by admin: %s", reason))
 
-	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusFailed)
+	_ = s.techRepo.UpdateVerificationStatus(ctx, payload.TechnicianID, technician.StatusRejected)
 
 	_ = s.repo.SaveOverrideLog(&AdminOverrideLog{
 		AdminID:       adminID,
@@ -303,7 +303,7 @@ func (s *service) RejectJob(ctx context.Context, adminID uint, jobID uint, reaso
 		Reason:        reason,
 	})
 
-	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusFailed, reason)
+	s.notifyVerificationResult(ctx, payload.TechnicianID, StatusRejected, reason)
 	return nil
 }
 
@@ -334,11 +334,11 @@ func (s *service) UpdateLogStatus(ctx context.Context, adminID uint, logID uint,
 
 	switch req.Status {
 	case StatusPassed:
-		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusPassed)
+		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusApproved)
 		s.notifyVerificationResult(ctx, log.TechnicianID, StatusPassed, req.Reason)
-	case StatusFailed:
-		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusFailed)
-		s.notifyVerificationResult(ctx, log.TechnicianID, StatusFailed, req.Reason)
+	case StatusRejected:
+		_ = s.techRepo.UpdateVerificationStatus(ctx, log.TechnicianID, technician.StatusRejected)
+		s.notifyVerificationResult(ctx, log.TechnicianID, StatusRejected, req.Reason)
 	}
 
 	updated, _ := s.repo.GetLogByID(logID)
@@ -613,7 +613,7 @@ func (s *service) notifyVerificationResult(ctx context.Context, technicianID uin
 		notiType = "IDENTITY_VERIFIED"
 		title = "ยืนยันตัวตนสำเร็จ ✅"
 		message = "บัตรประชาชนของคุณผ่านการตรวจสอบแล้ว คุณสามารถรับงานได้เลย"
-	case StatusFailed:
+	case StatusRejected:
 		notiType = "IDENTITY_REJECTED"
 		title = "ไม่ผ่านการตรวจสอบ ❌"
 		message = "บัตรประชาชนของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อเจ้าหน้าที่"

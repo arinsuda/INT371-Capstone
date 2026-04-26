@@ -125,7 +125,7 @@ func (r *repository) GetStats() (*VerificationStatResponse, error) {
 	var stats VerificationStatResponse
 	r.db.Model(&VerificationLog{}).Count(&stats.Total)
 	r.db.Model(&VerificationLog{}).Where("status = ?", StatusPassed).Count(&stats.Passed)
-	r.db.Model(&VerificationLog{}).Where("status = ?", StatusFailed).Count(&stats.Failed)
+	r.db.Model(&VerificationLog{}).Where("status = ?", StatusRejected).Count(&stats.Failed)
 	r.db.Model(&VerificationLog{}).Where("status = ?", StatusPending).Count(&stats.Pending)
 	return &stats, nil
 }

@@ -18,6 +18,7 @@ type Config struct {
 
 type Mailer interface {
 	SendOTP(to, name, otp string) error
+	SendEmailVerification(to, otp string) error
 }
 
 type mailer struct {
@@ -32,6 +33,12 @@ func (m *mailer) SendOTP(to, name, otp string) error {
 	subject := "รหัส OTP สำหรับรีเซ็ตรหัสผ่าน — ChangSure"
 	body := buildOTPEmail(name, otp)
 
+	return m.send(to, subject, body)
+}
+
+func (m *mailer) SendEmailVerification(to, otp string) error {
+	subject := "รหัสยืนยัน Email — ChangSure"
+	body := buildEmailVerificationEmail(otp)
 	return m.send(to, subject, body)
 }
 
@@ -199,4 +206,85 @@ func buildOTPEmail(name, otp string) string {
 
 </body>
 </html>`, name, digitBoxes)
+}
+
+func buildEmailVerificationEmail(otp string) string {
+	digits := strings.Split(otp, "")
+	digitBoxes := ""
+	for _, d := range digits {
+		digitBoxes += fmt.Sprintf(`<td style="
+			width:48px;
+			height:58px;
+			text-align:center;
+			vertical-align:middle;
+			background:#f8faff;
+			border:1.5px solid #c8d8f0;
+			border-radius:10px;
+			font-size:26px;
+			font-weight:500;
+			color:#1a4fa0;
+			font-family:'SF Mono','Fira Code',monospace;
+		">%s</td><td style="width:8px;"></td>`, d)
+	}
+
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:'Sarabun',sans-serif;">
+
+<table width="100%%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:56px 24px 64px;">
+  <tr><td align="center">
+    <table width="480" cellpadding="0" cellspacing="0" style="
+      background:#ffffff;
+      border-radius:16px;
+      border:1px solid #e8e4de;
+      box-shadow:0 2px 12px rgba(0,0,0,0.05);
+    ">
+      <tr><td style="height:44px;"></td></tr>
+      <tr>
+        <td style="text-align:center;padding:0 48px;">
+          <span style="font-size:27px;font-weight:700;letter-spacing:-0.3px;font-family:'Poppins','Segoe UI',sans-serif;">
+            <span style="color:#4fb3e8;">Chang</span><span style="color:#1a4fa0;">Sure</span>
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 48px 0;">
+          <div style="height:1px;background:#f0ede8;"></div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:32px 48px 0;">
+          <p style="margin:0 0 32px;font-size:14px;color:#777777;line-height:1.85;font-weight:300;">
+            กรุณาใช้รหัส OTP ด้านล่างเพื่อยืนยัน email ของคุณ
+          </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+            <tr>%s</tr>
+          </table>
+          <p style="margin:0 0 8px;font-size:13px;font-weight:500;color:#1a4fa0;">
+            รหัสนี้มีอายุการใช้งาน 5 นาที
+          </p>
+          <p style="margin:0;font-size:13px;color:#aaaaaa;line-height:1.85;font-weight:300;">
+            หากคุณไม่ได้สมัครสมาชิก กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:36px 48px 40px;">
+          <p style="margin:0;font-size:13px;color:#cccccc;font-weight:300;">ChangSure Team</p>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:20px 0 0;font-size:11px;color:#b8b0a4;text-align:center;">
+      © 2025 ChangSure Co., Ltd.
+    </p>
+  </td></tr>
+</table>
+
+</body>
+</html>`, digitBoxes)
 }

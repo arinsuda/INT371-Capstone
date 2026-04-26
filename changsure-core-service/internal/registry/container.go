@@ -25,6 +25,7 @@ import (
 	"changsure-core-service/internal/modules/dashboard"
 	"changsure-core-service/internal/modules/district"
 	"changsure-core-service/internal/modules/document"
+	// emailverification "changsure-core-service/internal/modules/email_verification"
 	"changsure-core-service/internal/modules/notification"
 	ocrhandler "changsure-core-service/internal/modules/ocr/handler"
 	ocrinfra "changsure-core-service/internal/modules/ocr/infra"
@@ -62,9 +63,15 @@ type Container struct {
 	Hub     *realtime.Hub
 	Logger  *slog.Logger
 
-	AuthRepo    auth.RefreshTokenRepository
-	AuthService auth.Service
-	AuthHandler *auth.Handler
+	// EmailVerificationRepo    emailverification.Repository
+	// EmailVerificationService emailverification.Service
+	// EmailVerificationHandler *emailverification.Handler
+
+	AuthRepo     auth.RefreshTokenRepository
+	AuthService  auth.Service
+	AuthHandler  *auth.Handler
+	EmailChecker auth.EmailChecker
+	PhoneChecker auth.PhoneChecker
 
 	NotificationRepo    notification.Repository
 	NotificationService notification.Service
@@ -216,6 +223,8 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initCustomerModule()
 	c.initCustomerAddressModule()
 	c.initDocumentModule()
+	c.initMailer(cfg)
+	// c.initEmailVerificationModule(cfg)
 	c.initAuthModule(cfg)
 	c.initNotificationModule()
 	c.initOCRModule(cfg)
@@ -234,7 +243,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config, hub *realtime.Hub, opts ...Co
 	c.initChatModule()
 	c.initWalletModule()
 	c.initPaymentModule(cfg)
-	c.initMailer(cfg)
 	c.initResetPasswordModule(cfg)
 	c.initBackgroundJobModule()
 	c.initCriminalCheckModule()
@@ -260,7 +268,6 @@ func (c *Container) initStorage(cfg *config.Config) error {
 }
 
 func (c *Container) initAuthModule(cfg *config.Config) {
-
 	tokenRepo := auth.NewTokenRepository(c.DB)
 
 	tokenCfg := auth.TokenConfig{
@@ -268,6 +275,30 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		AccessTTL:  time.Duration(cfg.JWT.AccessTokenTTL) * time.Second,
 		RefreshTTL: time.Duration(cfg.JWT.RefreshTokenTTL) * time.Second,
 	}
+
+	c.EmailChecker = auth.NewEmailChecker(c.AdminRepo, c.CustomerRepo, c.TechnicianRepo)
+	c.PhoneChecker = auth.NewPhoneChecker(c.CustomerRepo, c.TechnicianRepo)
+
+	crossChecker := &crossCheckerAdapter{
+		email: c.EmailChecker,
+		phone: c.PhoneChecker,
+	}
+
+	c.CustomerService = customer.NewService(c.CustomerRepo, c.Storage, c.Logger, crossChecker)
+	c.CustomerHandler = customer.NewHandler(c.CustomerService, c.Storage, c.Logger)
+
+	c.TechnicianService = technician.NewService(
+		c.DB,
+		c.TechnicianRepo,
+		c.TechnicianServiceAreaRepo,
+		c.TechnicianServiceRepo,
+		c.DocumentRepo,
+		c.Storage,
+		c.TechnicianAddressRepo,
+		c.Logger,
+		crossChecker,
+	)
+	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)
 
 	c.AuthService = auth.NewService(
 		c.DB,
@@ -283,6 +314,7 @@ func (c *Container) initAuthModule(cfg *config.Config) {
 		c.CriminalCheckRepo,
 		c.DocumentService,
 		c.NotificationService,
+		// c.EmailVerificationService,
 	)
 
 	c.AuthHandler = auth.NewHandler(c.AuthService)
@@ -321,7 +353,7 @@ func (c *Container) initOCRModule(cfg *config.Config) {
 
 func (c *Container) initCustomerModule() {
 	c.CustomerRepo = customer.NewRepository(c.DB)
-	c.CustomerService = customer.NewService(c.CustomerRepo, c.Storage, c.Logger)
+	c.CustomerService = customer.NewService(c.CustomerRepo, c.Storage, c.Logger, nil)
 	c.CustomerHandler = customer.NewHandler(c.CustomerService, c.Storage, c.Logger)
 }
 
@@ -374,6 +406,7 @@ func (c *Container) initTechnicianModule() {
 		c.Storage,
 		c.TechnicianAddressRepo,
 		c.Logger,
+		nil,
 	)
 	c.TechnicianHandler = technician.NewHandler(c.TechnicianService, c.Storage)
 }
@@ -660,6 +693,20 @@ func (c *Container) initDashboardModule() {
 	c.DashboardHandler = dashboard.NewHandler(c.DashboardService)
 }
 
+// func (c *Container) initEmailVerificationModule(cfg *config.Config) {
+// 	isDev := cfg.App.Environment == "development"
+
+// 	c.EmailVerificationRepo = emailverification.NewRepository(c.DB)
+// 	c.EmailVerificationService = emailverification.NewService(
+// 		c.EmailVerificationRepo,
+// 		c.Mailer,
+// 		c.CustomerRepo,
+// 		c.TechnicianRepo,
+// 		isDev,
+// 	)
+// 	c.EmailVerificationHandler = emailverification.NewHandler(c.EmailVerificationService)
+// }
+
 func AllModels() []interface{} {
 	models := make([]interface{}, 0)
 	models = append(models, auth.Models()...)
@@ -693,6 +740,7 @@ func AllModels() []interface{} {
 	models = append(models, admin.Models()...)
 	models = append(models, backgroundjob.Models()...)
 	models = append(models, wallet.Models()...)
+	// models = append(models, emailverification.Models()...)
 
 	return models
 }

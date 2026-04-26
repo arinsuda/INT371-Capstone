@@ -22,7 +22,7 @@ func (mt MessageType) IsValid() bool {
 
 type ChatMessage struct {
 	ID              uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	BookingID       uint        `gorm:"index:idx_booking_created;not null" json:"booking_id"`
+	BookingID       uint        `gorm:"index:idx_booking_created;not null;constraint:OnDelete:CASCADE"`
 	BookingNumber   string      `gorm:"-" json:"booking_number"`
 	ServiceCategory string      `gorm:"-" json:"service_category"`
 	SenderID        uint        `gorm:"index;not null" json:"sender_id"`

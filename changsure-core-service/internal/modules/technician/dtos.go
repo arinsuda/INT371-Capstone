@@ -253,3 +253,10 @@ type BanInfo struct {
 	RemainingHours   int   `json:"remaining_hours"`
 	RemainingMinutes int   `json:"remaining_minutes"`
 }
+
+type TechnicianDashboardStatsRes struct {
+	TotalJobs     int64   `json:"total_jobs"`
+	CompletedJobs int64   `json:"completed_jobs"`
+	CancelledJobs int64   `json:"cancelled_jobs"`
+	RatingAvg     float64 `json:"rating_avg"`
+}

@@ -92,7 +92,6 @@ func (h *Handler) ListLogs(c fiber.Ctx) error {
 		return err
 	}
 	filter := ListLogsFilter{
-		Status:     c.Query("status"),
 		NationalID: c.Query("national_id"),
 		TechName:   c.Query("tech_name"),
 		DateFrom:   c.Query("date_from"),

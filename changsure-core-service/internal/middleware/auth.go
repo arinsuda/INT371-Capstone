@@ -127,6 +127,7 @@ func PreVerifiedAuth(secretKey string) fiber.Handler {
 		}
 
 		c.Locals(LocalUserID, claims.UserID)
+		c.Locals(LocalEmail, claims.Email)
 		c.Locals(LocalRole, claims.Role)
 		c.Locals(LocalScope, claims.Scope)
 		return c.Next()

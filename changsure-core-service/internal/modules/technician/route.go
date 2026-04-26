@@ -4,6 +4,8 @@ import "github.com/gofiber/fiber/v3"
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/:technicianID", h.GetProfile)
+	router.Get("/:technicianID/detail", h.GetDetail)
+	router.Get("/:technicianID/stats", h.GetDashboardStats)
 	router.Patch("/:technicianID", h.UpdateProfile)
 	router.Patch("/:technicianID/avatar", h.UploadAvatar)
 	router.Put("/:technicianID/provinces", h.PatchProvinces)

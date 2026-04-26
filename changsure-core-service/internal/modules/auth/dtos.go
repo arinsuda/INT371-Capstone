@@ -31,12 +31,13 @@ type RegisterTechnicianRequest struct {
 }
 
 type RegisterCustomerResponse struct {
-	CustomerID uint   `json:"customer_id"`
-	Email      string `json:"email"`
-	FirstName  string `json:"firstname"`
-	LastName   string `json:"lastname"`
-	Role       string `json:"role"`
-	Message    string `json:"message"`
+	CustomerID uint    `json:"customer_id"`
+	Email      string  `json:"email"`
+	FirstName  string  `json:"firstname"`
+	LastName   string  `json:"lastname"`
+	Role       string  `json:"role"`
+	Message    string  `json:"message"`
+	OTP        *string `json:"otp,omitempty"`
 }
 
 type RegisterTechnicianResponse struct {
@@ -50,6 +51,7 @@ type RegisterTechnicianResponse struct {
 	PreVerifiedToken     string       `json:"pre_verified_token"`
 	PreVerifiedExpiresIn int64        `json:"pre_verified_expires_in"`
 	NextStep             NextStepInfo `json:"next_step"`
+	OTP                  *string      `json:"otp,omitempty"`
 }
 
 type NextStepInfo struct {

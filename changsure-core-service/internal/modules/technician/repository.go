@@ -3,6 +3,7 @@ package technician
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -23,6 +24,7 @@ type Repository interface {
 	UpdateIDCardImage(ctx context.Context, techID uint, imageKey string) error
 	UpdateVerificationStatus(ctx context.Context, techID uint, status VerificationStatus) error
 	GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]TechnicianWithVerification, int64, error)
+	MarkEmailVerified(ctx context.Context, email string) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -49,7 +51,7 @@ func (r *repository) UpdateVerificationStatus(ctx context.Context, techID uint, 
 	updates := map[string]any{
 		"verification_status": status,
 	}
-	if status == StatusPassed {
+	if status == StatusApproved {
 		updates["verified_at"] = gorm.Expr("NOW()")
 	} else {
 		updates["verified_at"] = nil
@@ -205,7 +207,7 @@ func (r *repository) GetSummaryStats(ctx context.Context) (*TechnicianSummarySta
 
 	if err := r.db.WithContext(ctx).
 		Model(&Technician{}).
-		Where("deleted_at IS NULL AND verification_status = ?", StatusPassed).
+		Where("deleted_at IS NULL AND verification_status = ?", StatusApproved).
 		Count(&stats.VerifiedCount).Error; err != nil {
 		return nil, err
 	}
@@ -214,7 +216,7 @@ func (r *repository) GetSummaryStats(ctx context.Context) (*TechnicianSummarySta
 		Model(&Technician{}).
 		Where("verification_status IN ?", []VerificationStatus{
 			StatusPending,
-			StatusReview,
+			StatusInReview,
 		}).
 		Count(&stats.PendingCount).Error; err != nil {
 		return nil, err
@@ -341,4 +343,12 @@ func (r *repository) GetAllWithFilter(ctx context.Context, q AdminListQuery) ([]
 
 func (r *repository) WithTx(tx *gorm.DB) Repository {
 	return &repository{db: tx}
+}
+
+func (r *repository) MarkEmailVerified(ctx context.Context, email string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).
+		Model(&Technician{}).
+		Where("email = ?", email).
+		Update("email_verified_at", now).Error
 }
