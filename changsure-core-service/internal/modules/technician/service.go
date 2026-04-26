@@ -119,7 +119,6 @@ func (s *service) getPrimaryAddress(ctx context.Context, techID uint) *technicia
 	}
 
 	primary := list[0]
-
 	phone, _ := s.addressRepo.GetTechnicianPhone(ctx, techID)
 	res := technicianaddress.ToResponse(primary, phone)
 
@@ -207,7 +206,6 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 
 	if s.areaRepo == nil {
 		return appErrors.NewBadRequest("area repository not initialized")
-
 	}
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -225,6 +223,11 @@ func (s *service) UpdateProvinces(ctx context.Context, techID uint, provinceIDs 
 func (s *service) AddService(ctx context.Context, techID uint, req AddTechServiceReq) (*TechServiceMutationResult, error) {
 	log := s.log(ctx).With("technician_id", techID, "service_id", req.ServiceID)
 
+	// Validate pricing fields before hitting the DB
+	if err := validatePricingReq(req.PricingType, req.PriceFixed, req.PriceMin, req.PriceMax); err != nil {
+		return nil, appErrors.NewBadRequest(err.Error())
+	}
+
 	var result TechServiceMutationResult
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -232,7 +235,6 @@ func (s *service) AddService(ctx context.Context, techID uint, req AddTechServic
 		err := tx.Where("technician_id = ? AND service_id = ?", techID, req.ServiceID).First(&existing).Error
 
 		if err == nil {
-
 			log.Info("add service skipped, already exists")
 			_ = tx.Model(&existing).Association("Service").Find(&existing.Service)
 			result = toMutationResult(techID, &existing)
@@ -285,6 +287,29 @@ func (s *service) UpdateService(ctx context.Context, techID uint, req UpdateTech
 				return appErrors.NewNotFound("service not found for this technician")
 			}
 			return fmt.Errorf("find service: %w", err)
+		}
+
+		// Merge incoming fields with existing values before validation
+		effectiveType := existing.PricingType
+		if req.PricingType != "" {
+			effectiveType = req.PricingType
+		}
+		effectiveMin := existing.PriceMin
+		if req.PriceMin != nil {
+			effectiveMin = req.PriceMin
+		}
+		effectiveMax := existing.PriceMax
+		if req.PriceMax != nil {
+			effectiveMax = req.PriceMax
+		}
+		effectiveFixed := existing.PriceFixed
+		if req.PriceFixed != nil {
+			effectiveFixed = req.PriceFixed
+		}
+
+		// Validate merged state
+		if err := validatePricingReq(effectiveType, effectiveFixed, effectiveMin, effectiveMax); err != nil {
+			return appErrors.NewBadRequest(err.Error())
 		}
 
 		updates := map[string]any{}
@@ -643,7 +668,6 @@ func (s *service) ListWithFilter(ctx context.Context, q AdminListQuery) (*AdminL
 }
 
 func (s *service) toAdminListItem(ctx context.Context, t *TechnicianWithVerification) AdminTechnicianListItem {
-
 	accountStatus := resolveAccountStatus(&t.Technician, t.WarningCount)
 
 	var postWarning PostWarningStatus
@@ -876,38 +900,45 @@ func toMutationResult(techID uint, ts *tsvc.TechnicianService) TechServiceMutati
 	}
 }
 
+// validatePricingReq validates pricing fields for a given pricing type.
+// This is the single source of truth for pricing validation across AddService,
+// UpdateService, and validateServices (bulk upsert via UpsertProfile).
+func validatePricingReq(pricingType string, priceFixed, priceMin, priceMax *float64) error {
+	switch pricingType {
+	case "FIXED":
+		if priceFixed == nil || *priceFixed <= 0 {
+			return fmt.Errorf("price_fixed must be a positive value for FIXED pricing")
+		}
+	case "RANGE":
+		if priceMin == nil || priceMax == nil {
+			return fmt.Errorf("price_min and price_max are required for RANGE pricing")
+		}
+		if *priceMin <= 0 || *priceMax <= 0 {
+			return fmt.Errorf("price_min and price_max must be positive values")
+		}
+		if *priceMin >= *priceMax {
+			return fmt.Errorf("price_min must be less than price_max")
+		}
+	default:
+		return fmt.Errorf("invalid pricing_type: must be FIXED or RANGE")
+	}
+	return nil
+}
+
 func validateServices(items []tsvc.ServicePatchItem) error {
 	for _, s := range items {
-
 		if s.ServiceID == 0 {
 			return fmt.Errorf("service_id required")
 		}
-
-		switch s.PricingType {
-
-		case "FIXED":
-			if s.PriceFixed == nil {
-				return fmt.Errorf("price_fixed required for service %d", s.ServiceID)
-			}
-
-		case "RANGE":
-			if s.PriceMin == nil || s.PriceMax == nil {
-				return fmt.Errorf("price_min and price_max required for service %d", s.ServiceID)
-			}
-
-		default:
-			return fmt.Errorf("invalid pricing_type for service %d", s.ServiceID)
+		if err := validatePricingReq(s.PricingType, s.PriceFixed, s.PriceMin, s.PriceMax); err != nil {
+			return fmt.Errorf("service %d: %w", s.ServiceID, err)
 		}
 	}
 	return nil
 }
 
 func isProfileIncomplete(t *Technician) bool {
-	if t.FirstName == "" || t.LastName == "" {
-		return true
-	}
-
-	return false
+	return t.FirstName == "" || t.LastName == ""
 }
 
 func resolveBanInfo(bannedAt *time.Time) *BanInfo {

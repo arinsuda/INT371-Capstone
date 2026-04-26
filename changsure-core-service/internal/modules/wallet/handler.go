@@ -28,8 +28,6 @@ func NewHandler(repo Repository, service Service, techRepo technician.Repository
 	}
 }
 
-
-
 func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
 	techID, err := utils.ParseUintParam(c, "technicianID")
 	if err != nil {
@@ -40,8 +38,6 @@ func (h *Handler) parseTechID(c fiber.Ctx) (uint, error) {
 	}
 	return techID, nil
 }
-
-
 
 func (h *Handler) GetBalance(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
@@ -57,22 +53,20 @@ func (h *Handler) GetBalance(c fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(fiber.Map{"success": true, "data": resp})
 }
 
-
-
 func (h *Handler) GetSummary(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
 		return appErrors.HandleError(c, err)
 	}
 
-	tech, err := h.techRepo.FindByID(c.Context(), techID)
-	if err != nil || tech == nil {
+	stats, err := h.techRepo.GetStats(c.Context(), techID)
+	if err != nil || stats == nil {
 		return appErrors.NotFound(c, "technician not found")
 	}
 
 	summary, err := h.service.GetSummary(c.Context(), techID, TechInfo{
-		TotalJobs: tech.TotalJobs,
-		RatingAvg: tech.RatingAvg,
+		TotalJobs: stats.TotalJobs, 
+		RatingAvg: stats.RatingAvg,
 	})
 	if err != nil {
 		return appErrors.InternalError(c, "failed to get wallet summary", err)
@@ -80,8 +74,6 @@ func (h *Handler) GetSummary(c fiber.Ctx) error {
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{"success": true, "data": summary})
 }
-
-
 
 func (h *Handler) ListTransactions(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
@@ -116,8 +108,6 @@ func (h *Handler) ListTransactions(c fiber.Ctx) error {
 	})
 }
 
-
-
 func (h *Handler) ListWithdrawals(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -146,9 +136,6 @@ func (h *Handler) ListWithdrawals(c fiber.Ctx) error {
 	})
 }
 
-
-
-
 func (h *Handler) CreateWithdrawal(c fiber.Ctx) error {
 	techID, err := h.parseTechID(c)
 	if err != nil {
@@ -168,7 +155,6 @@ func (h *Handler) CreateWithdrawal(c fiber.Ctx) error {
 		return h.handleServiceError(c, err)
 	}
 
-	
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"success": true,
 		"message": result.Message,
@@ -179,8 +165,6 @@ func (h *Handler) CreateWithdrawal(c fiber.Ctx) error {
 		},
 	})
 }
-
-
 
 func (h *Handler) handleServiceError(c fiber.Ctx, err error) error {
 	switch {
