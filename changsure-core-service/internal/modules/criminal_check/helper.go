@@ -20,23 +20,44 @@ func normalizeThaiName(name string) string {
 	return name
 }
 
+var toneMap = strings.NewReplacer(
+	"่", "", // ไม้เอก
+	"้", "", // ไม้โท
+	"๊", "", // ไม้ตรี
+	"๋", "", // ไม้จัตวา
+	"็", "",
+	"์", "",
+)
+
+func stripTones(s string) string {
+	return toneMap.Replace(s)
+}
+
 func namesMatch(ocrName, systemFirstName, systemLastName string) bool {
 	if ocrName == "" {
 		return false
 	}
 
 	normalizedOCR := normalizeThaiName(ocrName)
-	systemFull := normalizeThaiName(systemFirstName + systemLastName)
+	normalizedFirst := normalizeThaiName(systemFirstName)
+	normalizedLast := normalizeThaiName(systemLastName)
+	systemFull := normalizedFirst + normalizedLast
 
+	// exact match ก่อน
 	if normalizedOCR == systemFull {
 		return true
 	}
+	if strings.Contains(normalizedOCR, normalizedFirst) &&
+		strings.Contains(normalizedOCR, normalizedLast) {
+		return true
+	}
 
-	normalizedFirst := normalizeThaiName(systemFirstName)
-	normalizedLast := normalizeThaiName(systemLastName)
-
-	return strings.Contains(normalizedOCR, normalizedFirst) &&
-		strings.Contains(normalizedOCR, normalizedLast)
+	// ถ้าไม่ผ่าน ลอง strip วรรณยุกต์แล้ว compare อีกรอบ
+	ocrStripped := stripTones(normalizedOCR)
+	systemStripped := stripTones(systemFull)
+	return strings.Contains(ocrStripped, stripTones(normalizedFirst)) &&
+		strings.Contains(ocrStripped, stripTones(normalizedLast)) ||
+		ocrStripped == systemStripped
 }
 
 func resolveStatus(record *CriminalBlacklist) (CheckStatus, string, string, bool) {
@@ -110,6 +131,15 @@ func extractNationalIDWithY(items []infra.OCRItem) (string, float64) {
 	return "", 0
 }
 
+var idCardLabels = map[string]bool{
+	"ชื่อตัวและชื่อสกุล":     true,
+	"ชื่อตัวและชือสกุล":      true, // OCR เพี้ยนบ้าง
+	"เลขบัตรประจำตัวประชาชน": true,
+	"บัตรประจำตัวประชาชน":    true,
+	"identification": true,
+	"number":         true,
+}
+
 func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 	thaiRegex := regexp.MustCompile(`[\p{Thai}]+`)
 
@@ -125,6 +155,10 @@ func extractThaiName(items []infra.OCRItem, idCardY float64) string {
 			continue
 		}
 		if len([]rune(item.Text)) < 2 {
+			continue
+		}
+		normalized := strings.TrimSpace(strings.ToLower(item.Text))
+		if idCardLabels[normalized] || idCardLabels[item.Text] {
 			continue
 		}
 		thaiItems = append(thaiItems, textItem{
