@@ -36,7 +36,6 @@ class SubDistrictModel {
   final String nameTh;
   final String postalCode;
   final int districtId;
-  // BE ส่ง province_id ด้วย (จาก ToResponse ใน sub_district/dtos.go)
   final int provinceId;
 
   SubDistrictModel({
@@ -58,10 +57,96 @@ class SubDistrictModel {
   }
 }
 
+class ServiceModel {
+  final int id;
+  final String serName;
+  final int categoryId;
+  final String? serDescription;
+  final List<String> serDetails;
+  final List<String> imageUrls;
+  final List<String> workingDuration;
+  final List<String> additionalTerms;
+  final ServicePrice defaultPrice;
+  final bool isActive;
+  final String? categoryName;
+
+  final bool available;
+  final String priceSource;
+  final int technicianCount;
+
+  ServiceModel({
+    required this.id,
+    required this.serName,
+    required this.categoryId,
+    this.serDescription,
+    this.serDetails = const [],
+    this.imageUrls = const [],
+    this.workingDuration = const [],
+    this.additionalTerms = const [],
+    required this.defaultPrice,
+    this.isActive = true,
+    this.categoryName,
+    this.available = true,
+    this.priceSource = 'default',
+    this.technicianCount = 0,
+  });
+
+  factory ServiceModel.fromJson(Map<String, dynamic> json) {
+    return ServiceModel(
+      id: json['id'],
+      serName: json['ser_name'] ?? '',
+      categoryId: json['category_id'] ?? 0,
+      serDescription: json['ser_description'],
+      serDetails: List<String>.from(json['ser_details'] ?? []),
+
+      imageUrls: json['image_urls'] != null
+          ? List<String>.from(json['image_urls'])
+          : (json['thumbnail_url'] != null ? [json['thumbnail_url']] : []),
+      workingDuration: List<String>.from(json['working_duration'] ?? []),
+      additionalTerms: List<String>.from(json['additional_terms'] ?? []),
+      defaultPrice: ServicePrice.fromJson(
+        json['price'] ?? json['default_price'] ?? {},
+      ),
+      isActive: json['is_active'] ?? true,
+      categoryName: json['category_name'],
+      available: json['available'] ?? true,
+      priceSource: json['price_source'] ?? 'default',
+      technicianCount: json['technician_count'] ?? 0,
+    );
+  }
+}
+
+class ServicePrice {
+  final double? min;
+  final double? max;
+  final double? value;
+  final String? type;
+
+  ServicePrice({this.min, this.max, this.value, this.type});
+
+  factory ServicePrice.fromJson(Map<String, dynamic> json) {
+    toDouble(v) => v == null ? null : (v as num).toDouble();
+    return ServicePrice(
+      min: toDouble(json['min']),
+      max: toDouble(json['max']),
+      value: toDouble(json['value']),
+      type: json['type'],
+    );
+  }
+
+  double get startingPrice => min ?? value ?? 0;
+
+  String get displayText {
+    if (type == 'fixed' || max == null) {
+      return '฿${startingPrice.toStringAsFixed(0)}';
+    }
+    return '฿${startingPrice.toStringAsFixed(0)} - ฿${max!.toStringAsFixed(0)}';
+  }
+}
+
 class ServiceCategoryModel {
   final int id;
   final String catName;
-  // เพิ่ม field ที่ BE ส่งมาจาก CategoryResponse (mapper.go)
   final String? catDesc;
   final String? iconUrl;
   final bool isActive;
@@ -77,13 +162,24 @@ class ServiceCategoryModel {
   });
 
   factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) {
+    final categoryId = json['category_id'] ?? json['id'] ?? 0; // 👈 ดึง id ก่อน
+
+    final services =
+        (json['services'] as List?)?.map((e) {
+          final serviceJson = Map<String, dynamic>.from(e);
+          serviceJson['category_id'] =
+              categoryId; // 👈 inject เข้าไปทุก service
+          return ServiceModel.fromJson(serviceJson);
+        }).toList() ??
+        [];
+
     return ServiceCategoryModel(
-      id: json['id'],
-      catName: json['cat_name'],
+      id: categoryId,
+      catName: json['category_name'] ?? json['cat_name'] ?? '',
       catDesc: json['cat_desc'],
-      iconUrl: json['icon_url'],
+      iconUrl: json['category_icon'] ?? json['icon_url'],
       isActive: json['is_active'] ?? true,
-      services: [],
+      services: services,
     );
   }
 
@@ -104,71 +200,6 @@ class ServiceCategoryModel {
   }
 }
 
-class ServiceModel {
-  final int id;
-  final String serName;
-  final int categoryId;
-  final String? serDescription;
-  final List<String> serDetails;
-  final List<String> imageUrls;
-  final List<String> workingDuration;
-  final List<String> additionalTerms;
-  final ServicePrice defaultPrice;
-  // BE ส่ง is_active และ category_name ด้วย (ServiceResponse ใน dtos.go)
-  final bool isActive;
-  final String? categoryName;
-
-  ServiceModel({
-    required this.id,
-    required this.serName,
-    required this.categoryId,
-    this.serDescription,
-    this.serDetails = const [],
-    this.imageUrls = const [],
-    this.workingDuration = const [],
-    this.additionalTerms = const [],
-    required this.defaultPrice,
-    this.isActive = true,
-    this.categoryName,
-  });
-
-  factory ServiceModel.fromJson(Map<String, dynamic> json) {
-    return ServiceModel(
-      id: json['id'],
-      serName: json['ser_name'] ?? '',
-      categoryId: json['category_id'] ?? 0,
-      serDescription: json['ser_description'],
-      serDetails: List<String>.from(json['ser_details'] ?? []),
-      imageUrls: List<String>.from(json['image_urls'] ?? []),
-      workingDuration: List<String>.from(json['working_duration'] ?? []),
-      additionalTerms: List<String>.from(json['additional_terms'] ?? []),
-      defaultPrice: ServicePrice.fromJson(json['default_price'] ?? {}),
-      isActive: json['is_active'] ?? true,
-      categoryName: json['category_name'],
-    );
-  }
-}
-
-class ServicePrice {
-  final int? min;
-  final int? max;
-  final int? value;
-  final String? type;
-
-  ServicePrice({this.min, this.max, this.value, this.type});
-
-  factory ServicePrice.fromJson(Map<String, dynamic> json) {
-    return ServicePrice(
-      min: json['min'],
-      max: json['max'],
-      value: json['value'],
-      type: json['type'],
-    );
-  }
-}
-
-// เพิ่ม == และ hashCode ให้ตรงกับ AutoSelectTechnicianQuery
-// เพื่อให้ FutureProvider.family cache ทำงานถูกต้อง
 class TechnicianQuery {
   final int serviceId;
   final int provinceId;
@@ -327,10 +358,7 @@ class DocumentContent {
   final String body;
   final List<DocumentConsent> consents;
 
-  DocumentContent({
-    required this.body,
-    required this.consents,
-  });
+  DocumentContent({required this.body, required this.consents});
 
   factory DocumentContent.fromJson(Map<String, dynamic> json) {
     return DocumentContent(
@@ -377,11 +405,7 @@ class DocumentAcceptanceRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      "user_id": userId,
-      "role": role,
-      "consents": consents,
-    };
+    return {"user_id": userId, "role": role, "consents": consents};
   }
 }
 

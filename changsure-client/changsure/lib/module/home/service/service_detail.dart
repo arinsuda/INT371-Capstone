@@ -32,15 +32,6 @@ class ServiceDetail extends ConsumerStatefulWidget {
 }
 
 class _ServiceDetailState extends ConsumerState<ServiceDetail> {
-  late Future<List<ServiceModel>> _relatedFuture;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _relatedFuture = MasterDataService().getAllServices(null);
-  }
-
   Widget _priceTag({
     required String label,
     required int value,
@@ -77,47 +68,54 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
     final isTechnician = user?.role == UserRole.technician;
-    final allServicesAsync = ref.watch(allServicesProvider);
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          ListView(
-            padding: EdgeInsets.only(top: 0, bottom: 16),
+    final detailAsync = ref.watch(
+      serviceMenuDetailProvider(
+        ServiceMenuDetailQuery(
+          serviceId: widget.id,
+          provinceId: widget.provinceId ?? 1,
+        ),
+      ),
+    );
+
+    final menuAsync = ref.watch(serviceMenuProvider(widget.provinceId ?? 1));
+
+    return detailAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) =>
+          Scaffold(body: Center(child: Text('โหลดข้อมูลไม่สำเร็จ: $e'))),
+      data: (service) {
+        return Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: 18),
+                child: Icon(Icons.share, color: Colors.white),
+              ),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.only(top: 0, bottom: 16),
             children: [
-              Stack(
-                children: [
-                  SizedBox(
-                    height: 370,
-                    child: widget.data.imageUrls.isNotEmpty
-                        ? ServiceImageCarousel(imageUrls: widget.data.imageUrls)
-                        : Image.asset(
-                            'assets/image/no_image.png',
-                            fit: BoxFit.cover,
-                          ),
-                  ),
-                  Positioned(
-                    top: 30,
-                    left: 8,
-                    right: 18,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Icon(Icons.share, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ],
+              SizedBox(
+                height: 370,
+                child: service.imageUrls.isNotEmpty
+                    ? ServiceImageCarousel(imageUrls: service.imageUrls)
+                    : Image.asset(
+                        'assets/image/no_image.png',
+                        fit: BoxFit.cover,
+                      ),
               ),
 
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
 
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -125,56 +123,42 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                   vertical: 16,
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          "฿",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryBorderHover,
-                          ),
-                        ),
-                        Text(
-                          "${widget.data.defaultPrice.min}",
+                          service.defaultPrice.displayText,
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryBorderHover,
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Text(
+                        const SizedBox(width: 4),
+                        const Text(
                           "/ (เริ่มต้น)",
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: AppColors.colorTertiaryText,
                           ),
                         ),
                       ],
                     ),
-
-                    SizedBox(height: 2),
-
+                    const SizedBox(height: 2),
                     Text(
-                      widget.data.serName,
+                      service.serName,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primaryText,
                       ),
                     ),
-
-                    SizedBox(height: 2),
-
-                    if (widget.data.serDescription != null) ...[
+                    if (service.serDescription != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        widget.data.serDescription!,
+                        service.serDescription!,
                         style: const TextStyle(fontSize: 12),
                       ),
                     ],
@@ -183,41 +167,28 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
               ),
 
               _sectionDivider(),
-
-              _markdownSection(
-                title: "รายละเอียด",
-                data: widget.data.serDetails,
-              ),
-
+              _markdownSection(title: "รายละเอียด", data: service.serDetails),
               _sectionDivider(),
-
               _markdownSection(
                 title: "เงื่อนไขเพิ่มเติม",
-                data: widget.data.additionalTerms,
+                data: service.additionalTerms,
               ),
-
               _sectionDivider(),
 
-              Padding(
-                padding: const EdgeInsets.only(
+              const Padding(
+                padding: EdgeInsets.only(
                   top: 16,
                   bottom: 8,
                   left: 24,
                   right: 24,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "บริการแนะนำ",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryText,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  "บริการแนะนำ",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryText,
+                  ),
                 ),
               ),
 
@@ -230,36 +201,42 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                 ),
                 child: SizedBox(
                   height: 220,
-                  child: allServicesAsync.when(
+                  child: menuAsync.when(
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
                     error: (e, _) =>
                         const Center(child: Text('โหลดบริการไม่สำเร็จ')),
-                    data: (allServices) {
-                      final services = allServices
-                          .where(
-                            (s) =>
-                                s.categoryId == widget.data.categoryId &&
-                                s.id != widget.data.id,
-                          )
+                    data: (categories) {
+                      print("🔍 categories count: ${categories.length}");
+                      print("🔍 looking for categoryId: ${widget.categoryId}");
+                      for (var c in categories) {
+                        print(
+                          "   category id=${c.id} name=${c.catName} services=${c.services.length}",
+                        );
+                      }
+
+                      final related = categories
+                          .where((c) => c.id == service.categoryId)
+                          .expand((c) => c.services)
+                          .where((s) => s.id != widget.id)
                           .toList();
 
-                      if (services.isEmpty) {
+                      print("🔍 related count: ${related.length}");
+
+                      if (related.isEmpty) {
                         return const Center(child: Text("ไม่มีบริการแนะนำ"));
                       }
 
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.only(left: 0, right: 18),
-                        itemCount: services.length,
+                        itemCount: related.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 4),
                         itemBuilder: (context, index) {
-                          final service = services[index];
-
                           return SizedBox(
                             width: 160,
                             child: ServiceCard(
-                              data: service,
+                              data: related[index],
                               provinceId: widget.provinceId,
                             ),
                           );
@@ -271,163 +248,160 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
               ),
             ],
           ),
-        ],
-      ),
 
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          right: 16,
-          left: 16,
-          top: 24,
-          bottom: MediaQuery.of(context).padding.bottom + 24,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 5,
-              offset: const Offset(0, -2),
+          bottomNavigationBar: Container(
+            padding: EdgeInsets.only(
+              right: 16,
+              left: 16,
+              top: 24,
+              bottom: MediaQuery.of(context).padding.bottom + 24,
             ),
-          ],
-        ),
-        child: PrimaryButton(
-          text: isTechnician ? "เฉพาะลูกค้าเท่านั้น" : "จองคิว",
-          onPressed: isTechnician
-              ? null // ❌ disabled
-              : () {
-                  final rootContext = context;
-                  int? selectedMaxPrice;
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    isScrollControlled: true,
-                    builder: (context) {
-                      return
-                        GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          color: Colors.black.withOpacity(0.5),
-                          child: GestureDetector(
-                            onTap: () {},
-                            child: DraggableScrollableSheet(
-                              initialChildSize: 0.53,
-                              maxChildSize: 0.53,
-                              minChildSize: 0.3,
-                              builder: (context, scrollController) {
-                                int selectedIndex =
-                                    -1; // เริ่มต้นเป็น -1 (ไม่ได้เลือก)
-                                return StatefulBuilder(
-                                  builder: (context, setState) {
-                                    final options = [
-                                      "ระบบเลือกช่างให้อัตโนมัติ",
-                                      "เลือกช่างด้วยตนเอง",
-                                    ];
-                                    bool canConfirm() {
-                                      if (selectedIndex == -1) return false;
-                                      if (selectedIndex == 0 &&
-                                          selectedMaxPrice == null)
-                                        return false;
-                                      return true;
-                                    }
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: PrimaryButton(
+              text: isTechnician ? "เฉพาะลูกค้าเท่านั้น" : "จองคิว",
+              onPressed: isTechnician
+                  ? null
+                  : () {
+                      final rootContext = context;
+                      int? selectedMaxPrice;
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) {
+                          return GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              color: Colors.black.withOpacity(0.5),
+                              child: GestureDetector(
+                                onTap: () {},
+                                child: DraggableScrollableSheet(
+                                  initialChildSize: 0.53,
+                                  maxChildSize: 0.53,
+                                  minChildSize: 0.3,
+                                  builder: (context, scrollController) {
+                                    int selectedIndex = -1;
+                                    return StatefulBuilder(
+                                      builder: (context, setState) {
+                                        final options = [
+                                          "ระบบเลือกช่างให้อัตโนมัติ",
+                                          "เลือกช่างด้วยตนเอง",
+                                        ];
+                                        bool canConfirm() {
+                                          if (selectedIndex == -1) return false;
+                                          if (selectedIndex == 0 &&
+                                              selectedMaxPrice == null)
+                                            return false;
+                                          return true;
+                                        }
 
-                                    return Container(
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.vertical(
-                                          top: Radius.circular(16),
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 18,
-                                        vertical: 16,
-                                      ),
-                                      child: ListView(
-                                        controller: scrollController,
-                                        children: [
-                                          Center(
-                                            child: Container(
-                                              width: 50,
-                                              height: 5,
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[300],
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
+                                        return Container(
+                                          decoration: const BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(16),
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 18,
+                                            vertical: 16,
+                                          ),
+                                          child: ListView(
+                                            controller: scrollController,
+                                            children: [
+                                              Center(
+                                                child: Container(
+                                                  width: 50,
+                                                  height: 5,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[300],
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            "เลือกวิธีการจองช่าง",
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primaryText,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            "คุณต้องการเลือกช่างแบบไหน?",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color:
-                                                  AppColors.colorTertiaryText,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 24),
-                                          ...List.generate(options.length, (
-                                            index,
-                                          ) {
-                                            final isSelected =
-                                                selectedIndex == index;
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                "เลือกวิธีการจองช่าง",
+                                                style: TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.primaryText,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                "คุณต้องการเลือกช่างแบบไหน?",
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: AppColors
+                                                      .colorTertiaryText,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 24),
+                                              ...List.generate(options.length, (
+                                                index,
+                                              ) {
+                                                final isSelected =
+                                                    selectedIndex == index;
 
-                                            return Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                GestureDetector(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      selectedIndex = index;
-                                                    });
-                                                  },
-                                                  child: Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          bottom: 8,
-                                                        ),
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 24,
-                                                          vertical: 12,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: isSelected
-                                                          ? AppColors
-                                                                .primaryBGHover
-                                                          : Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            16,
-                                                          ),
-                                                      border: Border.all(
-                                                        color: isSelected
-                                                            ? AppColors
-                                                                  .secondary
-                                                            : const Color(
-                                                                0xFFD6D6D6,
+                                                return Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    GestureDetector(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          selectedIndex = index;
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        margin:
+                                                            const EdgeInsets.only(
+                                                              bottom: 8,
+                                                            ),
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 24,
+                                                              vertical: 12,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: isSelected
+                                                              ? AppColors
+                                                                    .primaryBGHover
+                                                              : Colors.white,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                16,
                                                               ),
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
-                                                      children: [
-                                                        Text(
-                                                          options[index],
-                                                          style:
-                                                              const TextStyle(
+                                                          border: Border.all(
+                                                            color: isSelected
+                                                                ? AppColors
+                                                                      .secondary
+                                                                : const Color(
+                                                                    0xFFD6D6D6,
+                                                                  ),
+                                                          ),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              options[index],
+                                                              style: const TextStyle(
                                                                 fontSize: 14,
                                                                 color: Color(
                                                                   0xFF0F53BA,
@@ -436,188 +410,198 @@ class _ServiceDetailState extends ConsumerState<ServiceDetail> {
                                                                     FontWeight
                                                                         .bold,
                                                               ),
+                                                            ),
+                                                            Radio<int>(
+                                                              value: index,
+                                                              groupValue:
+                                                                  selectedIndex,
+                                                              onChanged: (val) {
+                                                                setState(() {
+                                                                  selectedIndex =
+                                                                      val!;
+                                                                });
+                                                              },
+                                                            ),
+                                                          ],
                                                         ),
-                                                        Radio<int>(
-                                                          value: index,
-                                                          groupValue:
-                                                              selectedIndex,
-                                                          onChanged: (val) {
-                                                            setState(() {
-                                                              selectedIndex =
-                                                                  val!;
-                                                            });
-                                                          },
-                                                        ),
-                                                      ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ),
 
-                                                if (isSelected &&
-                                                    index == 0) ...[
-                                                  const SizedBox(height: 4),
-                                                  const Text(
-                                                    "  กรุณาเลือกเรทราคาที่ท่านต้องการ",
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: AppColors.primary,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  Wrap(
-                                                    spacing: 8,
-                                                    runSpacing: 8,
-                                                    children: [
-                                                      _priceTag(
-                                                        label: "ไม่เกิน ฿1,000",
-                                                        value: 1000,
-                                                        current:
-                                                            selectedMaxPrice,
-                                                        onTap: (v) {
-                                                          setState(
-                                                            () =>
-                                                                selectedMaxPrice =
-                                                                    v,
-                                                          );
-                                                        },
+                                                    if (isSelected &&
+                                                        index == 0) ...[
+                                                      const SizedBox(height: 4),
+                                                      const Text(
+                                                        "  กรุณาเลือกเรทราคาที่ท่านต้องการ",
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color:
+                                                              AppColors.primary,
+                                                        ),
                                                       ),
-                                                      _priceTag(
-                                                        label: "ไม่เกิน ฿3,000",
-                                                        value: 3000,
-                                                        current:
-                                                            selectedMaxPrice,
-                                                        onTap: (v) {
-                                                          setState(
-                                                            () =>
-                                                                selectedMaxPrice =
-                                                                    v,
-                                                          );
-                                                        },
+                                                      const SizedBox(
+                                                        height: 10,
                                                       ),
-                                                      _priceTag(
-                                                        label: "ไม่เกิน ฿5,000",
-                                                        value: 5000,
-                                                        current:
-                                                            selectedMaxPrice,
-                                                        onTap: (v) {
-                                                          setState(
-                                                            () =>
-                                                                selectedMaxPrice =
-                                                                    v,
-                                                          );
-                                                        },
+                                                      Wrap(
+                                                        spacing: 8,
+                                                        runSpacing: 8,
+                                                        children: [
+                                                          _priceTag(
+                                                            label:
+                                                                "ไม่เกิน ฿1,000",
+                                                            value: 1000,
+                                                            current:
+                                                                selectedMaxPrice,
+                                                            onTap: (v) {
+                                                              setState(
+                                                                () =>
+                                                                    selectedMaxPrice =
+                                                                        v,
+                                                              );
+                                                            },
+                                                          ),
+                                                          _priceTag(
+                                                            label:
+                                                                "ไม่เกิน ฿3,000",
+                                                            value: 3000,
+                                                            current:
+                                                                selectedMaxPrice,
+                                                            onTap: (v) {
+                                                              setState(
+                                                                () =>
+                                                                    selectedMaxPrice =
+                                                                        v,
+                                                              );
+                                                            },
+                                                          ),
+                                                          _priceTag(
+                                                            label:
+                                                                "ไม่เกิน ฿5,000",
+                                                            value: 5000,
+                                                            current:
+                                                                selectedMaxPrice,
+                                                            onTap: (v) {
+                                                              setState(
+                                                                () =>
+                                                                    selectedMaxPrice =
+                                                                        v,
+                                                              );
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 12,
                                                       ),
                                                     ],
+                                                  ],
+                                                );
+                                              }),
+
+                                              const SizedBox(height: 16),
+
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: TertiaryButton(
+                                                      text: "ยกเลิก",
+                                                      onPressed: () {
+                                                        Navigator.pop(context);
+                                                      },
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8,
+                                                          ),
+                                                    ),
                                                   ),
-                                                  const SizedBox(height: 12),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: PrimaryButton(
+                                                      text: "ยืนยัน",
+                                                      onPressed: canConfirm()
+                                                          ? () {
+                                                              Navigator.pop(
+                                                                context,
+                                                              );
+
+                                                              if (selectedIndex ==
+                                                                  0) {
+                                                                Navigator.push(
+                                                                  rootContext,
+                                                                  MaterialPageRoute(
+                                                                    builder: (context) => SystemChoose(
+                                                                      serviceName: widget
+                                                                          .data
+                                                                          .serName,
+                                                                      category: widget
+                                                                          .data
+                                                                          .categoryId,
+                                                                      maxPrice:
+                                                                          selectedMaxPrice ??
+                                                                          5000,
+                                                                      serviceId:
+                                                                          widget
+                                                                              .data
+                                                                              .id,
+                                                                      provinceId:
+                                                                          widget
+                                                                              .provinceId,
+                                                                      data: widget
+                                                                          .data,
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              } else {
+                                                                Navigator.push(
+                                                                  rootContext,
+                                                                  MaterialPageRoute(
+                                                                    builder: (context) => CustomerChoose(
+                                                                      serviceName: widget
+                                                                          .data
+                                                                          .serName,
+                                                                      category: widget
+                                                                          .data
+                                                                          .categoryId,
+                                                                      serviceId:
+                                                                          widget
+                                                                              .data
+                                                                              .id,
+                                                                      provinceId:
+                                                                          widget
+                                                                              .provinceId,
+                                                                      data: widget
+                                                                          .data,
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              }
+                                                            }
+                                                          : null,
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8,
+                                                          ),
+                                                    ),
+                                                  ),
                                                 ],
-                                              ],
-                                            );
-                                          }),
-
-                                          const SizedBox(height: 16),
-
-                                          Row(
-                                            children: [
-                                              // ปุ่มยกเลิก
-                                              Expanded(
-                                                child: TertiaryButton(
-                                                  text: "ยกเลิก",
-                                                  onPressed: () {
-                                                    Navigator.pop(context);
-                                                  },
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: 8,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: PrimaryButton(
-                                                  text: "ยืนยัน",
-                                                  onPressed: canConfirm()
-                                                      ? () {
-                                                          Navigator.pop(
-                                                            context,
-                                                          );
-
-                                                          if (selectedIndex ==
-                                                              0) {
-                                                            Navigator.push(
-                                                              rootContext,
-                                                              MaterialPageRoute(
-                                                                builder: (context) => SystemChoose(
-                                                                  serviceName:
-                                                                      widget
-                                                                          .data
-                                                                          .serName,
-                                                                  category: widget
-                                                                      .data
-                                                                      .categoryId,
-                                                                  maxPrice:
-                                                                      selectedMaxPrice ??
-                                                                      5000,
-                                                                  serviceId:
-                                                                      widget
-                                                                          .data
-                                                                          .id,
-                                                                  provinceId: widget
-                                                                      .provinceId,
-                                                                  data: widget
-                                                                      .data,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          } else {
-                                                            Navigator.push(
-                                                              context,
-                                                              MaterialPageRoute(
-                                                                builder: (context) => CustomerChoose(
-                                                                  serviceName:
-                                                                      widget
-                                                                          .data
-                                                                          .serName,
-                                                                  category: widget
-                                                                      .data
-                                                                      .categoryId,
-                                                                  serviceId:
-                                                                      widget
-                                                                          .data
-                                                                          .id,
-                                                                  provinceId: widget
-                                                                      .provinceId,
-                                                                  data: widget
-                                                                      .data,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }
-                                                        }
-                                                      : null,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 8,
-                                                      ),
-                                                ),
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
+                                        );
+                                      },
                                     );
                                   },
-                                );
-                              },
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-          padding: EdgeInsets.symmetric(vertical: 10),
-        ),
-      ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+        );
+      },
     );
   }
 }

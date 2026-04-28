@@ -56,9 +56,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final serviceCategoriesAsync = ref.watch(serviceCategoriesProvider);
+    final serviceCategoriesAsync = ref.watch(
+      serviceMenuProvider(selectedProvinceId ?? 1),
+    );
     print(selectedProvinceId);
-
 
     return Scaffold(
       body: Stack(

@@ -30,9 +30,6 @@ class MasterDataService {
     return headers;
   }
 
-  // ─── Generic GET ────────────────────────────────────────────────────────────
-  // BE บางตัวใช้ "success" (service module) บางตัวใช้ "status":"success" (province/district)
-  // ดังนั้น parser รับ body ทั้งก้อนเพื่อให้แต่ละ caller ดึง field เองได้
   Future<T> _get<T>({
     required String endpoint,
     required T Function(Map<String, dynamic> body) parser,
@@ -61,7 +58,6 @@ class MasterDataService {
     }
   }
 
-  // ─── Generic POST ────────────────────────────────────────────────────────────
   Future<T> _post<T>({
     required String endpoint,
     required T Function(dynamic data) parser,
@@ -94,8 +90,6 @@ class MasterDataService {
     }
   }
 
-  // ─── Provinces ───────────────────────────────────────────────────────────────
-  // BE: GET /provinces → { "status": "success", "total": N, "data": [...] }
   Future<List<ProvinceModel>> getProvinces(String? token) async {
     return _get(
       endpoint: '/provinces',
@@ -105,10 +99,6 @@ class MasterDataService {
     );
   }
 
-  // ─── Districts ───────────────────────────────────────────────────────────────
-  // BE route: GET /provinces/:province_id/districts → { "success": true, "data": [...] }
-  // หมายเหตุ: GET /districts?province_id=X ใช้ utils.ParseUintParam ซึ่ง parse path param
-  // ไม่ใช่ query param ทำให้ได้ 400 เสมอ → ใช้ nested route แทน
   Future<List<DistrictModel>> getDistricts({
     required String? token,
     required int provinceId,
@@ -122,9 +112,6 @@ class MasterDataService {
     );
   }
 
-  // ─── Sub-Districts ───────────────────────────────────────────────────────────
-  // BE route: GET /districts/:district_id/sub-districts → { "status": "success", "data": [...] }
-  // (ใช้ nested route เหมือน districts เพื่อความสม่ำเสมอ)
   Future<List<SubDistrictModel>> getSubDistricts({
     required String? token,
     required int districtId,
@@ -149,7 +136,7 @@ class MasterDataService {
 
     return _post<Map<String, dynamic>?>(
       endpoint: '/customers/$customerId/addresses',
-      // 👈 เปลี่ยนตาม backend จริง
+
       token: token,
       body: body,
       parser: (data) => data,
@@ -167,15 +154,24 @@ class MasterDataService {
 
     return _post<Map<String, dynamic>?>(
       endpoint: '/technicians/$technicianId/addresses',
-      // 👈 เปลี่ยนตาม backend จริง
+
       token: token,
       body: body,
       parser: (data) => data,
     );
   }
 
-  // ─── Services ────────────────────────────────────────────────────────────────
-  // BE: GET /services/all → { "success": true, "total": N, "data": [...] }
+  Future<ServiceModel> getServiceMenuDetail({
+    required int serviceId,
+    required int provinceId,
+  }) async {
+    return _get(
+      endpoint: '/services/menu/$serviceId',
+      queryParams: {'province_id': provinceId.toString()},
+      parser: (body) => ServiceModel.fromJson(body['data']),
+    );
+  }
+
   Future<List<ServiceModel>> getAllServices(String? token) async {
     if (token?.trim().isEmpty ?? true) {
       throw ApiException('Authentication token is required');
@@ -188,7 +184,6 @@ class MasterDataService {
     );
   }
 
-  // BE: GET /services?category_id=X → { "success": true, "total": N, "data": [...] }
   Future<List<ServiceModel>> getServicesByCategory(int categoryId) async {
     return _get(
       endpoint: '/services',
@@ -199,61 +194,27 @@ class MasterDataService {
     );
   }
 
-  // ─── Service Categories (with services merged) ────────────────────────────────
-  // BE: GET /service-categories → { "success": true, "data": [...] }
-  // BE: GET /services/all       → { "success": true, "total": N, "data": [...] }
-  Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices() async {
-    try {
-      final results = await Future.wait([
-        _client.get(
-          Uri.parse('${ApiConstants.baseUrl}/service-categories'),
-          headers: {'Content-Type': 'application/json'},
-        ),
-        _client.get(
-          Uri.parse('${ApiConstants.baseUrl}/services/all'),
-          headers: {'Content-Type': 'application/json'},
-        ),
-      ]);
-
-      final catResponse = results[0];
-      final serviceResponse = results[1];
-
-      if (catResponse.statusCode != 200 || serviceResponse.statusCode != 200) {
-        throw ApiException(
-          'Failed to fetch categories or services',
-          catResponse.statusCode,
-        );
-      }
-
-      final categories = (jsonDecode(catResponse.body)['data'] as List)
+  Future<List<ServiceCategoryModel>> getServiceCategoriesOnly() async {
+    return _get(
+      endpoint: '/service-categories',
+      parser: (body) => ((body['data'] ?? []) as List)
           .map((e) => ServiceCategoryModel.fromJson(e))
-          .toList();
-
-      final services = (jsonDecode(serviceResponse.body)['data'] as List)
-          .map((e) => ServiceModel.fromJson(e))
-          .toList();
-
-      return categories
-          .map((category) {
-            final categoryServices = services
-                .where((service) => service.categoryId == category.id)
-                .toList();
-
-            return categoryServices.isNotEmpty
-                ? category.copyWith(services: categoryServices)
-                : null;
-          })
-          .whereType<ServiceCategoryModel>()
-          .toList();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch categories with services: $e');
-    }
+          .toList(),
+    );
   }
 
-  // ─── Technicians ─────────────────────────────────────────────────────────────
-  // BE: GET /technicians?service_id=X&province_id=Y
-  //     → { "success": true, "data": { "items": [...], ... } }
+  Future<List<ServiceCategoryModel>> getServiceCategoriesWithServices({
+    required int provinceId,
+  }) async {
+    return _get(
+      endpoint: '/services/menu',
+      queryParams: {'province_id': provinceId.toString()},
+      parser: (body) => ((body['data'] ?? []) as List)
+          .map((e) => ServiceCategoryModel.fromJson(e))
+          .toList(),
+    );
+  }
+
   Future<List<Technician>> getAllTechnicians({
     required String? token,
     required int serviceId,
@@ -272,7 +233,6 @@ class MasterDataService {
     );
   }
 
-  // BE: POST /technicians/auto-select → { "success": true, "data": { ... } | null }
   Future<Technician?> getAutoSelectTechnician({
     required String? token,
     required int serviceId,
@@ -295,7 +255,6 @@ class MasterDataService {
     );
   }
 
-  // ─── Register ────────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>?> registerCustomer(CustomerRegisterModel model) {
     return _post(
       endpoint: '/auth/customer/register',
@@ -350,8 +309,6 @@ class MasterDataService {
   }
 }
 
-// ─── Providers ────────────────────────────────────────────────────────────────
-
 final masterDataServiceProvider = Provider((ref) {
   final service = MasterDataService();
   ref.onDispose(service.dispose);
@@ -402,7 +359,7 @@ class TechnicianRegisterNotifier extends AsyncNotifier<Map<String, dynamic>?> {
       return result;
     } catch (e, st) {
       state = AsyncError(e, st);
-      rethrow; // ✅ ต้องมี
+      rethrow;
     }
   }
 }
@@ -440,8 +397,18 @@ final allServicesProvider = FutureProvider<List<ServiceModel>>((ref) async {
 final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
   ref,
 ) async {
-  return ref.read(masterDataServiceProvider).getServiceCategoriesWithServices();
+  return ref.read(masterDataServiceProvider).getServiceCategoriesOnly();
 });
+
+final serviceMenuProvider =
+    FutureProvider.family<List<ServiceCategoryModel>, int>((
+      ref,
+      provinceId,
+    ) async {
+      return ref
+          .read(masterDataServiceProvider)
+          .getServiceCategoriesWithServices(provinceId: provinceId);
+    });
 
 final servicesByCategoryProvider =
     FutureProvider.family<List<ServiceModel>, int>((ref, categoryId) async {
@@ -498,7 +465,7 @@ class AddressNotifier extends AsyncNotifier<void> {
 
       await service.createCustomerAddress(
         token: user.token,
-        customerId: user.id, // 👈 ใช้ id จาก UserModel
+        customerId: user.id,
         body: body,
       );
 
@@ -520,7 +487,7 @@ class AddressNotifier extends AsyncNotifier<void> {
 
       await service.createTechnicianAddress(
         token: user.token,
-        technicianId: user.id, // 👈 ใช้ id จาก UserModel
+        technicianId: user.id,
         body: body,
       );
 
@@ -561,4 +528,37 @@ final documentAcceptanceProvider =
         token: user.token!,
         request: request,
       );
+    });
+
+class ServiceMenuDetailQuery {
+  final int serviceId;
+  final int provinceId;
+
+  const ServiceMenuDetailQuery({
+    required this.serviceId,
+    required this.provinceId,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ServiceMenuDetailQuery &&
+          serviceId == other.serviceId &&
+          provinceId == other.provinceId;
+
+  @override
+  int get hashCode => serviceId.hashCode ^ provinceId.hashCode;
+}
+
+final serviceMenuDetailProvider =
+    FutureProvider.family<ServiceModel, ServiceMenuDetailQuery>((
+      ref,
+      query,
+    ) async {
+      return ref
+          .read(masterDataServiceProvider)
+          .getServiceMenuDetail(
+            serviceId: query.serviceId,
+            provinceId: query.provinceId,
+          );
     });
