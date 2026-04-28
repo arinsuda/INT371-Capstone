@@ -421,7 +421,7 @@ func (s *service) processMediaContent(
 		)
 	}
 
-	contentType := file.Header.Get("Content-Type")
+	contentType := s.detectContentType(file)
 	if !allowedTypes[contentType] {
 		return "", apperrors.NewBadRequest(typeErrMsg)
 	}
@@ -584,4 +584,36 @@ func (s *service) canChat(status string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *service) detectContentType(file *multipart.FileHeader) string {
+	ct := file.Header.Get("Content-Type")
+	if ct != "" && ct != "application/octet-stream" {
+		return ct
+	}
+	switch strings.ToLower(filepath.Ext(file.Filename)) {
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".webm":
+		return "video/webm"
+	case ".m4a":
+		return "audio/m4a"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".aac":
+		return "audio/aac"
+	case ".ogg":
+		return "audio/ogg"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	}
+	return ct
 }

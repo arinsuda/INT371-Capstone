@@ -35,7 +35,7 @@ type BookingInfo struct {
 
 type SendMessageReq struct {
 	BookingID uint        `json:"booking_id" validate:"required,min=1"`
-	Type      MessageType `json:"type" validate:"required,oneof=TEXT IMAGE"`
+	Type      MessageType `json:"type" validate:"required,oneof=TEXT IMAGE VOICE VIDEO"`
 	Content   string      `form:"content" json:"content" validate:"required_if=Type TEXT"`
 }
 
