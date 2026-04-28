@@ -175,3 +175,91 @@ func toInt(s string, def int) int {
 	}
 	return i
 }
+
+func (h *Handler) ListServicesForMenu(c fiber.Ctx) error {
+	var q ListMenuQuery
+
+	provinceID, err := toUint(c.Query("province_id"))
+	if err != nil || provinceID == 0 {
+		return c.Status(http.StatusBadRequest).
+			JSON(fiber.Map{"success": false, "error": "province_id is required"})
+	}
+	q.ProvinceID = uint(provinceID)
+
+	if v := c.Query("category_id"); v != "" {
+		if id, err := toUint(v); err == nil && id > 0 {
+			tmp := uint(id)
+			q.CategoryID = &tmp
+		}
+	}
+
+	defaultActive := true
+	q.IsActive = &defaultActive
+	if v := c.Query("is_active"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			q.IsActive = &b
+		}
+	}
+
+	items, err := h.svc.GetServicesForMenu(c.Context(), q)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).
+			JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"total":   len(items),
+		"data":    items,
+	})
+}
+
+func (h *Handler) GetMenu(c fiber.Ctx) error {
+	provinceID, err := toUint(c.Query("province_id"))
+	if err != nil || provinceID == 0 {
+		return c.Status(http.StatusBadRequest).
+			JSON(fiber.Map{"success": false, "error": "province_id is required"})
+	}
+
+	q := MenuQuery{ProvinceID: uint(provinceID)}
+
+	if v := c.Query("category_id"); v != "" {
+		if id, err := toUint(v); err == nil && id > 0 {
+			tmp := uint(id)
+			q.CategoryID = &tmp
+		}
+	}
+
+	defaultActive := true
+	q.IsActive = &defaultActive
+
+	data, err := h.svc.GetMenu(c.Context(), q)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).
+			JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "total": len(data), "data": data})
+}
+
+func (h *Handler) GetMenuDetail(c fiber.Ctx) error {
+	id, err := toUint(c.Params("id"))
+	if err != nil || id == 0 {
+		return c.Status(http.StatusBadRequest).
+			JSON(fiber.Map{"success": false, "error": "invalid id"})
+	}
+
+	provinceID, err := toUint(c.Query("province_id"))
+	if err != nil || provinceID == 0 {
+		return c.Status(http.StatusBadRequest).
+			JSON(fiber.Map{"success": false, "error": "province_id is required"})
+	}
+
+	data, err := h.svc.GetMenuDetail(c.Context(), uint(id), uint(provinceID))
+	if err != nil {
+		return c.Status(http.StatusNotFound).
+			JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": data})
+}

@@ -7,6 +7,18 @@ import (
 	"gorm.io/gorm"
 )
 
+type PriceRange struct {
+	Min float64
+	Max float64
+}
+
+type PriceAndCount struct {
+	ServiceID       uint    `gorm:"column:service_id"`
+	MinPrice        float64 `gorm:"column:min_price"`
+	MaxPrice        float64 `gorm:"column:max_price"`
+	TechnicianCount int     `gorm:"column:technician_count"`
+}
+
 type Repository interface {
 	Create(ctx context.Context, m *Service) error
 	Get(ctx context.Context, id uint) (*Service, error)
@@ -14,6 +26,8 @@ type Repository interface {
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, q ListQuery) ([]Service, int64, error)
 	GetAll(ctx context.Context, q ListQuery) ([]Service, error)
+	GetPriceRangeByProvince(ctx context.Context, serviceIDs []uint, provinceID uint) (map[uint]PriceRange, error)
+	GetPriceAndCountByProvince(ctx context.Context, serviceIDs []uint, provinceID uint) (map[uint]PriceAndCount, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -45,7 +59,7 @@ func (r *repository) GetAll(ctx context.Context, q ListQuery) ([]Service, error)
 	db = db.Order("id asc")
 
 	var items []Service
-	if err := db.Find(&items).Error; err != nil {
+	if err := db.Preload("Category").Find(&items).Error; err != nil {
 		return nil, err
 	}
 
@@ -112,4 +126,88 @@ func (r *repository) List(ctx context.Context, q ListQuery) ([]Service, int64, e
 	}
 
 	return items, total, nil
+}
+
+func (r *repository) GetPriceRangeByProvince(
+	ctx context.Context,
+	serviceIDs []uint,
+	provinceID uint,
+) (map[uint]PriceRange, error) {
+	type result struct {
+		ServiceID uint    `gorm:"column:service_id"`
+		MinPrice  float64 `gorm:"column:min_price"`
+		MaxPrice  float64 `gorm:"column:max_price"`
+	}
+
+	var rows []result
+	err := r.db.WithContext(ctx).
+		Table("technician_services ts").
+		Select(`
+            ts.service_id,
+            MIN(COALESCE(ts.price_fixed, ts.price_min)) AS min_price,
+            MAX(COALESCE(ts.price_fixed, ts.price_max)) AS max_price
+        `).
+		Joins(`
+            JOIN technician_service_areas tsa 
+                ON tsa.technician_id = ts.technician_id 
+                AND tsa.province_id = ?
+                AND tsa.is_active = TRUE
+        `, provinceID).
+		Where("ts.service_id IN ?", serviceIDs).
+		Where("ts.is_active = TRUE").
+		Group("ts.service_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[uint]PriceRange, len(rows))
+	for _, row := range rows {
+		m[row.ServiceID] = PriceRange{Min: row.MinPrice, Max: row.MaxPrice}
+	}
+	return m, nil
+}
+
+func (r *repository) GetPriceAndCountByProvince(
+	ctx context.Context,
+	serviceIDs []uint,
+	provinceID uint,
+) (map[uint]PriceAndCount, error) {
+	if len(serviceIDs) == 0 {
+		return map[uint]PriceAndCount{}, nil
+	}
+
+	var rows []PriceAndCount
+	err := r.db.WithContext(ctx).
+		Table("technician_services ts").
+		Select(`
+            ts.service_id,
+            MIN(COALESCE(ts.price_fixed, ts.price_min))  AS min_price,
+            MAX(COALESCE(ts.price_fixed, ts.price_max))  AS max_price,
+            COUNT(DISTINCT ts.technician_id)             AS technician_count
+        `).
+		Joins(`
+            JOIN technician_service_areas tsa
+                ON  tsa.technician_id = ts.technician_id
+                AND tsa.province_id   = ?
+                AND tsa.is_active     = TRUE
+        `, provinceID).
+		Joins(`
+            JOIN technicians t
+                ON  t.id = ts.technician_id
+                AND t.verification_status = 'approved'
+        `).
+		Where("ts.service_id IN ?", serviceIDs).
+		Where("ts.is_active = TRUE").
+		Group("ts.service_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[uint]PriceAndCount, len(rows))
+	for _, row := range rows {
+		m[row.ServiceID] = row
+	}
+	return m, nil
 }
