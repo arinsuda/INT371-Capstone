@@ -174,8 +174,8 @@ class TechnicianCardCTM extends ConsumerWidget {
                               children: [
                                 Text(
                                   tech.priceMax > tech.priceMin
-                                      ? "฿${tech.priceMin} - ${tech.priceMax}"
-                                      : "฿${tech.priceMin}",
+                                      ? "฿${tech.priceMin.toStringAsFixed(0)} - ${tech.priceMax.toStringAsFixed(0)}"
+                                      : "฿${tech.priceMin.toStringAsFixed(0)}",
                                   style: const TextStyle(
                                     color: AppColors.primary,
                                     fontSize: 18,
@@ -222,7 +222,7 @@ class TechnicianCardCTM extends ConsumerWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "จำนวนงานที่รับ: ",
+                              "จำนวนงานที่รับ: ${tech.totalJobs}",
                               style: const TextStyle(
                                 color: AppColors.colorTertiaryText,
                                 fontSize: 10,

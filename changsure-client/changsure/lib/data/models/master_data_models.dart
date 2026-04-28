@@ -162,13 +162,12 @@ class ServiceCategoryModel {
   });
 
   factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) {
-    final categoryId = json['category_id'] ?? json['id'] ?? 0; // 👈 ดึง id ก่อน
+    final categoryId = json['category_id'] ?? json['id'] ?? 0;
 
     final services =
         (json['services'] as List?)?.map((e) {
           final serviceJson = Map<String, dynamic>.from(e);
-          serviceJson['category_id'] =
-              categoryId; // 👈 inject เข้าไปทุก service
+          serviceJson['category_id'] = categoryId;
           return ServiceModel.fromJson(serviceJson);
         }).toList() ??
         [];
@@ -251,10 +250,10 @@ class Technician {
   final String firstname;
   final String lastname;
   final String? avatarUrl;
-  final int priceMin;
-  final int priceMax;
-  final int? ratingAvg;
-  final int? ratingCount;
+  final double priceMin;
+  final double priceMax;
+  final double ratingAvg;
+  final int ratingCount;
   final double distanceKm;
   final List<BadgeModel> badges;
   final int totalJobs;
@@ -267,7 +266,7 @@ class Technician {
     this.avatarUrl,
     required this.priceMin,
     required this.priceMax,
-    this.ratingAvg = 0,
+    this.ratingAvg = 0.0,
     this.ratingCount = 0,
     this.distanceKm = 0.0,
     this.badges = const [],
@@ -281,17 +280,17 @@ class Technician {
       firstname: json['firstname'] ?? '',
       lastname: json['lastname'] ?? '',
       avatarUrl: json['avatar_url'],
-      priceMin: json['price_min'] ?? 0,
-      priceMax: json['price_max'] ?? 0,
-      ratingAvg: json['rating_avg'] ?? 0,
-      ratingCount: json['rating_count'] ?? 0,
+      priceMin: (json['price_min'] as num?)?.toDouble() ?? 0.0,
+      priceMax: (json['price_max'] as num?)?.toDouble() ?? 0.0,
+      ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? 0.0,
+      ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
       badges:
           (json['badges'] as List?)
               ?.map((e) => BadgeModel.fromJson(e))
               .toList() ??
           [],
-      totalJobs: json['total_jobs'] ?? 0,
+      totalJobs: (json['total_jobs'] as num?)?.toInt() ?? 0,
       categoryName: json['category_name'] ?? '',
     );
   }

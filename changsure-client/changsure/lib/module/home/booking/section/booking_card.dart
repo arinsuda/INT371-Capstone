@@ -40,12 +40,12 @@ class BookingCard extends StatefulWidget {
 
 class _BookingCardState extends State<BookingCard> {
   BookingDateResult? bookingDate;
-
-  String _formatPrice(int min, int? max) {
+  String _formatPrice(double min, double? max) {
+    final minStr = min.toStringAsFixed(0);
     if (max != null && max > min) {
-      return "฿$min - $max";
+      return "฿$minStr - ${max.toStringAsFixed(0)}";
     }
-    return "฿$min";
+    return "฿$minStr";
   }
 
   String _formatBookingDate(DateTime day, String time) {
@@ -462,10 +462,8 @@ class _BookingCardState extends State<BookingCard> {
               Image(
                 width: 50,
                 height: 50,
-                image:
-                    (widget.service.imageUrls != null &&
-                        widget.service.imageUrls!.isNotEmpty)
-                    ? NetworkImage(widget.service.imageUrls!.first)
+                image: widget.service.imageUrls.isNotEmpty
+                    ? NetworkImage(widget.service.imageUrls.first)
                     : const AssetImage("assets/images/no_image.png")
                           as ImageProvider,
                 fit: BoxFit.cover,
