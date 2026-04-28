@@ -197,7 +197,7 @@ class TechnicianCardCTM extends ConsumerWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              tech.ratingAvg?.toString() ?? "0",
+                              tech.ratingAvg.toStringAsFixed(1),
                               style: const TextStyle(
                                 color: AppColors.primaryText,
                                 fontSize: 14,
