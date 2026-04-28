@@ -14,6 +14,9 @@ import (
 type TechnicianWithDistance struct {
 	technicians.Technician
 	DistanceMeters float64 `gorm:"column:distance_meters"`
+	RatingAvg      float64 `gorm:"column:rating_avg"`
+	RatingCount    int64   `gorm:"column:rating_count"`
+	TotalJobs      int64   `gorm:"column:total_jobs"`
 }
 
 type Repository interface {
@@ -52,6 +55,7 @@ func (r *repository) SearchTechnicians(
 	tx := r.db.WithContext(ctx).
 		Model(&technicians.Technician{}).
 		Joins("INNER JOIN technician_addresses ta ON ta.technician_id = technicians.id AND ta.is_primary = TRUE").
+		Joins("LEFT JOIN technician_stats ts_view ON ts_view.technician_id = technicians.id").
 		Preload("Services", "is_active = TRUE").
 		Preload("Services.Service").
 		Preload("Services.Service.Category").
@@ -72,7 +76,10 @@ func (r *repository) SearchTechnicians(
 
 	var list []TechnicianWithDistance
 	err := tx.
-		Select("technicians.*, " + distanceExpr + " AS distance_meters").
+		Select("technicians.*, " + distanceExpr + " AS distance_meters, " +
+			"COALESCE(ts_view.rating_avg, 0) AS rating_avg, " +
+			"COALESCE(ts_view.rating_count, 0) AS rating_count, " +
+			"COALESCE(ts_view.total_jobs, 0) AS total_jobs").
 		Group("technicians.id").
 		Order(orderClause).
 		Limit(q.PageSize).
