@@ -9,11 +9,13 @@ type MessageType string
 const (
 	MsgTypeText  MessageType = "TEXT"
 	MsgTypeImage MessageType = "IMAGE"
+	MsgTypeVoice MessageType = "VOICE"
+	MsgTypeVideo MessageType = "VIDEO"
 )
 
 func (mt MessageType) IsValid() bool {
 	switch mt {
-	case MsgTypeText, MsgTypeImage:
+	case MsgTypeText, MsgTypeImage, MsgTypeVoice, MsgTypeVideo:
 		return true
 	default:
 		return false

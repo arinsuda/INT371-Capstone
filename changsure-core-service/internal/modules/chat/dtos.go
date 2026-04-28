@@ -43,15 +43,12 @@ func (req *SendMessageReq) Validate() error {
 	if req.BookingID == 0 {
 		return errors.New("booking_id is required")
 	}
-
 	if !req.Type.IsValid() {
-		return errors.New("type must be TEXT or IMAGE")
+		return errors.New("type must be TEXT, IMAGE, VOICE, or VIDEO")
 	}
-
 	if req.Type == MsgTypeText && req.Content == "" {
 		return errors.New("content is required for TEXT messages")
 	}
-
 	return nil
 }
 

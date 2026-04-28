@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	MaxImageSize = 10 * 1024 * 1024
-
+	MaxImageSize     = 10 * 1024 * 1024
+	MaxVoiceSize     = 20 * 1024 * 1024
+	MaxVideoSize     = 50 * 1024 * 1024
 	MaxMessageLength = 5000
 )
 
@@ -31,11 +32,24 @@ var (
 		"image/webp": true,
 	}
 
+	AllowedVoiceTypes = map[string]bool{
+		"audio/mp4":  true,
+		"audio/m4a":  true,
+		"audio/mpeg": true,
+		"audio/aac":  true,
+		"audio/ogg":  true,
+	}
+
+	AllowedVideoTypes = map[string]bool{
+		"video/mp4":       true,
+		"video/quicktime": true,
+		"video/x-msvideo": true,
+		"video/webm":      true,
+	}
+
 	ErrInvalidImageType = errors.New("invalid image type")
-
-	ErrImageTooLarge = errors.New("image too large")
-
-	ErrMessageTooLong = errors.New("message too long")
+	ErrImageTooLarge    = errors.New("image too large")
+	ErrMessageTooLong   = errors.New("message too long")
 )
 
 type Service interface {
@@ -319,10 +333,14 @@ func (s *service) processMessageContent(
 	switch req.Type {
 	case MsgTypeText:
 		return s.processTextContent(req.Content)
-
 	case MsgTypeImage:
 		return s.processImageContent(ctx, file, bookingID)
-
+	case MsgTypeVoice:
+		return s.processMediaContent(ctx, file, bookingID, "voice",
+			AllowedVoiceTypes, MaxVoiceSize, "Invalid voice type. Allowed: m4a, mp3, aac, ogg")
+	case MsgTypeVideo:
+		return s.processMediaContent(ctx, file, bookingID, "video",
+			AllowedVideoTypes, MaxVideoSize, "Invalid video type. Allowed: mp4, mov, avi, webm")
 	default:
 		return "", apperrors.NewBadRequest("Invalid message type")
 	}
@@ -384,11 +402,54 @@ func (s *service) processImageContent(
 	return key, nil
 }
 
+func (s *service) processMediaContent(
+	ctx context.Context,
+	file *multipart.FileHeader,
+	bookingID uint,
+	folder string,
+	allowedTypes map[string]bool,
+	maxSize int64,
+	typeErrMsg string,
+) (string, error) {
+	if file == nil {
+		return "", apperrors.NewBadRequest("File is required")
+	}
+
+	if file.Size > maxSize {
+		return "", apperrors.NewBadRequest(
+			fmt.Sprintf("File too large (max %dMB)", maxSize/(1024*1024)),
+		)
+	}
+
+	contentType := file.Header.Get("Content-Type")
+	if !allowedTypes[contentType] {
+		return "", apperrors.NewBadRequest(typeErrMsg)
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return "", apperrors.NewInternal(fmt.Errorf("failed to open file: %w", err))
+	}
+	defer src.Close()
+
+	ext := filepath.Ext(file.Filename)
+	newFilename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+	fullFolder := fmt.Sprintf("chats/%d/%s", bookingID, folder)
+
+	key, err := s.storage.UploadFile(ctx, src.(io.Reader), newFilename, fullFolder, file.Size, contentType)
+	if err != nil {
+		return "", apperrors.NewInternal(fmt.Errorf("failed to upload file: %w", err))
+	}
+
+	return key, nil
+}
+
 func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) *ChatMessageResponse {
 	response := &ChatMessageResponse{}
 	response.FromModel(msg)
 
-	if msg.Type == MsgTypeImage {
+	switch msg.Type {
+	case MsgTypeImage, MsgTypeVoice, MsgTypeVideo:
 		if url, err := s.storage.PresignGet(ctx, msg.Content, 24*time.Hour, false); err == nil {
 			response.Content = url
 		}
@@ -405,9 +466,12 @@ func (s *service) prepareMessageResponse(ctx context.Context, msg *ChatMessage) 
 
 func (s *service) broadcastNewMessage(msg *ChatMessage, senderID uint, senderRole string, receiverID uint) {
 	content := msg.Content
-	if msg.Type == MsgTypeImage && msg.Content != "" {
-		if url, err := s.storage.PresignGet(context.Background(), msg.Content, 24*time.Hour, false); err == nil {
-			content = url
+	switch msg.Type {
+	case MsgTypeImage, MsgTypeVoice, MsgTypeVideo:
+		if msg.Content != "" {
+			if url, err := s.storage.PresignGet(context.Background(), msg.Content, 24*time.Hour, false); err == nil {
+				content = url
+			}
 		}
 	}
 
