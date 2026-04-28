@@ -40,6 +40,10 @@ func (s *service) ListTechnicians(
 
 	items := make([]TechnicianListItem, 0, len(techsWithDist))
 	for _, t := range techsWithDist {
+		t.Technician.RatingAvg = t.RatingAvg
+		t.Technician.RatingCount = t.RatingCount
+		t.Technician.TotalJobs = t.TotalJobs
+
 		item := MapTechnicianToListItem(
 			&t.Technician,
 			t.DistanceMeters/1000.0,
